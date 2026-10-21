@@ -1,0 +1,117 @@
+has attentionNorm Numbers
+has feedNorm Numbers
+has queryNorm Numbers
+has keyNorm Numbers
+has attention List(Numbers)
+has output List(Numbers)
+has expansion List(Numbers)
+has reduction List(Numbers)
+constant Unbiased = List(Number) + 0
+constant Model = Safetensors("tinymoss.safetensors")
+constant Tiny = MossBlock.Loaded(Model, "layers.0.")
+constant Second = MossBlock.Loaded(Model, "layers.1.")
+constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
+constant Modulation = Model.Values("reference.shared_block_modulation")
+constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
+Loaded(model Safetensors, prefix Text) MossBlock
+	Tiny.attention.Length is 768
+	Tiny.expansion.Length is 512
+	let rows = Safetensors(model.path, 32, prefix + "proj.")
+	let norms = Safetensors(model.path, 32, prefix)
+	let projections = rows.Quantized("q") + rows.Quantized("k") + rows.Quantized("v")
+	let queried = norms.Values("q_norm.weight")
+	let keyed = norms.Values("k_norm.weight")
+	let first = norms.Values("norm1.weight")
+	let second = norms.Values("norm2.weight")
+	let expanded = rows.Quantized("ffn_up_gate")
+	MossBlock(first, second, queried, keyed, projections, rows.Quantized("o"), expanded, rows.Quantized("ffn_down"))
+Heads Number
+	Tiny.Heads is 2
+	attention.Length / 3 / queryNorm.Length
+Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
+	Tiny.Output(Input, Modulation, Rotation)(0).IsNearlyEqual(-0.125, 0.03)
+	Tiny.Output(Input, Modulation, Rotation)(4095).IsNearlyEqual(-0.9805, 0.03)
+	Tiny.Output(Input, Modulation, Rotation)(4863).IsNearlyEqual(0.7109, 0.03)
+	Second.Output(Tiny.Output(Input, Modulation, Rotation), Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
+	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, 2)
+	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
+Attended(normed Numbers, rotation Numbers) Numbers
+	Tiny.Attended(Input, Rotation).Length is 4864
+	let combined = Batch(attention, Unbiased).Sums(Hadamard(normed))
+	Batch(output, Unbiased).Sums(Hadamard(Merged(combined, rotation, queryNorm, keyNorm)))
+Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
+	MossBlock.Merged((1, 0, 0, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
+	let size = queries.Length
+	let width = combined.Length / (rotation.Length / 2 / size) / 3
+	let heads = width / size
+	let count = combined.Length / 3
+	let rotatedQueries = Qwen3Block.Rotated(combined, 0, count, queries, rotation)
+	let rotatedKeys = Qwen3Block.Rotated(combined, width, count, keys, rotation)
+	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
+	Attention(rotatedQueries, rotatedKeys, values, heads, heads, size, 1, false).Merged
+FedForward(normed Numbers) Numbers
+	Tiny.FedForward(Input).Length is 4864
+	let expanded = Batch(expansion, Unbiased).Sums(Hadamard(normed))
+	Batch(reduction, Unbiased).Sums(Hadamard(Activated(expanded, reduction.First.Length)))
+Activated(expanded Numbers, width Number) Numbers
+	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
+	for expanded.Length / 2
+		let first = (index / width).Floor * 2 * width + index % width
+		Situ(expanded(first), expanded(first + width))
+Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Numbers
+	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
+	let width = weights.Length
+	for input.Length
+		let channel = index % width
+		let scale = Qwen3Block.HeadScale(input, index - channel, width, Qwen3Block.Epsilon)
+		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
+		input(index) * factor + modulation(part * width + channel)
+Gated(input Numbers, update Numbers, modulation Numbers, part Number) Numbers
+	MossBlock(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 2, 3), 1) is (7, 14)
+	let width = attentionNorm.Length
+	for input.Length
+		input(index) + update(index) * modulation(part * width + index % width)
+Rotations(height Number, width Number, text Number, size Number) Numbers
+	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
+	MossBlock.Rotations(4, 4, 3, 128)(16).IsNearlyEqual(-0.9899925)
+	MossBlock.Rotations(4, 4, 3, 128)(144).IsNearlyEqual(-0.14112)
+	MossBlock.Rotations(4, 4, 3, 128)(208).IsNearlyEqual(0.14112)
+	MossBlock.Rotations(4, 4, 3, 128)(17).IsNearlyEqual(-0.1159661)
+	MossBlock.Rotations(4, 4, 3, 128)(17 * 256 + 16).IsNearlyEqual(0.5403023)
+	for (height * width + text) * 2 * size
+		let at = index % (2 * size)
+		let pair = at % (size / 2)
+		let position = Position((index / (2 * size)).Floor, (pair / (size / 8)).Floor, height, width, text)
+		let angle = Degrees(Radians(position * 10000 ^ (-(pair % (size / 8)) / (size / 8))) to Degrees)
+		at < size then angle.Cos else (at < size * 3 / 2 then 0 - angle.Sin else angle.Sin)
+Position(token Number, axis Number, height Number, width Number, text Number) Number
+	MossBlock.Position(0, 2, 4, 4, 3) is -1.5
+	MossBlock.Position(17, 1, 4, 4, 3) is 1
+	MossBlock.Position(17, 3, 4, 4, 3) is 0
+	MossBlock.Position(6, 3, 4, 4, 3) is 0.5
+	let image = token < height * width
+	let centered = axis is 2 then (token / width).Floor - (height - 1) / 2 else token % width - (width - 1) / 2
+	axis is 1 then (image then text else token - height * width) else (axis is 0 or image is false then 0 else centered)
+Situ(hidden Number, gate Number) Number
+	MossBlock.Situ(0, 1) is 0
+	MossBlock.Situ(1, 0) is 0
+	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
+	MossBlock.Situ(100, -100).IsNearlyEqual(0)
+	4 * Tanh(gate / 4) / (1 + (0 - gate).Exponential) * 25 * Tanh(hidden / 25)
+Tanh(number Number) Number
+	MossBlock.Tanh(0.5).IsNearlyEqual(0.4621172)
+	2 / (1 + (0 - 2 * number).Exponential) - 1
+Hadamard(input Numbers) Numbers
+	MossBlock.Hadamard(Model.Values("reference.x")).Length is 256
+	MossBlock.Hadamard(MossBlock.Hadamard(Model.Values("reference.x")))(5).IsNearlyEqual(Model.Values("reference.x")(5))
+	Stage(Stage(Stage(Stage(input, 1), 4), 16), 64)
+Stage(input Numbers, step Number) Numbers
+	MossBlock.Stage((1, 0, 0, 0), 1) is (0.5, 0.5, 0.5, -0.5)
+	MossBlock.Stage((0, 0, 0, 1, 1, 0, 0, 0), 2) is (0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5)
+	for input.Length
+		let digit = (index / step).Floor % 4
+		let first = index - digit * step
+		mutable sum = 0
+		for 4
+			sum = sum + input(first + index * step) * ((index + digit) is 3 then -0.5 else 0.5)
+		sum
