@@ -33,16 +33,37 @@ if options.prompt is None:
 	options.prompt = options.prompt or "A weathered lighthouse on a rocky cliff at sunset, waves crashing below, warm golden light, photo"
 sys.argv = sys.argv[:1]
 
-import torch  # noqa: E402
-from safetensors.torch import save_file  # noqa: E402
+import logging  # noqa: E402
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 import comfy.options  # noqa: E402
 comfy.options.enable_args_parsing()
+from comfy.cli_args import args, enables_dynamic_vram  # noqa: E402
+import cuda_malloc  # noqa: E402, F401 (sets the allocator before torch loads, like main.py)
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
+import comfy_aimdo.control  # noqa: E402
+if enables_dynamic_vram():
+	comfy_aimdo.control.init(simple_vram_headroom=None if args.reserve_vram is None else int(args.reserve_vram * 1024 ** 3), nvml_pressure=not args.disable_nvml_pressure)
+import torch  # noqa: E402
+from safetensors.torch import save_file  # noqa: E402
 import folder_paths  # noqa: E402
+import comfy.memory_management  # noqa: E402
+import comfy.model_patcher  # noqa: E402
 import comfy.sd  # noqa: E402
 import comfy.utils  # noqa: E402
 import comfy.sample  # noqa: E402
 import comfy.samplers  # noqa: E402
 import comfy.model_management  # noqa: E402
+# DynamicVRAM like main.py: without it the legacy ModelPatcher misjudges free VRAM on Windows and spills into shared memory
+if enables_dynamic_vram() and comfy.model_management.is_nvidia():
+	try:
+		dynamic = comfy_aimdo.control.init_devices((d.index, int(args.vram_headroom * 1024 ** 3)) for d in comfy.model_management.get_all_torch_devices())
+	except TypeError:
+		dynamic = comfy_aimdo.control.init_devices(d.index for d in comfy.model_management.get_all_torch_devices())
+	if dynamic:
+		comfy_aimdo.control.set_log_warning()
+		comfy.model_patcher.CoreModelPatcher = comfy.model_patcher.ModelPatcherDynamic
+		comfy.memory_management.aimdo_enabled = True
+	logging.info(f"DynamicVRAM {'enabled' if dynamic else 'not available'}")
 
 
 def saved(tensors, path, metadata=None):
@@ -60,6 +81,7 @@ def moss():
 	tokens = clip.tokenize(options.prompt)
 	conditioning = clip.encode_from_tokens_scheduled(tokens)
 	encoded = time.perf_counter()
+	peaks = {"encode": torch.cuda.max_memory_allocated() / 2 ** 30}
 	context = conditioning[0][0]
 	token_ids = [token[0] if isinstance(token, tuple) else token for token in next(iter(tokens.values()))[0]]
 	saved({"context": context, "tokens": torch.tensor([int(t) for t in token_ids], dtype=torch.int32)},
@@ -103,11 +125,13 @@ def moss():
 		denoised, step_times = [], []
 		comfy.model_management.soft_empty_cache()
 		torch.cuda.synchronize()
+		torch.cuda.reset_peak_memory_stats()
 		sampling = time.perf_counter()
 		step_times.append(sampling)
 		samples = comfy.sample.sample(model, noise, options.steps, 1.0, "euler", options.scheduler, conditioning, conditioning, latent, seed=options.seed, callback=callback, disable_pbar=True)
 		torch.cuda.synchronize()
 		sampled = time.perf_counter()
+		peaks["sampling"] = torch.cuda.max_memory_allocated() / 2 ** 30
 		print(f"run {run}: sampling {sampled - sampling:.3f} s, steps", ", ".join(f"{(b - a) * 1000:.0f}" for a, b in zip(step_times, step_times[1:])), "ms")
 	for hook in hooks:
 		hook.remove()
@@ -120,17 +144,21 @@ def moss():
 	for index, value in enumerate(denoised):
 		steps[f"denoised.{index}"] = value
 	vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.vae)))
+	torch.cuda.reset_peak_memory_stats()
 	decoding = time.perf_counter()
 	image = vae.decode(samples)
 	decoded = time.perf_counter()
+	peaks["decode"] = torch.cuda.max_memory_allocated() / 2 ** 30
 	steps["image"] = image
 	saved(steps, os.path.join(out, "steps.safetensors"))
 	from PIL import Image
-	Image.fromarray((image[0].clamp(0, 1) * 255).round().byte().cpu().numpy()).save(os.path.join(out, "image.png"))
+	picture = Image.fromarray((image[0].clamp(0, 1) * 255).round().byte().cpu().numpy())
+	picture.save(os.path.join(out, "image.png"))
+	picture.save(os.path.join(out, "image.jpg"), quality=80)
 	times = {"gpu": torch.cuda.get_device_name(), "width": options.width, "height": options.height, "steps": options.steps,
 		"scheduler": options.scheduler, "seed": options.seed, "lora": options.lora, "encode_s": encoded - started, "load_s": loaded - encoded,
 		"step_ms": [(b - a) * 1000 for a, b in zip(step_times, step_times[1:])], "sampling_s": sampled - sampling, "decode_s": decoded - decoding,
-		"peak_vram_gb": torch.cuda.max_memory_allocated() / 2 ** 30}
+		"peak_vram_gb": peaks}
 	with open(os.path.join(out, "times.json"), "w") as file:
 		json.dump(times, file, indent=1)
 	print(json.dumps(times))

@@ -40,7 +40,7 @@ Attended(normed Numbers, rotation Numbers) Numbers
 	let combined = Batch(attention, Unbiased).Sums(Hadamard(normed))
 	Batch(output, Unbiased).Sums(Hadamard(Merged(combined, rotation, queryNorm, keyNorm)))
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
-	MossBlock.Merged((1, 0, 0, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
+	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	let size = queries.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
 	let heads = width / size
@@ -110,8 +110,6 @@ Stage(input Numbers, step Number) Numbers
 	MossBlock.Stage((0, 0, 0, 1, 1, 0, 0, 0), 2) is (0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5)
 	for input.Length
 		let digit = (index / step).Floor % 4
-		let first = index - digit * step
-		mutable sum = 0
-		for 4
-			sum = sum + input(first + index * step) * ((index + digit) is 3 then -0.5 else 0.5)
-		sum
+		let first = (index / (4 * step)).Floor * 4 * step + index % step
+		let low = input(first) * (digit is 3 then -0.5 else 0.5) + input(first + step) * (digit is 2 then -0.5 else 0.5)
+		low + input(first + 2 * step) * (digit is 1 then -0.5 else 0.5) + input(first + 3 * step) * (digit is 0 then -0.5 else 0.5)

@@ -1,0 +1,87 @@
+has video Batch
+has textProjection Batch
+has texts List(MossText)
+has timeIn Batch
+has timeOut Batch
+has blockModulation Batch
+has layers List(MossBlock)
+has finalNorm Numbers
+has final Batch
+has headModulation Batch
+constant Tiny = Moss.Loaded("tinymoss.safetensors")
+constant Model = Safetensors("tinymoss.safetensors")
+constant Context = Model.Values("reference.context")
+constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "time_embedding.2", "shared_block_modulation", "final_linear_video", "video_head_modulation")
+Loaded(path Text) Moss
+	Tiny.layers.Length is 2
+	Tiny.texts.Length is 2
+	let model = Safetensors(path, 16)
+	let dense = Dense(model)
+	let normed = model.Values("final_norm_video.weight")
+	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model), normed, dense(5), dense(6))
+Layers(model Safetensors) List(MossBlock)
+	Tiny.Layers(Model).Length is 2
+	for TensorFile.Header(model.path).Split(".proj.q.comfy_quant").Length - 1
+		MossBlock.Loaded(model, "layers." + index + ".")
+Texts(model Safetensors) List(MossText)
+	Tiny.Texts(Model).Length is 2
+	for 2
+		MossText.Loaded(model, "text_embedder.blocks." + index + ".")
+Dense(model Safetensors) List(Batch)
+	Tiny.Dense(Model).Length is 7
+	for Denses
+		MossText.Dense(model, value)
+TimeEmbedded(sigma Number) Numbers
+	Tiny.TimeEmbedded(0.75)(0).IsNearlyEqual(-0.2324, 0.01)
+	Tiny.TimeEmbedded(0.75)(255).IsNearlyEqual(-0.0747, 0.01)
+	Tiny.blockModulation.Sums(Tiny.TimeEmbedded(0.75))(0).IsNearlyEqual(0.3438, 0.01)
+	timeOut.Sums(Silu(timeIn.Sums(Sinusoid(Brain(Brain(sigma) * 1000), 256))))
+Sinusoid(time Number, count Number) Numbers
+	Moss.Sinusoid(0, 4) is (1, 1, 0, 0)
+	Moss.Sinusoid(1, 4)(3).IsNearlyEqual(0.0099998)
+	let half = count / 2
+	for count
+		let angle = Degrees(Radians(time * (0 - 10000.Logarithm * (index % half) / half).Exponential) to Degrees)
+		index < half then angle.Cos else angle.Sin
+Silu(values Numbers) Numbers
+	Moss.Silu((0, 1)) is (0, 0.7310585786300049)
+	for values
+		value / (1 + (0 - value).Exponential)
+Brain(number Number) Number
+	Moss.Brain(750) is 752
+	Moss.Brain(0.9722222) is 0.97265625
+	Moss.Brain(972.65625) is 972
+	Moss.Brain(0) is 0
+	number is 0 then 0 else number.Stepped(2 ^ ((number.Absolute.Logarithm / 2.Logarithm).Floor - 7))
+Output(latent Numbers, sigma Number, context Numbers, width Number) Numbers
+	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(0).IsNearlyEqual(-1.9609, 0.05)
+	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(5).IsNearlyEqual(-0.5156, 0.05)
+	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(255).IsNearlyEqual(-0.1289, 0.05)
+	let channels = video.weights.First.Length
+	let count = latent.Length / channels
+	let text = context.Length / textProjection.weights.First.Length
+	let vector = TimeEmbedded(sigma)
+	let rotation = MossBlock.Rotations(count / width, width, text, 128)
+	let hidden = video.Sums(Transposed(latent, channels)) + TextEmbedded(context, text)
+	let transformed = Transformed(hidden, blockModulation.Sums(vector), rotation)
+	let image = Safetensors.Part(transformed, 0, count * finalNorm.Length, 1)
+	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
+TextEmbedded(context Numbers, text Number) Numbers
+	Tiny.TextEmbedded(Context, 3)(0).IsNearlyEqual(0.0557, 0.02)
+	Tiny.TextEmbedded(Context, 3)(767).IsNearlyEqual(0.7422, 0.02)
+	let rotation = MossBlock.Rotations(0, 0, text, 128)
+	mutable hidden = textProjection.Sums(context)
+	for texts
+		hidden = value.Output(hidden, rotation)
+	hidden
+Transformed(hidden Numbers, modulation Numbers, rotation Numbers) Numbers
+	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
+	mutable state = hidden
+	for layers
+		state = value.Output(state, modulation, rotation)
+	state
+Transposed(values Numbers, rows Number) Numbers
+	Moss.Transposed((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)
+	let columns = values.Length / rows
+	for values.Length
+		values((index % rows) * columns + (index / rows).Floor)

@@ -1,0 +1,96 @@
+has logger
+has width Number = 45
+constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
+Run(dumps Text, model Text)
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model)
+	let steps = Safetensors(dumps + "/steps.safetensors")
+	let context = Safetensors(dumps + "/conditioning.safetensors").Values("context")
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	Compared(moss, Safetensors(dumps + "/step0.safetensors"))
+	let sampled = Sampled(moss, Euler(8, 5), steps.Values("noise"), context)
+	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
+Sampled(moss Moss, euler Euler, noise Numbers, context Numbers) Numbers
+	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Moss.Model.Values("reference.x"), Moss.Context).Length is 256
+	mutable latent = noise
+	let sigmas = euler.Sigmas
+	for euler.steps
+		let before = Process.Elapsed
+		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), context, width), index)
+		logger.Log("step " + index + " " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	latent
+Compared(moss Moss, step Safetensors) Number
+	MossImage(Logger, 4).Compared(Moss.Tiny, Reference) < 0.05
+	let context = step.Values("context")
+	let vector = moss.TimeEmbedded(step.Values("timestep").First)
+	let modulation = moss.blockModulation.Sums(vector)
+	logger.Log("time embedding error " + Error(vector, step.Values("time_embedding")))
+	logger.Log("modulation error " + Error(modulation, step.Values("shared_block_modulation")))
+	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
+	let video = moss.video.Sums(Moss.Transposed(step.Values("x"), moss.video.weights.First.Length))
+	logger.Log("text embedder error " + Error(text, step.Values("text_embedder")))
+	logger.Log("video embedder error " + Error(video, step.Values("video_embedder")))
+	Layered(moss, step, video + text, modulation)
+Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number
+	MossImage(Logger, 4).Layered(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
+	let text = step.Values("context").Length / moss.textProjection.weights.First.Length
+	let image = hidden.Length / moss.finalNorm.Length - text
+	let rotation = MossBlock.Rotations(image / width, width, text, 128)
+	Inside(moss.layers.First, hidden, modulation, rotation)
+	mutable state = hidden
+	mutable error = 0
+	for moss.layers
+		state = value.Output(state, modulation, rotation)
+		error = Error(state, step.Values("layers." + index))
+		logger.Log("layer " + index + " error " + error)
+	error
+Error(values Numbers, expected Numbers) Number
+	MossImage(Logger).Error((1, 2), (1, 2)) is 0
+	MossImage(Logger).Error((2, 0), (1, 0)) is 1
+	mutable difference = 0
+	mutable size = 0
+	for expected
+		difference = difference + (values(index) - value) * (values(index) - value)
+		size = size + value * value
+	(difference / size).SquareRoot
+Inside(block MossBlock, hidden Numbers, modulation Numbers, rotation Numbers) Number
+	MossImage(Logger).Width is 45
+	let reference = Safetensors("D:/StrictDumps/moss-base/layer0.safetensors")
+	if hidden.Length is not reference.Shape("attended").First * 3072
+		return 0
+	let normed = block.Modulated(hidden, block.attentionNorm, modulation, 0)
+	logger.Log("y " + Error(normed, reference.Values("y")))
+	let combined = Batch(block.attention, MossBlock.Unbiased).Sums(MossBlock.Hadamard(normed))
+	logger.Log("queries " + Error(Qwen3Block.Rotated(combined, 0, combined.Length / 3, block.queryNorm, rotation), reference.Values("queries")))
+	logger.Log("values " + Error(Batch.Columns(combined, 9216, 6144, 3072), reference.Values("values")))
+	logger.Log("merged " + Error(MossBlock.Merged(combined, rotation, block.queryNorm, block.keyNorm), reference.Values("merged")))
+	let fed = block.Modulated(reference.Values("attended"), block.feedNorm, modulation, 3)
+	let expanded = Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(fed))
+	logger.Log("reduction row " + block.reduction.First.Length + ", expanded " + expanded.Length + ", hidden " + expanded(0) + " " + expanded(8192) + " " + expanded(16383))
+	logger.Log("activated " + Error(block.Activated(expanded, 8192), reference.Values("activated")))
+	let reduced = Batch(block.reduction, MossBlock.Unbiased).Sums(MossBlock.Hadamard(reference.Values("activated")))
+	logger.Log("output " + Error(block.Gated(reference.Values("attended"), reduced, modulation, 5), reference.Values("output")))
+	logger.Log("fed forward " + Error(block.FedForward(fed), reduced))
+	let rotated = MossBlock.Hadamard(reference.Values("activated"))
+	logger.Log("hadamard " + Error(MossBlock.Hadamard(block.Activated(expanded, 8192)), rotated))
+	let own = Batch(block.reduction, MossBlock.Unbiased).Sums(MossBlock.Hadamard(block.Activated(expanded, 8192)))
+	logger.Log("own reduced " + Error(own, reduced))
+	logger.Log("activated by row length " + Error(block.Activated(expanded, block.reduction.First.Length), reference.Values("activated")))
+	logger.Log("activated from resident " + Error(block.Activated(Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(fed)), 8192), reference.Values("activated")))
+	logger.Log("hadamard of resident " + Error(MossBlock.Hadamard(block.Activated(Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(fed)), 8192)), rotated))
+	logger.Log("stage of resident " + Error(MossBlock.Stage(block.Activated(Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(fed)), 8192), 1), MossBlock.Stage(reference.Values("activated"), 1)))
+	let small = block.Activated(Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(Safetensors.Part(fed, 0, 3072 * 2100, 1))), 8192)
+	logger.Log("stage of resident 2100 tokens " + Error(MossBlock.Stage(small, 1), Safetensors.Part(MossBlock.Stage(reference.Values("activated"), 1), 0, 8192 * 2100, 1)))
+	let middle = block.Activated(Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(Safetensors.Part(fed, 0, 3072 * 2000, 1))), 8192)
+	logger.Log("stage of resident 2000 tokens " + Error(MossBlock.Stage(middle, 1), Safetensors.Part(MossBlock.Stage(reference.Values("activated"), 1), 0, 8192 * 2000, 1)))
+	let resident = Batch(block.expansion, MossBlock.Unbiased).Sums(MossBlock.Hadamard(fed))
+	let early = block.Activated(Safetensors.Part(resident, 0, 16384 * 1000, 1), 8192)
+	logger.Log("resident first 1000 tokens " + Error(early, Safetensors.Part(reference.Values("activated"), 0, 8192 * 1000, 1)))
+	logger.Log("first 1024 tokens " + Error(Safetensors.Part(own, 0, 3145728, 1), Safetensors.Part(reduced, 0, 3145728, 1)))
+	logger.Log("tokens 2048-3071 " + Error(Safetensors.Part(own, 6291456, 3145728, 1), Safetensors.Part(reduced, 6291456, 3145728, 1)))
+	logger.Log("own " + own(0) + " " + own(100) + ", reduced " + reduced(0) + " " + reduced(100))
+	logger.Log("block " + Error(block.Output(hidden, modulation, rotation), reference.Values("output")))
+	0
+Width Number
+	MossImage(Logger).Width is 45
+	width
