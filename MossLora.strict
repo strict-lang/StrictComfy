@@ -11,6 +11,7 @@ constant Zeros = MossLora.Joined(Query * 0, Query * 0, Query * 0, 256)
 constant Input = MossBlock.Input
 constant Latent = Reference.Values("x")
 constant Lowered = Moss.Loaded("tinymoss.safetensors", File)
+constant Words = MossLora.Lowered.TextEmbedded(Moss.Context, 3)
 Loaded(path Text, prefix Text) MossLora
 	Tiny.down.weights.Length is 8
 	Tiny.up.weights.Length is 256
@@ -42,7 +43,7 @@ Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Number
 	loras.Length is 0 then base else MossText.Added(base, loras(linear).Delta(input))
 Attended(loras List(MossLora), combined Numbers, normed Numbers) Numbers
 	MossLora.Attended(List(MossLora), (1, 2, 3), (4)) is (1, 2, 3)
-	MossImage(Logger).Error(Lowered.Output(Latent, 0.75, Moss.Context, 4), Reference.Values("output")) < 0.02
+	MossImage(Logger).Error(Lowered.Output(Latent, 0.75, Words, 4), Reference.Values("output")) < 0.02
 	MossLora.Attended(Layers, Zeros, Input)(768 + 5).IsNearlyEqual(Query(256 + 5), 0.01)
 	MossLora.Attended(Layers, Zeros, Input)(256).IsNearlyEqual(Layers(1).Delta(Input)(0), 0.0001)
 	if loras.Length is 0
