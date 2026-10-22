@@ -1,5 +1,5 @@
 """Reference dumps from ComfyUI's own code for the Strict ports. Run with ComfyUI's python_embeded:
-  python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 480 --height 848 ...], prompt from prompt.txt
+  python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 576 --height 1024 ...], prompt from prompt.txt
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
@@ -17,8 +17,8 @@ arguments = argparse.ArgumentParser()
 arguments.add_argument("model", choices=["moss", "tinymoss", "tinylora", "tinyint8", "tinyvae"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
-arguments.add_argument("--width", type=int, default=480)
-arguments.add_argument("--height", type=int, default=848)
+arguments.add_argument("--width", type=int, default=576)
+arguments.add_argument("--height", type=int, default=1024)
 arguments.add_argument("--steps", type=int, default=8)
 arguments.add_argument("--scheduler", default="simple")
 arguments.add_argument("--seed", type=int, default=42)
@@ -26,6 +26,7 @@ arguments.add_argument("--runs", type=int, default=2, help="sampling runs, the l
 arguments.add_argument("--dit", default="moss-image-sft-dit-int8-convrot.safetensors")
 arguments.add_argument("--te", default="qwen3.5_9b_int8_convrot.safetensors")
 arguments.add_argument("--lora", default=r"moss\dmd_turbo_lora.safetensors")
+arguments.add_argument("--lora-strength", type=float, default=1.0)
 arguments.add_argument("--vae", default="flux2-vae.safetensors")
 options = arguments.parse_args()
 prompt_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt.txt")
@@ -92,7 +93,7 @@ def moss():
 	model = comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit))
 	if options.lora:
 		lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", options.lora), safe_load=True)
-		model, _ = comfy.sd.load_lora_for_models(model, None, lora, 1.0, 0)
+		model, _ = comfy.sd.load_lora_for_models(model, None, lora, options.lora_strength, 0)
 	loaded = time.perf_counter()
 	diffusion = model.model.diffusion_model
 	latent = torch.zeros([1, 128, options.height // 16, options.width // 16])
