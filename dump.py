@@ -1,8 +1,10 @@
 """Reference dumps from ComfyUI's own code for the Strict ports. Run with ComfyUI's python_embeded:
   python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 576 --height 1024 ...], prompt from prompt.txt
+  python_embeded\\python.exe dump.py h3 [--out C:\\StrictDumps\\h3] [--image first.png --length 124 ...], t2va or i2v at 480x832
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
+  python_embeded\\python.exe dump.py tinyh3     (tinyh3.safetensors here, for H3Block.strict and the other H3 tests)
 """
 import argparse
 import json
@@ -14,21 +16,31 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "tinymoss", "tinylora", "tinyint8", "tinyvae"])
+arguments.add_argument("model", choices=["moss", "h3", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
-arguments.add_argument("--width", type=int, default=576)
-arguments.add_argument("--height", type=int, default=1024)
+arguments.add_argument("--width", type=int, default=None)
+arguments.add_argument("--height", type=int, default=None)
+arguments.add_argument("--length", type=int, default=124, help="h3 frames at 24 fps, snapped to the 17k+5 grid")
+arguments.add_argument("--image", default=None, help="h3 first frame (i2v), t2va without")
 arguments.add_argument("--steps", type=int, default=8)
 arguments.add_argument("--scheduler", default="simple")
 arguments.add_argument("--seed", type=int, default=42)
 arguments.add_argument("--runs", type=int, default=2, help="sampling runs, the last one is timed and dumped")
-arguments.add_argument("--dit", default="moss-image-sft-dit-int8-convrot.safetensors")
-arguments.add_argument("--te", default="qwen3.5_9b_int8_convrot.safetensors")
-arguments.add_argument("--lora", nargs="*", default=[r"moss\dmd_turbo_lora.safetensors"], help="LoRA names in the loras folder, each name[:strength]")
+arguments.add_argument("--dit", default=None)
+arguments.add_argument("--te", default=None)
+arguments.add_argument("--lora", nargs="*", default=None, help="LoRA names in the loras folder, each name[:strength]")
 arguments.add_argument("--lora-strength", type=float, default=1.0)
-arguments.add_argument("--vae", default="flux2-vae.safetensors")
+arguments.add_argument("--vae", default=None)
+arguments.add_argument("--audio-vae", default="minimax_h3_audio_vae_fp32.safetensors")
 options = arguments.parse_args()
+DEFAULTS = {"moss": {"width": 576, "height": 1024, "dit": "moss-image-sft-dit-int8-convrot.safetensors", "te": "qwen3.5_9b_int8_convrot.safetensors",
+		"lora": [r"moss\dmd_turbo_lora.safetensors"], "vae": "flux2-vae.safetensors"},
+	"h3": {"width": 480, "height": 832, "dit": "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors",
+		"te": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "lora": [], "vae": "minimax_h3_video_vae_int8_convrot.safetensors"}}
+for key, value in DEFAULTS["h3" if options.model == "h3" else "moss"].items():
+	if getattr(options, key) is None:
+		setattr(options, key, value)
 prompt_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt.txt")
 if options.prompt is None:
 	options.prompt = open(prompt_file, encoding="utf-8").read().strip() if os.path.exists(prompt_file) else ""
@@ -167,31 +179,152 @@ def moss():
 	print(json.dumps(times))
 
 
+def h3():
+	"""t2va (i2v with --image) through ComfyUI's own H3 nodes like the UI workflow (MiniMaxH3ImageToVideo, euler, the simple
+	scheduler, BasicGuider): conditioning.safetensors (Qwen3-VL states, token tags, keyframe latents), step0.safetensors (the
+	refined text, block 0's input, the curve rows and the outputs of a few blocks in the first call), steps.safetensors (per call
+	the streams and velocities of _forward, each stream on its own schedule, and the sampler's packed ones as sampler.*), the
+	decoded frames (first, middle and last as PNG) and audio (audio.wav), times.json."""
+	import wave
+	import numpy
+	from PIL import Image
+	from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
+	from comfy_extras.nodes_custom_sampler import BasicScheduler, KSamplerSelect, BasicGuider, RandomNoise, SamplerCustomAdvanced
+	from comfy_extras.nodes_audio import vae_decode_audio
+	out = options.out or r"C:\StrictDumps\h3"
+	os.makedirs(out, exist_ok=True)
+	started = time.perf_counter()
+	clip = comfy.sd.load_clip([folder_paths.get_full_path_or_raise("text_encoders", options.te)], clip_type=comfy.sd.CLIPType.MINIMAX)
+	vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.vae)))
+	image = torch.from_numpy(numpy.array(Image.open(options.image).convert("RGB"))).float()[None] / 255 if options.image else None
+	conditioning, latent = MiniMaxH3ImageToVideo.execute(clip, vae, options.prompt, options.width, options.height, options.length, first_frame=image).result
+	encoded = time.perf_counter()
+	values = conditioning[0][1]
+	tags = values.get("minimax_token_tags")
+	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
+	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.int32).flatten()}
+	for index, keyframe in enumerate(values.get("minimax_keyframes") or []):
+		condition[f"keyframe.{index}"] = keyframe["latent"][0]
+	saved(condition, os.path.join(out, "conditioning.safetensors"), {"prompt": options.prompt})
+	del clip
+	comfy.model_management.unload_all_models()
+	model = comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit))
+	loaded = time.perf_counter()
+	diffusion = model.model.diffusion_model
+	sigmas = BasicScheduler.execute(model, options.scheduler, options.steps, 1.0).result[0]
+	guider = BasicGuider.execute(model, conditioning).result[0]
+	sampler = KSamplerSelect.execute("euler").result[0]
+	noise = RandomNoise.execute(options.seed).result[0]
+	calls, outer, first, times, recording = [], [], {}, [], []
+	original = diffusion._forward
+
+	def recorded(x, timestep, context, transformer_options={}, **kwargs):
+		torch.cuda.synchronize()
+		begun = time.perf_counter()
+		output = original(x, timestep, context, transformer_options, **kwargs)
+		torch.cuda.synchronize()
+		times.append(time.perf_counter() - begun)
+		if recording:
+			if not calls:
+				first["text"] = context[0].clone()
+			calls.append({"video": x[0][0].clone(), "audio": x[1][0].clone(), "timestep": timestep.clone(),
+				"video_output": output[0][0].clone(), "audio_output": output[1][0].clone()})
+		return output
+	diffusion._forward = recorded
+
+	def packed(module, args, kwargs, output):
+		if recording:
+			outer.append({"video": args[0][0][0].clone(), "audio": args[0][1][0].clone(), "video_output": output[0][0].clone(), "audio_output": output[1][0].clone()})
+
+	def keep(name, entering=False):
+		def hook(module, args, output=None):
+			if recording and not calls:
+				value = args[0] if entering else (output[0] if isinstance(output, tuple) else output)
+				first[name] = value.clone() if entering else value.to(torch.bfloat16).clone()
+		return hook
+	hooks = [diffusion.register_forward_hook(packed, with_kwargs=True), diffusion.blocks[0].register_forward_pre_hook(keep("blocks.0.input", True)),
+		diffusion.blocks[0].adaln_proj.register_forward_pre_hook(keep("t_emb", True))]
+	for index in sorted({0, 1, 2, 3, len(diffusion.blocks) // 2, len(diffusion.blocks) - 1}):
+		hooks.append(diffusion.blocks[index].register_forward_hook(keep(f"blocks.{index}")))
+	for run in range(options.runs):
+		if run == options.runs - 1:
+			recording.append(True)
+		times.clear()
+		torch.cuda.synchronize()
+		torch.cuda.reset_peak_memory_stats()
+		sampling = time.perf_counter()
+		samples = SamplerCustomAdvanced.execute(noise, guider, sampler, sigmas, latent).result[0]["samples"]
+		torch.cuda.synchronize()
+		sampled = time.perf_counter()
+		print(f"run {run}: sampling {sampled - sampling:.3f} s, model calls", ", ".join(f"{(t * 1000):.0f}" for t in times), "ms")
+	peak = torch.cuda.max_memory_allocated() / 2 ** 30
+	for hook in hooks:
+		hook.remove()
+	diffusion._forward = original
+	saved(first, os.path.join(out, "step0.safetensors"))
+	video, audio = samples.unbind()
+	noises = noise.generate_noise(latent).unbind()
+	steps = {"sigmas": sigmas, "noise.video": noises[0][0], "noise.audio": noises[1][0], f"video.{len(calls)}": video[0], f"audio.{len(calls)}": audio[0]}
+	for prefix, records in (("", calls), ("sampler.", outer)):
+		for index, record in enumerate(records):
+			steps.update({f"{prefix}{name}.{index}": value for name, value in record.items()})
+	del model, diffusion, guider
+	comfy.model_management.unload_all_models()
+	decoding = time.perf_counter()
+	frames = vae.decode(video)
+	decoded = time.perf_counter()
+	frames = (frames.reshape(-1, *frames.shape[-3:]).clamp(0, 1) * 255).round().byte().cpu()
+	steps["frames"] = frames
+	saved(steps, os.path.join(out, "steps.safetensors"))
+	for name, frame in (("first", 0), ("middle", len(frames) // 2), ("last", len(frames) - 1)):
+		Image.fromarray(frames[frame].numpy()).save(os.path.join(out, f"frame-{name}.png"))
+	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.audio_vae)))
+	sound = vae_decode_audio(audio_vae, {"samples": audio})
+	heard = time.perf_counter()
+	waveform = (sound["waveform"][0].clamp(-1, 1) * 32767).round().short().T.contiguous().cpu().numpy()
+	with wave.open(os.path.join(out, "audio.wav"), "wb") as file:
+		file.setnchannels(waveform.shape[1])
+		file.setsampwidth(2)
+		file.setframerate(sound["sample_rate"])
+		file.writeframes(waveform.tobytes())
+	times = {"gpu": torch.cuda.get_device_name(), "width": options.width, "height": options.height, "length": options.length, "steps": options.steps,
+		"seed": options.seed, "dit": options.dit, "image": options.image, "encode_s": encoded - started, "load_s": loaded - encoded,
+		"call_ms": [t * 1000 for t in times], "sampling_s": sampled - sampling, "decode_s": decoded - decoding, "audio_s": heard - decoded,
+		"peak_vram_gb": peak, "frames": list(frames.shape), "tokens": calls[0]["video"].numel() // 96 + calls[0]["audio"].numel() // 32}
+	with open(os.path.join(out, "times.json"), "w") as file:
+		json.dump(times, file, indent=1)
+	print(json.dumps(times))
+
+
+class TinyWeights(dict):
+	"""Random weights named like a real file: BF16 unless given, int8 convrot linears quantized in groups of 256."""
+	quant = list(json.dumps({"format": "int8_tensorwise", "convrot": True, "convrot_groupsize": 256}).encode())
+
+	def brain(self, name, shape, scale, dtype=None):
+		self[name] = (torch.randn(shape) * scale).to(dtype or torch.bfloat16)
+
+	def linear(self, name, outputs, inputs, bias=True, dtype=None):
+		self.brain(name + ".weight", (outputs, inputs), inputs ** -0.5, dtype)
+		if bias:
+			self.brain(name + ".bias", (outputs,), 0.05, dtype)
+
+	def norm(self, name, size):
+		self[name + ".weight"] = (1 + 0.2 * torch.randn(size)).to(torch.bfloat16)
+
+	def convrot(self, name, outputs, inputs):
+		from comfy_kitchen.backends.eager.quantization import quantize_int8_convrot_weight
+		self[name + ".weight"], self[name + ".weight_scale"] = quantize_int8_convrot_weight(torch.randn(outputs, inputs) * inputs ** -0.5, 256)
+		self[name + ".comfy_quant"] = torch.tensor(self.quant, dtype=torch.uint8)
+
+
 def tinymoss():
 	"""2 layers at width 256 (the convrot group), int8 convrot layers as in the real file, the rest BF16, plus the
 	reference.* tensors of one forward through ComfyUI's model: 4x4 latent tokens, 3 text tokens."""
-	import comfy.model_detection
-	from comfy_kitchen.backends.eager.quantization import quantize_int8_convrot_weight
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinymoss.safetensors")
 	dim, ffn, layers, text_dim, channels = 256, 256, 2, 64, 16
 	torch.manual_seed(0)
-	weights = {}
-	quant = torch.tensor(list(json.dumps({"format": "int8_tensorwise", "convrot": True, "convrot_groupsize": 256}).encode()), dtype=torch.uint8)
-
-	def brain(name, shape, scale):
-		weights[name] = (torch.randn(shape) * scale).to(torch.bfloat16)
-
-	def linear(name, outputs, inputs, bias=True):
-		brain(name + ".weight", (outputs, inputs), inputs ** -0.5)
-		if bias:
-			brain(name + ".bias", (outputs,), 0.05)
-
-	def norm(name, size):
-		weights[name + ".weight"] = (1 + 0.2 * torch.randn(size)).to(torch.bfloat16)
-
-	def convrot(name, outputs, inputs):
-		weights[name + ".weight"], weights[name + ".weight_scale"] = quantize_int8_convrot_weight(torch.randn(outputs, inputs) * inputs ** -0.5, 256)
-		weights[name + ".comfy_quant"] = quant.clone()
+	weights = TinyWeights()
+	linear, norm, convrot = weights.linear, weights.norm, weights.convrot
 	linear("video_embedder", dim, channels)
 	linear("text_embedder.proj", dim, text_dim)
 	for block in range(2):
@@ -221,7 +354,7 @@ def tinymoss():
 	norm("final_norm_video", dim)
 	linear("final_linear_video", channels, dim, bias=False)
 	linear("video_head_modulation", 2 * dim, dim)
-	references = tiny_references(weights)
+	references = tiny_references(dict(weights))
 	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
 
 
@@ -339,6 +472,78 @@ def tinyvae():
 	saved({**weights, "latent": latent, **references}, out)
 
 
+def tinyh3():
+	"""2 blocks and 2 refiner blocks at hidden 256 with 4 heads of 128 (inner 512, like H3's 7168 against 5376), int8
+	convrot block linears and curve-form adaln (a 9 x 8 table) as in the real file, plus the reference.* tensors of one
+	t2va forward through ComfyUI's model at sigma 0.75: a 2x4x4 video latent (8 tokens), 3 audio frames (6 rows), 3 text
+	tokens; reference.t_emb holds the curve rows of the timesteps the blocks modulate with, reference.blocks.0.* the inputs
+	and outputs of block 0's attention (qkv_proj output, merged heads before out_proj) and MLP."""
+	import comfy.ldm.minimax.model as minimax
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyh3.safetensors")
+	hidden, inner, ffn, text_dim, grid, curve = 256, 512, 256, 64, 9, 8
+	torch.manual_seed(0)
+	weights = TinyWeights()
+	weights.linear("video_patch_proj", hidden, 96, dtype=torch.float32)
+	weights.linear("audio_patch_proj", hidden, 32, dtype=torch.float32)
+	weights.linear("condition_proj", hidden, text_dim)
+	weights.brain("adaln_t_table", (grid, curve), 0.3, torch.float32)
+	weights["rope.inv_freq"] = 10000.0 ** (-torch.arange(16, dtype=torch.float32) / 16)
+	for prefix in ("token_refiner.blocks.0.", "token_refiner.blocks.1.", "blocks.0.", "blocks.1."):
+		weights.norm(prefix + "norm1", hidden)
+		weights.norm(prefix + "norm2", hidden)
+		weights.norm(prefix + "attn.q_norm", 128)
+		weights.norm(prefix + "attn.k_norm", 128)
+		dense = prefix.startswith("token_refiner.")
+		project = (lambda name, outputs, inputs: weights.linear(name, outputs, inputs, False)) if dense else weights.convrot
+		project(prefix + "attn.qkv_proj", 3 * inner, hidden)
+		project(prefix + "attn.out_proj", hidden, inner)
+		project(prefix + "mlp.fc1", 2 * ffn, hidden)
+		project(prefix + "mlp.fc2", hidden, ffn)
+		if not dense:
+			weights.linear(prefix + "adaln_proj.linear", 6 * hidden * 3, curve, dtype=torch.float16)
+	weights.norm("token_refiner.final_norm", hidden)
+	weights.norm("final_layer.norm", hidden)
+	weights.linear("final_layer.adaln_proj.linear", 2 * hidden, curve, dtype=torch.float16)
+	weights.linear("final_layer.video_out", 96, hidden, dtype=torch.float32)
+	weights.linear("final_layer.audio_out", 32, hidden, dtype=torch.float32)
+	model = comfy.sd.load_diffusion_model_state_dict(dict(weights))
+	comfy.model_management.load_models_gpu([model])
+	diffusion = model.model.diffusion_model
+	device, dtype = comfy.model_management.get_torch_device(), model.model.get_dtype()
+	video, audio, context, sigma = torch.randn(1, 24, 2, 4, 4), torch.randn(1, 32, 2, 3), torch.randn(1, 3, text_dim), 0.75
+	payload = {"layout": minimax.PackedLayout(3, 2, 4, 4, 3), "seed": 0, "audio_scale": 1.0}
+	references, hooks = {}, []
+
+	def keep(name):
+		def hook(module, args, output):
+			references["reference." + name] = (output[0] if isinstance(output, tuple) else output).clone()
+		return hook
+
+	def entered(name):
+		def hook(module, args):
+			references["reference." + name] = args[0].clone()
+		return hook
+	for name in ("token_refiner", "video_patch_proj", "audio_patch_proj"):
+		hooks.append(getattr(diffusion, name).register_forward_hook(keep(name)))
+	attention, feed = diffusion.blocks[0].attn, diffusion.blocks[0].mlp
+	for name, module in (("blocks.0.attn.qkv_proj", attention.qkv_proj), ("blocks.0.attn", attention), ("blocks.0.mlp", feed)):
+		hooks.append(module.register_forward_hook(keep(name)))
+	entries = (("blocks.0.input", diffusion.blocks[0]), ("blocks.0.attn.input", attention), ("blocks.0.attn.merged", attention.out_proj),
+		("blocks.0.mlp.input", feed))
+	for name, module in entries:
+		hooks.append(module.register_forward_pre_hook(entered(name)))
+	hooks.append(diffusion.blocks[0].adaln_proj.register_forward_pre_hook(entered("t_emb")))
+	for index, block in enumerate(diffusion.blocks):
+		hooks.append(block.register_forward_hook(keep(f"blocks.{index}")))
+	with torch.no_grad():
+		output = diffusion([video.to(device, dtype), audio.to(device, dtype)], torch.tensor([sigma * 1000], device=device), context.to(device, dtype), {}, minimax_payload=payload)
+	for hook in hooks:
+		hook.remove()
+	references.update({"reference.video": video[0], "reference.audio": audio[0], "reference.context": context, "reference.sigma": torch.tensor([sigma]),
+		"reference.video_output": output[0][0], "reference.audio_output": output[1][0]})
+	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
+
+
 def tinyint8():
 	"""An int8 matrix with an F32 scale per row and its comfy_quant bytes, for the generic tests in Strict/NeuralNetworks."""
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Strict", "NeuralNetworks", "tinyint8.safetensors")
@@ -348,4 +553,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae}[options.model]()
+	{"moss": moss, "h3": h3, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3}[options.model]()
