@@ -36,7 +36,8 @@ Upsamples(model Safetensors) List(Convolution)
 	Tiny.Upsamples(Safetensors("tinyvae.safetensors", 32, "decoder.")).First.biases(0).IsNearlyEqual(0.092754, 0.0001)
 	for 8
 		if model.Entry("up." + (7 - index) + ".upsample.conv.weight") is not ""
-			FluxResnet.Convolved(model, "up." + (7 - index) + ".upsample.conv")
+			let upsample = FluxResnet.Convolved(model, "up." + (7 - index) + ".upsample.conv")
+			Convolution(upsample.Folds, upsample.biases)
 Blocks(model Safetensors, groups Number) List(FluxResnet)
 	Tiny.Blocks(Safetensors("tinyvae.safetensors", 32, "decoder."), 4)(2).shortcut.biases.Length is 8
 	let levels = Present(model, "up.", ".block.0.conv1.weight")
