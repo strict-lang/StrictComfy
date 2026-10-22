@@ -1,5 +1,5 @@
 """Reference dumps from ComfyUI's own code for the Strict ports. Run with ComfyUI's python_embeded:
-  python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 720 --height 1280 ...], prompt from prompt.txt
+  python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 480 --height 848 ...], prompt from prompt.txt
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
@@ -17,8 +17,8 @@ arguments = argparse.ArgumentParser()
 arguments.add_argument("model", choices=["moss", "tinymoss", "tinylora", "tinyint8", "tinyvae"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
-arguments.add_argument("--width", type=int, default=720)
-arguments.add_argument("--height", type=int, default=1280)
+arguments.add_argument("--width", type=int, default=480)
+arguments.add_argument("--height", type=int, default=848)
 arguments.add_argument("--steps", type=int, default=8)
 arguments.add_argument("--scheduler", default="simple")
 arguments.add_argument("--seed", type=int, default=42)

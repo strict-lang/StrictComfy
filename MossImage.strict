@@ -7,8 +7,9 @@ Run(dumps Text, model Text, lora Text)
 	let steps = Safetensors(dumps + "/steps.safetensors")
 	let context = Safetensors(dumps + "/conditioning.safetensors").Values("context")
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
-	Compared(moss, Safetensors(dumps + "/step0.safetensors"))
-	let sampled = Sampled(moss, Euler(8, 5), steps, context)
+	let sized = MossImage(logger, steps.Shape("noise").Last)
+	sized.Compared(moss, Safetensors(dumps + "/step0.safetensors"))
+	let sampled = sized.Sampled(moss, Euler(8, 5), steps, context)
 	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
 Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers
 	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Reference, Moss.Context).Length is 256
