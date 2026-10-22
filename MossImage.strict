@@ -8,16 +8,18 @@ Run(dumps Text, model Text)
 	let context = Safetensors(dumps + "/conditioning.safetensors").Values("context")
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	Compared(moss, Safetensors(dumps + "/step0.safetensors"))
-	let sampled = Sampled(moss, Euler(8, 5), steps.Values("noise"), context)
+	let sampled = Sampled(moss, Euler(8, 5), steps, context)
 	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
-Sampled(moss Moss, euler Euler, noise Numbers, context Numbers) Numbers
-	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Moss.Model.Values("reference.x"), Moss.Context).Length is 256
-	mutable latent = noise
+Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers
+	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Reference, Moss.Context).Length is 256
+	mutable latent = steps.Values(steps.Entry("x.0") is "" then "x" else "x.0")
 	let sigmas = euler.Sigmas
 	for euler.steps
 		let before = Process.Elapsed
 		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), context, width), index)
-		logger.Log("step " + index + " " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		let next = "x." + (index + 1)
+		let compared = steps.Entry(next) is "" then "" else ", error " + Error(latent, steps.Values(next))
+		logger.Log("step " + index + " " + ((Process.Elapsed - before) * 1000).Round + " ms" + compared)
 	latent
 Compared(moss Moss, step Safetensors) Number
 	MossImage(Logger, 4).Compared(Moss.Tiny, Reference) < 0.05

@@ -9,10 +9,10 @@ has reduction List(Numbers)
 constant Unbiased = List(Number) + 0
 constant Model = Safetensors("tinymoss.safetensors")
 constant Tiny = MossBlock.Loaded(Model, "layers.0.")
-constant Second = MossBlock.Loaded(Model, "layers.1.")
 constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
 constant Modulation = Model.Values("reference.shared_block_modulation")
 constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
+constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
 Loaded(model Safetensors, prefix Text) MossBlock
 	Tiny.attention.Length is 768
 	Tiny.expansion.Length is 512
@@ -29,10 +29,10 @@ Heads Number
 	Tiny.Heads is 2
 	attention.Length / 3 / queryNorm.Length
 Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
-	Tiny.Output(Input, Modulation, Rotation)(0).IsNearlyEqual(-0.125, 0.03)
-	Tiny.Output(Input, Modulation, Rotation)(4095).IsNearlyEqual(-0.9805, 0.03)
-	Tiny.Output(Input, Modulation, Rotation)(4863).IsNearlyEqual(0.7109, 0.03)
-	Second.Output(Tiny.Output(Input, Modulation, Rotation), Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
+	Layered(0).IsNearlyEqual(-0.125, 0.03)
+	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
+	Layered(4863).IsNearlyEqual(0.7109, 0.03)
+	MossBlock.Loaded(Model, "layers.1.").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
 	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, 2)
 	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
 Attended(normed Numbers, rotation Numbers) Numbers
@@ -61,10 +61,10 @@ Activated(expanded Numbers, width Number) Numbers
 Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Numbers
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
+	let scales = Scales(input, width)
 	for input.Length
 		let channel = index % width
-		let scale = Qwen3Block.HeadScale(input, index - channel, width, Qwen3Block.Epsilon)
-		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
+		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, part Number) Numbers
 	MossBlock(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 2, 3), 1) is (7, 14)
@@ -97,10 +97,12 @@ Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(1, 0) is 0
 	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
-	4 * Tanh(gate / 4) / (1 + (0 - gate).Exponential) * 25 * Tanh(hidden / 25)
-Tanh(number Number) Number
-	MossBlock.Tanh(0.5).IsNearlyEqual(0.4621172)
-	2 / (1 + (0 - 2 * number).Exponential) - 1
+	let squashed = 4 * (2 / (1 + (0 - gate / 2).Exponential) - 1) / (1 + (0 - gate).Exponential)
+	squashed * 25 * (2 / (1 + (0 - hidden * 2 / 25).Exponential) - 1)
+Scales(input Numbers, width Number) Numbers
+	MossBlock.Scales((3, 4, 0, 1), 2)(1).IsNearlyEqual(1.414213)
+	for input.Length / width
+		Qwen3Block.HeadScale(input, index * width, width, Qwen3Block.Epsilon)
 Hadamard(input Numbers) Numbers
 	MossBlock.Hadamard(Model.Values("reference.x")).Length is 256
 	MossBlock.Hadamard(MossBlock.Hadamard(Model.Values("reference.x")))(5).IsNearlyEqual(Model.Values("reference.x")(5))

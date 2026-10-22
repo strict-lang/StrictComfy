@@ -11,6 +11,7 @@ has headModulation Batch
 constant Tiny = Moss.Loaded("tinymoss.safetensors")
 constant Model = Safetensors("tinymoss.safetensors")
 constant Context = Model.Values("reference.context")
+constant Forward = Moss.Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)
 constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "time_embedding.2", "shared_block_modulation", "final_linear_video", "video_head_modulation")
 Loaded(path Text) Moss
 	Tiny.layers.Length is 2
@@ -54,9 +55,9 @@ Brain(number Number) Number
 	Moss.Brain(0) is 0
 	number is 0 then 0 else number.Stepped(2 ^ ((number.Absolute.Logarithm / 2.Logarithm).Floor - 7))
 Output(latent Numbers, sigma Number, context Numbers, width Number) Numbers
-	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(0).IsNearlyEqual(-1.9609, 0.05)
-	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(5).IsNearlyEqual(-0.5156, 0.05)
-	Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)(255).IsNearlyEqual(-0.1289, 0.05)
+	Forward(0).IsNearlyEqual(-1.9609, 0.05)
+	Forward(5).IsNearlyEqual(-0.5156, 0.05)
+	Forward(255).IsNearlyEqual(-0.1289, 0.05)
 	let channels = video.weights.First.Length
 	let count = latent.Length / channels
 	let text = context.Length / textProjection.weights.First.Length
