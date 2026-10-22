@@ -66,14 +66,14 @@ Entered(latent Numbers, width Number) FeatureMap
 	let channels = means.Length / 4
 	let patches = FeatureMap(Unpatchified(latent, width), 2 * width, channels, Layer.Zeros(channels))
 	let quantized = convolutions(0).Projected(patches)
-	convolutions(1).Applied(quantized, quantized.Identity, false, false)
+	convolutions(1).Applied(quantized, quantized.Identity, false)
 Decoded(latent Numbers, width Number) Numbers
 	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.7881, 0.0001)
 	Tiny.Decoded(Latent, 2)(96).IsNearlyEqual(0.9225, 0.0001)
 	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.0001)
 	let entered = Entered(latent, width)
 	let upsampled = Upsampled(middle(1).Output(attention.Output(middle(0).Output(entered))))
-	let output = convolutions(2).Applied(upsampled, normOut.Affine(upsampled), true, false)
+	let output = convolutions(2).Applied(upsampled, normOut.Affine(upsampled), true)
 	for output.Completed
 		((value + 1) / 2).Clamp
 Upsampled(map FeatureMap) FeatureMap
@@ -84,5 +84,5 @@ Upsampled(map FeatureMap) FeatureMap
 	for blocks
 		state = value.Output(state)
 		if index % perLevel is perLevel - 1 and index < blocks.Length - 1
-			state = upsamples((index / perLevel).Floor).Applied(state, state.Identity, false, true)
+			state = upsamples((index / perLevel).Floor).Doubled(state)
 	state

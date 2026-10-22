@@ -1,0 +1,22 @@
+has logger
+Run(dumps Text, model Text)
+	let decoder = FluxDecoder.Loaded(model, 32)
+	let steps = Safetensors(dumps + "/steps.safetensors")
+	let latent = steps.Values("latent")
+	let shape = steps.Shape("image")
+	logger.Log("loaded in " + Process.Elapsed.Round(2) + " s")
+	let before = Process.Elapsed
+	let image = decoder.Decoded(latent, steps.Shape("latent")(3))
+	let psnr = Psnr(image, steps.Values("image"))
+	logger.Log("decoded in " + ((Process.Elapsed - before) * 1000).Round + " ms, PSNR " + psnr.Round(2) + " dB")
+	ImageSaver(dumps + "/strict.png").Save(Image(Size(shape(2), shape(1)), Colors(image)))
+Psnr(values Numbers, expected Numbers) Number
+	FluxImage(Logger).Psnr((0.5, 1), (0.5, 0.9)).IsNearlyEqual(23.0103)
+	mutable sum = 0
+	for expected
+		sum = sum + (values(index) - value) * (values(index) - value)
+	10 * (expected.Length / sum).Logarithm / 10.Logarithm
+Colors(image Numbers) List(ColorValue)
+	FluxImage(Logger).Colors((0, 0.5, 1, 1, 1, 1)) is (ColorValue(0, 0.5, 1), ColorValue(1, 1, 1))
+	for image.Length / 3
+		ColorValue(image(index * 3), image(index * 3 + 1), image(index * 3 + 2))

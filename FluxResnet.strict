@@ -21,8 +21,8 @@ Output(map FeatureMap) FeatureMap
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.31808, 0.0001)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(0.60561, 0.0001)
 	FluxResnet.Loaded(Model, "decoder.up.0.block.0.", 4).Output(Upsampled).Completed(256).IsNearlyEqual(-1.88429, 0.0001)
-	let hidden = first.Applied(map, firstNorm.Affine(map), true, false)
-	let output = second.Applied(hidden, secondNorm.Affine(hidden), true, false)
+	let hidden = first.Applied(map, firstNorm.Affine(map), true)
+	let output = second.Applied(hidden, secondNorm.Affine(hidden), true)
 	(shortcut.biases.Length is 0 then map else shortcut.Projected(map)).Plus(output)
 Norm(model Safetensors, name Text, groups Number) GroupNorm
 	Middle.Norm(Model, "decoder.norm_out", 4).weights.Length is 8
