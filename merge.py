@@ -1,7 +1,9 @@
 """Merges LoRAs into an int8 convrot model once, so Strict (and ComfyUI) load the result like any model. Run with ComfyUI's python:
   python_embeded\\python.exe merge.py <model.safetensors> <out.safetensors> <lora.safetensors>[:strength] ...
 Each convrot linear: W·Hᵀ (int8 · row scale) + strength · alpha / rank · (up · down)·Hᵀ, requantized to int8 with one scale per row
-(nearest rounding, ComfyUI rounds stochastically). Everything else is copied unchanged.
+(stochastic rounding like ComfyUI: nearest rounding drops LoRA deltas below half a step). Everything else is copied unchanged. LoRAs trained on a fused proj.qkv
+match no weight of this unfused model and are skipped like ComfyUI does (strengths tuned in ComfyUI expect that);
+--split-qkv applies their q/k/v thirds instead.
 """
 import json
 import sys
@@ -9,13 +11,16 @@ import torch
 from safetensors import safe_open
 from safetensors.torch import save_file
 
-model, out, loras = sys.argv[1], sys.argv[2], sys.argv[3:]
+split = "--split-qkv" in sys.argv
+paths = [argument for argument in sys.argv[1:] if argument != "--split-qkv"]
+model, out, loras = paths[0], paths[1], paths[2:]
 device = "cuda" if torch.cuda.is_available() else "cpu"
 h4 = torch.tensor([[1, 1, 1, -1], [1, 1, -1, 1], [1, -1, 1, 1], [-1, 1, 1, 1]], dtype=torch.float32)
 hadamard = h4
 for _ in range(3):
 	hadamard = torch.kron(hadamard, h4)
 hadamard = (hadamard / 16).to(device)
+generator = torch.Generator(device=device).manual_seed(0)
 
 
 def rotated(rows, group):
@@ -27,7 +32,7 @@ def delta(files, name):
 	for file, strength in files:
 		part = product(file, "diffusion_model." + name + ".")
 		parent, own = name.rsplit(".", 1)
-		if part is None and own in ("q", "k", "v"):
+		if part is None and own in ("q", "k", "v") and split:
 			fused = product(file, "diffusion_model." + parent + ".qkv.")
 			if fused is not None:
 				third = fused.shape[0] // 3
@@ -66,7 +71,8 @@ for key in list(tensors):
 	weight = tensors[name + ".weight"].float().to(device) * tensors[name + ".weight_scale"].float().to(device)
 	weight = weight + rotated(change, quant["convrot_groupsize"])
 	scale = (weight.abs().amax(dim=1, keepdim=True) / 127).clamp(min=1e-30)
-	tensors[name + ".weight"] = (weight / scale).round().clamp(-128, 127).to(torch.int8).cpu()
+	noise = torch.rand(weight.shape, generator=generator, device=device)
+	tensors[name + ".weight"] = (weight / scale + noise).floor().clamp(-128, 127).to(torch.int8).cpu()
 	tensors[name + ".weight_scale"] = scale.to(tensors[name + ".weight_scale"].dtype).cpu()
 	merged += 1
 print("merged", merged, "linears")

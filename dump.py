@@ -25,7 +25,7 @@ arguments.add_argument("--seed", type=int, default=42)
 arguments.add_argument("--runs", type=int, default=2, help="sampling runs, the last one is timed and dumped")
 arguments.add_argument("--dit", default="moss-image-sft-dit-int8-convrot.safetensors")
 arguments.add_argument("--te", default="qwen3.5_9b_int8_convrot.safetensors")
-arguments.add_argument("--lora", default=r"moss\dmd_turbo_lora.safetensors")
+arguments.add_argument("--lora", nargs="*", default=[r"moss\dmd_turbo_lora.safetensors"], help="LoRA names in the loras folder, each name[:strength]")
 arguments.add_argument("--lora-strength", type=float, default=1.0)
 arguments.add_argument("--vae", default="flux2-vae.safetensors")
 options = arguments.parse_args()
@@ -91,9 +91,10 @@ def moss():
 	del clip
 	comfy.model_management.unload_all_models()
 	model = comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit))
-	if options.lora:
-		lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", options.lora), safe_load=True)
-		model, _ = comfy.sd.load_lora_for_models(model, None, lora, options.lora_strength, 0)
+	for entry in [entry for entry in options.lora if entry]:
+		name, strength = (entry.rsplit(":", 1)[0], float(entry.rsplit(":", 1)[1])) if ":" in entry else (entry, options.lora_strength)
+		lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", name), safe_load=True)
+		model, _ = comfy.sd.load_lora_for_models(model, None, lora, strength, 0)
 	loaded = time.perf_counter()
 	diffusion = model.model.diffusion_model
 	latent = torch.zeros([1, 128, options.height // 16, options.width // 16])
