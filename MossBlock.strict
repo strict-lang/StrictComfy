@@ -64,10 +64,10 @@ Activated(expanded Numbers, width Number) Numbers
 Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Numbers
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
-	let scales = Scales(input, width)
 	for input.Length
 		let channel = index % width
-		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation((part + 1) * width + channel))
+		let scale = Qwen3Block.HeadScale(input, (index / width).Floor * width, width, Qwen3Block.Epsilon)
+		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, part Number) Numbers
 	MossBlock(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 2, 3), 1) is (7, 14)
