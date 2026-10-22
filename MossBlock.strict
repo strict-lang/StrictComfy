@@ -55,12 +55,12 @@ FedForward(normed Numbers) Numbers
 	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let activated = Activated(expanded, reduction.First.Length)
 	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated), activated)
-Activated(expanded Numbers, width Number) Numbers
+Activated(expanded Numbers, width Number) BFloat16s
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2
 		let first = (index / width).Floor * 2 * width + index % width
 		Situ(expanded(first), expanded(first + width))
-Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Numbers
+Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloat16s
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
 	for input.Length
