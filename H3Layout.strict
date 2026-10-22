@@ -1,0 +1,112 @@
+has text Number
+has audio Number
+has frames Number
+has height Number
+has width Number
+constant Tiny = H3Layout(3, 3, 2, 4, 4)
+constant Real = H3Layout(31, 207, 37, 60, 104)
+constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
+constant Turning = Tiny.Rotations(Inverse)
+constant Head = 128
+constant Half = 48
+constant VideoShift = 12
+constant AudioShift = 3
+Tokens Number
+	Tiny.Tokens is 17
+	Real.Tokens is 58165
+	text + 2 * audio + frames * Patches
+Patches Number
+	Tiny.Patches is 4
+	height * width / 4
+Positions Numbers
+	Tiny.Positions.Length is 51
+	Tiny.Positions(20) is 16
+	Tiny.Positions(39).IsNearlyEqual(4.666667)
+	for Tokens * 3
+		Position((index / 3).Floor, index % 3)
+Position(token Number, axis Number) Number
+	Tiny.Position(1, 0) is 1
+	Tiny.Position(7, 0) is 4
+	Real.Position(445, 1).IsNearlyEqual(3.847128)
+	if token < text
+		return axis is 0 then token else 0
+	let row = token - text
+	row < 2 * audio then Heard(row, axis) else Seen(row - 2 * audio, axis)
+Heard(row Number, axis Number) Number
+	Tiny.Heard(3, 0) is 3
+	Tiny.Heard(3, 2) is 16
+	Real.Heard(0, 2).IsNearlyEqual(-5.064979)
+	let side = row < audio then 0 else width / 2 - 1
+	axis is 0 then text + row % audio else (axis is 1 then 0 else Axis(width, height, side))
+Seen(row Number, axis Number) Number
+	Tiny.Seen(4, 0).IsNearlyEqual(4.666667)
+	Tiny.Seen(3, 1) is 16
+	Tiny.Seen(1, 2) is 16
+	let patch = row % Patches
+	let across = width / 2
+	if axis is 0
+		return text + FrameTime((row / Patches).Floor)
+	axis is 1 then Axis(height, width, (patch / across).Floor) else Axis(width, height, patch % across)
+Axis(size Number, other Number, at Number) Number
+	Tiny.Axis(4, 4, 1) is 16
+	Real.Axis(104, 60, 0).IsNearlyEqual(-5.064979)
+	let ratio = size / (size * other).SquareRoot
+	(at * ratio * 2 / size + (1 - ratio) / 2) * 32
+FrameTime(frame Number) Number
+	Tiny.FrameTime(0) is 0
+	Tiny.FrameTime(1).IsNearlyEqual(1.666667)
+	Tiny.FrameTime(6).IsNearlyEqual(30)
+	(4 * frame - 3 * ((frame + 4) / 5).Floor) * 5 / 3
+Rotations(inverse Numbers) Numbers
+	Turning(3329).IsNearlyEqual(-0.869141)
+	Turning(3505).IsNearlyEqual(0.494564)
+	Turning(3748).IsNearlyEqual(-0.999574)
+	Turning(3812) is 0
+	let positions = Positions
+	for Tokens * 2 * Head
+		let at = index % (2 * Head)
+		let pair = at % Head % Half
+		let position = positions((index / (2 * Head)).Floor * 3 + (pair / inverse.Length).Floor)
+		Turned(at, Degrees(Radians(position * inverse(pair % inverse.Length)) to Degrees))
+Turned(at Number, angle Degrees) Number
+	Tiny.Turned(0, Degrees(60)).IsNearlyEqual(0.5)
+	Tiny.Turned(130, Degrees(30)).IsNearlyEqual(-0.5)
+	Tiny.Turned(180, Degrees(30)).IsNearlyEqual(0.5)
+	Tiny.Turned(100, Degrees(30)) is 1
+	Tiny.Turned(228, Degrees(30)) is 0
+	let within = at % Head
+	if within >= 2 * Half
+		return at < Head then 1 else 0
+	at < Head then angle.Cos else (within < Half then 0 - angle.Sin else angle.Sin)
+Rows(sigma Number) Numbers
+	Tiny.Rows(0.75)(2) is 6
+	Tiny.Rows(0.75)(3) is 30
+	Tiny.Rows(0.75)(16) is 0
+	Tiny.Rows(1)(3) is 12
+	let heard = (Times(sigma).Length * 3 - 1) * 6
+	for Tokens
+		index < text then 6 else (index < text + 2 * audio then heard else 0)
+Finals(sigma Number) Numbers
+	Tiny.Finals(0.75)(3) is 2
+	Tiny.Finals(0.75)(16) is 0
+	Tiny.Finals(1)(3) is 0
+	let heard = (Times(sigma).Length - 1) * 2
+	for Tokens
+		(index >= text) and (index < text + 2 * audio) then heard else 0
+Unturned Numbers
+	Tiny.Unturned.Length is 4352
+	Tiny.Unturned(129) is 0
+	Tiny.Unturned(257) is 1
+	for Tokens * 2 * Head
+		index % (2 * Head) < Head then 1 else 0
+Times(sigma Number) Numbers
+	Tiny.Times(0.75)(1).IsNearlyEqual(0.5714286)
+	Tiny.Times(1).Length is 1
+	let times = List(Number) + (1 - sigma)
+	let heard = 1 - AudioSigma(sigma)
+	heard > 1 - sigma then times + heard else times
+AudioSigma(sigma Number) Number
+	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
+	Tiny.AudioSigma(1) is 1
+	let base = sigma / (VideoShift + sigma * (1 - VideoShift))
+	AudioShift * base / (1 + (AudioShift - 1) * base)

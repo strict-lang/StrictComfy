@@ -1,0 +1,55 @@
+has logger
+constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
+constant Shapes = Safetensors("tinyh3.safetensors", 32)
+Run(dumps Text, model Text)
+	let steps = Safetensors(dumps + "/steps.safetensors", 64)
+	let condition = Safetensors(dumps + "/conditioning.safetensors", 64)
+	let started = Process.Elapsed
+	let h3 = H3.Loaded(model)
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	let layout = Layout(steps.Shape("video.0"), steps.Shape("audio.0"), condition.Shape("context").First)
+	let text = h3.Refined(condition.Values("context"))
+	Compared(h3, Safetensors(dumps + "/step0.safetensors", 64), text, layout, steps.Values("sigmas").First)
+	Sampled(h3, steps, text, layout)
+Layout(video Numbers, audio Numbers, text Number) H3Layout
+	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), 3).Tokens is 17
+	H3Layout(text, audio.Last, video(1), video(2), video(3))
+Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number
+	H3Video(Logger).Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
+	let curves = h3.Curves(layout.Times(sigma))
+	let named = first.Entry("text") is "" then "token_refiner" else "text"
+	logger.Log("refined text error " + MossImage(logger).Error(text, first.Values(named)))
+	logger.Log("curve rows error " + MossImage(logger).Error(curves, first.Values("t_emb")))
+	Layered(h3, first, curves, layout, sigma)
+Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Number
+	H3Video(Logger).Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
+	let rotation = layout.Rotations(h3.inverse)
+	let starts = layout.Rows(sigma)
+	mutable state = first.Values("blocks.0.input")
+	mutable error = 0
+	for h3.blocks
+		state = value.Output(state, curves, starts, rotation)
+		let name = "blocks." + index
+		if first.Entry(name) is not ""
+			error = MossImage(logger).Error(state, first.Values(name))
+			logger.Log("block " + index + " error " + error)
+	error
+Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout) Numbers
+	H3Video(Logger).Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny).Length is 960
+	let count = steps.Entry("sigmas") is "" then 1 else steps.Values("sigmas").Length - 1
+	mutable video = steps.Values(steps.Entry("video.0") is "" then "video" else "video.0")
+	mutable audio = steps.Values(steps.Entry("audio.0") is "" then "audio" else "audio.0")
+	for count
+		let before = Process.Elapsed
+		let output = h3.Output(video, audio, Euler(count, 12).Sigmas(index), text, layout)
+		video = Euler(count, 12).Stepped(video, Safetensors.Part(output, 0, video.Length, 1), index)
+		audio = Euler(count, 3).Stepped(audio, Safetensors.Part(output, video.Length, audio.Length, 1), index)
+		let took = ((Process.Elapsed - before) * 1000).Round
+		logger.Log("step " + index + " " + took + " ms" + Errors(steps, index + 1, video, audio))
+	video + audio
+Errors(steps Safetensors, step Number, video Numbers, audio Numbers) Text
+	H3Video(Logger).Errors(Reference, 1, (1, 2), (3, 4)) is ""
+	if steps.Entry("video." + step) is ""
+		return ""
+	let seen = MossImage(logger).Error(video, steps.Values("video." + step))
+	", video error " + seen + ", audio error " + MossImage(logger).Error(audio, steps.Values("audio." + step))
