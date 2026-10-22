@@ -5,6 +5,7 @@ constant Model = Safetensors("tinyvae.safetensors")
 constant Middle = FluxAttention.Loaded(Model, "decoder.mid.attn_1.", 4)
 constant Budget = 16777216
 constant Combined = Middle.combined.Projected(Input)
+constant Queried = Middle.Queries(Combined.values, Middle.combined.biases)
 constant Input = FeatureMap(Model.Values("reference.mid.block_1"), 4, 16, Layer.Zeros(16))
 Loaded(model Safetensors, prefix Text, groups Number) FluxAttention
 	Middle.combined.weights.Length is 768
@@ -24,16 +25,16 @@ Output(map FeatureMap) FeatureMap
 	map.Plus(projection.Projected(attended))
 Attended(mixed FeatureMap) Numbers
 	Middle.Attended(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
-	Middle.Attended(Combined)(17) is Middle.Chunk(Middle.Queries(Combined), Combined, 1, 1)(1)
+	Middle.Attended(Combined)(17) is Middle.Chunk(Queried, Combined, 1, 1)(1)
 	let positions = mixed.values.Length / mixed.channels
-	let queries = Queries(mixed)
+	let queries = Queries(mixed.values, combined.biases)
 	let rows = (Budget / positions).Floor.Clamp(1, positions)
 	mutable attended = List(Number)
 	for (positions / rows).Ceiling
 		attended = attended + Chunk(queries, mixed, index * rows, (positions - index * rows).Clamp(1, rows))
 	attended
 Chunk(queries Numbers, mixed FeatureMap, first Number, count Number) Numbers
-	Middle.Chunk(Middle.Queries(Combined), Combined, 0, 24).Length is 384
+	Middle.Chunk(Queried, Combined, 0, 24).Length is 384
 	let size = mixed.channels / 3
 	let positions = mixed.values.Length / mixed.channels
 	let shape = (1, count, size, positions)
@@ -41,9 +42,9 @@ Chunk(queries Numbers, mixed FeatureMap, first Number, count Number) Numbers
 	let shares = Softmax.Shares(queried.Multiplied, positions)
 	let strides = (0, 0, positions, 1, 2 * size, 0, 3 * size, 1)
 	Products(shares, mixed.values, (1, count, positions, size), strides).Multiplied
-Queries(mixed FeatureMap) Numbers
-	Middle.Queries(FeatureMap((1, 2, 3), 1, 3, (0, 0, 0)))(0).IsNearlyEqual(0.869149)
-	let size = mixed.channels / 3
-	for mixed.values.Length / 3
+Queries(values Numbers, biases Numbers) Numbers
+	Middle.Queries((1, 2, 3), (0.5, 0, 0))(0).IsNearlyEqual(1.5)
+	let size = biases.Length / 3
+	for values.Length / 3
 		let position = (index / size).Floor
-		(mixed.values(position * 3 * size + index % size) + combined.biases(index % size)) / size.SquareRoot
+		(values(position * 3 * size + index % size) + biases(index % size)) / size.SquareRoot
