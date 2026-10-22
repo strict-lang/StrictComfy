@@ -71,6 +71,7 @@ bld/
 *.safetensors
 *.gguf
 !tinymoss.safetensors
+!tinylora.safetensors
 !tinyvae.safetensors
 prompt.txt
 Plan.md

@@ -1,6 +1,7 @@
 """Reference dumps from ComfyUI's own code for the Strict ports. Run with ComfyUI's python_embeded:
   python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 720 --height 1280 ...], prompt from prompt.txt
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
+  python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
 """
 import argparse
@@ -13,7 +14,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "tinymoss", "tinyint8", "tinyvae"])
+arguments.add_argument("model", choices=["moss", "tinymoss", "tinylora", "tinyint8", "tinyvae"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=720)
@@ -218,6 +219,15 @@ def tinymoss():
 	norm("final_norm_video", dim)
 	linear("final_linear_video", channels, dim, bias=False)
 	linear("video_head_modulation", 2 * dim, dim)
+	references = tiny_references(weights)
+	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
+
+
+def tiny_references(weights, inputs=None, lora=None):
+	"""One forward of the tiny Moss weights through ComfyUI's model (optionally with a LoRA applied like ComfyUI does),
+	reference.* outputs per module; inputs (x, timestep, context) are random 4x4 latent and 3 text tokens if not given."""
+	import comfy.model_detection
+	text_dim, channels = weights["text_embedder.proj.weight"].shape[1], weights["video_embedder.weight"].shape[1]
 	detect = comfy.model_detection.detect_unet_config
 
 	def detected(state_dict, key_prefix, metadata=None):
@@ -227,12 +237,12 @@ def tinymoss():
 		return config
 	comfy.model_detection.detect_unet_config = detected
 	model = comfy.sd.load_diffusion_model_state_dict(dict(weights))
+	if lora is not None:
+		model, _ = comfy.sd.load_lora_for_models(model, None, lora, 1.0, 0)
 	comfy.model_management.load_models_gpu([model])
 	diffusion = model.model.diffusion_model
 	device, dtype = comfy.model_management.get_torch_device(), model.model.get_dtype()
-	x = torch.randn(1, channels, 4, 4)
-	timestep = torch.tensor([0.75])
-	context = torch.randn(1, 3, text_dim)
+	x, timestep, context = inputs or (torch.randn(1, channels, 4, 4), torch.tensor([0.75]), torch.randn(1, 3, text_dim))
 	references, hooks = {}, []
 
 	def keep(name):
@@ -246,7 +256,36 @@ def tinymoss():
 	with torch.no_grad():
 		output = diffusion(x.to(device, dtype), timestep.to(device, dtype), context.to(device, dtype))
 	references.update({"reference.x": x, "reference.timestep": timestep, "reference.context": context, "reference.output": output})
-	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
+	for hook in hooks:
+		hook.remove()
+	return references
+
+
+def tinylora():
+	"""A rank-8 LoRA (alpha 16, scale 2) for tinymoss.safetensors with the key names of moss\\dmd_turbo_lora.safetensors, plus
+	the reference.* outputs of the tiny model with it applied by ComfyUI and reference.q, the exact float32 layers.0 q delta
+	scale * up(down(x)) for x = video_embedder + text_embedder tokens."""
+	from safetensors.torch import load_file
+	here = os.path.dirname(os.path.abspath(__file__))
+	out = options.out or os.path.join(here, "tinylora.safetensors")
+	tiny = load_file(os.path.join(here, "tinymoss.safetensors"))
+	weights = {name: value for name, value in tiny.items() if not name.startswith("reference.")}
+	rank, alpha = 8, 16.0
+	torch.manual_seed(1)
+	lora = {}
+	for layer in range(2):
+		for name in ("q", "k", "v", "o", "ffn_up_gate", "ffn_down"):
+			key = f"diffusion_model.layers.{layer}.proj.{name}"
+			outputs, inputs = weights[f"layers.{layer}.proj.{name}.weight"].shape
+			lora[key + ".lora_down.weight"] = torch.randn(rank, inputs) * inputs ** -0.5
+			lora[key + ".lora_up.weight"] = torch.randn(outputs, rank) * inputs ** -0.5
+			lora[key + ".alpha"] = torch.tensor(alpha)
+	inputs = (tiny["reference.x"], tiny["reference.timestep"], tiny["reference.context"])
+	references = tiny_references(weights, inputs, dict(lora))
+	hidden = torch.cat([tiny["reference.video_embedder"], tiny["reference.text_embedder"]], 1).reshape(-1, 256)
+	down, up = lora["diffusion_model.layers.0.proj.q.lora_down.weight"], lora["diffusion_model.layers.0.proj.q.lora_up.weight"]
+	references["reference.q"] = alpha / rank * (hidden @ down.T) @ up.T
+	saved({**lora, **{name: value.float() for name, value in references.items()}}, out, {"rank": str(rank), "alpha": str(alpha)})
 
 
 def tinyvae():
@@ -307,4 +346,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "tinymoss": tinymoss, "tinyint8": tinyint8, "tinyvae": tinyvae}[options.model]()
+	{"moss": moss, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae}[options.model]()
