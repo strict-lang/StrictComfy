@@ -112,4 +112,5 @@ Stage(input Numbers, step Number) Numbers
 		let digit = (index / step).Floor % 4
 		let first = (index / (4 * step)).Floor * 4 * step + index % step
 		let low = input(first) * (digit is 3 then -0.5 else 0.5) + input(first + step) * (digit is 2 then -0.5 else 0.5)
-		low + input(first + 2 * step) * (digit is 1 then -0.5 else 0.5) + input(first + 3 * step) * (digit is 0 then -0.5 else 0.5)
+		let high = input(first + 2 * step) * (digit is 1 then -0.5 else 0.5)
+		low + high + input(first + 3 * step) * (digit is 0 then -0.5 else 0.5)
