@@ -38,9 +38,9 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
 	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Input, Rotation).Length is 4864
-	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Hadamard(normed)), normed)
+	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let merged = Merged(combined, rotation, queryNorm, keyNorm)
-	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Hadamard(merged)), merged)
+	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	let size = queries.Length
@@ -53,9 +53,9 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Number
 	Attention(rotatedQueries, rotatedKeys, values, heads, heads, size, 1, false).Merged
 FedForward(normed Numbers) Numbers
 	Tiny.FedForward(Input).Length is 4864
-	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Hadamard(normed)), normed)
+	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let activated = Activated(expanded, reduction.First.Length)
-	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Hadamard(activated)), activated)
+	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated), activated)
 Activated(expanded Numbers, width Number) Numbers
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2
@@ -106,18 +106,3 @@ Scales(input Numbers, width Number) Numbers
 	MossBlock.Scales((3, 4, 0, 1), 2)(1).IsNearlyEqual(1.414213)
 	for input.Length / width
 		Qwen3Block.HeadScale(input, index * width, width, Qwen3Block.Epsilon)
-Hadamard(input Numbers) Numbers
-	MossBlock.Hadamard(Model.Values("reference.x"))(0).IsNearlyEqual(-0.953136)
-	MossBlock.Hadamard(Model.Values("reference.x"))(17).IsNearlyEqual(0.91226)
-	MossBlock.Hadamard(Model.Values("reference.x"))(255).IsNearlyEqual(-0.492392)
-	MossBlock.Hadamard(MossBlock.Hadamard(Model.Values("reference.x")))(5).IsNearlyEqual(Model.Values("reference.x")(5))
-	Stage(Stage(Stage(Stage(input, 1), 4), 16), 64)
-Stage(input Numbers, step Number) Numbers
-	MossBlock.Stage((1, 0, 0, 0), 1) is (0.5, 0.5, 0.5, -0.5)
-	MossBlock.Stage((0, 0, 0, 1, 1, 0, 0, 0), 2) is (0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5)
-	for input.Length
-		let digit = (index / step).Floor % 4
-		let first = (index / (4 * step)).Floor * 4 * step + index % step
-		let low = input(first) * (digit is 3 then -0.5 else 0.5) + input(first + step) * (digit is 2 then -0.5 else 0.5)
-		let high = input(first + 2 * step) * (digit is 1 then -0.5 else 0.5)
-		low + high + input(first + 3 * step) * (digit is 0 then -0.5 else 0.5)
