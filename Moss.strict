@@ -8,22 +8,22 @@ has layers List(MossBlock)
 has finalNorm Numbers
 has final Batch
 has headModulation Batch
-constant Tiny = Moss.Loaded("tinymoss.safetensors")
+constant Tiny = Moss.Loaded("tinymoss.safetensors", "")
 constant Model = Safetensors("tinymoss.safetensors")
 constant Context = Model.Values("reference.context")
 constant Forward = Moss.Tiny.Output(Model.Values("reference.x"), 0.75, Context, 4)
 constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "time_embedding.2", "shared_block_modulation", "final_linear_video", "video_head_modulation")
-Loaded(path Text) Moss
+Loaded(path Text, lora Text) Moss
 	Tiny.layers.Length is 2
 	Tiny.texts.Length is 2
 	let model = Safetensors(path, 16)
 	let dense = Dense(model)
 	let normed = model.Values("final_norm_video.weight")
-	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model), normed, dense(5), dense(6))
-Layers(model Safetensors) List(MossBlock)
-	Tiny.Layers(Model).Length is 2
+	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
+Layers(model Safetensors, lora Text) List(MossBlock)
+	Tiny.Layers(Model, "").Length is 2
 	for TensorFile.Header(model.path).Split(".proj.q.comfy_quant").Length - 1
-		MossBlock.Loaded(model, "layers." + index + ".")
+		MossBlock.Loaded(model, "layers." + index + ".", lora)
 Texts(model Safetensors) List(MossText)
 	Tiny.Texts(Model).Length is 2
 	for 2

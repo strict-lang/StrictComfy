@@ -6,14 +6,14 @@ has attention List(Numbers)
 has output List(Numbers)
 has expansion List(Numbers)
 has reduction List(Numbers)
-constant Unbiased = List(Number) + 0
+has loras List(MossLora)
 constant Model = Safetensors("tinymoss.safetensors")
-constant Tiny = MossBlock.Loaded(Model, "layers.0.")
+constant Tiny = MossBlock.Loaded(Model, "layers.0.", "")
 constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
 constant Modulation = Model.Values("reference.shared_block_modulation")
 constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
 constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
-Loaded(model Safetensors, prefix Text) MossBlock
+Loaded(model Safetensors, prefix Text, lora Text) MossBlock
 	Tiny.attention.Length is 768
 	Tiny.expansion.Length is 512
 	let rows = Safetensors(model.path, 32, prefix + "proj.")
@@ -24,7 +24,8 @@ Loaded(model Safetensors, prefix Text) MossBlock
 	let first = norms.Values("norm1.weight")
 	let second = norms.Values("norm2.weight")
 	let expanded = rows.Quantized("ffn_up_gate")
-	MossBlock(first, second, queried, keyed, projections, rows.Quantized("o"), expanded, rows.Quantized("ffn_down"))
+	let tuned = MossLora.Layer(lora, prefix)
+	MossBlock(first, second, queried, keyed, projections, rows.Quantized("o"), expanded, rows.Quantized("ffn_down"), tuned)
 Heads Number
 	Tiny.Heads is 2
 	attention.Length / 3 / queryNorm.Length
@@ -32,13 +33,14 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
 	Layered(0).IsNearlyEqual(-0.125, 0.03)
 	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
-	MossBlock.Loaded(Model, "layers.1.").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
+	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
 	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, 2)
 	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Input, Rotation).Length is 4864
-	let combined = Batch(attention, Unbiased).Sums(Hadamard(normed))
-	Batch(output, Unbiased).Sums(Hadamard(Merged(combined, rotation, queryNorm, keyNorm)))
+	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Hadamard(normed)), normed)
+	let merged = Merged(combined, rotation, queryNorm, keyNorm)
+	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Hadamard(merged)), merged)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	let size = queries.Length
@@ -51,8 +53,9 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Number
 	Attention(rotatedQueries, rotatedKeys, values, heads, heads, size, 1, false).Merged
 FedForward(normed Numbers) Numbers
 	Tiny.FedForward(Input).Length is 4864
-	let expanded = Batch(expansion, Unbiased).Sums(Hadamard(normed))
-	Batch(reduction, Unbiased).Sums(Hadamard(Activated(expanded, reduction.First.Length)))
+	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Hadamard(normed)), normed)
+	let activated = Activated(expanded, reduction.First.Length)
+	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Hadamard(activated)), activated)
 Activated(expanded Numbers, width Number) Numbers
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2

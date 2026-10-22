@@ -1,9 +1,9 @@
 has logger
 has width Number = 45
 constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
-Run(dumps Text, model Text)
+Run(dumps Text, model Text, lora Text)
 	let started = Process.Elapsed
-	let moss = Moss.Loaded(model)
+	let moss = Moss.Loaded(model, lora)
 	let steps = Safetensors(dumps + "/steps.safetensors")
 	let context = Safetensors(dumps + "/conditioning.safetensors").Values("context")
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
