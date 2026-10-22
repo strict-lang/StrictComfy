@@ -3,16 +3,20 @@ has width Number = 45
 constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
 constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
 Run(dumps Text, model Text, lora Text, vae Text)
-	let started = Process.Elapsed
-	let moss = Moss.Loaded(model, lora)
-	let steps = Safetensors(dumps + "/steps.safetensors")
-	let context = Safetensors(dumps + "/conditioning.safetensors").Values("context")
-	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	let steps = Safetensors(dumps + "/steps.safetensors", 64)
+	let context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")
 	let sized = MossImage(logger, steps.Shape("noise").Last)
-	sized.Compared(moss, Safetensors(dumps + "/step0.safetensors"))
-	let sampled = sized.Sampled(moss, Euler(8, 5), steps, context)
+	let first = Safetensors(dumps + "/step0.safetensors", 64)
+	let sampled = sized.Generated(model, lora, Euler(8, 5), steps, first, context)
 	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
 	sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png")
+Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers
+	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model, lora)
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	Compared(moss, step)
+	Sampled(moss, euler, steps, context)
 Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number
 	MossImage(Logger, 2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
 	let before = Process.Elapsed
