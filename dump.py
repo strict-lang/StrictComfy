@@ -13,7 +13,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "tinymoss", "tinyint8"])
+arguments.add_argument("model", choices=["moss", "tinymoss", "tinyint8", "tinyvae"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=720)
@@ -249,6 +249,55 @@ def tinymoss():
 	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
 
 
+def tinyvae():
+	"""A tiny Flux2 VAE decoder with ComfyUI's classes (ch 8, ch_mult [1, 2], 1 res block + 1, z_channels 4, GroupNorm
+	with 4 groups instead of 32), random weights named like flux2-vae.safetensors, a 16x3x2 latent and reference.*
+	intermediates of AutoencoderKL.decode in float32 on the CPU, channel last (height, width, channels)."""
+	import comfy.ldm.modules.diffusionmodules.model as model
+	from comfy.ldm.models.autoencoder import AutoencoderKL
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyvae.safetensors")
+	model.Normalize.__defaults__ = (4,)
+	torch.manual_seed(0)
+	config = {"double_z": True, "z_channels": 4, "resolution": 256, "in_channels": 3, "out_ch": 3, "ch": 8, "ch_mult": [1, 2],
+		"num_res_blocks": 1, "attn_resolutions": [], "dropout": 0.0, "batch_norm_latent": True}
+	vae = AutoencoderKL(ddconfig=config, embed_dim=4).eval()
+	weights = {}
+	for name, value in vae.state_dict().items():
+		if name.startswith("encoder") or name.startswith("quant_conv") or "num_batches" in name:
+			continue
+		if name.endswith("running_var"):
+			value = 0.5 + torch.rand(value.shape)
+		elif name.endswith("running_mean"):
+			value = 0.5 * torch.randn(value.shape)
+		elif "norm" in name and name.endswith("weight"):
+			value = 1 + 0.2 * torch.randn(value.shape)
+		elif name.endswith("weight"):
+			value = torch.randn(value.shape) * (value[0].numel() ** -0.5)
+		else:
+			value = 0.1 * torch.randn(value.shape)
+		weights[name] = value.float()
+	vae.load_state_dict(weights, strict=False)
+	weights = {("decoder." + name if name.startswith("post_quant") else name): value for name, value in weights.items()}
+	latent = torch.randn(1, 16, 3, 2)
+	references, hooks = {}, []
+
+	def keep(name):
+		def hook(module, args, output):
+			references["reference." + name] = output[0].permute(1, 2, 0).clone()
+		return hook
+	decoder = vae.decoder
+	for name in ("conv_in", "mid.block_1.norm1", "mid.block_1", "mid.attn_1", "mid.block_2", "up.1.block.0", "up.1.upsample",
+		"up.0.block.0", "norm_out"):
+		hooks.append(decoder.get_submodule(name).register_forward_hook(keep(name)))
+	hooks.append(vae.post_quant_conv.register_forward_hook(keep("post_quant_conv")))
+	hooks.append(vae.post_quant_conv.register_forward_pre_hook(lambda module, args: references.update({"reference.z": args[0][0].permute(1, 2, 0).clone()})))
+	with torch.no_grad():
+		decoded = vae.decode(latent)
+	references["reference.output"] = decoded[0].permute(1, 2, 0)
+	references["reference.image"] = ((decoded + 1) / 2).clamp(0, 1)[0].permute(1, 2, 0)
+	saved({**weights, "latent": latent, **references}, out)
+
+
 def tinyint8():
 	"""An int8 matrix with an F32 scale per row and its comfy_quant bytes, for the generic tests in Strict/NeuralNetworks."""
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Strict", "NeuralNetworks", "tinyint8.safetensors")
@@ -258,4 +307,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "tinymoss": tinymoss, "tinyint8": tinyint8}[options.model]()
+	{"moss": moss, "tinymoss": tinymoss, "tinyint8": tinyint8, "tinyvae": tinyvae}[options.model]()
