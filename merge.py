@@ -25,15 +25,27 @@ def rotated(rows, group):
 def delta(files, name):
 	total = None
 	for file, strength in files:
-		prefix = "diffusion_model." + name + "."
-		if prefix + "lora_down.weight" not in file.keys():
-			continue
-		down = file.get_tensor(prefix + "lora_down.weight").float().to(device)
-		up = file.get_tensor(prefix + "lora_up.weight").float().to(device)
-		alpha = float(file.get_tensor(prefix + "alpha")) if prefix + "alpha" in file.keys() else down.shape[0]
-		part = strength * alpha / down.shape[0] * (up @ down)
-		total = part if total is None else total + part
+		part = product(file, "diffusion_model." + name + ".")
+		parent, own = name.rsplit(".", 1)
+		if part is None and own in ("q", "k", "v"):
+			fused = product(file, "diffusion_model." + parent + ".qkv.")
+			if fused is not None:
+				third = fused.shape[0] // 3
+				part = fused["qkv".index(own) * third:("qkv".index(own) + 1) * third]
+		if part is not None:
+			total = strength * part if total is None else total + strength * part
 	return total
+
+
+def product(file, prefix):
+	"""alpha / rank · up · down of one LoRA module in kohya (lora_down/lora_up) or PEFT (lora_A/lora_B) naming, alpha missing = rank."""
+	for down_name, up_name in (("lora_down", "lora_up"), ("lora_A", "lora_B")):
+		if prefix + down_name + ".weight" in file.keys():
+			down = file.get_tensor(prefix + down_name + ".weight").float().to(device)
+			up = file.get_tensor(prefix + up_name + ".weight").float().to(device)
+			alpha = float(file.get_tensor(prefix + "alpha")) if prefix + "alpha" in file.keys() else down.shape[0]
+			return alpha / down.shape[0] * (up @ down)
+	return None
 
 
 source = safe_open(model, "pt")
