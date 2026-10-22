@@ -46,9 +46,8 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Number
 	let size = queries.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
 	let heads = width / size
-	let scales = Scales(combined, size)
-	let rotatedQueries = Rotated(combined, 0, width, queries, rotation, scales)
-	let rotatedKeys = Rotated(combined, width, width, keys, rotation, scales)
+	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
+	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
 	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
 	Attention(rotatedQueries, rotatedKeys, values, heads, heads, size, 1, false).Merged
 FedForward(normed Numbers) Numbers
@@ -102,19 +101,16 @@ Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
 	let squashed = 4 * (2 / (1 + (0 - gate / 2).Exponential) - 1) / (1 + (0 - gate).Exponential)
 	squashed * 25 * (2 / (1 + (0 - hidden * 2 / 25).Exponential) - 1)
-Scales(input Numbers, width Number) Numbers
-	MossBlock.Scales((3, 4, 0, 1), 2)(1).IsNearlyEqual(1.414213)
-	for input.Length / width
-		Qwen3Block.HeadScale(input, index * width, width, Qwen3Block.Epsilon)
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) Numbers
-	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1), (0.2828427, 2, 1)).First.IsNearlyEqual(-1.414214)
+Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) Numbers
+	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
 	let size = weights.Length
 	let half = size / 2
 	for combined.Length / 3
-		let token = (index / width).Floor
-		let within = index % size
-		let first = index - within + token * 2 * width + start
+		let head = (index / size).Floor
+		let token = (head * size / width).Floor
+		let within = index - head * size
+		let first = head * size + token * 2 * width + start
 		let partner = within < half then within + half else within - half
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
 		let other = combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)
-		(own + other) * scales((first / size).Floor)
+		(own + other) * Qwen3Block.HeadScale(combined, first, size, Qwen3Block.Epsilon)
