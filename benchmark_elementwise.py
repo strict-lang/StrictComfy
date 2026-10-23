@@ -81,6 +81,7 @@ for directory in sys.argv[1:]:
 
 kernels = ["MossBlock_Activated_2", "MossBlock_Gated_4", "Batch_Columns_4", "MossBlock_Rotated_5", "MossBlock_Modulated_4"]
 kernels = [kernel for kernel in kernels if os.getenv("STRICT_BENCH_KERNEL", "") in kernel]
+kernels = [kernel for kernel in kernels if all("@" + kernel + "_gpu" in source for _, _, source in loaded)]
 for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 	width = 8192 if "Activated" in kernel else 3072
 	full_count = 3740 * width
@@ -126,6 +127,15 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				modulation = tensor("modulation", (3, width))
 				expected = input_data + update * modulation[2].repeat(rows)[:count]
 				output_dtype, result_bits = torch.float32, 32
+			elif "Modulated" in kernel:
+				number("part", 0)
+				rows = count // width
+				input_data = tensor("input", (rows, width))
+				weights = tensor("weights", width)
+				modulation = tensor("modulation", (6, width))
+				scale = (input_data.square().mean(dim=1, keepdim=True) + 1e-6).rsqrt()
+				expected = (input_data * scale * weights * (1 + modulation[1]) + modulation[0]).flatten().bfloat16()
+				output_dtype, result_bits = torch.bfloat16, 17
 			elif "Rotated" in kernel:
 				number("size", 128)
 				number("half", 64)
