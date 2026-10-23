@@ -18,7 +18,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae"])
+arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae", "tinyh3audio"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=None)
@@ -667,6 +667,54 @@ def tinyh3vae():
 	saved({**weights, "reference.latent": latent[0], "reference.pixels": pixels[0], "reference.tile": tile[0]}, out)
 
 
+def tinyh3audio():
+	"""H3's audio VAE decoder with ComfyUI's own classes (MiniMaxH3AudioVAE.decode: latent normalization, dec_in_proj, BigVGAN with
+	the 800x upsampling, anti-aliased SnakeBeta AMP blocks, clamp) at latent width 64 and decoder width 128 (64 channels after the
+	first upsample down to 1), random float weights named like minimax_h3_audio_vae_fp32.safetensors, its Kaiser filters, a
+	32x2x4 latent decoded on the CPU: reference.latent, reference.waveform [2, 3200] (decode), reference.normalized (divided by
+	5 standard deviations at least 1 like vae_decode_audio) and the first stereo channel after dec_in_proj, conv_pre, ups.0,
+	resblocks.0.activations.0, resblocks.0, the first stage (the mean of its three AMP blocks) and conv_post (before
+	the clamp, conv_post scaled to a standard deviation of 0.3)."""
+	import comfy.ldm.minimax.audio_vae as audio
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyh3audio.safetensors")
+	torch.manual_seed(0)
+	vae = audio.MiniMaxH3AudioVAE(latent_dim=64, decoder_dim=128)
+	weights = {}
+	for name, value in vae.state_dict().items():
+		if name.startswith(("encoder.", "pre_block.", "mean_proj.", "logs_proj.")):
+			continue
+		if name.endswith("filter"):
+			weights[name] = value.float()
+		elif name.startswith("latents_"):
+			weights[name] = (name == "latents_std") + 0.3 * torch.randn(value.shape)
+		elif name.endswith((".alpha", ".beta")):
+			weights[name] = 0.3 * torch.randn(value.shape)
+		elif name.endswith(".bias"):
+			weights[name] = 0.05 * torch.randn(value.shape)
+		else:
+			fan_in = value.shape[1] * value.shape[2] if "ups." not in name else value.shape[0] * value.shape[2] // 5
+			weights[name] = torch.randn(value.shape) * fan_in ** -0.5
+	missing = vae.load_state_dict(weights, strict=False).missing_keys
+	assert all(name.startswith(("encoder.", "pre_block.", "mean_proj.", "logs_proj.")) for name in missing), missing
+	decoder, stages = vae.decoder, {}
+
+	def kept(name, output):
+		stages.setdefault(name, output[0].clone())
+	for name, module in (("dec_in_proj", vae.dec_in_proj), ("conv_pre", decoder.conv_pre), ("ups.0", decoder.ups[0][0]),
+			("resblocks.0.activations.0", decoder.resblocks[0].activations[0]), ("resblocks.0", decoder.resblocks[0]), ("conv_post", decoder.conv_post)):
+		module.register_forward_hook(lambda module, inputs, output, name=name: kept(name, output))
+	latent = torch.randn(1, 32, 2, 4)
+	with torch.no_grad():
+		vae.decode(latent)
+		weights["decoder.conv_post.weight"] = decoder.conv_post.weight.mul_(0.3 / stages["conv_post"].std()).clone()
+		stages.clear()
+		waveform = vae.decode(latent)
+		first = sum(decoder.resblocks[index](stages["ups.0"][None]) for index in range(3)) / 3
+	deviation = max(waveform.std().item() * 5, 1)
+	tensors = {**weights, "reference.latent": latent[0], "reference.waveform": waveform[0], "reference.normalized": waveform[0] / deviation}
+	saved({**tensors, **{"reference." + name: value for name, value in stages.items()}, "reference.stage.0": first[0]}, out)
+
+
 def tinyint8():
 	"""An int8 matrix with an F32 scale per row and its comfy_quant bytes, for the generic tests in Strict/NeuralNetworks."""
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Strict", "NeuralNetworks", "tinyint8.safetensors")
@@ -676,4 +724,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae}[options.model]()
+	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae, "tinyh3audio": tinyh3audio}[options.model]()
