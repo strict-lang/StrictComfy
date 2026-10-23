@@ -75,6 +75,7 @@ bld/
 !tinyvae.safetensors
 !tinyh3.safetensors
 !tinyh3vae.safetensors
+!tinyh3audio.safetensors
 prompt.txt
 Plan.md
 benchmark.py
