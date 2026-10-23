@@ -48,8 +48,7 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Number
 	let heads = width / size
 	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
 	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
-	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
-	Attention(rotatedQueries, rotatedKeys, values, heads, heads, size, 1, false).Merged
+	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width).Merged
 FedForward(normed Numbers) Numbers
 	Tiny.FedForward(Input).Length is 4864
 	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
