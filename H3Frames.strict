@@ -1,0 +1,28 @@
+has logger
+constant Encoding = " -c:v libx265 -crf 18 -preset medium -pix_fmt yuv420p -tag:v hvc1 -x265-params log-level=error -c:a aac -b:a 192k -shortest "
+Run(dumps Text, model Text)
+	let steps = Safetensors(dumps + "/steps.safetensors", 32)
+	let started = Process.Elapsed
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(model, 32)), H3Vae.Real.tile, H3Vae.Real.overlap)
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	let name = "video." + (steps.Values("sigmas").Length - 1)
+	let before = Process.Elapsed
+	let frames = vae.Decoded(steps.Values(name), Safetensors.Part(steps.Shape(name), 1, 3, 1))
+	let psnr = FluxImage(logger).Psnr(frames, Scaled(steps.Values("frames")))
+	logger.Log("decoded in " + (Process.Elapsed - before).Round(1) + " s, PSNR " + psnr.Round(2) + " dB")
+	File(dumps + "/strict-vae.rgb").Write(Bytes(frames))
+	let result = Process.RunTool("ffmpeg", Arguments(steps.Shape("frames"), dumps))
+	logger.Log(result.exitCode is 0 then "wrote " + dumps + "/strict-vae.mp4" else "ffmpeg failed: " + result.error)
+Scaled(bytes Numbers) Numbers
+	H3Frames(Logger).Scaled((0, 255)) is (0, 1)
+	for bytes
+		value / 255
+Bytes(frames Numbers) Bytes
+	H3Frames(Logger).Bytes((0, 0.5, 1))(1) is Byte(128)
+	for frames
+		Byte((value * 255).Round)
+Arguments(shape Numbers, dumps Text) Text
+	H3Frames(Logger).Arguments((2, 4, 6, 3), "out").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
+	H3Frames(Logger).Arguments((2, 4, 6, 3), "out").EndsWith(" -i out/audio.wav" + Encoding + "out/strict-vae.mp4")
+	let input = " -s " + shape(2) + "x" + shape(1) + " -r 24 -i " + dumps + "/strict-vae.rgb -i " + dumps + "/audio.wav"
+	"-y -loglevel error -f rawvideo -pix_fmt rgb24" + input + Encoding + dumps + "/strict-vae.mp4"

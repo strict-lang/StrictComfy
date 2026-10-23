@@ -11,7 +11,7 @@ constant Model = Safetensors("tinyh3.safetensors")
 constant Tiny = H3Block.Loaded(Model, "blocks.0.")
 constant Input = Model.Values("reference.blocks.0.input")
 constant Qkv = Model.Values("reference.blocks.0.attn.qkv_proj")
-constant Layered = Tiny.Output(Input, Model.Values("reference.t_emb"), H3Layout.Tiny.Rows(0.75), H3Layout.Turning)
+constant Layered = Tiny.Output(Input, Model.Values("reference.t_emb"), H3Layout.Tiny.Rows(0.75), Rope.Turning)
 constant Epsilon = 0.00001
 Loaded(model Safetensors, prefix Text) H3Block
 	Tiny.attention.Length is 1536
@@ -42,43 +42,45 @@ Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers) Numbers
 	let modulation = adaln.Sums(curves)
 	let normed = Modulated(input, attentionNorm, modulation, starts, 0)
 	let attended = Gated(input, Attended(normed, rotation), modulation, starts, 2)
-	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, starts, 3)), modulation, starts, 5)
+	let fed = FedForward(Modulated(attended, feedNorm, modulation, starts, 3), H3Layout.Chunk)
+	Gated(attended, fed, modulation, starts, 5)
 Refined(input Numbers, rotation Numbers) Numbers
-	H3Block.Loaded(Model, "token_refiner.blocks.0.").Refined(Input, H3Layout.Tiny.Unturned).Length is 4352
+	H3Block.Loaded(Model, "token_refiner.blocks.0.").Refined(Input, Rope.Turning).Length is 4352
 	let combined = Batch(attention, MossLora.Unbiased).Sums(Normalized(input, attentionNorm))
-	let attended = MossText.Added(input, Batch(output, MossLora.Unbiased).Sums(Merged(combined, rotation)))
+	let attended = MossText.Added(input, Batch(output, MossLora.Unbiased).Sums(Heads(combined, rotation).Merged))
 	let expanded = Batch(expansion, MossLora.Unbiased).Sums(Normalized(attended, feedNorm))
 	MossText.Added(attended, Batch(reduction, MossLora.Unbiased).Sums(Activated(expanded, reduction.First.Length)))
 Attended(normed Numbers, rotation Numbers) Numbers
-	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), H3Layout.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
-	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), H3Layout.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
-	let merged = Merged(Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), rotation)
+	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
+	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
+	let merged = Heads(Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), rotation).Merged
 	Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated)
-Merged(combined Numbers, rotation Numbers) Numbers
-	Tiny.Merged(Qkv, H3Layout.Turning)(0).IsNearlyEqual(-0.519531, 0.02)
-	Tiny.Merged(Qkv, H3Layout.Turning)(4611).IsNearlyEqual(-0.022339, 0.02)
-	Tiny.Merged(Qkv, H3Layout.Turning)(8703).IsNearlyEqual(0.490234, 0.02)
+Heads(combined Numbers, rotation Numbers) Attention
+	Tiny.Heads(Qkv, Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
+	Tiny.Heads(Qkv, Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)
+	Tiny.Heads(Qkv, Rope.Turning).Merged(8703).IsNearlyEqual(0.490234, 0.02)
 	let size = queryNorm.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
 	let scales = Qwen3Block.Scales(combined, size, Epsilon)
-	let queries = Rotated(combined, 0, width, queryNorm, rotation, scales)
-	let keys = Rotated(combined, width, width, keyNorm, rotation, scales)
+	let queries = Rope.Video.Rotated(combined, 0, width, queryNorm, rotation, scales)
+	let keys = Rope.Video.Rotated(combined, width, width, keyNorm, rotation, scales)
 	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
-	Attention(queries, keys, values, width / size, width / size, size, 1, false).Merged
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) Numbers
-	Tiny.Rotated(Qkv, 0, 512, Tiny.queryNorm, H3Layout.Turning, Qkv).Length is 8704
-	let size = weights.Length
-	for combined.Length / 3
-		let token = (index / width).Floor
-		let within = index % size
-		let first = index - within + token * 2 * width + start
-		let paired = within < 2 * H3Layout.Half then (within + H3Layout.Half) % (2 * H3Layout.Half) else within
-		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
-		let other = combined(first + paired) * weights(paired) * rotation((token * 2 + 1) * size + within)
-		(own + other) * scales((first / size).Floor)
-FedForward(normed Numbers) Numbers
-	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"))(0).IsNearlyEqual(0.046875, 0.02)
-	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"))(2309).IsNearlyEqual(-1.125, 0.03)
+	Attention(queries, keys, values, width / size, width / size, size, 1, false)
+FedForward(normed Numbers, chunk Number) Numbers
+	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), H3Layout.Chunk)(2309).IsNearlyEqual(-1.125, 0.03)
+	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), 5)(2309).IsNearlyEqual(-1.125, 0.03)
+	let width = attentionNorm.Length
+	let tokens = normed.Length / width
+	if tokens <= chunk
+		return Fed(normed)
+	mutable fed = List(Number)
+	for ((tokens - 1) / chunk).Floor + 1
+		let first = index * chunk
+		let count = tokens - first < chunk then tokens - first else chunk
+		fed = fed + Fed(Safetensors.Part(normed, first * width, count * width, 1))
+	fed
+Fed(normed Numbers) Numbers
+	Tiny.Fed(Model.Values("reference.blocks.0.mlp.input"))(0).IsNearlyEqual(0.046875, 0.02)
 	let expanded = Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated)
 	let activated = Activated(expanded, reduction.First.Length)
 	Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated)

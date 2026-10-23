@@ -10,7 +10,9 @@ has final H3Final
 constant Tiny = H3.Loaded("tinyh3.safetensors")
 constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Prompt = Model.Values("token_refiner")
-constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny)
+constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number))
+constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4)
+constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"))
 Loaded(path Text) H3
 	Tiny.blocks.Length is 2
 	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
@@ -37,8 +39,7 @@ Named(header Text, prefix Text) Texts
 Refined(context Numbers) Numbers
 	Tiny.Refined(Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
-	let words = context.Length / condition.weights.First.Length
-	let unturned = H3Layout(words, 0, 0, 0, 0).Unturned
+	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
 	mutable hidden = condition.Sums(context)
 	for refiner
 		hidden = value.Refined(hidden, unturned)
@@ -53,7 +54,7 @@ Curves(times Numbers) Numbers
 		let low = place.Floor.Clamp(0, grid - 2)
 		curve(low * width + index % width).Lerp(curve((low + 1) * width + index % width), place - low)
 Patched(latent Numbers, layout H3Layout) Numbers
-	Tiny.Patched((1, 2, 5, 6, 3, 4, 7, 8), H3Layout(0, 0, 1, 2, 4)) is (1, 2, 3, 4, 5, 6, 7, 8)
+	Tiny.Patched((1, 2, 5, 6, 3, 4, 7, 8), H3Layout(List(Number), List(Number), 0, 1, 2, 4)) is (1, 2, 3, 4, 5, 6, 7, 8)
 	Tiny.videoPatches.Sums(Tiny.Patched(Model.Values("video"), H3Layout.Tiny))(1000).IsNearlyEqual(-0.514158, 0.01)
 	let channels = latent.Length / (layout.frames * layout.height * layout.width)
 	for latent.Length
@@ -64,20 +65,22 @@ Patched(latent Numbers, layout H3Layout) Numbers
 		let plane = (column / 4).Floor * layout.frames + (row / layout.Patches).Floor
 		latent((plane * layout.height + y) * layout.width + x)
 Packed(sound Numbers, layout H3Layout) Numbers
-	Tiny.Packed((1, 3, 2, 4), H3Layout(0, 1, 0, 0, 0)) is (1, 2, 3, 4)
+	Tiny.Packed((1, 3, 2, 4), H3Layout(List(Number), List(Number), 1, 0, 0, 0)) is (1, 2, 3, 4)
 	Tiny.audioPatches.Sums(Tiny.Packed(Model.Values("audio"), H3Layout.Tiny))(700).IsNearlyEqual(-0.413504, 0.01)
 	let channels = sound.Length / (2 * layout.audio)
 	for sound.Length
 		let row = (index / channels).Floor
 		sound((index % channels * 2 + (row / layout.audio).Floor) * layout.audio + row % layout.audio)
-Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout) Numbers
-	Forward(0).IsNearlyEqual(1.007812, 0.05)
+Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers) Numbers
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
+	Keyed(100).IsNearlyEqual(-3.046875, 0.05)
+	Keyed(818).IsNearlyEqual(0.808594, 0.02)
 	let curves = Curves(layout.Times(sigma))
-	let rotation = layout.Rotations(inverse)
+	let rotation = Rope.Video.Table(layout.Positions, inverse, 1)
 	let starts = layout.Rows(sigma)
-	mutable hidden = text + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
+	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
+	mutable hidden = kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
 	for blocks
 		hidden = value.Output(hidden, curves, starts, rotation)
 	final.Output(hidden, curves, layout, sigma)

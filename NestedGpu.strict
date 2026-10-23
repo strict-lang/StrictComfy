@@ -1,0 +1,5 @@
+has number
+Outer(values Numbers) Numbers
+	NestedGpu(0).Outer(Layer.Zeros(40000000)).Length is 20000000
+	for values.Length / 2
+		values(index * 2 + 1) + 1

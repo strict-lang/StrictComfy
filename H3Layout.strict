@@ -1,20 +1,26 @@
-has text Number
+has tags Numbers
+has keyframes Numbers
 has audio Number
 has frames Number
 has height Number
 has width Number
-constant Tiny = H3Layout(3, 3, 2, 4, 4)
-constant Real = H3Layout(31, 207, 37, 60, 104)
+constant Tiny = H3Layout((1, 1, 1), List(Number), 3, 2, 4, 4)
 constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
-constant Turning = Tiny.Rotations(Inverse)
-constant Head = 128
-constant Half = 48
+constant Chunk = 4096
+constant Pinned = 0.999
 constant VideoShift = 12
 constant AudioShift = 3
+Words Number
+	Tiny.Words is 3
+	tags.Length
+Conditions Number
+	Tiny.Conditions is 0
+	H3Layout(Tiny, keyframes = (0, 5)).Conditions is 8
+	keyframes.Length * Patches
 Tokens Number
 	Tiny.Tokens is 17
-	Real.Tokens is 58165
-	text + 2 * audio + frames * Patches
+	H3Layout(Tiny, keyframes = List(Number) + 0).Tokens is 21
+	Words + Conditions + 2 * audio + frames * Patches
 Patches Number
 	Tiny.Patches is 4
 	height * width / 4
@@ -25,31 +31,36 @@ Positions Numbers
 	for Tokens * 3
 		Position((index / 3).Floor, index % 3)
 Position(token Number, axis Number) Number
-	Tiny.Position(1, 0) is 1
 	Tiny.Position(7, 0) is 4
-	Real.Position(445, 1).IsNearlyEqual(3.847128)
-	if token < text
+	H3Layout(Tiny, keyframes = List(Number) + 0).Position(6, 1) is 16
+	H3Layout(Tiny, keyframes = List(Number) + 5).Position(3, 0).IsNearlyEqual(11.333333)
+	H3Layout(Tiny, keyframes = List(Number) + 0).Position(17, 0).IsNearlyEqual(4.666667)
+	if token < Words
 		return axis is 0 then token else 0
-	let row = token - text
-	row < 2 * audio then Heard(row, axis) else Seen(row - 2 * audio, axis)
+	let row = token - Words
+	if row < Conditions
+		return Seen(row % Patches, axis, Words + keyframes((row / Patches).Floor) * 5 / 3)
+	let heard = row - Conditions
+	let seen = heard - 2 * audio
+	heard < 2 * audio then Heard(heard, axis) else Seen(seen % Patches, axis, Words + FrameTime((seen / Patches).Floor))
 Heard(row Number, axis Number) Number
 	Tiny.Heard(3, 0) is 3
 	Tiny.Heard(3, 2) is 16
-	Real.Heard(0, 2).IsNearlyEqual(-5.064979)
+	H3Layout(Tiny, height = 60, width = 104).Heard(0, 2).IsNearlyEqual(-5.064979)
 	let side = row < audio then 0 else width / 2 - 1
-	axis is 0 then text + row % audio else (axis is 1 then 0 else Axis(width, height, side))
-Seen(row Number, axis Number) Number
-	Tiny.Seen(4, 0).IsNearlyEqual(4.666667)
-	Tiny.Seen(3, 1) is 16
-	Tiny.Seen(1, 2) is 16
-	let patch = row % Patches
+	axis is 0 then Words + row % audio else (axis is 1 then 0 else Axis(width, height, side))
+Seen(patch Number, axis Number, time Number) Number
+	Tiny.Seen(0, 0, 4.5) is 4.5
+	Tiny.Seen(3, 1, 0) is 16
+	Tiny.Seen(1, 2, 0) is 16
 	let across = width / 2
 	if axis is 0
-		return text + FrameTime((row / Patches).Floor)
+		return time
 	axis is 1 then Axis(height, width, (patch / across).Floor) else Axis(width, height, patch % across)
 Axis(size Number, other Number, at Number) Number
 	Tiny.Axis(4, 4, 1) is 16
-	Real.Axis(104, 60, 0).IsNearlyEqual(-5.064979)
+	Tiny.Axis(104, 60, 0).IsNearlyEqual(-5.064979)
+	Tiny.Axis(60, 104, 0).IsNearlyEqual(3.847128)
 	let ratio = size / (size * other).SquareRoot
 	(at * ratio * 2 / size + (1 - ratio) / 2) * 32
 FrameTime(frame Number) Number
@@ -57,54 +68,36 @@ FrameTime(frame Number) Number
 	Tiny.FrameTime(1).IsNearlyEqual(1.666667)
 	Tiny.FrameTime(6).IsNearlyEqual(30)
 	(4 * frame - 3 * ((frame + 4) / 5).Floor) * 5 / 3
-Rotations(inverse Numbers) Numbers
-	Turning(3329).IsNearlyEqual(-0.869141)
-	Turning(3505).IsNearlyEqual(0.494564)
-	Turning(3748).IsNearlyEqual(-0.999574)
-	Turning(3812) is 0
-	let positions = Positions
-	for Tokens * 2 * Head
-		let at = index % (2 * Head)
-		let pair = at % Head % Half
-		let position = positions((index / (2 * Head)).Floor * 3 + (pair / inverse.Length).Floor)
-		Turned(at, Degrees(Radians(position * inverse(pair % inverse.Length)) to Degrees))
-Turned(at Number, angle Degrees) Number
-	Tiny.Turned(0, Degrees(60)).IsNearlyEqual(0.5)
-	Tiny.Turned(130, Degrees(30)).IsNearlyEqual(-0.5)
-	Tiny.Turned(180, Degrees(30)).IsNearlyEqual(0.5)
-	Tiny.Turned(100, Degrees(30)) is 1
-	Tiny.Turned(228, Degrees(30)) is 0
-	let within = at % Head
-	if within >= 2 * Half
-		return at < Head then 1 else 0
-	at < Head then angle.Cos else (within < Half then 0 - angle.Sin else angle.Sin)
 Rows(sigma Number) Numbers
 	Tiny.Rows(0.75)(2) is 6
 	Tiny.Rows(0.75)(3) is 30
-	Tiny.Rows(0.75)(16) is 0
 	Tiny.Rows(1)(3) is 12
-	let heard = (Times(sigma).Length * 3 - 1) * 6
+	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4).Rows(0.75)(1) is 0
+	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4).Rows(0.75)(3) is 36
+	let times = Times(sigma)
+	let seen = times.Index(1 - sigma) * 3
+	let heard = (times.Index(1 - AudioSigma(sigma)) * 3 + 2) * 6
+	let pinned = times.Index(1 - sigma > Pinned then 1 - sigma else Pinned) * 18
 	for Tokens
-		index < text then 6 else (index < text + 2 * audio then heard else 0)
+		let row = index - Words - Conditions
+		index < Words then (seen + tags(index)) * 6 else (row < 0 then pinned else (row < 2 * audio then heard else seen * 6))
 Finals(sigma Number) Numbers
 	Tiny.Finals(0.75)(3) is 2
 	Tiny.Finals(0.75)(16) is 0
 	Tiny.Finals(1)(3) is 0
-	let heard = (Times(sigma).Length - 1) * 2
+	let times = Times(sigma)
+	let heard = times.Index(1 - AudioSigma(sigma)) * 2
+	let seen = times.Index(1 - sigma) * 2
 	for Tokens
-		(index >= text) and (index < text + 2 * audio) then heard else 0
-Unturned Numbers
-	Tiny.Unturned.Length is 4352
-	Tiny.Unturned(129) is 0
-	Tiny.Unturned(257) is 1
-	for Tokens * 2 * Head
-		index % (2 * Head) < Head then 1 else 0
+		let row = index - Words - Conditions
+		(row >= 0) and (row < 2 * audio) then heard else seen
 Times(sigma Number) Numbers
 	Tiny.Times(0.75)(1).IsNearlyEqual(0.5714286)
 	Tiny.Times(1).Length is 1
-	let times = List(Number) + (1 - sigma)
-	let heard = 1 - AudioSigma(sigma)
-	heard > 1 - sigma then times + heard else times
+	H3Layout(Tiny, keyframes = List(Number) + 0).Times(0.75)(2) is Pinned
+	H3Layout(Tiny, keyframes = List(Number) + 0).Times(1).Length is 2
+	let streams = List(Number) + (1 - sigma) + (1 - AudioSigma(sigma))
+	(keyframes.Length is 0 then streams else streams + (1 - sigma > Pinned then 1 - sigma else Pinned)).Unique.Sorted
 AudioSigma(sigma Number) Number
 	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
 	Tiny.AudioSigma(1) is 1
