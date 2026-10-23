@@ -4,7 +4,7 @@
 
 RTX 3080 10 GB, driver 621.01. User settings: core +82 MHz, memory +255 MHz, voltage slider +8%, power 106% (392.2 W), temperature target 86 C. No settings changed by this test. Both runs used the exact previously validated `production-gemm-fast/MossImage.exe`, merged turbo model, fixed conditioning/noise, 720x1280 and eight Euler steps. This isolates executable changes, but driver and overclock changed together; their individual effects cannot be separated.
 
-| Run | Steps 2-6 mean | Eight-step total |
+| Run | Steps 2-6 mean | Logged step subtotal |
 |---|---:|---:|
 | Earlier driver/settings 1 | 380.6 ms | 2777 ms |
 | Earlier driver/settings 2 | 382.2 ms | 2802 ms |
@@ -38,7 +38,7 @@ This is a design, not an implemented or benchmarked approximation. Exact inferen
 
 For this Moss shape, 3600 image tokens x 3072 channels x eight anchors costs 337.5 MiB at FP32, or 168.75 MiB at BF16, excluding pool rounding and scratch. Estimate remaining VRAM before enabling it. H3 must choose history size from a byte budget. Avoid copying full anchors to CPU each step. CPU should handle only the tiny basis/fit; a generated GPU weighted sum can read resident anchors once and accumulate FP32. Keep the normal compiler/emitter path, without handwritten model-specific CUDA.
 
-Use actual per-evaluation cost. Our eighth logged evaluation takes only 11-12 ms while middle evaluations take about 380 ms; treating all eight as equal overstates or misallocates savings. Let T_full be full evaluation cost, T_predict forecast cost, N_full/N_forecast their counts, and T_fixed loading/encoding/VAE cost. Compare `T_fixed + N_full*T_full + N_forecast*T_predict + cache/validation overhead` with the same complete baseline. Record steady sampling and end-to-end latency separately.
+Use actual completed per-evaluation cost. Correction: the historical eighth-step log of 11-12 ms did not wait for GPU completion because no next-step reference existed. Its remaining work was paid during the final latent comparison. Historical sums in the table above are logged subtotals, not complete sampling times. A completion-aware runner measures the eighth evaluation near the middle-step cost. Let T_full be full evaluation cost, T_predict forecast cost, N_full/N_forecast their counts, and T_fixed loading/encoding/VAE cost. Compare `T_fixed + N_full*T_full + N_forecast*T_predict + cache/validation overhead` with the same complete baseline. Record steady sampling and end-to-end latency separately.
 
 Acceptance matrix: multiple prompts/seeds; text rendering, small objects, hands/faces, difficult compositions; fixed sampler/LoRA/seed comparisons. Record real evaluation counts, latency, peak memory, sampled-feature tail errors, final latent error and image quality. PSNR alone does not establish perceptual quality; include side-by-side review and a perceptual metric when available. For video also assess temporal consistency and audio synchronization. Report median and bad-tail cases, not only the best image. Expose a bounded skip/error budget and measured presets; do not promise a universal percentage quality slider.
 
