@@ -1,0 +1,49 @@
+has moss Moss
+has logger
+has width Number
+has steps Number = 8
+has warmup Number = 8
+has period Number = 2
+has mode Text = "off"
+has history SpectralHistory = SpectralHistory
+has output Numbers = List(Number)
+has forecasts Number = 0
+has cacheBytes Number = 536870912
+constant Tiny = MossSpectrum(Moss.Tiny, Logger, 4, 8, 5)
+constant Primed = MossSpectrum(Tiny, mode = "on", history = SpectralHistory.Pair)
+IsActual(step Number) Boolean
+	Primed.IsActual(4)
+	Primed.IsActual(5) is false
+	Primed.IsActual(6)
+	Primed.IsActual(7)
+	let protected = (step < warmup) or (step >= steps - 1)
+	protected or (history.Ready is false) or ((step - warmup) % period is period - 1)
+Coord(step Number) Number
+	Tiny.Coord(0) is -1
+	Tiny.Coord(7) is 1
+	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
+Advanced(latent Numbers, sigma Number, text Numbers, step Number) MossSpectrum
+	Tiny.Advanced(Moss.Model.Values("reference.x"), 0.75, Moss.Tiny.TextEmbedded(Moss.Context, 3), 0).output.Length is 256
+	if mode is "off"
+		return MossSpectrum(value, output = moss.Output(latent, sigma, text, width))
+	if mode is not in ("on", "shadow")
+		return Error("Unknown Spectrum mode")
+	let vector = moss.TimeEmbedded(sigma)
+	if (mode is "on") and (IsActual(step) is false)
+		return Forecast(vector, step)
+	Measured(latent, text, vector, step)
+Measured(latent Numbers, text Numbers, vector Numbers, step Number) MossSpectrum
+	let image = moss.Features(latent, text, width, vector)
+	let coord = Coord(step)
+	Shadowed(image, coord)
+	if image.Length * 4 * history.maximum > cacheBytes
+		return MossSpectrum(value, output = moss.Head(image, vector), mode = "off", history = SpectralHistory)
+	let next = history.Remembered(coord, image)
+	MossSpectrum(value, output = moss.Head(image, vector), history = next)
+Shadowed(image Numbers, coord Number) None
+	if (mode is "shadow") and history.Ready
+		let error = MossImage(logger).Error(history.Predicted(coord), image)
+		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
+Forecast(vector Numbers, step Number) MossSpectrum
+	let image = history.Predicted(Coord(step))
+	MossSpectrum(value, output = moss.Head(image, vector), forecasts = forecasts + 1)
