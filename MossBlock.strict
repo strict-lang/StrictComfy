@@ -105,11 +105,11 @@ Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation 
 	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
 	let size = weights.Length
 	let half = size / 2
+	let heads = width / size
 	for combined.Length / 3
-		let head = (index / size).Floor
-		let token = (head * size / width).Floor
-		let within = index - head * size
-		let first = head * size + token * 2 * width + start
+		let token = ((index / size).Floor / heads).Floor
+		let within = index % size
+		let first = index - within + token * 2 * width + start
 		let partner = within < half then within + half else within - half
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
 		let other = combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)
