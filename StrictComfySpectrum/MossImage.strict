@@ -1,0 +1,72 @@
+has logger
+has width Number = 45
+constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
+constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
+Run(dumps Text, model Text, lora Text, vae Text)
+	let steps = Safetensors(dumps + "/steps.safetensors", 64)
+	let context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")
+	let sized = MossImage(logger, steps.Shape("noise").Last)
+	let first = Safetensors(dumps + "/step0.safetensors", 64)
+	let sampled = sized.Generated(model, lora, Euler(8, 5), steps, first, context)
+	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
+	sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png")
+Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers
+	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model, lora)
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	Compared(moss, step)
+	Sampled(moss, euler, steps, context)
+Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number
+	MossImage(Logger, 2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
+	let before = Process.Elapsed
+	let image = decoder.Decoded(latent, width)
+	let psnr = FluxImage(logger).Psnr(image, steps.Values("image"))
+	logger.Log("decoded in " + ((Process.Elapsed - before) * 1000).Round + " ms, PSNR " + psnr.Round(2) + " dB")
+	let shape = steps.Shape("image")
+	if path is not ""
+		ImageSaver(path).Save(Image(Size(shape(2), shape(1)), FluxImage(logger).Colors(image)))
+	psnr
+Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers
+	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Reference, Moss.Context).Length is 256
+	mutable latent = steps.Values(steps.Entry("x.0") is "" then "x" else "x.0")
+	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
+	let sigmas = euler.Sigmas
+	for euler.steps
+		let before = Process.Elapsed
+		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), text, width), index)
+		MossTiming(logger).Measured(index, before, latent, steps)
+	latent
+Compared(moss Moss, step Safetensors) Number
+	MossImage(Logger, 4).Compared(Moss.Tiny, Reference) < 0.05
+	let context = step.Values("context")
+	let vector = moss.TimeEmbedded(step.Values("timestep").First)
+	let modulation = moss.blockModulation.Sums(vector)
+	logger.Log("time embedding error " + Error(vector, step.Values("time_embedding")))
+	logger.Log("modulation error " + Error(modulation, step.Values("shared_block_modulation")))
+	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
+	let video = moss.video.Sums(Moss.Transposed(step.Values("x"), moss.video.weights.First.Length))
+	logger.Log("text embedder error " + Error(text, step.Values("text_embedder")))
+	logger.Log("video embedder error " + Error(video, step.Values("video_embedder")))
+	Layered(moss, step, video + text, modulation)
+Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number
+	MossImage(Logger, 4).Layered(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
+	let text = step.Values("context").Length / moss.textProjection.weights.First.Length
+	let image = hidden.Length / moss.finalNorm.Length - text
+	let rotation = MossBlock.Rotations(image / width, width, text, 128)
+	mutable state = hidden
+	mutable error = 0
+	for moss.layers
+		state = value.Output(state, modulation, rotation)
+		error = Error(state, step.Values("layers." + index))
+		logger.Log("layer " + index + " error " + error)
+	error
+Error(values Numbers, expected Numbers) Number
+	MossImage(Logger).Error((1, 2), (1, 2)) is 0
+	MossImage(Logger).Error((2, 0), (1, 0)) is 1
+	mutable difference = 0
+	mutable size = 0
+	for expected
+		difference = difference + (values(index) - value) * (values(index) - value)
+		size = size + value * value
+	(difference / size).SquareRoot

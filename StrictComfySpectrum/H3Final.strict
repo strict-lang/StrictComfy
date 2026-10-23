@@ -1,0 +1,35 @@
+has norm Numbers
+has modulation Batch
+has video Batch
+has audio Batch
+constant Tiny = H3Final.Loaded(Safetensors("tinyh3.safetensors"))
+constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
+Loaded(model Safetensors) H3Final
+	Tiny.video.biases.Length is 96
+	let final = Safetensors(model.path, 32, model.prefix + "final_layer.")
+	let modulated = MossText.Dense(final, "adaln_proj.linear")
+	H3Final(final.Values("norm.weight"), modulated, MossText.Dense(final, "video_out"), MossText.Dense(final, "audio_out"))
+Output(hidden Numbers, curves Numbers, layout H3Layout, sigma Number) Numbers
+	Tiny.Output(Model.Values("blocks.1"), Model.Values("t_emb"), H3Layout.Tiny, 0.75)(100).IsNearlyEqual(-2.90625, 0.05)
+	Tiny.Output(Model.Values("blocks.1"), Model.Values("t_emb"), H3Layout.Tiny, 0.75)(818).IsNearlyEqual(0.773438, 0.05)
+	let normed = H3Block.Modulated(hidden, norm, modulation.Sums(curves), layout.Finals(sigma), 0)
+	let first = (layout.Words + layout.Conditions) * norm.Length
+	let count = 2 * layout.audio * norm.Length
+	let seen = Unpatched(video.Sums(Safetensors.Part(normed, first + count, normed.Length - first - count, 1)), layout)
+	let heard = Unpacked(audio.Sums(Safetensors.Part(normed, first, count, 1)), layout)
+	for seen + heard
+		0 - value
+Unpatched(rows Numbers, layout H3Layout) Numbers
+	Tiny.Unpatched((1, 2, 3, 4, 5, 6, 7, 8), H3Layout(List(Number), List(Number), 0, 1, 2, 4)) is (1, 2, 5, 6, 3, 4, 7, 8)
+	let channels = rows.Length / (layout.frames * layout.height * layout.width)
+	for rows.Length
+		let x = index % layout.width
+		let y = (index / layout.width).Floor % layout.height
+		let plane = (index / (layout.width * layout.height)).Floor
+		let row = plane % layout.frames * layout.Patches + (y / 2).Floor * (layout.width / 2) + (x / 2).Floor
+		rows((row * channels + (plane / layout.frames).Floor) * 4 + y % 2 * 2 + x % 2)
+Unpacked(rows Numbers, layout H3Layout) Numbers
+	Tiny.Unpacked((1, 2, 3, 4), H3Layout(List(Number), List(Number), 1, 0, 0, 0)) is (1, 3, 2, 4)
+	let channels = rows.Length / (2 * layout.audio)
+	for rows.Length
+		rows(index % (2 * layout.audio) * channels + (index / (2 * layout.audio)).Floor)
