@@ -2,6 +2,9 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## Driver/overclock check and acceleration research (2026-10-23)
+Driver 621.01 with user settings core +82 MHz, memory +255 MHz, voltage slider +8%, power 106%, temp target 86 C: two runs of the identical validated Moss executable averaged 379.6/379.0 ms for steps 2-6, with identical errors and PNG hashes. No sampled thermal throttle; peak core 66.12 C. The approximately 0.55% timing difference from the earlier settings is within observed variation; driver and overclock effects are not separated. Evidence: `D:/StrictDumps/moss-driver621-oc/summary.json`. [InferenceAcceleration.md](InferenceAcceleration.md) assesses Spectrum-MOSS, concrete Strict integration/quality tests, existing Flash/MTP/MoE results, and Next-Concept Modeling. No approximate inference path has been enabled.
+
 ## Latest completed change: cached uniform-scale GEMM (2026-10-23)
 Strict `43df39f6` implements a separate f32-input GEMM entry that removes the mixed-scale fallback only after the existing row-upload scan has proven every row uniform. Cache kind 4 records that proof and remains compatible with ordinary row lookups (kind 2). Cold, uncached, small and mixed-scale matrices keep the original entry. Float64 entry remains unchanged. Kernel math, tiling, MMA order and quantization are unchanged; no dependency was added. Diagnostic reordering of the second operand load was slower and rejected.
 
