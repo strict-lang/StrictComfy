@@ -1,0 +1,29 @@
+has logger
+constant Expected = Safetensors("tinyvae.safetensors", 32, "reference.").Values("image")
+Run(dumps Text, model Text)
+	let decoder = FluxDecoder.Loaded(model, 32)
+	let steps = Safetensors(dumps + "/steps.safetensors")
+	logger.Log("loaded in " + Process.Elapsed.Round(2) + " s")
+	let latent = steps.Values("latent")
+	let width = steps.Shape("latent")(3)
+	Decoded(decoder, latent, width, steps.Values("image"), "decoded")
+	let image = Decoded(decoder, latent, width, steps.Values("image"), "decoded again")
+	let shape = steps.Shape("image")
+	ImageSaver(dumps + "/strict.png").Save(Image(Size(shape(2), shape(1)), Colors(image)))
+Decoded(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, label Text) Numbers
+	FluxImage(Logger).Decoded(FluxDecoder.Tiny, FluxDecoder.Latent, 2, Expected, "decoded").Length is 288
+	let before = Process.Elapsed
+	let image = decoder.Decoded(latent, width)
+	let psnr = Psnr(image, expected)
+	logger.Log(label + " in " + ((Process.Elapsed - before) * 1000).Round + " ms, PSNR " + psnr.Round(2) + " dB")
+	image
+Psnr(values Numbers, expected Numbers) Number
+	FluxImage(Logger).Psnr((0.5, 1), (0.5, 0.9)).IsNearlyEqual(23.0103)
+	mutable sum = 0
+	for expected
+		sum = sum + (values(index) - value) * (values(index) - value)
+	10 * (expected.Length / sum).Logarithm / 10.Logarithm
+Colors(image Numbers) List(ColorValue)
+	FluxImage(Logger).Colors((0, 0.5, 1, 1, 1, 1)) is (ColorValue(0, 0.5, 1), ColorValue(1, 1, 1))
+	for image.Length / 3
+		ColorValue(image(index * 3), image(index * 3 + 1), image(index * 3 + 2))

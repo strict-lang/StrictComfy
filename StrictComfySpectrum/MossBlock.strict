@@ -1,0 +1,115 @@
+has attentionNorm Numbers
+has feedNorm Numbers
+has queryNorm Numbers
+has keyNorm Numbers
+has attention List(Numbers)
+has output List(Numbers)
+has expansion List(Numbers)
+has reduction List(Numbers)
+has loras List(MossLora)
+constant Model = Safetensors("tinymoss.safetensors")
+constant Tiny = MossBlock.Loaded(Model, "layers.0.", "")
+constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
+constant Modulation = Model.Values("reference.shared_block_modulation")
+constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
+constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
+Loaded(model Safetensors, prefix Text, lora Text) MossBlock
+	Tiny.attention.Length is 768
+	Tiny.expansion.Length is 512
+	let rows = Safetensors(model.path, 32, prefix + "proj.")
+	let norms = Safetensors(model.path, 32, prefix)
+	let projections = rows.Quantized("q") + rows.Quantized("k") + rows.Quantized("v")
+	let queried = norms.Values("q_norm.weight")
+	let keyed = norms.Values("k_norm.weight")
+	let first = norms.Values("norm1.weight")
+	let second = norms.Values("norm2.weight")
+	let expanded = rows.Quantized("ffn_up_gate")
+	let tuned = MossLora.Layer(lora, prefix)
+	MossBlock(first, second, queried, keyed, projections, rows.Quantized("o"), expanded, rows.Quantized("ffn_down"), tuned)
+Heads Number
+	Tiny.Heads is 2
+	attention.Length / 3 / queryNorm.Length
+Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
+	Layered(0).IsNearlyEqual(-0.125, 0.03)
+	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
+	Layered(4863).IsNearlyEqual(0.7109, 0.03)
+	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
+	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, 2)
+	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
+Attended(normed Numbers, rotation Numbers) Numbers
+	Tiny.Attended(Input, Rotation).Length is 4864
+	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let merged = Merged(combined, rotation, queryNorm, keyNorm)
+	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
+Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
+	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
+	let size = queries.Length
+	let width = combined.Length / (rotation.Length / 2 / size) / 3
+	let heads = width / size
+	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
+	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
+	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width).Merged
+FedForward(normed Numbers) Numbers
+	Tiny.FedForward(Input).Length is 4864
+	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let activated = Activated(expanded, reduction.First.Length)
+	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated), activated)
+Activated(expanded Numbers, width Number) BFloat16s
+	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
+	for expanded.Length / 2
+		let first = (index / width).Floor * 2 * width + index % width
+		Situ(expanded(first), expanded(first + width))
+Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloat16s
+	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
+	let width = weights.Length
+	for input.Length
+		let channel = index % width
+		let scale = Qwen3Block.HeadScale(input, (index / width).Floor * width, width, Qwen3Block.Epsilon)
+		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
+		input(index) * factor + modulation(part * width + channel)
+Gated(input Numbers, update Numbers, modulation Numbers, part Number) Numbers
+	MossBlock(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 2, 3), 1) is (7, 14)
+	let width = attentionNorm.Length
+	for input.Length
+		input(index) + update(index) * modulation(part * width + index % width)
+Rotations(height Number, width Number, text Number, size Number) Numbers
+	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
+	MossBlock.Rotations(4, 4, 3, 128)(16).IsNearlyEqual(-0.9899925)
+	MossBlock.Rotations(4, 4, 3, 128)(144).IsNearlyEqual(-0.14112)
+	MossBlock.Rotations(4, 4, 3, 128)(208).IsNearlyEqual(0.14112)
+	MossBlock.Rotations(4, 4, 3, 128)(17).IsNearlyEqual(-0.1159661)
+	MossBlock.Rotations(4, 4, 3, 128)(17 * 256 + 16).IsNearlyEqual(0.5403023)
+	for (height * width + text) * 2 * size
+		let at = index % (2 * size)
+		let pair = at % (size / 2)
+		let position = Position((index / (2 * size)).Floor, (pair / (size / 8)).Floor, height, width, text)
+		let angle = Degrees(Radians(position * 10000 ^ (-(pair % (size / 8)) / (size / 8))) to Degrees)
+		at < size then angle.Cos else (at < size * 3 / 2 then 0 - angle.Sin else angle.Sin)
+Position(token Number, axis Number, height Number, width Number, text Number) Number
+	MossBlock.Position(0, 2, 4, 4, 3) is -1.5
+	MossBlock.Position(17, 1, 4, 4, 3) is 1
+	MossBlock.Position(17, 3, 4, 4, 3) is 0
+	MossBlock.Position(6, 3, 4, 4, 3) is 0.5
+	let image = token < height * width
+	let centered = axis is 2 then (token / width).Floor - (height - 1) / 2 else token % width - (width - 1) / 2
+	axis is 1 then (image then text else token - height * width) else (axis is 0 or image is false then 0 else centered)
+Situ(hidden Number, gate Number) Number
+	MossBlock.Situ(0, 1) is 0
+	MossBlock.Situ(1, 0) is 0
+	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
+	MossBlock.Situ(100, -100).IsNearlyEqual(0)
+	let squashed = 4 * (2 / (1 + (0 - gate / 2).Exponential) - 1) / (1 + (0 - gate).Exponential)
+	squashed * 25 * (2 / (1 + (0 - hidden * 2 / 25).Exponential) - 1)
+Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) Numbers
+	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
+	let size = weights.Length
+	let half = size / 2
+	let heads = width / size
+	for combined.Length / 3
+		let token = ((index / size).Floor / heads).Floor
+		let within = index % size
+		let first = index - within + token * 2 * width + start
+		let partner = within < half then within + half else within - half
+		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
+		let other = combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)
+		(own + other) * Qwen3Block.HeadScale(combined, first, size, Qwen3Block.Epsilon)
