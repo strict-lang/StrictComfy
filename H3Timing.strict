@@ -1,0 +1,16 @@
+has logger
+Run(model Text)
+	let started = Process.Elapsed
+	let decoder = H3Decoder.Loaded(Safetensors(model, 32))
+	logger.Log("loaded " + (Process.Elapsed - started).Round(1))
+	let vae = H3Vae(decoder, 256, 64)
+	let latent = Safetensors("C:/StrictDumps/h3i2v/steps.safetensors", 32).Values("video.8")
+	let window = decoder.Cut(decoder.Denormalized(latent), (37, 52, 30), (0, 7, 0, 52, 0, 30))
+	Timed("tile", decoder.Pixels(decoder.Cut(window, (7, 52, 30), (0, 7, 0, 16, 0, 16)), 7, 16, 16))
+	Timed("tile again", decoder.Pixels(decoder.Cut(window, (7, 52, 30), (0, 7, 16, 16, 0, 16)), 7, 16, 16))
+	let canvas = Timed("canvas", vae.Canvas(window, 52, 30))
+	Timed("finished", vae.Finished(canvas, List(Number), 3, 17))
+Timed(label Text, values Numbers) Numbers
+	H3Timing(Logger).Timed("a", (1)) is (1)
+	logger.Log(label + " " + values.Length + " at " + Process.Elapsed.Round(2))
+	values

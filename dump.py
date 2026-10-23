@@ -1,10 +1,12 @@
 """Reference dumps from ComfyUI's own code for the Strict ports. Run with ComfyUI's python_embeded:
   python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 576 --height 1024 ...], prompt from prompt.txt
   python_embeded\\python.exe dump.py h3 [--out C:\\StrictDumps\\h3] [--image first.png --length 124 ...], t2va or i2v at 480x832
+  python_embeded\\python.exe dump.py h3decode [--out C:\\StrictDumps\\h3]   (H3Video.strict's strict-latent.txt decoded with ComfyUI's VAEs, both as H.265 MP4)
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
   python_embeded\\python.exe dump.py tinyh3     (tinyh3.safetensors here, for H3Block.strict and the other H3 tests)
+  python_embeded\\python.exe dump.py tinyh3vae  (tinyh3vae.safetensors here, for the H3 video VAE decoder)
 """
 import argparse
 import json
@@ -16,7 +18,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "h3", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3"])
+arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=None)
@@ -38,7 +40,7 @@ DEFAULTS = {"moss": {"width": 576, "height": 1024, "dit": "moss-image-sft-dit-in
 		"lora": [r"moss\dmd_turbo_lora.safetensors"], "vae": "flux2-vae.safetensors"},
 	"h3": {"width": 480, "height": 832, "dit": "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors",
 		"te": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "lora": [], "vae": "minimax_h3_video_vae_int8_convrot.safetensors"}}
-for key, value in DEFAULTS["h3" if options.model == "h3" else "moss"].items():
+for key, value in DEFAULTS["h3" if options.model.startswith("h3") else "moss"].items():
 	if getattr(options, key) is None:
 		setattr(options, key, value)
 prompt_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt.txt")
@@ -181,16 +183,15 @@ def moss():
 
 def h3():
 	"""t2va (i2v with --image) through ComfyUI's own H3 nodes like the UI workflow (MiniMaxH3ImageToVideo, euler, the simple
-	scheduler, BasicGuider): conditioning.safetensors (Qwen3-VL states, token tags, keyframe latents), step0.safetensors (the
+	scheduler, BasicGuider): conditioning.safetensors (Qwen3-VL states, token tags, keyframe latents, their frame indices and
+	the noise augmented cond rows the model packs after the text), step0.safetensors (the
 	refined text, block 0's input, the curve rows and the outputs of a few blocks in the first call), steps.safetensors (per call
 	the streams and velocities of _forward, each stream on its own schedule, and the sampler's packed ones as sampler.*), the
 	decoded frames (first, middle and last as PNG) and audio (audio.wav), times.json."""
-	import wave
 	import numpy
 	from PIL import Image
 	from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
 	from comfy_extras.nodes_custom_sampler import BasicScheduler, KSamplerSelect, BasicGuider, RandomNoise, SamplerCustomAdvanced
-	from comfy_extras.nodes_audio import vae_decode_audio
 	out = options.out or r"C:\StrictDumps\h3"
 	os.makedirs(out, exist_ok=True)
 	started = time.perf_counter()
@@ -202,9 +203,12 @@ def h3():
 	values = conditioning[0][1]
 	tags = values.get("minimax_token_tags")
 	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
-	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.int32).flatten()}
-	for index, keyframe in enumerate(values.get("minimax_keyframes") or []):
+	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
+	keyframes = values.get("minimax_keyframes") or []
+	for index, keyframe in enumerate(keyframes):
 		condition[f"keyframe.{index}"] = keyframe["latent"][0]
+	if keyframes:
+		condition["keyframes"] = torch.tensor([float(keyframe["resolved_frame_index"]) for keyframe in keyframes])
 	saved(condition, os.path.join(out, "conditioning.safetensors"), {"prompt": options.prompt})
 	del clip
 	comfy.model_management.unload_all_models()
@@ -231,6 +235,14 @@ def h3():
 				"video_output": output[0][0].clone(), "audio_output": output[1][0].clone()})
 		return output
 	diffusion._forward = recorded
+	conditioned = diffusion._cond_video_rows
+
+	def cond_rows(payload, device):
+		rows = conditioned(payload, device)
+		if rows is not None and "rows" not in condition:
+			condition["rows"] = rows.float().clone()
+		return rows
+	diffusion._cond_video_rows = cond_rows
 
 	def packed(module, args, kwargs, output):
 		if recording:
@@ -261,6 +273,9 @@ def h3():
 	for hook in hooks:
 		hook.remove()
 	diffusion._forward = original
+	diffusion._cond_video_rows = conditioned
+	if "rows" in condition:
+		saved(condition, os.path.join(out, "conditioning.safetensors"), {"prompt": options.prompt})
 	saved(first, os.path.join(out, "step0.safetensors"))
 	video, audio = samples.unbind()
 	noises = noise.generate_noise(latent).unbind()
@@ -270,30 +285,73 @@ def h3():
 			steps.update({f"{prefix}{name}.{index}": value for name, value in record.items()})
 	del model, diffusion, guider
 	comfy.model_management.unload_all_models()
-	decoding = time.perf_counter()
-	frames = vae.decode(video)
-	decoded = time.perf_counter()
-	frames = (frames.reshape(-1, *frames.shape[-3:]).clamp(0, 1) * 255).round().byte().cpu()
+	frames, decode_s, audio_s = decoded_av(vae, video, audio, out, "")
 	steps["frames"] = frames
 	saved(steps, os.path.join(out, "steps.safetensors"))
-	for name, frame in (("first", 0), ("middle", len(frames) // 2), ("last", len(frames) - 1)):
-		Image.fromarray(frames[frame].numpy()).save(os.path.join(out, f"frame-{name}.png"))
-	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.audio_vae)))
-	sound = vae_decode_audio(audio_vae, {"samples": audio})
-	heard = time.perf_counter()
-	waveform = (sound["waveform"][0].clamp(-1, 1) * 32767).round().short().T.contiguous().cpu().numpy()
-	with wave.open(os.path.join(out, "audio.wav"), "wb") as file:
-		file.setnchannels(waveform.shape[1])
-		file.setsampwidth(2)
-		file.setframerate(sound["sample_rate"])
-		file.writeframes(waveform.tobytes())
 	times = {"gpu": torch.cuda.get_device_name(), "width": options.width, "height": options.height, "length": options.length, "steps": options.steps,
 		"seed": options.seed, "dit": options.dit, "image": options.image, "encode_s": encoded - started, "load_s": loaded - encoded,
-		"call_ms": [t * 1000 for t in times], "sampling_s": sampled - sampling, "decode_s": decoded - decoding, "audio_s": heard - decoded,
+		"call_ms": [t * 1000 for t in times], "sampling_s": sampled - sampling, "decode_s": decode_s, "audio_s": audio_s,
 		"peak_vram_gb": peak, "frames": list(frames.shape), "tokens": calls[0]["video"].numel() // 96 + calls[0]["audio"].numel() // 32}
 	with open(os.path.join(out, "times.json"), "w") as file:
 		json.dump(times, file, indent=1)
 	print(json.dumps(times))
+
+
+def decoded_av(vae, video, audio, out, prefix):
+	"""Decodes an H3 video latent [1, 24, T, H, W] and audio latent [1, 32, 2, T] with ComfyUI's VAEs: the frames as uint8
+	(the first, middle and last also as prefix + frame-*.png), prefix + audio.wav, the seconds both decodes took."""
+	import wave
+	from PIL import Image
+	from comfy_extras.nodes_audio import vae_decode_audio
+	decoding = time.perf_counter()
+	frames = vae.decode(video)
+	decoded = time.perf_counter()
+	frames = (frames.reshape(-1, *frames.shape[-3:]).clamp(0, 1) * 255).round().byte().cpu()
+	for name, frame in (("first", 0), ("middle", len(frames) // 2), ("last", len(frames) - 1)):
+		Image.fromarray(frames[frame].numpy()).save(os.path.join(out, f"{prefix}frame-{name}.png"))
+	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.audio_vae)))
+	heard = time.perf_counter()
+	sound = vae_decode_audio(audio_vae, {"samples": audio})
+	waveform = (sound["waveform"][0].clamp(-1, 1) * 32767).round().short().T.contiguous().cpu().numpy()
+	with wave.open(os.path.join(out, prefix + "audio.wav"), "wb") as file:
+		file.setnchannels(waveform.shape[1])
+		file.setsampwidth(2)
+		file.setframerate(sound["sample_rate"])
+		file.writeframes(waveform.tobytes())
+	audio_s = time.perf_counter() - heard
+	encoded(frames, os.path.join(out, prefix + "audio.wav"), os.path.join(out, prefix + "video.mp4"))
+	return frames, decoded - decoding, audio_s
+
+
+def encoded(frames, audio, path):
+	"""H.265 MP4 of uint8 frames [T, H, W, 3] at 24 fps with the audio WAV, through the installed ffmpeg (libx265)."""
+	import shutil
+	import subprocess
+	command = [shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{frames.shape[2]}x{frames.shape[1]}",
+		"-r", "24", "-i", "-", "-i", audio, "-c:v", "libx265", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-tag:v", "hvc1",
+		"-x265-params", "log-level=error", "-c:a", "aac", "-b:a", "192k", "-shortest", path]
+	subprocess.run(command, input=frames.contiguous().numpy().tobytes(), check=True)
+	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB")
+
+
+def h3decode():
+	"""Decodes the latent H3Video.strict wrote into strict-latent.txt in --out (the video then the audio numbers, one per line,
+	shaped like the last step of steps.safetensors) into strict-frame-*.png and strict-audio.wav, PSNR against ComfyUI's frames."""
+	import numpy
+	from safetensors.torch import load_file
+	out = options.out or r"C:\StrictDumps\h3"
+	steps = load_file(os.path.join(out, "steps.safetensors"))
+	count = len(steps["sigmas"]) - 1
+	shapes = steps[f"video.{count}"].shape, steps[f"audio.{count}"].shape
+	numbers = torch.from_numpy(numpy.loadtxt(os.path.join(out, "strict-latent.txt"), dtype=numpy.float32))
+	video = numbers[:shapes[0].numel()].reshape(shapes[0])[None]
+	audio = numbers[shapes[0].numel():].reshape(shapes[1])[None]
+	vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.vae)))
+	frames, decode_s, audio_s = decoded_av(vae, video, audio, out, "strict-")
+	if not os.path.exists(os.path.join(out, "video.mp4")):
+		encoded(steps["frames"], os.path.join(out, "audio.wav"), os.path.join(out, "video.mp4"))
+	error = (frames.float() - steps["frames"].float()).pow(2).mean().item()
+	print(f"decoded in {decode_s:.1f} s, audio in {audio_s:.1f} s, PSNR {10 * numpy.log10(255 ** 2 / error):.2f} dB against ComfyUI's frames")
 
 
 class TinyWeights(dict):
@@ -477,7 +535,9 @@ def tinyh3():
 	convrot block linears and curve-form adaln (a 9 x 8 table) as in the real file, plus the reference.* tensors of one
 	t2va forward through ComfyUI's model at sigma 0.75: a 2x4x4 video latent (8 tokens), 3 audio frames (6 rows), 3 text
 	tokens; reference.t_emb holds the curve rows of the timesteps the blocks modulate with, reference.blocks.0.* the inputs
-	and outputs of block 0's attention (qkv_proj output, merged heads before out_proj) and MLP."""
+	and outputs of block 0's attention (qkv_proj output, merged heads before out_proj) and MLP; reference.i2v.* the same
+	forward with a keyframe latent at frame 0 (4 cond rows after the text, noise augmented as reference.i2v.rows) and
+	text tags (1, 0, 1), the middle token carrying the video modality like a vision pad."""
 	import comfy.ldm.minimax.model as minimax
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyh3.safetensors")
 	hidden, inner, ffn, text_dim, grid, curve = 256, 512, 256, 64, 9, 8
@@ -535,13 +595,76 @@ def tinyh3():
 	hooks.append(diffusion.blocks[0].adaln_proj.register_forward_pre_hook(entered("t_emb")))
 	for index, block in enumerate(diffusion.blocks):
 		hooks.append(block.register_forward_hook(keep(f"blocks.{index}")))
+	streams, timestep = [video.to(device, dtype), audio.to(device, dtype)], torch.tensor([sigma * 1000], device=device)
 	with torch.no_grad():
-		output = diffusion([video.to(device, dtype), audio.to(device, dtype)], torch.tensor([sigma * 1000], device=device), context.to(device, dtype), {}, minimax_payload=payload)
+		output = diffusion(streams, timestep, context.to(device, dtype), {}, minimax_payload=payload)
 	for hook in hooks:
 		hook.remove()
 	references.update({"reference.video": video[0], "reference.audio": audio[0], "reference.context": context, "reference.sigma": torch.tensor([sigma]),
 		"reference.video_output": output[0][0], "reference.audio_output": output[1][0]})
+	keyframe, tags = torch.randn(1, 24, 1, 4, 4), torch.tensor([1, 0, 1])
+	keyframes = [{"resolved_frame_index": 0, "latent": keyframe}]
+	payload = {"layout": minimax.PackedLayout(3, 2, 4, 4, 3, keyframes=keyframes), "keyframes": keyframes, "cond_video_latents": [keyframe],
+		"seed": 0, "audio_scale": 1.0, "text_token_tags": tags}
+	conditioned = diffusion._cond_video_rows
+
+	def cond_rows(payload, device):
+		rows = conditioned(payload, device)
+		references["reference.i2v.rows"] = rows.clone()
+		return rows
+	diffusion._cond_video_rows = cond_rows
+	hooks = [block.register_forward_hook(keep(f"i2v.blocks.{index}")) for index, block in enumerate(diffusion.blocks)]
+	hooks += [diffusion.blocks[0].register_forward_pre_hook(entered("i2v.blocks.0.input")),
+		diffusion.blocks[0].adaln_proj.register_forward_pre_hook(entered("i2v.t_emb"))]
+	with torch.no_grad():
+		output = diffusion(streams, timestep, context.to(device, dtype), {}, minimax_payload=payload)
+	for hook in hooks:
+		hook.remove()
+	diffusion._cond_video_rows = conditioned
+	references.update({"reference.i2v.keyframe": keyframe[0], "reference.i2v.tags": tags, "reference.i2v.video_output": output[0][0],
+		"reference.i2v.audio_output": output[1][0]})
 	saved({**weights, **{name: value.float() for name, value in references.items()}}, out)
+
+
+def tinyh3vae():
+	"""H3's video VAE decoder with ComfyUI's own decode (MiniMaxH3VideoVAE: latent normalization, post_quant_conv, temporal
+	windows of 5 latent frames plus 2 overlapping, spatial tiles, blending, pixel finalization) around a tiny ViT (2 blocks, 4
+	heads of 64, float weights named like minimax_h3_video_vae_int8_convrot.safetensors) with tiles of 32 pixels overlapping
+	by 16, a 24x12x3x4 latent decoded on the CPU in float32: reference.latent, reference.pixels [3, frames, 48, 64] and
+	reference.tile, the decoder output (_decode_pixels) of the first 2x2 tile of the first window."""
+	import comfy.ldm.minimax.vae as minimax
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyh3vae.safetensors")
+	dim, inner = 256, 1024
+	torch.manual_seed(0)
+	weights = TinyWeights()
+	weights.brain("post_quant_conv.weight", (24, 24, 1, 1, 1), 24 ** -0.5, torch.float32)
+	weights.brain("post_quant_conv.bias", (24,), 0.05, torch.float32)
+	weights.linear("decoder.x_embedder", dim, 24, dtype=torch.float32)
+	weights.brain("decoder.register_tokens", (1, 4, dim), 1.0, torch.float32)
+	weights["decoder.mask_token"] = torch.zeros(1, 1, dim)
+	for block in range(2):
+		prefix = f"decoder.transformer_blocks.{block}."
+		weights.linear(prefix + "attn.to_qkv", 3 * dim, dim, dtype=torch.float32)
+		weights.linear(prefix + "attn.to_out", dim, dim, dtype=torch.float32)
+		weights.linear(prefix + "ff.w1", 2 * inner, dim, dtype=torch.float32)
+		weights.linear(prefix + "ff.w2", dim, inner, dtype=torch.float32)
+		for name in ("norm1.weight", "norm2.weight"):
+			weights[prefix + name] = 1 + 0.2 * torch.randn(dim)
+		for name in ("scale1", "scale2"):
+			weights.brain(prefix + name, (dim,), 0.5, torch.float32)
+	weights["decoder.norm_out.weight"] = 1 + 0.2 * torch.randn(dim)
+	weights.brain("decoder.norm_out.bias", (dim,), 0.05, torch.float32)
+	weights.linear("decoder.proj_out", 3 * 4 * 16 * 16, dim, dtype=torch.float32)
+	weights["latents_mean"], weights["latents_std"] = torch.tensor(minimax.LATENTS_MEAN), torch.tensor(minimax.LATENTS_STD)
+	vae = minimax.MiniMaxH3VideoVAE(encoder=False, num_layers=2, tile_size=32, tile_overlap_min=16)
+	vae.decoder = minimax.ViT3DDecoder(patch_size=16, patch_size_t=4, in_channels=24, out_channels=3, num_layers=2, heads=4, dim_head=64)
+	vae.load_state_dict(dict(weights), strict=True)
+	latent = torch.randn(1, 24, 12, 3, 4)
+	with torch.no_grad():
+		pixels = vae.decode(latent)
+		denormalized = latent * vae.latents_std.view(1, -1, 1, 1, 1) + vae.latents_mean.view(1, -1, 1, 1, 1)
+		tile = vae._decode_pixels(denormalized[:, :, 0:7, 0:2, 0:2])
+	saved({**weights, "reference.latent": latent[0], "reference.pixels": pixels[0], "reference.tile": tile[0]}, out)
 
 
 def tinyint8():
@@ -553,4 +676,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "h3": h3, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3}[options.model]()
+	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae}[options.model]()
