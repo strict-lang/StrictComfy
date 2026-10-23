@@ -5,10 +5,9 @@ Measured(step Number, before Number, latent Numbers, data Safetensors, suffix Te
 	MossTiming(Logger).Measured(0, 0, List(Number), Data) is Error("Empty Moss latent")
 	if latent.Length is 0
 		return Error("Empty Moss latent")
-	if latent.First.IsFinite is false
-		return Error("Nonfinite Moss latent")
-	let elapsed = ((Process.Elapsed - before) * 1000).Round
 	let next = "x." + (step + 1)
-	let compared = data.Entry(next) is "" then "" else ", error " + MossImage(logger).Error(latent, data.Values(next))
+	let reference = data.Entry(next) is "" then "latent" else next
+	let compared = data.Entry(reference) is "" then "" else ", error " + MossImage(logger).Error(latent, data.Values(reference))
+	let elapsed = ((Process.Elapsed - before) * 1000).Round
 	logger.Log("step " + step + " " + elapsed + " ms" + compared + suffix)
 	elapsed
