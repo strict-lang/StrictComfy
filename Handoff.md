@@ -2,7 +2,27 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
-## Latest completed change: generated vector elementwise (2026-10-23)
+## Latest completed change: cached uniform-scale GEMM (2026-10-23)
+Strict `43df39f6` implements a separate f32-input GEMM entry that removes the mixed-scale fallback only after the existing row-upload scan has proven every row uniform. Cache kind 4 records that proof and remains compatible with ordinary row lookups (kind 2). Cold, uncached, small and mixed-scale matrices keep the original entry. Float64 entry remains unchanged. Kernel math, tiling, MMA order and quantization are unchanged; no dependency was added. Diagnostic reordering of the second operand load was slower and rejected.
+
+RTX 3080 CUDA-graph BF16 output timings, old -> fast, microseconds: 3740x3072x9216 **1111.8 -> 1057.1**, x3072 **400.7 -> 391.2**, x16384 **2023.0 -> 1956.9**, 3740x8192x3072 **1005.8 -> 961.1**. Float32 output also passes and improves. Registers/thread 255 -> 254; local storage/thread **168 -> 24 bytes**. Model PTX grows 19,396,501 -> 20,502,879 bytes because both compatible and specialized entries remain available.
+
+| Full run | Steps 2-6 average, ms | Eight-step total, ms |
+|---|---:|---:|
+| GEMM fast 1 | 380.6 | 2777 |
+| Vector-only 1 | 388.6 | 2855 |
+| Vector-only 2 (order reversed) | 386.4 | 2845 |
+| GEMM fast 2 | 382.2 | 2802 |
+
+All four logs have identical errors and PNG SHA-256 `986b307e47af99d345eb09f44d6dce168d6fb1cec5e13d85dd61172067a3502e`. Archives `production-linear` and `production-gemm-fast`; evidence `D:/StrictDumps/codex-elementwise/gemm-scheduling/{full-validation.json,guarded-results.log,f32-results.log}`. The 370 ms goal remains open, with approximately 381 ms steady steps now measured on this 3080. No fresh 4090 results.
+
+Runnable checks: from Strict, `D:/ComfyUI_windows_portable/python_embeded/python.exe Compiler/check_gpu_cache.py` compiles the real cache lookup and verifies uniform/ordinary/quantized cache compatibility. From StrictComfy, set `STRICT_BENCH_GEMM=1`, `STRICT_BENCH_GEMM_FAST=1`, `STRICT_BENCH_WHOLE_GUARD=1`, then run `benchmark_elementwise.py` against the two archives. The legacy entry must accept per-block scales; the specialized entry must reject a missing uniform header flag. `STRICT_BENCH_BITS=32` repeats float32 output checks. Do not globally remove the legacy fallback: first-row host classification alone does not prove later rows uniform.
+
+Validation: shared NativeCompiler and strict rebuilt, native GPU Batch/Qwen3Block/Gpt2Block passed, native cache contract passed, Compiler and NeuralNetworks checks report 0 issues. Full native MossImage runs exercise actual dispatch: nsys recorded 168 cold `strict_device_wholes` calls followed by 1344 `strict_device_wholes_fast` calls (`gemm-scheduling/fast-trace.sqlite`). Float32/BF16 numerical, layout-guard and sentinel checks passed.
+
+Next useful elementwise target: grouped RMS/RoPE and modulation, whose reductions currently exclude the generic four-output emitter. Gated already reaches about 93% DRAM throughput; vectorization cut its instruction count but did not improve time. Keep actual generated graph timing, numeric/tail checks and full-model paired runs as the acceptance test. H3 can pull the shared compiler vector change and reuse it without model-specific kernels.
+
+## Completed change: generated vector elementwise (2026-10-23)
 Strict `56e9b2fa` on master implements the vector path through the ordinary compiler; this is no longer only a diagnostic. Strict master is clean and its compiler/VM were rebuilt. The earlier attention change is `67ad9d56`; upstream H3/compiler fixes were merged in `9381a701`. The intermediate emitter checkpoints remain on `codex/vector-elementwise` (isolated checkout `../StrictVector`), but the validated final source was squash-merged into master. The shared Comfy MossBlock strided-V call is committed in `8a7a9d3`.
 
 The emitter batches four outputs of eligible paired reads from one free list. A bytecode variation/alignment/sign proof allows one address calculation per span, guarded whole/positive/four-aligned parameters, checked vector loads/stores, unchanged scalar arithmetic, and scalar tails/parameter fallbacks. Unproven gathers, positional dependencies, reductions and packed outputs retain their original kernels. Negative signed modulo has a regression and is excluded when nonnegativity cannot be proved. No model-name recognition or handwritten activation kernel was added.

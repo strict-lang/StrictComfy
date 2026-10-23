@@ -6,6 +6,8 @@ STRICT_BENCH_KERNEL selects a substring; STRICT_BENCH_PROFILE only validates
 one full-size bfloat16 launch per variant (RoPE uses the model format mix), for ncu.
 STRICT_BENCH_GENERIC forces generic kernels; STRICT_BENCH_BOUNDS checks invalid lengths. STRICT_BENCH_GEMM=1 selects
 int8 GEMM; STRICT_BENCH_BITS=32 switches its default bfloat16 output to float32.
+STRICT_BENCH_GEMM_FAST selects a uniform-row specialization when present;
+STRICT_BENCH_WHOLE_GUARD checks both its rejection and the legacy fallback.
 """
 import ctypes as ct
 import os
@@ -207,7 +209,8 @@ if os.getenv("STRICT_BENCH_GEMM"):
 			inputBits=8, width=width, rows=rows, biases=bias.data_ptr(), biasesCount=1, biasesBits=32, bases=0, basesCount=0, basesBits=64, results=result_bits)
 		calls = []
 		for directory, module, source in loaded:
-			name, signature = re.search(r"llvm.func @(strict_device_wholes)\(([^\n]+)\) attributes", source).groups()
+			kernel_name = "strict_device_wholes_fast" if os.getenv("STRICT_BENCH_GEMM_FAST") and "@strict_device_wholes_fast(" in source else "strict_device_wholes"
+			name, signature = re.search(r"llvm.func @(" + kernel_name + r")\(([^\n]+)\) attributes", source).groups()
 			arguments, pointers = parameters(signature, values)
 			function = ct.c_void_p()
 			checked(driver.cuModuleGetFunction(ct.byref(function), module, name.encode()))
@@ -222,6 +225,16 @@ if os.getenv("STRICT_BENCH_GEMM"):
 			assert failed.item() == 0
 			torch.testing.assert_close(output[:tokens * rows], expected, rtol=2e-5, atol=2e-5)
 			assert (output[tokens * rows:] == 123).all(), "GEMM tail overwrite"
+			if os.getenv("STRICT_BENCH_WHOLE_GUARD") and tokens == 129:
+				packed_weights.view(torch.int64)[0] = (rows << 32) | stride
+				failed.zero_()
+				launch()
+				torch.cuda.synchronize()
+				expected_failure = int(name.endswith("_fast"))
+				assert failed.item() == expected_failure, (directory, "whole GEMM layout guard")
+				assert (output[tokens * rows:] == 123).all(), "GEMM rejection tail overwrite"
+				packed_weights.view(torch.int64)[0] = (rows << 32) | (1 << 31) | stride
+				failed.zero_()
 			calls.append((directory, launch, arguments, pointers))
 		report(calls, f"GEMM {tokens}x{width}x{rows} result={result_bits}")
 for _, module, _ in loaded:
