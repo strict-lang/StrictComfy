@@ -79,15 +79,16 @@ for directory in sys.argv[1:]:
 	checked(driver.cuModuleLoadData(ct.byref(module), (path / "MossImage.ptx").read_bytes()))
 	loaded.append((directory, module, (path / "MossImage.kernels.mlir").read_text()))
 
-kernels = ["MossBlock_Activated_2", "MossBlock_Gated_4", "Batch_Columns_4", "MossBlock_Rotated_5"]
+kernels = ["MossBlock_Activated_2", "MossBlock_Gated_4", "Batch_Columns_4", "MossBlock_Rotated_5", "MossBlock_Modulated_4"]
 kernels = [kernel for kernel in kernels if os.getenv("STRICT_BENCH_KERNEL", "") in kernel]
 for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 	width = 8192 if "Activated" in kernel else 3072
 	full_count = 3740 * width
 	counts = [128, 256, 3072, 4096, full_count] if "Rotated" in kernel else [1, 255, 257, 1023, 1025, full_count - 3, full_count]
+	counts = [width, 2 * width, full_count] if "Modulated" in kernel else counts
 	counts = [full_count] if os.getenv("STRICT_BENCH_PROFILE") else counts
 	for count in counts:
-		formats = [(32, False), (17, False), (16, False)] + ([(17, True)] if "Rotated" in kernel else [])
+		formats = [(32, False), (17, False), (16, False)] + ([(17, True)] if "Rotated" in kernel or "Modulated" in kernel else [])
 		for bits, mixed in ([(17, "Rotated" in kernel)] if os.getenv("STRICT_BENCH_PROFILE") else formats):
 			dtype = {32: torch.float32, 17: torch.bfloat16, 16: torch.float16}[bits]
 			rows = (count + width - 1) // width
@@ -96,7 +97,7 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 			def number(name, value):
 				values.update({"f_" + name: value, "e_" + name: value, "m_" + name: magic(value)})
 			def tensor(name, shape):
-				tensor_bits = 32 if mixed and name in ("weights", "rotation") else bits
+				tensor_bits = 32 if mixed and name in ("weights", "rotation", "modulation") else bits
 				data = torch.randn(shape, device="cuda", dtype=torch.float32 if tensor_bits == 32 else dtype)
 				keep.append(data)
 				values.update({"f_" + name + "_d": data.data_ptr(), "f_" + name + "_n": data.numel(), "f_" + name + "_b": tensor_bits})
@@ -108,6 +109,15 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				expected = (4 * (2 / (1 + torch.exp(-gate / 2)) - 1) / (1 + torch.exp(-gate)))
 				expected = expected * 25 * (2 / (1 + torch.exp(-hidden * 2 / 25)) - 1)
 				expected = expected.flatten()[:count].bfloat16()
+				output_dtype, result_bits = torch.bfloat16, 17
+			elif "Modulated" in kernel:
+				number("part", 0)
+				input_data = tensor("input", (rows, width))
+				weights = tensor("weights", width)
+				modulation = tensor("modulation", (6, width))
+				scale = (input_data.square().mean(dim=1, keepdim=True) + 1e-6).rsqrt()
+				factor = scale * weights * (1 + modulation[1])
+				expected = (input_data * factor + modulation[0]).flatten()[:count].bfloat16()
 				output_dtype, result_bits = torch.bfloat16, 17
 			elif "Gated" in kernel:
 				number("part", 2)
@@ -158,6 +168,7 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				checked(driver.cuModuleGetFunction(ct.byref(function), module, name.encode()))
 				batch = 4 if "%batchSize = arith.constant 4" in body else 1
 				threads = count // 128 * 32 if "Rotated" in kernel else (count + batch - 1) // batch
+				threads = rows * 256 if "Modulated" in kernel else threads
 				blocks = (threads + 255) // 256
 				def launch(function=function, blocks=blocks, pointers=pointers):
 					stream = ct.c_void_p(torch.cuda.current_stream().cuda_stream)
