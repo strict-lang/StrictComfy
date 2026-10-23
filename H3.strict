@@ -1,10 +1,7 @@
 has videoPatches Batch
 has audioPatches Batch
-has condition Batch
 has curve Numbers
 has inverse Numbers
-has refiner List(H3Block)
-has refinedNorm Numbers
 has blocks List(H3Block)
 has final H3Final
 constant Tiny = H3.Loaded("tinyh3.safetensors")
@@ -15,17 +12,15 @@ constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4)
 constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"))
 Loaded(path Text) H3
 	Tiny.blocks.Length is 2
-	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
-	let model = Safetensors(path, 32, prefix)
-	let halves = Safetensors(path, 16, prefix)
+	let model = Weights(path, 32)
 	let patches = MossText.Dense(model, "video_patch_proj")
 	let heard = MossText.Dense(model, "audio_patch_proj")
-	let projected = MossText.Dense(halves, "condition_proj")
-	let refiners = Blocks(model, "token_refiner.blocks.")
-	let refined = halves.Values("token_refiner.final_norm.weight")
-	let layers = Blocks(model, "blocks.")
 	let table = model.Values("adaln_t_table")
-	H3(patches, heard, projected, table, model.Values("rope.inv_freq"), refiners, refined, layers, H3Final.Loaded(model))
+	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks."), H3Final.Loaded(model))
+Weights(path Text, bits Number) Safetensors
+	H3.Weights("tinyh3.safetensors", 16).prefix is ""
+	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
+	Safetensors(path, bits, prefix)
 Blocks(model Safetensors, prefix Text) List(H3Block)
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.").Length is 2
 	for Named(TensorFile.Header(model.path), model.prefix + prefix).Length
@@ -36,14 +31,6 @@ Named(header Text, prefix Text) Texts
 	for header.Split("\"" + prefix)
 		if value.Substring(0, value.IndexOf("\"")).EndsWith(".norm1.weight")
 			value
-Refined(context Numbers) Numbers
-	Tiny.Refined(Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
-	Tiny.Refined(Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
-	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
-	mutable hidden = condition.Sums(context)
-	for refiner
-		hidden = value.Refined(hidden, unturned)
-	H3Block.Normalized(hidden, refinedNorm)
 Curves(times Numbers) Numbers
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(2).IsNearlyEqual(0.818626, 0.001)
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(15).IsNearlyEqual(0.118705, 0.001)
