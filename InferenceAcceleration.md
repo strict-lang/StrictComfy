@@ -27,7 +27,7 @@ The node reports approximately 2-2.5x with its default setup; this is an upstrea
 
 ## Proposed diffusion experiment
 
-This is a design, not an implemented or benchmarked approximation. Exact inference stays the default. Start with Moss/Euler, then H3; share only the fitted predictor and history/scheduling arithmetic when both adapters establish the same contract.
+The generic fit/history core is now merged; an experimental MOSS adapter is checkpointed on `codex/spectrum-moss`, with full-size off/shadow/live results in that branch's Spectrum.md and Handoff.md. It is not merged because a normal native-build VAE transition regression remains open. Exact inference stays the default. Start with Moss/Euler, then H3; share only the fitted predictor and history/scheduling arithmetic when both adapters establish the same contract.
 
 1. Capture actual final-block image features immediately after `Moss.Transformed`. Split `Moss.Output` so its timestep embedding and final normalization/modulation/projection can run with either actual or predicted image features. Preserve `MossImage.Sampled`'s sigma schedule and Euler update. Never replace the latent directly with a forecast hidden state.
 2. First run in shadow mode: predict at each eligible evaluation but still execute the network. Compare predicted features and outputs to that real evaluation before adding its feature to history. Store only real evaluations as anchors. This measures local fitting error; a second, live-skip test is still necessary because shadow mode does not measure accumulated trajectory drift.
