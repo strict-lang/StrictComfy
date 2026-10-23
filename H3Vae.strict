@@ -45,10 +45,9 @@ Canvas(window Numbers, height Number, width Number) Numbers
 	let xs = Starts(width * 16)
 	let tiles = Tiles(window, ys, xs, (Tokens + Shared, height, width))
 	let plane = height * 16 * width * 16
-	let size = (Length(height * 16), Length(width * 16))
 	for 3 * (Tokens + Shared) * Ratio * plane
 		let y = (index % plane / (width * 16)).Floor
-		Weighted(tiles, ys, xs, (index / plane).Floor, y, index % (width * 16), size)
+		Weighted(tiles, ys, xs, (index / plane).Floor, y, index % (width * 16), (Length(height * 16), Length(width * 16)))
 Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Numbers
 	Tiny.Tiles(H3Decoder.Window, (0), (0), (7, 2, 2)).Length is 86016
 	let tall = Length(shape(1) * 16) / 16
@@ -86,8 +85,7 @@ Share(starts Numbers, at Number, position Number, size Number) Number
 	Tiny.Share((0, 16), 1, 20, 32) is 0.25
 	Tiny.Share((0, 16), 1, 40, 32) is 1
 	Tiny.Share((0, 16), 0, 4, 32) is 1
-	let before = starts(at > 0 then at - 1 else 0)
-	let shared = at > 0 then before + size - starts(at) else 0
+	let shared = at > 0 then starts(at - 1) + size - starts(at) else 0
 	at > 0 and position - starts(at) < shared then (position - starts(at)) / shared else 1
 Owner(starts Numbers, position Number) Number
 	Tiny.Owner((0, 16, 32), 20) is 1
