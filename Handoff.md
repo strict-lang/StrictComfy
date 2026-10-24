@@ -2,6 +2,27 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## B3 diagnostic, and both fusions to measure on the 3080 (2026-10-24)
+B3 fuses Gated into the next Modulated. The prototype is a copy of the generated Modulated kernel (`sxf0`, one 256-lane block per token row):
+- its `HeadScale` sums the squares of the Gated residual computed in place, `input + update * modulation`, with the same loop, contract flags and lane reduction as `strict_device_squares`;
+- its numbers use the same Gated value, and it writes the residual once.
+
+It is bit-identical: 0 residual and 0 normed bits differ (3631 tokens x 3072, the in-layer pair, Gated part 2, Modulated part 3).
+
+On the 4090 at 2400/10251 it saves only 0.65 ms per step for one pair per layer: 161.5 -> 146.0 us per pair, about 1.3 ms with both pairs. That is below noise, so it is not built for the 4090. The fused kernel already moves ~134 MB in 146 us, near DRAM peak, but the separate path loses less than estimated: the 4090's 72 MB L2 already serves much of Modulated's re-read of the residual.
+
+The RTX 3080 has a 5 MB L2, so every re-read of an intermediate goes to DRAM (760 GB/s), and both fusions may be worth far more there. By bytes, B3 could save about 5 ms per step with both pairs, and B1 up to about 6-7 ms, unless their instructions dominate.
+
+**For the 3080 agent:** measure before anyone builds them:
+
+```powershell
+& D:/ComfyUI_windows_portable/python_embeded/python.exe benchmark_fusion.py <folder with your MossImage.kernels.mlir> 3740
+```
+
+Run it with the clocks locked, from a current MossImage build. It writes `<folder>/fusion`, and the first PTX load JITs for minutes. It prints, for B1 and B3, the bytes that differ (must be 0) and separate against fused us, with ms per step for one pair per layer.
+
+The general implementation would build an element function from the producer's loop body and defer the producer's launch until its list is read; it is about a day of compiler and runtime work. Worth it only if the 3080 shows at least 2-3 ms per step per fusion. B2 (Gated in the o/down GEMM epilogue) stays with the 3080 agent after C.
+
 ## B1 diagnostic: fusing Activated into Hadamard/quantization is not worth building on the 4090 (2026-10-24)
 The fused kernel was hand-assembled outside production in `C:/StrictDumps/exp/b1` (`diag.kernels.mlir`, `fused.py`). It is r2's generated module plus a copy of `strict_device_hadamard_tokens_run` whose eight source reads compute situ per element: the same `MossBlock_Situ_2_devices`, bf16 reads of `expanded`, then the same `truncf` to bf16 as Activated's store.
 
@@ -16,7 +37,7 @@ Locked 2400/10251, CUDA graphs of 20 layers, 8 alternating rounds:
 
 The fused kernel moves ~138 MB at about 585 GB/s, against Activated's 945 GB/s. The Hadamard kernel's shape (1024-thread blocks, shuffles, eight situ evaluations per thread) limits it. With the emitter's magic-number division the gain would be about 1.5-2 ms per step, at the noise floor. The general version (element functions, a generated dispatcher, deferred producer launches in the runtime) is about a day of compiler and runtime work, so it is not built.
 
-On the 3080 the bytes count more (760 GB/s), but Activated is instruction bound there and fusion keeps its instructions. Rerun `fused.py` there before deciding, from a 3080 build of `diag.kernels.mlir`.
+On the 3080 the bytes count more (760 GB/s, 5 MB L2), but Activated is instruction bound there and fusion keeps its instructions. Measure it there with `benchmark_fusion.py` (below) before deciding.
 
 ## A done on the 4090, ready to commit (2026-10-24)
 Step-boundary host round trips are gone. Outputs are identical: step 0 error 0.006325429288679978, latent 0.2228712467784174, PSNR 32.36 dB, PNG SHA-256 prefix `a439d0b78f51c944` in every run.
