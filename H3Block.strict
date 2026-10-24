@@ -17,21 +17,20 @@ Loaded(model Safetensors, prefix Text) H3Block
 	Tiny.attention.Length is 1536
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
 	let rows = Safetensors(model.path, 16, model.prefix + prefix)
-	let first = rows.Values("norm1.weight")
-	let second = rows.Values("norm2.weight")
-	let queried = rows.Values("attn.q_norm.weight")
-	let keyed = rows.Values("attn.k_norm.weight")
+	let norms = Safetensors(model.path, 32, rows.prefix)
+	let first = norms.Values("norm1.weight")
+	let second = norms.Values("norm2.weight")
+	let queried = norms.Values("attn.q_norm.weight")
+	let keyed = norms.Values("attn.k_norm.weight")
 	let attended = Projection(rows, "attn.qkv_proj")
 	let projected = Projection(rows, "attn.out_proj")
 	let expanded = Projection(rows, "mlp.fc1")
-	let reduced = Projection(rows, "mlp.fc2")
-	H3Block(first, second, queried, keyed, attended, projected, expanded, reduced, Curved(model, prefix))
+	H3Block(first, second, queried, keyed, attended, projected, expanded, Projection(rows, "mlp.fc2"), Curved(norms))
 Projection(rows Safetensors, name Text) List(Numbers)
 	Tiny.Projection(Safetensors(Model.path, 16, "token_refiner.blocks.0."), "mlp.fc2").Length is 256
 	rows.Entry(name + ".comfy_quant") is "" then rows.Rows(name + ".weight") else rows.Quantized(name)
-Curved(model Safetensors, prefix Text) Batch
-	Tiny.Curved(Model, "blocks.1.").biases.Length is 4608
-	let curves = Safetensors(model.path, 32, model.prefix + prefix)
+Curved(curves Safetensors) Batch
+	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
 	if curves.Entry("adaln_proj.linear.weight") is ""
 		return Batch(List(Numbers), MossLora.Unbiased)
 	MossText.Dense(curves, "adaln_proj.linear")
