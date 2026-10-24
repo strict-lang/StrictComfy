@@ -34,8 +34,9 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
 	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
 	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
-	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, 2)
-	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, 5)
+	let width = attentionNorm.Length
+	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, width, 2)
+	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, width, 5)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Input, Rotation).Length is 4864
 	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
@@ -43,6 +44,7 @@ Attended(normed Numbers, rotation Numbers) Numbers
 	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
+	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
 	let size = queries.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
 	let heads = width / size
@@ -67,9 +69,8 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloa
 		let scale = Qwen3Block.HeadScale(input, (index / width).Floor * width, width, Qwen3Block.Epsilon)
 		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
-Gated(input Numbers, update Numbers, modulation Numbers, part Number) Numbers
-	MossBlock(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 2, 3), 1) is (7, 14)
-	let width = attentionNorm.Length
+Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) BFloat16s
+	Tiny.Gated((1, 2), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
 	for input.Length
 		input(index) + update(index) * modulation(part * width + index % width)
 Rotations(height Number, width Number, text Number, size Number) Numbers
@@ -100,8 +101,7 @@ Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
 	let squashed = 4 * (2 / (1 + (0 - gate / 2).Exponential) - 1) / (1 + (0 - gate).Exponential)
 	squashed * 25 * (2 / (1 + (0 - hidden * 2 / 25).Exponential) - 1)
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) Numbers
-	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
+Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s
 	let size = weights.Length
 	let half = size / 2
 	let heads = width / size
