@@ -1,5 +1,11 @@
 # Moss performance
 
+## Resident randomized CLI batches (2026-10-24, RTX 3080)
+
+--count now reuses one native model and VAE across different prompts/noise, rather than restarting inference for every image. Same 720x1280 merged DMD, eight steps, two PEFT adapters at 0.5/0.31, normal Afterburner settings. --seed 42 fixes a ten-image batch with ten distinct seeds and three randomized prompt variants. The first batch took 78.34 s including one encoder load for two uncached unique prompts, one stack merge and one native load. A fully cached repeat took **45.07 s for ten images**, with one 3.052 s native load. Completed-image native durations: 5298 / 4507 / 4189 / 3563 / 3537 / 3477 / 3473 / 3482 / 4469 / 4001 ms; median after image one **3563 ms**, including VAE/JPEG and between-image cleanup. No clocks/power settings changed; this is not a locked-clock ComfyUI comparison.
+
+All ten output hashes differ within a batch and match their corresponding seeded repeat exactly. Image one also reproduces the previous standalone seed-42 JPEG. Per-image metadata and dimensions were checked; output numbering advanced 0003..0022 without changing earlier files. Prompts are encoded once per unique cache miss before native startup, freeing encoder VRAM; the native loop reads distinct per-job safetensors. Logs and images: D:/StrictDumps/moss-cli/count10{,-cached}.log. Thirteen command tests and native builds/checks pass. A separate default-only single-image run with --jpg_quality 85 validated the newly optional model/VAE/encoder defaults (10.24 s total).
+
 ## User command timing (2026-10-24, RTX 3080)
 
 MossImage.exe now accepts prompt files, repeated weighted LoRAs and numbered output paths; usage is at the top of Generation.md. Full command validation used 720x1280, the existing merged eight-step DMD checkpoint, and two PEFT style adapters at 0.5/0.31 (246 matched modules each). A four-step invocation checks CLI plumbing only; shortening an eight-step checkpoint is not a four-step quality recommendation.

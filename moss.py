@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import random
 import re
-import secrets
 import shutil
 import subprocess
 import sys
@@ -67,34 +66,56 @@ def reserve_output(base):
 
 
 def arguments(argv=None):
-	parser = argparse.ArgumentParser(prog='MossImage.exe', description=__doc__)
-	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--model', required=True, help='int8 Convrot Moss checkpoint, base or premerged turbo')
-	parser.add_argument('--steps', type=int, default=8)
-	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
-	parser.add_argument('--output', type=Path, default=Path('MossImage.jpg'), help='numbered output base; never overwritten')
-	parser.add_argument('--width', type=int, default=720)
-	parser.add_argument('--height', type=int, default=1280)
-	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
-	parser.add_argument('--guidance', type=float, default=1.0)
-	parser.add_argument('--quality', type=int, default=85)
-	parser.add_argument('--vae', default='flux2-vae.safetensors')
-	parser.add_argument('--te', default='qwen3.5_9b_int8_convrot.safetensors')
 	default_comfy = next((Path(drive + ':/ComfyUI_windows_portable/ComfyUI') for drive in ('D', 'C')
 		if Path(drive + ':/ComfyUI_windows_portable/ComfyUI').is_dir()), Path('ComfyUI'))
-	parser.add_argument('--comfyui', type=Path, default=Path(os.environ.get('COMFYUI', default_comfy)))
-	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss')
+	default_comfy = Path(os.environ.get('COMFYUI', default_comfy))
+	files = [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot-dmd.safetensors', 'int8 Convrot turbo model'),
+		('vae', 'vae', 'flux2-vae.safetensors', 'Image VAE'),
+		('te', 'text_encoders', 'qwen3.5_9b_int8_convrot.safetensors', 'Text encoder')]
+	parser = argparse.ArgumentParser(prog='MossImage.exe', description=__doc__, add_help=False,
+		allow_abbrev=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser.add_argument('--help', action='help', help='show this help message and exit')
+	for name, folder, filename, description in files:
+		parser.add_argument('--' + name, default=argparse.SUPPRESS,
+			help=f'{description} (default: {default_comfy / "models" / folder / filename})')
+	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
+	parser.add_argument('--steps', type=int, default=8, help='Diffusion sampling steps')
+	parser.add_argument('--count', type=int, default=1, help='images per loaded model; fresh seed/prompt choices each time')
+	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
+	parser.add_argument('--output', type=Path, default=Path('MossImage.jpg'), help='numbered output base; never overwritten')
+	parser.add_argument('--width', type=int, default=720, help='Image width in pixels')
+	parser.add_argument('--height', type=int, default=1280, help='Image height in pixels')
+	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
+	parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
+	parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
+	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
+	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, merged-model and CUDA caches')
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
-	if args.steps < 1 or min(args.width, args.height) < 16 or args.width % 16 or args.height % 16:
-		parser.error('steps must be positive; width/height must be positive multiples of 16')
-	if not 0 <= args.quality <= 100 or not math.isfinite(args.guidance):
-		parser.error('quality must be 0-100 and guidance finite')
+	for name, folder, filename, description in files:
+		if not hasattr(args, name):
+			setattr(args, name, str(args.comfyui / 'models' / folder / filename))
+	if args.steps < 1 or args.count < 1 or min(args.width, args.height) < 16 or args.width % 16 or args.height % 16:
+		parser.error('count/steps must be positive; width/height must be positive multiples of 16')
+	if not 0 <= args.jpg_quality <= 100 or not math.isfinite(args.guidance):
+		parser.error('jpg_quality must be 0-100 and guidance finite')
 	if args.seed is not None and not 0 <= args.seed < 2**63:
 		parser.error('seed must be between 0 and 2^63-1')
 	if args.output.suffix.lower() not in ('.jpg', '.jpeg', '.png'):
 		parser.error('output extension must be .jpg, .jpeg or .png')
 	return args
+
+
+def jobs(args, template):
+	rng = random.Random(args.seed) if args.seed is not None else random.SystemRandom()
+	result, used = [], set()
+	for index in range(args.count):
+		seed = args.seed if index == 0 and args.seed is not None else rng.getrandbits(63)
+		while seed in used:
+			seed = rng.getrandbits(63)
+		used.add(seed)
+		result.append({'seed': seed, 'prompt': expand_prompt(template, random.Random(seed))})
+	return result
 
 
 def located(name, folder):
@@ -132,25 +153,34 @@ def encoded(request, output):
 	from safetensors.torch import save_file
 	clip = dump.comfy.sd.load_clip([request['te']],
 		embedding_directory=dump.folder_paths.get_folder_paths('embeddings'), clip_type=dump.comfy.sd.CLIPType.MOSS_IMAGE)
-	context = clip.encode_from_tokens_scheduled(clip.tokenize(request['prompt']))[0][0].detach().cpu().float().contiguous()
-	save_file({'context': context}, str(output), metadata={'prompt': request['prompt']})
+	for index, prompt in enumerate(request['prompts']):
+		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
+		context = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))[0][0].detach().cpu().float().contiguous()
+		save_file({'context': context}, str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
 
 
-def conditioning(args, prompt, encoder):
-	request = {'prompt': prompt, 'te': str(encoder), 'comfyui': str(args.comfyui.resolve())}
-	key = cache_key([1, request, identity(encoder), identity(args.comfyui / 'comfy' / 'sd.py')])
-	path = args.cache / ('context-' + key + '.safetensors')
-	if not path.exists():
-		print('Encoding prompt...', flush=True)
+def conditioning(args, prompts, encoder):
+	paths, missing = [], {}
+	for prompt in prompts:
+		request = {'prompt': prompt, 'te': str(encoder), 'comfyui': str(args.comfyui.resolve())}
+		key = cache_key([1, request, identity(encoder), identity(args.comfyui / 'comfy' / 'sd.py')])
+		path = args.cache / ('context-' + key + '.safetensors')
+		paths.append(path)
+		if not path.exists():
+			missing[path] = prompt
+	if missing:
+		print(f'Preparing {len(missing)} uncached prompts with one text-encoder load', flush=True)
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 			folder = Path(temporary)
+			request = {'prompts': list(missing.values()), 'te': str(encoder), 'comfyui': str(args.comfyui.resolve())}
 			(folder / 'request.json').write_text(json.dumps(request), encoding='utf-8')
 			subprocess.run([sys.executable, str(ROOT / 'moss.py'), '_encode', str(folder / 'request.json'),
-				str(folder / 'context.safetensors')], check=True)
-			os.replace(folder / 'context.safetensors', path)
+				str(folder)], check=True)
+			for index, path in enumerate(missing):
+				os.replace(folder / f'{index}.safetensors', path)
 	else:
 		print('Using cached prompt conditioning', flush=True)
-	return path
+	return paths
 
 
 def merged(args, model, loras):
@@ -171,21 +201,48 @@ def merged(args, model, loras):
 	return path
 
 
-def generated(args, model, vae, context, seed, folder):
+def generated(args, model, vae, contexts, plan, folder):
 	import torch
 	from safetensors.torch import load_file, save_file
-	data = load_file(str(context))
-	data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
-		generator=torch.Generator('cpu').manual_seed(seed))
-	for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': 5, 'period': 2,
-		'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.quality}.items():
-		data[name] = torch.tensor([value], dtype=torch.float32)
-	save_file(data, str(folder / 'generation.safetensors'))
+	for index, (context, job) in enumerate(zip(contexts, plan)):
+		data = load_file(str(context))
+		data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
+			generator=torch.Generator('cpu').manual_seed(job['seed']))
+		for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': 5, 'period': 2,
+			'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
+			data[name] = torch.tensor([value], dtype=torch.float32)
+		save_file(data, str(folder / f'generation-{index}.safetensors'))
+		if index == 0:
+			data['jobs'] = torch.tensor([len(plan)], dtype=torch.float32)
+			save_file(data, str(folder / 'generation.safetensors'))
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	subprocess.run([str(ROOT / 'MossGenerate.exe'), str(folder), str(model), '', str(vae), 'off', ''],
-		cwd=ROOT, env=environment, check=True)
-	return folder / ('strict-off.png' if args.output.suffix.lower() == '.png' else 'strict-off.jpg')
+	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), '', str(vae), 'off', '']
+	worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
+		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
+	completed = 0
+	try:
+		for line in worker.stdout:
+			print(line, end='', flush=True)
+			match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
+			if match:
+				index = int(match[1])
+				if index != completed or index >= len(plan):
+					raise RuntimeError('Unexpected generation index from native backend')
+				completed += 1
+				suffix = f'-{index}' if len(plan) > 1 else ''
+				extension = '.png' if args.output.suffix.lower() == '.png' else '.jpg'
+				yield index, folder / ('strict-off' + suffix + extension), int(match[2])
+		code = worker.wait()
+		if code:
+			raise subprocess.CalledProcessError(code, command)
+		if completed != len(plan):
+			raise RuntimeError('Native backend did not complete the requested image count; rebuild MossGenerate.strict')
+	finally:
+		if worker.poll() is None:
+			worker.terminate()
+			worker.wait()
+		worker.stdout.close()
 
 
 def main(argv=None):
@@ -199,29 +256,33 @@ def main(argv=None):
 	loras = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
 	if not (ROOT / 'MossGenerate.exe').is_file():
 		raise FileNotFoundError('Build MossGenerate.strict first: ../Strict/strict.exe build MossGenerate.strict')
-	seed = args.seed if args.seed is not None else secrets.randbits(32)
-	prompt = expand_prompt(args.prompt.read_text(encoding='utf-8-sig').strip(), random.Random(seed))
-	print(f'Seed: {seed}\nPrompt: {prompt}', flush=True)
+	plan = jobs(args, args.prompt.read_text(encoding='utf-8-sig').strip())
+	for index, job in enumerate(plan):
+		print(f'Image {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
 	args.cache = args.cache.resolve()
 	args.cache.mkdir(parents=True, exist_ok=True)
-	context = conditioning(args, prompt, encoder)
+	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
 	weights = merged(args, model, loras)
-	output, handle = reserve_output(args.output.resolve())
-	try:
-		with handle, tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-			image = generated(args, weights, vae, context, seed, Path(temporary))
-			with image.open('rb') as source:
-				shutil.copyfileobj(source, handle)
-		metadata = dict(prompt=prompt, seed=seed, model=str(model), loras=[(str(path), strength) for path, strength in loras],
-			steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
-			quality=args.quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started)
-		with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
-			json.dump(metadata, sidecar, indent=2, ensure_ascii=False)
-	except BaseException:
-		handle.close()
-		output.unlink(missing_ok=True)
-		raise
-	print(f'Saved {output}\nTotal {time.perf_counter() - started:.2f} s', flush=True)
+	from contextlib import closing
+	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
+		with closing(generated(args, weights, vae, contexts, plan, Path(temporary))) as images:
+			for index, image, generation_ms in images:
+				output, handle = reserve_output(args.output.resolve())
+				try:
+					with handle, image.open('rb') as source:
+						shutil.copyfileobj(source, handle)
+					metadata = dict(plan[index], model=str(model), loras=[(str(path), strength) for path, strength in loras],
+						steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
+						jpg_quality=args.jpg_quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started,
+						batch_index=index + 1, count=args.count, generation_ms=generation_ms)
+					with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
+						json.dump(metadata, sidecar, indent=2, ensure_ascii=False)
+				except BaseException:
+					handle.close()
+					output.unlink(missing_ok=True)
+					raise
+				print(f'Saved {output}', flush=True)
+	print(f'Total {time.perf_counter() - started:.2f} s for {args.count} image(s)', flush=True)
 	return 0
 
 
@@ -231,6 +292,6 @@ if __name__ == '__main__':
 			encoded(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')), Path(sys.argv[3]))
 		else:
 			raise SystemExit(main())
-	except (OSError, ValueError, subprocess.CalledProcessError) as error:
+	except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
 		print('Moss: ' + str(error), file=sys.stderr)
 		raise SystemExit(1)

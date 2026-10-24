@@ -36,19 +36,24 @@ Repeated(moss Moss, sampling MossSampling, decoder FluxDecoder, data Safetensors
 	let count = Count(data)
 	for count
 		let before = Process.Elapsed
-		let latent = Generated(moss, sampling, data, adapter)
+		let job = Job(data, dumps, index)
+		let latent = Generated(moss, sampling, job, adapter)
 		let suffix = count > 1 then "-" + index else ""
 		let path = dumps + "/strict-" + sampling.mode + suffix + Extension(data)
-		Saved(latent, sampling.width, decoder, path, data)
+		Saved(latent, sampling.width, decoder, path, job)
 		if index + 1 < count
 			GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 Count(data Safetensors) Number
 	MossGenerate(Logger).Count(MossImage.Reference) is 1
-	let count = data.Entry("runs") is "" then 1 else data.Values("runs").First
+	let key = data.Entry("jobs") is "" then "runs" else "jobs"
+	let count = data.Entry(key) is "" then 1 else data.Values(key).First
 	if (count < 1) or (count.Floor is not count)
 		return Error("Invalid generation count")
 	count
+Job(data Safetensors, dumps Text, index Number) Safetensors
+	MossGenerate(Logger).Job(MossImage.Reference, "", 0).path is "tinymoss.safetensors"
+	data.Entry("jobs") is "" then data else Safetensors(dumps + "/generation-" + index + ".safetensors", 32)
 Extension(data Safetensors) Text
 	MossGenerate(Logger).Extension(MossImage.Reference) is (Process.OperatingSystem is "Windows" then ".jpg" else ".png")
 	let jpeg = data.Entry("jpeg") is "" then Process.OperatingSystem is "Windows" else data.Values("jpeg").First is 1

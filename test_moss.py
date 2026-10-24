@@ -1,6 +1,8 @@
 """Local CLI checks; run with ComfyUI's Python. No full model required."""
 import importlib.util
+import io
 import json
+from contextlib import redirect_stderr
 from pathlib import Path
 import random
 import subprocess
@@ -24,10 +26,97 @@ class MossCommandTests(unittest.TestCase):
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		self.assertIn('--prompt', result.stdout)
 		self.assertIn('--lora', result.stdout)
+		self.assertIn('--jpg_quality', result.stdout)
+		self.assertNotIn('-h,', result.stdout)
+		self.assertNotIn('--quality', result.stdout)
 
 	def test_defaults(self):
 		args = self.module().arguments(['--model', 'moss.safetensors'])
 		self.assertEqual((args.prompt, args.steps, args.output), (Path('prompt.txt'), 8, Path('MossImage.jpg')))
+
+	def test_visible_defaults_and_long_help_only(self):
+		module = self.module()
+		with redirect_stderr(io.StringIO()):
+			try:
+				args = module.arguments(['--comfyui', 'D:/ComfyUI_windows_portable/ComfyUI'])
+			except SystemExit:
+				self.fail('Default model is missing')
+			self.assertEqual((args.width, args.height, args.steps, args.guidance, args.jpg_quality), (720, 1280, 8, 1, 85))
+			self.assertEqual(Path(args.model), Path('D:/ComfyUI_windows_portable/ComfyUI/models/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors'))
+			self.assertEqual(Path(args.vae).name, 'flux2-vae.safetensors')
+			self.assertEqual(Path(args.te).name, 'qwen3.5_9b_int8_convrot.safetensors')
+			for option in ('-h', '--quality'):
+				with self.assertRaises(SystemExit):
+					module.arguments([option])
+
+	def test_count_and_distinct_reproducible_jobs(self):
+		module = self.module()
+		self.assertTrue(hasattr(module, 'jobs'), 'Resident batch jobs are missing')
+		args = module.arguments(['--model', 'moss', '--count', '10', '--seed', '42'])
+		first = module.jobs(args, '{a woman|a man|}')
+		self.assertEqual(first, module.jobs(args, '{a woman|a man|}'))
+		self.assertEqual(len(first), 10)
+		self.assertEqual(len({job['seed'] for job in first}), 10)
+		self.assertEqual(first[0]['seed'], 42)
+		self.assertGreater(len({job['prompt'] for job in first}), 1)
+		self.assertEqual(module.arguments(['--model', 'moss']).count, 1)
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--model', 'moss', '--count', '0'])
+
+	def test_batch_launches_backend_once_with_distinct_inputs(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file, load_file
+		module = self.module()
+		self.assertTrue(hasattr(module, 'jobs'), 'Resident batch jobs are missing')
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--model', 'moss', '--count', '2', '--seed', '42',
+				'--width', '16', '--height', '16', '--cache', str(folder)])
+			contexts = []
+			for index in range(2):
+				path = folder / f'context{index}.safetensors'
+				save_file({'context': torch.full((1, 2, 3), float(index))}, str(path))
+				contexts.append(path)
+			process = MagicMock()
+			process.stdout = io.StringIO('generation 0 in 20 ms\ngeneration 1 in 21 ms\n')
+			process.wait.return_value = 0
+			process.poll.return_value = 0
+			with patch.object(module.subprocess, 'Popen', return_value=process) as launch:
+				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
+					module.jobs(args, '{a|b}'), folder))
+			self.assertEqual(launch.call_count, 1)
+			self.assertEqual([result[0] for result in results], [0, 1])
+			self.assertEqual(load_file(str(folder / 'generation.safetensors'))['jobs'].item(), 2)
+			first = load_file(str(folder / 'generation-0.safetensors'))
+			second = load_file(str(folder / 'generation-1.safetensors'))
+			self.assertFalse(torch.equal(first['noise'], second['noise']))
+			self.assertFalse(torch.equal(first['context'], second['context']))
+
+	def test_batch_encodes_unique_missing_prompts_in_one_worker(self):
+		from unittest.mock import patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			(folder / 'comfy').mkdir()
+			(folder / 'comfy/sd.py').write_text('fixture')
+			encoder = folder / 'encoder.safetensors'
+			encoder.write_bytes(b'identity')
+			args = module.arguments(['--model', 'moss', '--cache', str(folder), '--comfyui', str(folder)])
+			def worker(command, **kwargs):
+				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
+				self.assertEqual(request['prompts'], ['first', 'second'])
+				for index in range(len(request['prompts'])):
+					save_file({'context': torch.zeros((1, 2, 3))}, str(Path(command[4]) / f'{index}.safetensors'))
+			with patch.object(module.subprocess, 'run', side_effect=worker) as launch:
+				paths = module.conditioning(args, ['first', 'second', 'first'], encoder)
+				self.assertEqual(paths[0], paths[2])
+				self.assertNotEqual(paths[0], paths[1])
+				self.assertTrue(all(path.is_file() for path in paths))
+				self.assertEqual(module.conditioning(args, ['first', 'second'], encoder), paths[:2])
+				self.assertEqual(launch.call_count, 1)
 
 	def test_wrong_checkpoint_is_rejected(self):
 		import torch

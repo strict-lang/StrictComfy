@@ -24,9 +24,9 @@ parser.add_argument("--repeat", type=int, default=1)
 parser.add_argument("--resident-runs", type=int, default=1, help="generations per loaded model/decoder process")
 parser.add_argument("--compressed", action="store_true", help="compress PNGs (requires --format png)")
 parser.add_argument("--format", choices=["jpg", "png"], default="jpg" if os.name == "nt" else "png", help="output format (default JPEG on Windows)")
-parser.add_argument("--quality", type=int, default=85, help="JPEG quality, 0-100 (default 85)")
+parser.add_argument("--jpg_quality", type=int, default=85, help="JPEG compression quality, 0-100 (default 85)")
 options = parser.parse_args()
-if not 0 <= options.quality <= 100:
+if not 0 <= options.jpg_quality <= 100:
 	parser.error("JPEG quality must be between 0 and 100")
 if options.compressed and options.format != "png":
 	parser.error("--compressed requires --format png")
@@ -124,7 +124,7 @@ if options.run:
 				configuration["runs"] = torch.tensor([options.resident_runs], dtype=torch.float32)
 				configuration["compressed"] = torch.tensor([int(options.compressed)], dtype=torch.float32)
 				configuration["jpeg"] = torch.tensor([float(options.format == "jpg")], dtype=torch.float32)
-				configuration["quality"] = torch.tensor([options.quality], dtype=torch.float32)
+				configuration["quality"] = torch.tensor([options.jpg_quality], dtype=torch.float32)
 				save_file(configuration, str(folder / "generation.safetensors"))
 				mode = variant.get("mode", "off")
 				command = [str(repository / "MossGenerate.exe"), str(folder), variant["model"], variant.get("lora", ""), settings["vae"], mode, variant.get("adapter", "")]
@@ -145,7 +145,7 @@ if options.run:
 					denoising = sampling_runs[-1] - 1000 * (float(first[-1]) - float(setup[-1])) if setup and first else None
 					measurement = {"denoising_ms": round(denoising, 1) if denoising is not None else None, "case": case, "variant": label, "run": run, "sampling_ms": sampling_runs[-1], "sampling_runs_ms": sampling_runs, "generation_runs_ms": generation_runs, "resident_runs": options.resident_runs, "compressed_png": options.compressed, "image_name": image_name, "wall_seconds": time.perf_counter() - started, "command": command, "configuration": variant}
 					measurement["output_format"] = options.format
-					measurement["jpeg_quality"] = options.quality if options.format == "jpg" else None
+					measurement["jpeg_quality"] = options.jpg_quality if options.format == "jpg" else None
 					(folder / ("run-" + str(run) + ".json")).write_text(json.dumps(measurement, indent=2), encoding="utf-8")
 					print(json.dumps(measurement), flush=True)
 if options.report:
