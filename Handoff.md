@@ -2,6 +2,31 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## RTX 3080 bf16 residual and QK (2026-10-24, validated)
+
+Precision policy is in ../Strict/Agents.md: prefer supported int8 Convrot projections, bf16 activation/residual/attention storage, and f32 where precision or measured performance requires it, including H3 audio VAE. Keep necessary precise accumulators and exact integer address/index arithmetic. Do not lower the global bf16 list threshold: that regressed VAE convolutions.
+
+Implemented: native bf16 QK prompt attention for 128-wide heads on Ampere, bf16 Gated/Rotated outputs, explicit Gated width, and four-wide flat loops accepting any number of safe independent linear reads. A noinline attention specialization prevents both predicated bf16 and fp16 MMA paths from being issued; isolated native bf16 attention is 3.009 ms against f32 3.038 ms. Grouped Modulated/Rotated vectorization remains open. GEMM emitter is unchanged.
+
+Three alternating pairs at locked 1695 MHz core / 9506 MHz actual CUDA memory: f32 405.50 / 406.00 / 406.17 ms, bf16 394.67 / 395.00 / 396.00 ms (steps 1-6). Means: 405.89 -> 395.22 ms, saving 10.67 ms (2.63%). Fresh same-clock ComfyUI is 402.43 / 402.56 ms: Strict's steady evaluation is 7.28 ms (1.81%) faster. These clocks differ from historical unlocked 363-366 ms measurements.
+
+Quality is a deliberate tradeoff: PSNR against ComfyUI 28.74 -> 23.30 dB; latent error 0.2691597633635198 -> 0.4578933680652566. F32 PNG SHA256 is 50ab7c7f2c0798e57ac40097061c9d778a6401dfe7b101d82f7dea841eda4913; bf16 is 4aaf91a74757676d7f0a6dafabad43a58e94ffff4c13cc500fea78f44055d972, identical across repeated candidate runs. QK-only bf16 gave 27.08 dB. Images were visually checked on this fixture; broader quality is not established.
+
+Important limitation: the entire diagnostic harness is slower, 24.3-25.0 s bf16 against 16.0-16.5 s f32. Its per-layer CPU comparisons and phase transitions remain unresolved; this is a steady denoising win, not an end-to-end wall-time win. Peak VRAM is about 9604-9606 MiB bf16 versus 8658-8788 MiB f32. Unused large pool blocks are now trimmed under activation allocation pressure, without changing weight-cache policy or global reserve. Eager lending, finer size classes, a global 1 GiB reserve and comparison materialization were rejected; patches and logs remain outside production.
+
+nsys steady windows: f32 410.37 ms / bf16 399.19 ms, including profiler overhead; busy.py target idle 7.37 / 7.75 ms. Gated 14.17 -> 8.27 ms per step, Modulated 12.95 -> 10.89, Rotated 14.19 -> 14.03. Steady copies remain 2048 bytes HtoD and 1843200 bytes DtoH for the harness latent check.
+
+Next, in order:
+1. Vectorize grouped Modulated and Rotated through the existing emitter: four contiguous outputs per lane, reuse group reductions and hoist provable bounds checks. Preserve exact integer indices and reduction order. Require raw formats, invalid lengths, tails and full-model validation.
+2. Fix the full-size Rotated miscompile recorded in ../Strict/improvements.md: inlining half = size / 2 corrupts 24.3% of raw outputs despite passing tiny tests. Keep the original expression until the cause is isolated; restoring it restores the exact bf16 hash. Reproducer: model-pool and rotated-inline-check.log.
+3. Compare ComfyUI gate/modulation rounding independently; its gate is bf16 while Strict's small modulation values remain f32. Preserve normalization/softmax precision and avoid global threshold changes.
+4. Isolate the diagnostic comparison/phase-transition wall-time regression. The Readable materialization experiment changed error measurements and did not provide a convincing gain; it is reverted.
+5. Have the 4090 agent validate shared runtime changes on H3 before extrapolating these results. Its H3 optimization work remains separate. B1/B3 stay rejected on 3080; do not rebuild them. C has no accepted GEMM emitter change; coordinate any future epilogue work with B2.
+
+Compiler changes are pushed as Strict c1829a08. Final restored production build reproduces the exact bf16 errors/PNG (393.33 ms steady); its new artifact location incurred cold initialization/JIT, so its 73.88 s process time is excluded from warmed paired timing. Benchmark clock limits were reset after timing; Afterburner settings were untouched.
+
+Validation: focused VM/native/forced-GPU checks, large-range bf16 attention, cache trim/lifetime, residency and H3 Hadamard regressions pass; compiler stage 2/3 MLIR fixpoint is identical. Diagnostics: D:/StrictDumps/bf16-attention, paired artifacts model-trim and model-trim-base, baseline worktree ../StrictComfyPrecisionBase at 502da91. Server C:/ is V:/ here; X:/ is server C:/code/. Older A-pending/C-awaiting-review sections below are historical.
+
 ## 3080 results for A, B1, C (2026-10-24, locked 1695/9756)
 Tables in [Performance.md](Performance.md), section "RTX 3080: A confirmed, B1 rejected, C inconclusive".
 - **A works on the 3080**: idle per step 12.3 -> 3.4 ms, steps 1-6 about 5-10 ms faster (415.9 -> 408.3 ms), identical errors and PNG (`50ab7c7f...`). ComfyUI at the same locks: 403.4 ms, Strict is 3-7 ms behind.

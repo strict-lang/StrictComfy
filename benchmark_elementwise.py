@@ -79,7 +79,7 @@ for directory in sys.argv[1:]:
 	checked(driver.cuModuleLoadData(ct.byref(module), (path / "MossImage.ptx").read_bytes()))
 	loaded.append((directory, module, (path / "MossImage.kernels.mlir").read_text()))
 
-kernels = ["MossBlock_Activated_2", "MossBlock_Gated_4", "Batch_Columns_4", "MossBlock_Rotated_5", "MossBlock_Modulated_4"]
+kernels = ["MossBlock_Activated_2", "MossBlock_Gated_5", "Batch_Columns_4", "MossBlock_Rotated_5", "MossBlock_Modulated_4"]
 kernels = [kernel for kernel in kernels if os.getenv("STRICT_BENCH_KERNEL", "") in kernel]
 kernels = [kernel for kernel in kernels if all("@" + kernel + "_gpu" in source for _, _, source in loaded)]
 for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
@@ -89,8 +89,8 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 	counts = [width, 2 * width, full_count] if "Modulated" in kernel else counts
 	counts = [full_count] if os.getenv("STRICT_BENCH_PROFILE") else counts
 	for count in counts:
-		formats = [(32, False), (17, False), (16, False)] + ([(17, True)] if "Rotated" in kernel or "Modulated" in kernel else [])
-		for bits, mixed in ([(17, "Rotated" in kernel)] if os.getenv("STRICT_BENCH_PROFILE") else formats):
+		formats = [(32, False), (17, False), (16, False)] + ([(17, True)] if any(name in kernel for name in ("Rotated", "Modulated", "Gated")) else [])
+		for bits, mixed in ([(17, "Rotated" in kernel or "Gated" in kernel)] if os.getenv("STRICT_BENCH_PROFILE") else formats):
 			dtype = {32: torch.float32, 17: torch.bfloat16, 16: torch.float16}[bits]
 			rows = (count + width - 1) // width
 			values = {}
@@ -122,11 +122,12 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				output_dtype, result_bits = torch.bfloat16, 17
 			elif "Gated" in kernel:
 				number("part", 2)
+				number("width", width)
 				input_data = tensor("input", count)
 				update = tensor("update", count)
 				modulation = tensor("modulation", (3, width))
-				expected = input_data + update * modulation[2].repeat(rows)[:count]
-				output_dtype, result_bits = torch.float32, 32
+				expected = (input_data + update * modulation[2].repeat(rows)[:count]).bfloat16()
+				output_dtype, result_bits = torch.bfloat16, 17
 			elif "Rotated" in kernel:
 				number("size", 128)
 				number("half", 64)
@@ -139,8 +140,8 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				partner = torch.cat((queries[:, :, 64:], queries[:, :, :64]), dim=2)
 				partner_weights = torch.cat((weights[64:], weights[:64]))
 				scale = (queries.square().mean(dim=2, keepdim=True) + 1e-6).rsqrt()
-				expected = ((queries * weights * rotation[:, 0:1] + partner * partner_weights * rotation[:, 1:2]) * scale).flatten()[:count]
-				output_dtype, result_bits = torch.float32, 32
+				expected = ((queries * weights * rotation[:, 0:1] + partner * partner_weights * rotation[:, 1:2]) * scale).flatten()[:count].bfloat16()
+				output_dtype, result_bits = torch.bfloat16, 17
 			else:
 				number("count", width)
 				number("width", 3 * width)

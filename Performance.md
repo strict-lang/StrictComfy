@@ -1,5 +1,46 @@
 # Moss performance
 
+## RTX 3080 precision results (2026-10-24)
+
+Same 720x1280 merged-int8-Convrot Moss fixture, eight Euler evaluations, steps 1-6 averaged. Locked core 1695 MHz, actual CUDA memory 9506 MHz; no thermal slowdown. Compiler c1829a08, model parent 502da91 plus the precision changes described in Handoff.md. F32 control uses the same compiler/runtime as bf16.
+
+| Alternating pair | F32 residual/QK (ms) | BF16 residual/QK (ms) |
+|---|---:|---:|
+| 1 | 405.50 | 394.67 |
+| 2 (reverse order) | 406.00 | 395.00 |
+| 3 | 406.17 | 396.00 |
+| Mean | 405.89 | 395.22 |
+
+Saving 10.67 ms/evaluation (2.63%). Fresh warmed ComfyUI at identical clocks: 402.43 / 402.56 ms, mean 402.50 ms, so Strict is 7.28 ms (1.81%) faster per steady evaluation. ComfyUI reference latent error is zero. Historical unlocked 363-366 ms numbers are not comparable.
+
+| Accuracy / process metric | F32 | BF16 |
+|---|---:|---:|
+| Step 0 error | 0.007891071269124554 | 0.00909505812896113 |
+| Final latent error | 0.2691597633635198 | 0.4578933680652566 |
+| PNG PSNR against ComfyUI | 28.74 dB | 23.30 dB |
+| Full diagnostic process | 16.0-16.5 s | 24.3-25.0 s |
+| Peak GPU memory | 8658-8788 MiB | 9604-9606 MiB |
+
+The quality tradeoff is intentional under the user's bf16 preference; equivalence is not claimed. F32 PNG SHA256: `50ab7c7f2c0798e57ac40097061c9d778a6401dfe7b101d82f7dea841eda4913`. BF16: `4aaf91a74757676d7f0a6dafabad43a58e94ffff4c13cc500fea78f44055d972`, repeated exactly. QK-only bf16 measured 27.08 dB. The entire debug harness remains slower: CPU comparisons/phase transitions need investigation. Do not report an end-to-end process speedup or lower peak VRAM.
+
+nsys steady windows (profiler overhead included): 410.37 -> 399.19 ms; kernel sums 402.95 -> 391.40 ms; busy.py target idle 7.37 -> 7.75 ms. Copies: 2048 bytes HtoD and 1843200 bytes DtoH per steady evaluation (latent comparison).
+
+| Kernel category, ms/evaluation | F32 | BF16 |
+|---|---:|---:|
+| GEMM | 195.30 | 194.04 |
+| Attention | 127.86 | 125.74 |
+| Quant/Hadamard | 24.28 | 24.13 |
+| Rotated | 14.19 | 14.03 |
+| Gated | 14.17 | 8.27 |
+| Modulated | 12.95 | 10.89 |
+| Activated | 11.38 | 11.52 |
+
+Native bf16 attention uses a noinline constant-format specialization: otherwise both predicated QK formats occupy tensor issue slots (42.1M -> 63.1M tensor instructions; math-pipe throttle 42.5 -> 56.6%). Specialized isolated attention: 3.009 ms bf16 against 3.038 ms f32. GEMM emitter unchanged. Flat four-wide loops accept arbitrary independent linear reads; grouped Modulated/Rotated vectorization is still pending.
+
+Unused pool blocks are trimmed before large activation allocations under memory pressure. Global reserve, power-of-two classes and weight-cache policy remain unchanged. Eager lending, finer classes, global 1 GiB reserve and Readable comparison materialization were rejected. Inlining Rotated's half-width expression exposed a separate full-size miscompile; original arithmetic is retained and the bug is recorded in ../Strict/improvements.md.
+
+All scripts, raw counters, paired JSONs and rejected patches: `D:/StrictDumps/bf16-attention`; final paired binaries `model-trim` / `model-trim-base`, traces `profile-final-*`. Full validation and next steps: [Handoff.md](Handoff.md).
+
 ## RTX 3080 GEMM analysis (2026-10-24)
 
 [Full counter/SASS report](GemmStalls3080.md). Strict `4d1cafc9`, installed comfy-kitchen 0.2.39, identical prequantized data, checked 50-launch graphs and six alternating rounds. Final lock 1695 MHz core / 9506 MHz actual CUDA memory; 156 high-load samples held these clocks, no thermal slowdown. Final clean medians, Strict / CUTLASS: qkv 1198.8/1125.2 us, o 443.2/392.0, up 2143.8/2040.8, down 1068.2/936.6. Equivalent gap 15.09 ms per 42-layer step; telemetry repeats 17.40/15.47 ms. These are isolated-kernel estimates, not full-model improvements.
