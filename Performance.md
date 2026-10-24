@@ -6,6 +6,22 @@
 
 Fixed installed CUTLASS controls isolate roughly 5-6 ms/step from its smaller o tile and Stream-K down distribution; approximately 8-10 ms remains in the ordinary-tile comparison. Source samples locate the qkv/up excess in strided scale/bias setup and the larger epilogue, with essentially equal main-loop totals. The historical 14.6/13.2 warp-cycle gap does not by itself identify a missing pipeline optimization: current Fast executes fewer instructions. No production change was made. Await user review before emitter changes; validate A on 3080 when the 4090 agent commits it. The 4090 results below retain their own fixture and clock conditions.
 
+## RTX 3080: A confirmed, B1 rejected, C inconclusive (2026-10-24, locked 1695/9756)
+
+Reference for every run: PNG sha256 `50ab7c7f...`, latent error 0.2691597633635198, PSNR 28.74 dB.
+
+| | Result |
+|---|---|
+| A, nsys idle per steady step | 12.3 -> 3.4 ms (traced step window -9.6 ms) |
+| A, quiet paired full runs, steps 1-6 | baseline 415.5 / 416.3 ms, A 410.2 / 406.3 ms (5-10 ms saved) |
+| ComfyUI, same locks, warm evaluations | 403.4-403.5 ms; Strict with A is 3-7 ms behind |
+| B1 (Activated fused into Hadamard/quantize) | bytes identical, but fused 632.8 vs separate 587.5 us per layer (+1.9 ms/step), reversed run confirms: rejected |
+| C small tile (128 rows, 4 stages, wave-aware) | isolated down -4 %, o mixed, qkv/up slower, in-model down unchanged, full pairs +3 / -4 ms: not merged (branch `codex/gemm-small-tile-3080`, 35e8cc0b) |
+| C scale loads, hoisted result-format branch, dense scale metadata | slower / flat / no broad win |
+| C separate BF16-output entry ("brain") | qkv 1117.8 vs installed CUTLASS 1067.2 us; not yet compared with the Strict baseline in the same run |
+
+Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
+
 # Moss on RTX 4090
 
 ## A: step-boundary round trips removed (2026-10-24, 4090, locked 2400/10251)

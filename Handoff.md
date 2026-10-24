@@ -2,6 +2,13 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## 3080 results for A, B1, C (2026-10-24, locked 1695/9756)
+Tables in [Performance.md](Performance.md), section "RTX 3080: A confirmed, B1 rejected, C inconclusive".
+- **A works on the 3080**: idle per step 12.3 -> 3.4 ms, steps 1-6 about 5-10 ms faster (415.9 -> 408.3 ms), identical errors and PNG (`50ab7c7f...`). ComfyUI at the same locks: 403.4 ms, Strict is 3-7 ms behind.
+- **B1 rejected on the 3080**: fused 632.8 vs separate 587.5 us per layer. B3 on the 3080 not measured yet.
+- **C**: no GEMM change wins. Small tile checkpoint only on `codex/gemm-small-tile-3080`. Real stall/SASS analysis of qkv still open, see [GemmStalls3080.md](GemmStalls3080.md); BF16-output entry ("brain") unfinished.
+- Open: brain vs baseline vs CUTLASS alternating on four shapes; ncu stall reasons and SASS on qkv before any more GEMM experiments; 3.4 ms idle left.
+
 ## B3 diagnostic, and both fusions to measure on the 3080 (2026-10-24)
 B3 fuses Gated into the next Modulated. The prototype is a copy of the generated Modulated kernel (`sxf0`, one 256-lane block per token row):
 - its `HeadScale` sums the squares of the Gated residual computed in place, `input + update * modulation`, with the same loop, contract flags and lane reduction as `strict_device_squares`;
