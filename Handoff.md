@@ -87,7 +87,7 @@ Validation:
 
 The removed costs are host-side, so expect roughly the same absolute saving there (about 15-20 ms per step).
 
-Found, not fixed: a `Bytes` result computed on the GPU is downloaded (`16000 numbers in 9 bits` in the check) before a GPU loop reads it, possibly by the host-side `Byte` constraint checks. It's not on the Moss path.
+Fixed since: a `Bytes` result computed on the GPU was downloaded (`16000 numbers in 9 bits` in the check) before a GPU loop read it. The method reading it hoisted its byte pointer for the CPU loop before deciding to run on the GPU, and that hoist downloaded the list. The hoist now leaves bytes that are only on the GPU there (`strict_list_host_bytes`). It's not on the Moss path.
 
 **B1 estimate (next):**
 - **Cost today, from the single-pass counters:** Activated is 174 us per layer at 94 % of DRAM peak; the Hadamard/quantization after it is 107 us.
