@@ -2,11 +2,11 @@
 This file lists only what is still to be implemented: remove an item once it is done (results and numbers go into commit messages or a README), add what is found. Goal: run ComfyUI's Moss (image DiT, RTX 3080) and MiniMax H3 (video+audio DiT, RTX 4090) in Strict, faster than ComfyUI, then plug Strict into ComfyUI through a node.
 
 ## Current work split (2026-10-24)
-- 4090 agent owns H3 optimizations. A is committed and validated on 3080. B1/B3 are rejected on 3080; do not rebuild them.
-- 3080 precision first pass is validated: bf16 residual/QK and native bf16 attention yield 395.22 ms steady evaluations versus f32 405.89 ms and fresh same-clock ComfyUI 402.50 ms. PSNR is 23.30 versus 28.74 dB, and the full debug harness remains slower. Broader quality and end-to-end overhead still require work before treating the overall milestone as complete.
-- Next: grouped Modulated/Rotated vectorization, the recorded full-size Rotated index miscompile, gate/modulation precision alignment, and debug comparison/phase-transition overhead. Follow the ordered instructions in Handoff.md; preserve integer indexing and precise accumulators.
-- C analysis is in [GemmStalls3080.md](GemmStalls3080.md); no accepted GEMM emitter change. Coordinate any future epilogue work with B2. The shared native bf16/runtime changes need H3 validation on 4090.
-- Current measurements and pending work are in [Performance.md](Performance.md) and [Handoff.md](Handoff.md). October 22 sections below are historical, not the current speed baseline.
+- 4090 agent owns H3 optimization and copy-stream prefetch. Fixed-budget accounting is merged; it gave only modest/noisy gains on the 3080 Moss fixture.
+- Completed the Spectrum audit and 36-image 25/8/4-step comparison. Sampling medians: 20.423 / 13.448 s base25/Spectrum25, 4.413 / 4.147 s turbo8/Spectrum8, 2.892 / 2.922 s akhaliq/darask0 four-step int8 merges. The user should judge quality; no cross-preset equality gate. See [Generation.md](Generation.md), [Spectrum.md](Spectrum.md) and [Performance.md](Performance.md).
+- Next: review preferred quality/speed presets, reduce fresh-process load and decode/save overhead, then improve Spectrum scheduling/ER-SDE coverage if worthwhile. Grouped Modulated/Rotated vectorization and the recorded full-size index miscompile remain open.
+- C analysis is in [GemmStalls3080.md](GemmStalls3080.md); no accepted GEMM emitter change. Coordinate future epilogue work with B2. B1/B3 remain rejected on 3080.
+- Current instructions are at the top of [Handoff.md](Handoff.md). October 22 sections below are historical, not the current speed baseline.
 
 ## Historical status (2026-10-22, RTX 3080)
 - Whole image generated in Strict (`MossImage.exe <dumps> <model> "" <vae>`): 0.70 s per step against ComfyUI's 0.15 s, every layer within 4 % of ComfyUI, image 31.3 dB PSNR against ComfyUI's (`D:\StrictDumps\moss480\moss-strict.png`). VAE decode (FluxImage, no STRICT_GPU needed) 0.54 s at 720x1280, 0.47 s repeated (61 dB against ComfyUI's decode, ComfyUI 0.54 s), 0.39 / 0.31 s at 576x1024 (62.4 dB, ComfyUI 0.36 s), 0.41 s in MossImage after the DiT; open items in ../Strict/improvements.md item 3.

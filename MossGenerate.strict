@@ -1,0 +1,41 @@
+has logger
+Run(dumps Text, model Text, lora Text, vae Text, mode Text, adapter Text)
+	let data = Safetensors(dumps + "/generation.safetensors", 32)
+	let before = Process.Elapsed
+	let moss = Adapted(Moss.Loaded(model, lora), adapter)
+	logger.Log("loaded in " + (Process.Elapsed - before).Round(3) + " s")
+	let sampling = Configured(data, mode)
+	let latent = Generated(moss, sampling, data, adapter)
+	Saved(latent, sampling.width, vae, dumps + "/strict-" + mode + ".png")
+Configured(data Safetensors, mode Text) MossSampling
+	let width = data.Shape("noise").Last
+	let steps = data.Values("steps").First
+	let guidance = data.Values("guidance").First
+	MossSampling(logger, width, steps, guidance, mode, data.Values("warmup").First, data.Values("period").First)
+Generated(moss Moss, sampling MossSampling, data Safetensors, adapter Text) Numbers
+	let noise = data.Values("noise")
+	let context = data.Values("context")
+	let before = Process.Elapsed
+	let latent = Sampled(moss, sampling, noise, context, adapter)
+	logger.Log("sample " + latent.First + ", sampling " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	latent
+Sampled(moss Moss, sampling MossSampling, noise Numbers, context Numbers, adapter Text) Numbers
+	if adapter is ""
+		return sampling.Sampled(moss, noise, context)
+	sampling.Dataspace(moss, noise, context, Safetensors(adapter + "/dataspace.safetensors", 32))
+Adapted(moss Moss, adapter Text) Moss
+	if adapter is ""
+		return moss
+	let time = Safetensors(adapter + "/time_embedding.safetensors", 32)
+	let first = MossText.Dense(time, "time_embedding.0")
+	let second = MossText.Dense(time, "time_embedding.2")
+	let block = Batch(moss.blockModulation.weights, time.Values("shared_block_modulation.bias"))
+	let head = Batch(moss.headModulation.weights, time.Values("video_head_modulation.bias"))
+	Moss(moss, timeIn = first, timeOut = second, blockModulation = block, headModulation = head)
+Saved(latent Numbers, width Number, vae Text, path Text) None
+	let before = Process.Elapsed
+	let image = FluxDecoder.Loaded(vae, 32).Decoded(latent, width)
+	let pixels = FluxImage(logger).Colors(image)
+	let size = Size(width * 16, latent.Length / (128 * width) * 16)
+	ImageSaver(path).Save(Image(size, pixels))
+	logger.Log("decoded and saved in " + ((Process.Elapsed - before) * 1000).Round + " ms")
