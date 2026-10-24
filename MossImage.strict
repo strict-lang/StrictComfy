@@ -35,9 +35,7 @@ Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers
 	for euler.steps
 		let before = Process.Elapsed
 		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), text, width), index)
-		let next = "x." + (index + 1)
-		let compared = steps.Entry(next) is "" then "" else ", error " + Error(latent, steps.Values(next))
-		logger.Log("step " + index + " " + ((Process.Elapsed - before) * 1000).Round + " ms" + compared)
+		MossTiming(logger).Measured(index, before, latent, steps)
 	latent
 Compared(moss Moss, step Safetensors) Number
 	MossImage(Logger, 4).Compared(Moss.Tiny, Reference) < 0.05

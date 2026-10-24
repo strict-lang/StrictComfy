@@ -1,0 +1,39 @@
+has logger
+constant Tiny = MossSpectrum(Logger, 4, 1, 1)
+Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Numbers
+	MossSpectrumImage(Logger).Sampled(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
+	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
+	let sigmas = euler.Sigmas
+	mutable current = spectrum
+	mutable latent = data.Values(data.Entry("x.0") is "" then "x" else "x.0")
+	for euler.steps
+		let before = Process.Elapsed
+		current = current.Advanced(moss, latent, sigmas(index), text, index)
+		latent = euler.Stepped(latent, current.output, index)
+		MossTiming(logger).Measured(index, before, latent, data, ", forecasts " + current.forecasts)
+	latent
+Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup Number, period Number, degree Number)
+	let data = Safetensors(dumps + "/steps.safetensors", 64)
+	let latent = Generated(dumps, model, lora, mode, steps, warmup, period, degree)
+	logger.Log("latent error " + MossImage(logger).Error(latent, data.Values("latent")))
+	let sized = MossImage(logger, data.Shape("noise").Last)
+	sized.Saved(latent, data, FluxDecoder.Loaded(vae, 32), dumps + "/moss-spectrum-" + mode + ".png")
+Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Number, period Number, degree Number) Numbers
+	let data = Safetensors(dumps + "/steps.safetensors", 64)
+	let context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")
+	let width = data.Shape("noise").Last
+	let spectrum = Configured(width, mode, steps, warmup, period, degree)
+	let before = Process.Elapsed
+	let moss = Moss.Loaded(model, lora)
+	logger.Log("loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
+	Sampled(moss, spectrum, data, Euler(steps, 5), context)
+Configured(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
+	let fit = SpectralFit(degree, 0.1, 0.5)
+	if (fit.IsValid is false) or (mode is not in ("off", "shadow", "on"))
+		return Error("Invalid Spectrum configuration")
+	if (period < 2) or (period.Floor is not period) or (steps < 1) or (steps.Floor is not steps)
+		return Error("Invalid Spectrum schedule")
+	if (warmup < 0) or (warmup.Floor is not warmup)
+		return Error("Invalid Spectrum warmup")
+	MossSpectrum(logger, width, steps, warmup, period, mode, SpectralHistory(fit = fit))

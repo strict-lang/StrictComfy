@@ -58,14 +58,18 @@ Output(latent Numbers, sigma Number, text Numbers, width Number) Numbers
 	Forward(0).IsNearlyEqual(-1.9609, 0.05)
 	Forward(5).IsNearlyEqual(-0.5156, 0.05)
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)
+	let vector = TimeEmbedded(sigma)
+	Head(Features(latent, text, width, vector), vector)
+Features(latent Numbers, text Numbers, width Number, vector Numbers) Numbers
 	let channels = video.weights.First.Length
 	let count = latent.Length / channels
 	let words = text.Length / finalNorm.Length
-	let vector = TimeEmbedded(sigma)
 	let rotation = MossBlock.Rotations(count / width, width, words, 128)
 	let hidden = video.Sums(Transposed(latent, channels)) + text
 	let transformed = Transformed(hidden, blockModulation.Sums(vector), rotation)
-	let image = Safetensors.Part(transformed, 0, count * finalNorm.Length, 1)
+	Safetensors.Part(transformed, 0, count * finalNorm.Length, 1)
+Head(image Numbers, vector Numbers) Numbers
+	let count = image.Length / finalNorm.Length
 	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
 TextEmbedded(context Numbers, text Number) Numbers
 	Tiny.TextEmbedded(Context, 3)(0).IsNearlyEqual(0.0557, 0.02)
