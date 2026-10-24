@@ -6,8 +6,8 @@ Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot
 Tables in [Performance.md](Performance.md), section "RTX 3080: A confirmed, B1 rejected, C inconclusive".
 - **A works on the 3080**: idle per step 12.3 -> 3.4 ms, steps 1-6 about 5-10 ms faster (415.9 -> 408.3 ms), identical errors and PNG (`50ab7c7f...`). ComfyUI at the same locks: 403.4 ms, Strict is 3-7 ms behind.
 - **B1 rejected on the 3080**: fused 632.8 vs separate 587.5 us per layer. B3 on the 3080 not measured yet.
-- **C**: no GEMM change wins. Small tile checkpoint only on `codex/gemm-small-tile-3080`. Real stall/SASS analysis of qkv still open, see [GemmStalls3080.md](GemmStalls3080.md); BF16-output entry ("brain") unfinished.
-- Open: brain vs baseline vs CUTLASS alternating on four shapes; ncu stall reasons and SASS on qkv before any more GEMM experiments; 3.4 ms idle left.
+- **C**: no GEMM change wins. Small tile checkpoint only on `codex/gemm-small-tile-3080`. Real stall/SASS analysis of qkv still open, see [GemmStalls3080.md](GemmStalls3080.md); BF16-output entry ("brain") measured against baseline and CUTLASS on all four shapes in one alternating run: within noise of baseline, rejected.
+- Open: 3.4 ms idle left. The ncu/SASS analysis of qkv is in GemmStalls3080.md (commit 22a1bf0); it does not name a single cause, see its qkv/up scale/bias setup and epilogue finding.
 
 ## B3 diagnostic, and both fusions to measure on the 3080 (2026-10-24)
 B3 fuses Gated into the next Modulated. The prototype is a copy of the generated Modulated kernel (`sxf0`, one 256-lane block per token row):

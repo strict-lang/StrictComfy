@@ -18,7 +18,7 @@ Reference for every run: PNG sha256 `50ab7c7f...`, latent error 0.26915976336351
 | B1 (Activated fused into Hadamard/quantize) | bytes identical, but fused 632.8 vs separate 587.5 us per layer (+1.9 ms/step), reversed run confirms: rejected |
 | C small tile (128 rows, 4 stages, wave-aware) | isolated down -4 %, o mixed, qkv/up slower, in-model down unchanged, full pairs +3 / -4 ms: not merged (branch `codex/gemm-small-tile-3080`, 35e8cc0b) |
 | C scale loads, hoisted result-format branch, dense scale metadata | slower / flat / no broad win |
-| C separate BF16-output entry ("brain") | qkv 1117.8 vs installed CUTLASS 1067.2 us; not yet compared with the Strict baseline in the same run |
+| C separate BF16-output entry ("brain"), same run, alternating, medians us, baseline / brain / CUTLASS | qkv 1126.7 / 1117.8 / 1067.2, o 417.4 / 421.9 / 382.4, up 2043.8 / 2045.9 / 1930.2, down 1011.3 / 1026.6 / 896.1: within noise (-0.8 to +1.5 %), rejected (`brain-timings.log`) |
 
 Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 
