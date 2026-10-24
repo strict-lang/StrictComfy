@@ -2,6 +2,42 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## RTX 4090 baseline and plan (2026-10-24)
+Full tables, method and scripts: [Performance.md](Performance.md), section "Locked-clock baseline". Strict master e1cb907b (+ build fix 23e61750), clocks locked at 2400/10251 MHz for every timing run, same fixture/noise/conditioning as ComfyUI.
+
+GPU: after the user's repaste and new pads (overclock +100 MHz core, +200 MHz memory), 270 s of bf16 GEMM load gave 166 -> 160 TFLOPS. Hotspot reached 100-101 °C at a core of 76 °C, results were bitwise stable, and the only limit was the 450 W power cap. Before the repaste the hotspot hit 108-112 °C and throughput fell 190 -> 145 TFLOPS. The driver counts 0 µs of thermal slowdown since. Under CUDA load the memory runs at the P2 point (10451 MHz effective).
+
+| Per step, ms | Strict | ComfyUI |
+|---|---:|---:|
+| int8 GEMM | 68.9 | 68.3 |
+| Attention | 49.2 | 55.3 |
+| Elementwise | 29.1 | 11.1 |
+| Quantize / Hadamard | 9.1 | 14.5 |
+| Kernel sum | 156.4 | 149.2 |
+| Idle | ~21 | ~75-116 |
+| Wall, plain runs | 177 (3 runs: 178.7 / 176.8 / 176.8) | 224-265 |
+
+What differs from the 3080 picture:
+- The elementwise kernels are DRAM bound here (Activated 94 %, Gated 91 %, Modulated 72-82 %, Rotated 78-80 % of the 1003 GB/s peak).
+- Gated is not L2 bound (its working set is 111 MB).
+- The in-model GEMM equals ComfyUI's; per shape CUTLASS is 3.5-7 % faster, at most 3 ms per step.
+- Idle is 13 % of a step, all at step boundaries:
+  - sigma sync, 6.5 ms;
+  - rotation table recomputed and copied to the host and back, 10.5 ms;
+  - time embedding readback, 2.0 ms;
+  - the harness's latent check, 2.3 ms.
+
+Ranked (expected ms per step on the 4090, confidence, work):
+1. **A, host round trips at step boundaries: 18-21 ms**, high confidence, small to medium work. Host sigma schedule, no time embedding readback, rotation table once per run and GPU resident. Plus a runtime rule (with a regression test) so lists only GPU kernels use never go to the host and back, and fewer graph re-instantiations after syncs. A whole-step CUDA graph is not needed.
+2. **B1, Activated (situ) into Hadamard + quantization: 4.8-5.9 ms**, medium-high confidence, large work. It goes through the general emitter: a generated element function becomes the runtime kernel's read and rounds to bf16 like the stored list.
+3. **B3, Gated + next Modulated: 3.2-4.2 ms** (in-layer pair alone 1.6-2.1 ms, below noise), medium confidence.
+4. **B2, Gated into the GEMM epilogue: 2.1-2.9 ms by bytes**, low-medium confidence, competes with B3.
+5. **C, GEMM stall gap against CUTLASS: ≤ 3 ms here.** Assigned to the RTX 3080 agent, where the gap is 8-17 %.
+
+Decision: A then B1 on the 4090. **For the 3080 agent: C** (ncu warp stall reasons and side-by-side SASS of both main loops, name the difference before changing code); when A lands, repeat one paired run there.
+
+Fast division (f32 `afn` divides plus exact integer reduction of fraction positions, so indices never depend on float rounding) is parked uncommitted in `../StrictVector`. It was flat at full clocks. At 1350 MHz it gave Rotated −5 % and Modulated −1 %, but f32/f16 Rotated was 7-10 % slower. Grouped batching stays a patch (`C:/StrictDumps/exp/grouped-batching.patch`): its register use (80-126) made Rotated slower.
+
 ## Driver/overclock check and acceleration research (2026-10-23)
 Driver 621.01 with user settings core +82 MHz, memory +255 MHz, voltage slider +8%, power 106%, temp target 86 C: two runs of the identical validated Moss executable averaged 379.6/379.0 ms for steps 2-6, with identical errors and PNG hashes. No sampled thermal throttle; peak core 66.12 C. The approximately 0.55% timing difference from the earlier settings is within observed variation; driver and overclock effects are not separated. Evidence: `D:/StrictDumps/moss-driver621-oc/summary.json`. [InferenceAcceleration.md](InferenceAcceleration.md) assesses Spectrum-MOSS, concrete Strict integration/quality tests, existing Flash/MTP/MoE results, and Next-Concept Modeling. No approximate inference path has been enabled.
 
