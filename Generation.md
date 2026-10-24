@@ -23,7 +23,10 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --count 10
 | `--output` | `MossImage.jpg`, with an automatic four-digit number |
 | `--count` | 1 |
 | `--width`, `--height` | 720, 1280 (multiples of 16) |
-| `--steps` | 8; automatically applies the original runtime DMD turbo LoRA |
+| `--steps` | 8; automatically includes DMD turbo at strength 1 |
+| `--lora_mode` | `merged`; cached stochastic INT8 merge; `runtime` retains floating adapters |
+| `--spectrum` | `off`; `spectrum8_w3p3` enables three forecasts at eight steps |
+| `--merge_only` | off; prepare/print the merged checkpoint and exit |
 | `--guidance` | 1 (CFG scale) |
 | `--jpg_quality` | 85, JPEG compression on a 0-100 scale; no effect on inference |
 | `--json_output` | off; enable per-image JSON settings sidecars |
@@ -31,7 +34,7 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --count 10
 | `--vae` | `D:/ComfyUI_windows_portable/ComfyUI/models/vae/flux2-vae.safetensors` |
 | `--te` | `D:/ComfyUI_windows_portable/ComfyUI/models/text_encoders/qwen3.5_9b_int8_convrot.safetensors` |
 
-Paths follow `--comfyui` / `COMFYUI`; a portable installation on C: is detected too. Explicit paths/names override defaults. The default model is now the **base** INT8 checkpoint, not the old premerged DMD file. For eight steps the command applies `models/loras/moss/dmd_turbo_lora.safetensors` at strength 1 through the floating runtime branch. Base weights are unchanged. Other step counts do not add DMD automatically. An explicit entry for DMD overrides its automatic strength (including `:0` to disable it); it is not added twice. Use base checkpoints with this automatic rule.
+Paths follow `--comfyui` / `COMFYUI`; a portable installation on C: is detected too. Explicit paths/names override defaults. The default input is the **base** INT8 checkpoint. Eight steps includes `models/loras/moss/dmd_turbo_lora.safetensors` at strength 1; other counts do not automatically add it. An explicit DMD entry overrides automatic selection (including `:0`). Checkpoints produced by the current merger record their included adapters, so passing the cached checkpoint as `--model` does not add DMD again. Old premerged files without that marker are not recognized; use the original base for a fresh merge.
 
 Weighted stacks use repeated options; relative paths also resolve under ComfyUI's `models/loras`:
 
@@ -39,7 +42,26 @@ Weighted stacks use repeated options; relative paths also resolve under ComfyUI'
 ./MossImage.exe --lora moss/lenovo_moss.safetensors:0.5 --lora moss/cndamiph_Candid_Amateur_iPhone_MOSS_v1.safetensors:0.31 --count 10
 ```
 
-The original DMD adapter is used directly. Weighted/multiple adapters are combined by concatenating down rows and strength/alpha-scaled up columns, then applied at runtime. This preserves small updates that disappear when folded into INT8 base weights. Cached `adapter-*.safetensors` contain only floating LoRA weights; no full model is rebuilt/requantized. Kohya down/up and PEFT A/B adapters on Moss layer projections are supported, including fused qkv split into q/k/v. Unsupported targets/formats, including LoKR, report errors. Finite negative strengths are accepted. Old `model-*.safetensors` caches are unused by the CLI now. Four steps needs an appropriate explicitly selected adapter; Rapid-MOSS's separate time/data-space adapter is still a comparison-harness feature.
+Default `--lora_mode merged` folds the entire selected stack into one cached INT8 Convrot checkpoint, once per model/adapter/strength combination. All updates accumulate before requantization with deterministic stochastic rounding, preserving sub-quantization updates statistically. Source files stay unchanged. This is approximate: images can change relative to floating runtime adapters. The tested five-adapter stack remains coherent across three portrait seeds, but this is not universal quality acceptance. Each cached stack occupies a full model checkpoint; changing strengths creates another cache entry. `--cache` chooses its folder; obsolete `model-*.safetensors` caches are never reused.
+
+Use `--lora_mode runtime` to retain the floating-adapter path. Weighted stacks concatenate down rows and strength/alpha-scaled up columns. Kohya down/up and PEFT A/B layer adapters, including fused qkv split into q/k/v, are supported. The merger also supports matching floating model weights. Unsupported formats such as LoKR report errors. Finite negative strengths are accepted. Four steps needs an appropriate explicitly selected adapter; Rapid-MOSS's separate time/data-space adapter remains a comparison-harness feature.
+
+The fastest tested eight-step option is explicit:
+
+```powershell
+./MossImage.exe --count 10 --spectrum spectrum8_w3p3
+```
+
+Add your usual repeated `--lora path:strength` options. This preset uses warmup 3/period 3, five actual evaluations and three forecasts. It changes the sampling result; Spectrum remains off unless selected. Previously the CLI hardcoded it off, even though the comparison harness supported it.
+
+For a reusable merged file without loading the encoder or generating an image:
+
+```powershell
+./MossImage.exe --lora moss/style.safetensors:0.5 --merge_only
+./MossImage.exe --model 'D:/path/to/merged-stochastic-v1-....safetensors' --count 10
+```
+
+Do not repeat the already baked style options when using that checkpoint. Alternatively, keep using the same original command: its cache is reused automatically. First merge of the tested five-adapter stack took 15.35 s through the launcher (11.58 s in the isolated CPU merge). Warm native generations were 3.25 s merged, or 2.30-2.33 s with Spectrum, versus 7.18-7.23 s for the latest floating runtime path. These exclude process/model/text-encoder startup; full CLI validation and quality limits are in Performance.md.
 
 `--count 10` keeps one model and VAE loaded. Every image gets a distinct seed and independently expanded prompt; choices may repeat by chance. `--seed 42` reproduces the batch, starting with seed 42 and deriving distinct subsequent seeds. Uncached unique prompts are encoded together with one encoder load before native inference. Completed images are published as the backend reports completion and survive a later job failure.
 
@@ -52,10 +74,10 @@ Prompt groups `{a woman|a man|}` include the empty alternative. Multiple/nested 
 The full command currently needs an installed ComfyUI source tree and its Python environment; the UI/server need not be running.
 
 - ComfyUI: tokenization, Qwen text encoding, encoder loading/custom operations and setup reused through dump.py. Its encoder worker exits before native inference to release GPU memory.
-- PyTorch/safetensors: input noise, conditioning files and floating adapter-stack preparation. This is not ComfyUI sampling.
+- PyTorch/safetensors: input noise, conditioning files, cached model merging and floating adapter-stack preparation. This is not ComfyUI sampling.
 - Strict native backend: Euler sampling, diffusion transformer/GEMM/attention/elementwise operations, VAE decoding and JPEG saving. With prepared conditioning, MossGenerate.exe can run without Python/ComfyUI.
 
-Use `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe` for another installation. Keep moss.py, dump.py, MossGenerate.exe and matching PTX files beside the launcher. Prompt/adapter/CUDA caches default to StrictComfy/artifacts/moss; --cache changes their location. The existing positional `MossImage.exe dumps model lora vae` diagnostic mode remains available.
+Use `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe` for another installation. Keep moss.py, merge.py, dump.py, MossGenerate.exe and matching PTX files beside the launcher. Prompt/model/adapter/CUDA caches default to StrictComfy/artifacts/moss; --cache changes their location. The existing positional `MossImage.exe dumps model lora vae` diagnostic mode remains available.
 
 ## Quality review and timing correction
 

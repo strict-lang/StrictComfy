@@ -36,6 +36,74 @@ class MossCommandTests(unittest.TestCase):
 		self.assertTrue(hasattr(args, 'json_output'), 'JSON sidecar option is missing')
 		self.assertFalse(args.json_output)
 		self.assertTrue(self.module().arguments(['--json_output']).json_output)
+		self.assertTrue(hasattr(args, 'lora_mode'), 'Cached merged mode is missing')
+		self.assertEqual(args.lora_mode, 'merged')
+		self.assertFalse(args.merge_only)
+		self.assertEqual(args.spectrum, 'off')
+
+	def test_spectrum_preset_reaches_backend(self):
+		module = self.module()
+		with redirect_stderr(io.StringIO()):
+			try:
+				args = module.arguments(['--spectrum', 'spectrum8_w3p3'])
+			except SystemExit:
+				self.fail('Spectrum preset is not exposed by the CLI')
+		self.assertEqual(module.spectrum_config(args), ('on', 3, 3))
+
+	def test_cached_merge_runs_once_and_certified_model_avoids_double_turbo(self):
+		from unittest.mock import patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		self.assertTrue(hasattr(module, 'cached_merge'), 'Cached model merge is missing')
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			base, lora = folder / 'base.safetensors', folder / 'dmd_turbo_lora.safetensors'
+			base.write_bytes(b'original checkpoint')
+			lora.write_bytes(b'adapter identity')
+			args = module.arguments(['--cache', str(folder)])
+			marker = {'algorithm': 'convrot-int8-stochastic-v1', 'loras': [[str(lora), 1.0]]}
+			def build(command, **kwargs):
+				self.assertEqual(Path(command[2]), base)
+				save_file({'fixture': torch.zeros(1)}, command[3], metadata={'strict_lora_merge': json.dumps(marker)})
+			with patch.object(module.subprocess, 'run', side_effect=build) as run:
+				merged = module.cached_merge(args, base, [(lora, 1)])
+				self.assertTrue(merged.is_file())
+				self.assertEqual(module.cached_merge(args, base, [(lora, 1)]), merged)
+				self.assertEqual(run.call_count, 1)
+			self.assertEqual(base.read_bytes(), b'original checkpoint')
+			self.assertEqual(module.selected_loras(args, folder, {'strict_lora_merge': json.dumps(marker)}), [])
+			with patch.object(module, 'validate_model', return_value={}), \
+				patch.object(module, 'cached_merge', return_value=merged), \
+				patch.object(module, 'conditioning') as encode:
+				self.assertEqual(module.main(['--model', str(base), '--lora', str(lora),
+					'--cache', str(folder), '--merge_only', '--prompt', str(folder / 'missing.txt'),
+					'--te', 'missing-encoder', '--vae', 'missing-vae']), 0)
+				encode.assert_not_called()
+
+	def test_merge_keeps_sub_quantization_updates(self):
+		import torch
+		from safetensors import safe_open
+		from safetensors.torch import save_file, load_file
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			name = 'layers.0.proj.q'
+			weight = torch.randint(-127, 128, (64, 256), generator=torch.Generator().manual_seed(12), dtype=torch.int8)
+			weight[:, 0] = 127
+			weight[:, -1] = -127
+			quant = json.dumps({'convrot': True, 'convrot_groupsize': 256, 'format': 'int8_tensorwise'})
+			save_file({name + '.weight': weight, name + '.weight_scale': torch.full((64, 1), 0.01),
+				name + '.comfy_quant': torch.tensor(list(quant.encode()), dtype=torch.uint8)}, str(folder / 'base.safetensors'))
+			prefix = 'diffusion_model.' + name + '.'
+			save_file({prefix + 'lora_down.weight': torch.ones((1, 256)),
+				prefix + 'lora_up.weight': torch.full((64, 1), 1e-4)}, str(folder / 'lora.safetensors'))
+			result = subprocess.run([sys.executable, str(ROOT / 'merge.py'), str(folder / 'base.safetensors'),
+				str(folder / 'merged.safetensors'), str(folder / 'lora.safetensors')], capture_output=True, text=True)
+			self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+			merged = load_file(str(folder / 'merged.safetensors'))
+			self.assertGreater((merged[name + '.weight'] != weight).sum().item(), 10)
+			with safe_open(folder / 'merged.safetensors', framework='pt') as file:
+				self.assertIn('strict_lora_merge', file.metadata())
 
 	def test_visible_defaults_and_long_help_only(self):
 		module = self.module()
@@ -75,7 +143,7 @@ class MossCommandTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--model', 'moss', '--count', '2', '--seed', '42',
-				'--width', '16', '--height', '16', '--cache', str(folder)])
+				'--width', '16', '--height', '16', '--cache', str(folder), '--spectrum', 'spectrum8_w3p3'])
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
@@ -89,9 +157,12 @@ class MossCommandTests(unittest.TestCase):
 				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
 					module.jobs(args, '{a|b}'), folder))
 			self.assertEqual(launch.call_count, 1)
+			self.assertEqual(launch.call_args.args[0][5], 'on')
+			self.assertEqual([result[1].name for result in results], ['strict-on-0.jpg', 'strict-on-1.jpg'])
 			self.assertEqual([result[0] for result in results], [0, 1])
 			self.assertEqual(load_file(str(folder / 'generation.safetensors'))['jobs'].item(), 2)
 			first = load_file(str(folder / 'generation-0.safetensors'))
+			self.assertEqual((first['warmup'].item(), first['period'].item()), (3, 3))
 			second = load_file(str(folder / 'generation-1.safetensors'))
 			self.assertFalse(torch.equal(first['noise'], second['noise']))
 			self.assertFalse(torch.equal(first['context'], second['context']))

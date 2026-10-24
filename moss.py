@@ -82,6 +82,11 @@ def arguments(argv=None):
 	parser.add_argument('--steps', type=int, default=8, help='Diffusion sampling steps; 8 automatically applies the DMD turbo LoRA')
 	parser.add_argument('--count', type=int, default=1, help='images per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
+	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged',
+		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: floating adapters')
+	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
+	parser.add_argument('--spectrum', choices=['off', 'spectrum8_w3p3'], default='off',
+		help='optional 3-forecast eight-step predictor; changes the sampling result')
 	parser.add_argument('--output', type=Path, default=Path('MossImage.jpg'), help='numbered output base; never overwritten')
 	parser.add_argument('--json_output', action='store_true', help='write a per-image JSON settings sidecar')
 	parser.add_argument('--width', type=int, default=720, help='Image width in pixels')
@@ -90,7 +95,7 @@ def arguments(argv=None):
 	parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
 	parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
 	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
-	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, runtime-adapter and CUDA caches')
+	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, merged-model, runtime-adapter and CUDA caches')
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
 	for name, folder, filename, description in files:
@@ -104,7 +109,15 @@ def arguments(argv=None):
 		parser.error('seed must be between 0 and 2^63-1')
 	if args.output.suffix.lower() not in ('.jpg', '.jpeg', '.png'):
 		parser.error('output extension must be .jpg, .jpeg or .png')
+	if args.spectrum != 'off' and args.steps != 8:
+		parser.error('spectrum8_w3p3 requires --steps 8')
+	if args.merge_only and args.lora_mode != 'merged':
+		parser.error('--merge_only requires --lora_mode merged')
 	return args
+
+
+def spectrum_config(args):
+	return ('off', 5, 2) if args.spectrum == 'off' else ('on', 3, 3)
 
 
 def jobs(args, template):
@@ -127,12 +140,24 @@ def located(name, folder):
 	raise FileNotFoundError(f'File not found: {name} (also checked {folder})')
 
 
-def selected_loras(args, models):
+def baked_loras(metadata):
+	value = (metadata or {}).get('strict_lora_merge')
+	if not isinstance(value, str):
+		return []
+	marker = json.loads(value)
+	if marker.get('algorithm') != 'convrot-int8-stochastic-v1':
+		raise ValueError('Unsupported merged-model metadata; rebuild the cached merge')
+	return marker.get('loras', [])
+
+
+def selected_loras(args, models, metadata=None):
 	selected = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
-	if args.steps == 8:
+	has_turbo = any(Path(str(path).replace('\\', '/')).name == 'dmd_turbo_lora.safetensors' and strength != 0
+		for path, strength in baked_loras(metadata))
+	explicit_turbo = any(path.name == 'dmd_turbo_lora.safetensors' for path, strength in selected)
+	if args.steps == 8 and not has_turbo and not explicit_turbo:
 		turbo = located('moss/dmd_turbo_lora.safetensors', models / 'loras')
-		if not any(path == turbo for path, strength in selected):
-			selected.insert(0, (turbo, 1.0))
+		selected.insert(0, (turbo, 1.0))
 	return selected
 
 
@@ -150,10 +175,38 @@ def validate_model(path):
 		quant = json.loads(bytes(checkpoint.get_tensor(key).tolist()))
 		if not quant.get('convrot') or quant.get('convrot_groupsize') != 256 or quant.get('format') != 'int8_tensorwise':
 			raise ValueError('--model must use int8 Convrot with group size 256')
+		return checkpoint.metadata() or {}
 
 
 def cache_key(data):
 	return hashlib.sha256(json.dumps(data, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def cached_merge(args, model, loras):
+	active = [(path, strength) for path, strength in loras if strength != 0]
+	if not active:
+		return model
+	script = ROOT / 'merge.py'
+	version = hashlib.sha256(script.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
+	key = cache_key(['convrot-int8-stochastic-v1', version, identity(model),
+		[(identity(path), strength) for path, strength in active]])
+	path = args.cache / ('merged-stochastic-v1-' + key + '.safetensors')
+	if path.exists():
+		from safetensors import safe_open
+		with safe_open(path, framework='pt') as file:
+			if not baked_loras(file.metadata()):
+				raise ValueError('Invalid cached merge: ' + str(path))
+		print('Using cached merged model: ' + str(path), flush=True)
+		return path
+	print('Preparing cached stochastic INT8 merge; source files stay unchanged', flush=True)
+	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
+		output = Path(temporary) / 'merged.safetensors'
+		command = [sys.executable, str(script), str(model), str(output),
+			*[str(source) + ':' + repr(strength) for source, strength in active], '--split-qkv']
+		subprocess.run(command, check=True, env=dict(os.environ, CUDA_VISIBLE_DEVICES='',
+			OMP_NUM_THREADS='8', MKL_NUM_THREADS='8', PYTHONUNBUFFERED='1'))
+		os.replace(output, path)
+	return path
 
 
 def encoded(request, output):
@@ -270,11 +323,12 @@ def runtime_adapter(args, model, loras):
 def generated(args, model, vae, contexts, plan, folder, adapter=''):
 	import torch
 	from safetensors.torch import load_file, save_file
+	mode, warmup, period = spectrum_config(args)
 	for index, (context, job) in enumerate(zip(contexts, plan)):
 		data = load_file(str(context))
 		data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
 			generator=torch.Generator('cpu').manual_seed(job['seed']))
-		for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': 5, 'period': 2,
+		for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period,
 			'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
 			data[name] = torch.tensor([value], dtype=torch.float32)
 		save_file(data, str(folder / f'generation-{index}.safetensors'))
@@ -283,7 +337,7 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 			save_file(data, str(folder / 'generation.safetensors'))
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), 'off', '']
+	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
 	worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
 		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 	completed = 0
@@ -298,7 +352,7 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 				completed += 1
 				suffix = f'-{index}' if len(plan) > 1 else ''
 				extension = '.png' if args.output.suffix.lower() == '.png' else '.jpg'
-				yield index, folder / ('strict-off' + suffix + extension), int(match[2])
+				yield index, folder / ('strict-' + mode + suffix + extension), int(match[2])
 		code = worker.wait()
 		if code:
 			raise subprocess.CalledProcessError(code, command)
@@ -316,37 +370,44 @@ def main(argv=None):
 	started = time.perf_counter()
 	models = args.comfyui / 'models'
 	model = located(args.model, models / 'diffusion_models')
-	validate_model(model)
+	metadata = validate_model(model)
+	loras = selected_loras(args, models, metadata)
+	args.cache = args.cache.resolve()
+	args.cache.mkdir(parents=True, exist_ok=True)
+	loaded = cached_merge(args, model, loras) if args.lora_mode == 'merged' else model
+	if args.merge_only:
+		print('Merged model: ' + str(loaded), flush=True)
+		return 0
 	vae = located(args.vae, models / 'vae')
 	encoder = located(args.te, models / 'text_encoders')
-	loras = selected_loras(args, models)
 	if not (ROOT / 'MossGenerate.exe').is_file():
 		raise FileNotFoundError('Build MossGenerate.strict first: ../Strict/strict.exe build MossGenerate.strict')
 	plan = jobs(args, args.prompt.read_text(encoding='utf-8-sig').strip())
 	for index, job in enumerate(plan):
 		print(f'Image {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
-	print('Base model: ' + str(model), flush=True)
+	print('Input model: ' + str(model), flush=True)
+	print('LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
 	for path, strength in loras:
-		print(f'Runtime LoRA: {path}, strength {strength}', flush=True)
-	args.cache = args.cache.resolve()
-	args.cache.mkdir(parents=True, exist_ok=True)
+		print(f'LoRA: {path}, strength {strength}', flush=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	adapter = runtime_adapter(args, model, loras)
+	adapter = runtime_adapter(args, model, loras) if args.lora_mode == 'runtime' else ''
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-		with closing(generated(args, model, vae, contexts, plan, Path(temporary), adapter)) as images:
+		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
 			for index, image, generation_ms in images:
 				output, handle = reserve_output(args.output.resolve())
 				try:
 					with handle, image.open('rb') as source:
 						shutil.copyfileobj(source, handle)
 					if args.json_output:
-						metadata = dict(plan[index], model=str(model), loras=[(str(path), strength) for path, strength in loras],
+						settings = dict(plan[index], model=str(model), loaded_model=str(loaded),
+							loras=[(str(path), strength) for path, strength in loras], baked_loras=baked_loras(metadata),
+							lora_mode=args.lora_mode, spectrum=args.spectrum,
 							steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
 							jpg_quality=args.jpg_quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started,
 							batch_index=index + 1, count=args.count, generation_ms=generation_ms)
 						with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
-							json.dump(metadata, sidecar, indent=2, ensure_ascii=False)
+							json.dump(settings, sidecar, indent=2, ensure_ascii=False)
 				except BaseException:
 					handle.close()
 					output.unlink(missing_ok=True)

@@ -1,5 +1,15 @@
 # Handoff: Moss elementwise kernels, step wall time below ComfyUI (RTX 3080)
 
+## Latest checkpoint: practical five-adapter speed via cached merge (2026-10-25)
+
+MossImage now defaults to --lora_mode merged: merge the entire selected stack once using existing stochastic INT8 Convrot merge.py, cache a full checkpoint, run without floating adapter products. Sources unchanged. --lora_mode runtime retains the floating path. --merge_only prepares/prints the reusable checkpoint without prompt/encoder/VAE work. New marker records baked adapters and prevents automatic DMD duplication when using that file directly. Cache key includes source identities, ordered strengths and merger implementation; old uncertified merged caches are never reused.
+
+CLI previously hardcoded Spectrum off. --spectrum spectrum8_w3p3 now selects mode on/warmup3/period3, five actual evaluations and three forecasts; default stays off. Exact user's DMD+four-style stack: latest native runtime 7.18-7.23 s warm, merged 3.25 s, merged+Spectrum 2.30-2.33 s with the same pinned executable/inputs. Actual CLI validates 2.289/2.307 s complete warm images and three forecasts; direct marked-model run avoids extra DMD, 2.291 s warm. Isolated CPU merge 11.58 s, launcher merge_only 15.35 s once. Cold backend load 31.60-41.66 s in a fresh CUDA cache, repeat load 3.059 s; do not claim resident timing as fresh-process wall time. Normal Afterburner settings unchanged. Native source/executable work belongs to the concurrent agent and is not included here.
+
+Quality is approximate, not identical: merged versus runtime PSNR 21.29/24.50/24.99 dB over three portrait seeds. All merged/Spectrum samples remain coherent on visual inspection; pose/finger/background details differ. Gallery/logs D:/StrictDumps/moss-merge-study/index.html. Performance.md has timings, startup limits and quality metrics; Generation.md documents commands. Nineteen CLI/merge tests pass CPU-only; folder check 0 issues from StrictComfy working directory. JSON still opt-in.
+
+Next: user judges full-stack merged/Spectrum outputs on their own prompts; retain runtime if adapter effects degrade. Recheck warm CLI batches after concurrent native work settles. Investigate further startup only with separate cold-JIT/model-load/first-generation timings. ComfyUI node/resident service remains separate; --count already amortizes process loading. Do not reuse old ineffective premerged-DMD quality claims below.
+
 ## Latest checkpoint: real runtime turbo, quality review, opt-in JSON (2026-10-25)
 
 User reported mangled default outputs and correctly suspected missing turbo effect. In sampled default premerged-DMD tensors, layers.0.proj.q.weight (9,437,184 INT8 codes) and layers.20.proj.ffn_down.weight (25,165,824 codes) are entirely identical to base. Only tiny row-scale changes remain. Metadata saying merged_loras is not enough evidence of a useful turbo merge. Do not use the old premerged checkpoint as a quality/performance reference or claim its old 45.07 s/ten-image result for proper runtime turbo.
