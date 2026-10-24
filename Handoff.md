@@ -36,6 +36,12 @@ Ranked (expected ms per step on the 4090, confidence, work):
 
 Decision: A then B1 on the 4090. **For the 3080 agent: C** (ncu warp stall reasons and side-by-side SASS of both main loops, name the difference before changing code); when A lands, repeat one paired run there.
 
+### C analysis completed on 3080, 2026-10-24
+
+[GemmStalls3080.md](GemmStalls3080.md) records all four matched-input graph timings, NCU stall breakdowns, per-PC SASS and installed fixed-config controls. Final clocks 1695/9506 MHz, 156 high-load telemetry samples stable, no thermal slowdown. Isolated total gap is 15-17 ms per 42-layer step at this lock. About 5-6 ms is tile/work distribution: CUTLASS uses 128x128/4 stages for o and Stream-K for down (340 blocks / five full waves versus Strict's 360 / partial sixth wave). Ordinary matching-tile down is within about 2% in NCU. The remaining 8-10 ms headroom is principally qkv/up scale/bias setup and epilogue work, not an established inner-loop scheduling deficit. Both use ldmatrix.x4 with ideal source-correlated wavefront counts; qkv main-loop samples are essentially equal. Current Fast has fewer issued instructions, so the 14.21 vs 13.06 cycles/instruction comparison needs its denominator.
+
+No production changes. Stop for user review before changing GEMM. B2 must account for 254 registers/thread, consume small epilogue fragments and preserve BF16 update rounding plus FP32 residual precision. A is not yet on origin/master or origin/main; locked paired full-model/idle/error/PNG validation remains pending. Plan.md now explicitly records this shared split above its historical phase lists.
+
 Fast division (f32 `afn` divides plus exact integer reduction of fraction positions, so indices never depend on float rounding) is parked uncommitted in `../StrictVector`. It was flat at full clocks. At 1350 MHz it gave Rotated −5 % and Modulated −1 %, but f32/f16 Rotated was 7-10 % slower. Grouped batching stays a patch (`C:/StrictDumps/exp/grouped-batching.patch`): its register use (80-126) made Rotated slower.
 
 ## Current checkpoint, 2026-10-24

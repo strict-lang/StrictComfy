@@ -1,7 +1,13 @@
 # Diffusion inference in Strict: pending work
 This file lists only what is still to be implemented: remove an item once it is done (results and numbers go into commit messages or a README), add what is found. Goal: run ComfyUI's Moss (image DiT, RTX 3080) and MiniMax H3 (video+audio DiT, RTX 4090) in Strict, faster than ComfyUI, then plug Strict into ComfyUI through a node.
 
-## Status (2026-10-22, RTX 3080)
+## Current work split (2026-10-24)
+- 4090 agent: A, remove sigma/time-embedding/rotation-table host round trips, then B1, Activated into Hadamard/quantization. These remain separate from the 3080 work.
+- 3080 agent: C analysis completed in [GemmStalls3080.md](GemmStalls3080.md). Matching qkv/up main loops do not show a general tensor-loop deficit; scale/bias setup and epilogue work explain the excess. Installed CUTLASS also uses a smaller o tile and Stream-K for down. Emitter changes await the user's review. Coordinate epilogue work with B2.
+- Once A lands: pull/rebuild and alternate paired full runs on 3080 at the same stable locked clocks, including `busy.py` idle and exact error/PNG checks. A has not landed at this checkpoint.
+- Current full-model numbers and priorities are in [Performance.md](Performance.md) and [Handoff.md](Handoff.md). The October 22 numbers and phase lists below are historical and contain superseded work; do not use them as a current speed baseline.
+
+## Historical status (2026-10-22, RTX 3080)
 - Whole image generated in Strict (`MossImage.exe <dumps> <model> "" <vae>`): 0.70 s per step against ComfyUI's 0.15 s, every layer within 4 % of ComfyUI, image 31.3 dB PSNR against ComfyUI's (`D:\StrictDumps\moss480\moss-strict.png`). VAE decode (FluxImage, no STRICT_GPU needed) 0.54 s at 720x1280, 0.47 s repeated (61 dB against ComfyUI's decode, ComfyUI 0.54 s), 0.39 / 0.31 s at 576x1024 (62.4 dB, ComfyUI 0.36 s), 0.41 s in MossImage after the DiT; open items in ../Strict/improvements.md item 3.
 - DiT steps at 720x1280 with the dmd-lenovo-finger merge (`D:\StrictDumps\mix720`): 0.59 s against ComfyUI's 0.33-0.40 s, GPU bound. Kernel time per step: int8 GEMM 202 ms (190 TOPS), attention 113 ms, elementwise loops (Rotated, Activated, Modulated, Gated, Scales, Columns) 160 ms, Hadamard + token quantization 69 ms, few-token products (blockss) 35 ms; what is left is in ../Strict/improvements.md item 6. Layer errors grow from 0.004 (layer 0) to 0.40 (layer 41), latent error 0.27, PSNR 29.3 dB; teacher-forced every layer is within 2 % (`layer.py --forced`), the float32 torch reference drifts the same way (0.37 at layer 41), so this is the late layers amplifying rounding, not a bug.
 

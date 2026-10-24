@@ -1,3 +1,11 @@
+# Moss performance
+
+## RTX 3080 GEMM analysis (2026-10-24)
+
+[Full counter/SASS report](GemmStalls3080.md). Strict `4d1cafc9`, installed comfy-kitchen 0.2.39, identical prequantized data, checked 50-launch graphs and six alternating rounds. Final lock 1695 MHz core / 9506 MHz actual CUDA memory; 156 high-load samples held these clocks, no thermal slowdown. Final clean medians, Strict / CUTLASS: qkv 1198.8/1125.2 us, o 443.2/392.0, up 2143.8/2040.8, down 1068.2/936.6. Equivalent gap 15.09 ms per 42-layer step; telemetry repeats 17.40/15.47 ms. These are isolated-kernel estimates, not full-model improvements.
+
+Fixed installed CUTLASS controls isolate roughly 5-6 ms/step from its smaller o tile and Stream-K down distribution; approximately 8-10 ms remains in the ordinary-tile comparison. Source samples locate the qkv/up excess in strided scale/bias setup and the larger epilogue, with essentially equal main-loop totals. The historical 14.6/13.2 warp-cycle gap does not by itself identify a missing pipeline optimization: current Fast executes fewer instructions. No production change was made. Await user review before emitter changes; validate A on 3080 when the 4090 agent commits it. The 4090 results below retain their own fixture and clock conditions.
+
 # Moss on RTX 4090
 
 ## Locked-clock baseline (2026-10-24, Strict master e1cb907b + native-flags build fix 23e61750)
