@@ -119,3 +119,27 @@ Sources and pinned adapter revisions:
 `sampling_ms` includes text projection, initial uploads, all evaluations and final latent synchronization, but excludes loading and decode/save. `denoising_ms` starts at evaluation 0 and includes its initial uploads. Neither is a resident-model steady-step-only measurement. Progress lines mark host submission; they do not individually synchronize GPU completion. Process wall time includes loading, decoding, saving and startup, across all resident passes. `generation_runs_ms` measures each complete sampling/decode/save pass (and boundary cleanup when another pass follows); `sampling_runs_ms` retains its sampler timings. Gallery cells label the last generation and the total process separately.
 
 The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB cap. A cold compiled module may add tens of seconds; warm it before comparing timings. This is a per-process setting, not a global driver change. RTX 3080 results use locked 1695 MHz graphics / 9506 MHz actual CUDA memory, with clock limits restored afterwards. Results and quality observations are in [Performance.md](Performance.md).
+
+# H3 generation with LoRAs, step counts and Spectrum (RTX 4090)
+
+`dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps). Text to video and audio only; image to video needs a full `dump.py h3` run for its noise augmented cond rows. `H3Video.exe` samples a folder, `dump.py h3decode` decodes every `<name>-latent.txt` in it with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs), so several variants of one prompt and seed sit side by side.
+
+```powershell
+cd C:\code\GitHub\strict-lang\StrictComfy
+$python = "C:\ComfyUI_windows_portable\python_embeded\python.exe"
+$models = "C:\ComfyUI_windows_portable\ComfyUI\models"
+& $python dump.py h3 --runs 0 --out C:\StrictDumps\fox --prompt "A red fox trotting through fresh snow in a pine forest" --seed 7
+$env:STRICT_GPU = "all"
+.\H3Video.exe C:\StrictDumps\fox "$models\diffusion_models\minimax_h3_fl2va_pruned_int8_convrot.safetensors" taomate3 "$models\loras\h3\minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors=1" 3
+.\H3Video.exe C:\StrictDumps\fox "$models\diffusion_models\Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors" spectrum8 "" 0 12 2
+& $python dump.py h3decode --out C:\StrictDumps\fox
+```
+
+Arguments after the executable: `dumps model name loras steps shift period warmup degree`, defaults `strict "" 0 12 0 1 1`.
+
+- `name`: the output is `<name>-latent.txt`.
+- `loras`: `path=strength` entries separated by `;`, a path without `=` has strength 1, `""` for none. Keys `[diffusion_model.]blocks.N.{attn.qkv_proj,attn.out_proj,mlp.fc1,mlp.fc2}.{lora_A,lora_B,lora_down,lora_up}.weight` with an optional `alpha` (scale alpha / rank, 1 without, times the strength), the same for `token_refiner.blocks.N`. Several LoRAs stack by rank. The int8 convrot block weights get the update merged at load like ComfyUI does (dequantized, the rotated update added, requantized per row with stochastic rounding; `Safetensors.Tuned` in ../Strict), so steps cost the same as without LoRA; the dense token refiner applies them per call. The load line reports how many of each file's tensors were applied: adaln, patch projection and final layer LoRAs and FastH3's `diff`/`diff_b` tensors are not applied yet.
+- `steps`: 0 takes the count of the folder's `sigmas`; the schedule is ComfyUI's simple flow schedule `shift t / (1 + (shift - 1) t)` (8 steps match ComfyUI exactly), `shift` is the video flow shift and the audio sigmas follow from it with shift 3 like ComfyUI's MiniMax H3 shift node. Per step errors against ComfyUI print only when the folder has its references and the step count matches.
+- `period`: Spectrum, 0 is off. After `warmup` actual steps every `period`-th step is actual, the others are forecast from the last actual ones, the last step is always actual: 8 steps with period 2 are A F A F A F A A (5 transformer evaluations), period 3 skips two of three. `degree` is the Chebyshev degree of the fit (ridge 0.1, blended half with the line through the last two, `SpectralFit`), it keeps `degree + 1` anchors; with one anchor the forecast holds it. H3 forecasts its output, not its features ([Spectrum.md](Spectrum.md)).
+
+Loading the 21 GB model takes 14-20 s, merging adds about 20 s for TaoMate (rank 4-21) and 80 s for the turbo 8-step LoRA (rank 128-384). The first step of a fresh process uploads all weights once (about 12 s more), the H3 reference folder hides that in its per-layer comparison before sampling. Timings and quality numbers are in [Performance.md](Performance.md).

@@ -4,11 +4,11 @@ has audio Number
 has frames Number
 has height Number
 has width Number
+has shift Number = 12
 constant Tiny = H3Layout((1, 1, 1), List(Number), 3, 2, 4, 4)
 constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
 constant Chunk = 4096
 constant Pinned = 0.999
-constant VideoShift = 12
 constant AudioShift = 3
 Words Number
 	Tiny.Words is 3
@@ -101,5 +101,15 @@ Times(sigma Number) Numbers
 AudioSigma(sigma Number) Number
 	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
 	Tiny.AudioSigma(1) is 1
-	let base = sigma / (VideoShift + sigma * (1 - VideoShift))
+	H3Layout(Tiny, shift = 8).AudioSigma(0.75).IsNearlyEqual(0.529412)
+	let base = Unshifted(sigma)
 	AudioShift * base / (1 + (AudioShift - 1) * base)
+AudioSigmas(sigmas Numbers) Numbers
+	Tiny.AudioSigmas((1, 0.75, 0)) is (1, Tiny.AudioSigma(0.75), 0)
+	for sigmas
+		AudioSigma(value)
+Unshifted(sigma Number) Number
+	Tiny.Unshifted(1) is 1
+	Tiny.Unshifted(0.96).IsNearlyEqual(0.666667)
+	H3Layout(Tiny, shift = 1).Unshifted(0.3).IsNearlyEqual(0.3)
+	sigma / (shift + sigma * (1 - shift))

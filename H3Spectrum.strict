@@ -1,0 +1,65 @@
+has steps Number
+has fit SpectralFit
+has period Number = 0
+has warmup Number = 1
+has coords Numbers = List(Number)
+has anchors List(Numbers) = List(Numbers)
+has output Numbers = List(Number)
+has forecasts Number = 0
+constant Tiny = H3Spectrum(4, SpectralFit.Line, 2)
+constant Video = H3.Model.Values("video")
+constant Audio = H3.Model.Values("audio")
+constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 0)
+constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 1)
+constant First = H3Spectrum.Started.anchors.First
+IsActual(step Number) Boolean
+	Tiny.IsActual(0)
+	Tiny.IsActual(1)
+	Started.IsActual(1) is false
+	Started.IsActual(2)
+	Started.IsActual(3)
+	H3Spectrum(Started, steps = 8).IsActual(5) is false
+	H3Spectrum(Started, steps = 8).IsActual(6)
+	H3Spectrum(Started, steps = 8, period = 3).IsActual(2) is false
+	H3Spectrum(Started, period = 0).IsActual(1)
+	let protected = (period < 2) or (step < warmup) or (step >= steps - 1) or (anchors.Length is 0)
+	protected or ((step - warmup) % period is period - 1)
+Remembers(step Number) Boolean
+	Tiny.Remembers(1)
+	Tiny.Remembers(2) is false
+	H3Spectrum(4, SpectralFit.Line).Remembers(0) is false
+	(period >= 2) and (step < steps - 2)
+Coord(sigma Number, layout H3Layout) Number
+	Tiny.Coord(1, H3Layout.Tiny) is -1
+	Tiny.Coord(0, H3Layout.Tiny) is 1
+	1 - 2 * layout.Unshifted(sigma)
+Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, step Number) H3Spectrum
+	MossImage(Logger).Error(Started.output, H3.Forward) < 0.005
+	Started.coords.Length is 1
+	Held.forecasts is 1
+	Held.anchors.Length is 1
+	MossImage(Logger).Error(Held.output, H3.Forward) < 0.005
+	if IsActual(step) is false
+		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
+	let actual = h3.Output(latent, sound, sigma, text, layout, conditions)
+	H3Spectrum(Remembers(step) then Remembered(Coord(sigma, layout), actual) else value, output = actual)
+Remembered(coord Number, anchor Numbers) H3Spectrum
+	Started.Remembered(0.8, First).anchors.Length is 2
+	Started.Remembered(0.8, First).Remembered(0.9, First).coords is (0.8, 0.9)
+	let kept = anchors.Length.Clamp(0, fit.degree)
+	let start = anchors.Length - kept
+	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
+Predicted(coord Number) Numbers
+	Started.Predicted(0).Length is 960
+	MossImage(Logger).Error(Started.Remembered(0.8, First * 3).Predicted(1), First * 5) < 0.000001
+	if anchors.Length < fit.degree + 1
+		return anchors.Last
+	let weights = fit.Weights(coords, coord)
+	mutable mixed = Combined(anchors.First * 0, anchors.First, weights.First)
+	for anchors.Length - 1
+		mixed = Combined(mixed, anchors(index + 1), weights(index + 1))
+	mixed
+Combined(sum Numbers, anchor Numbers, weight Number) Numbers
+	H3Spectrum.Combined((1, 2), (3, 4), 2) is (7, 10)
+	for sum.Length
+		sum(index) + weight * anchor(index)

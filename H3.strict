@@ -10,21 +10,22 @@ constant Prompt = Model.Values("token_refiner")
 constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number))
 constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4)
 constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"))
-Loaded(path Text) H3
+Loaded(path Text, loras = "") H3
 	Tiny.blocks.Length is 2
+	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
 	let patches = MossText.Dense(model, "video_patch_proj")
 	let heard = MossText.Dense(model, "audio_patch_proj")
 	let table = model.Values("adaln_t_table")
-	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks."), H3Final.Loaded(model))
+	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks.", loras), H3Final.Loaded(model))
 Weights(path Text, bits Number) Safetensors
 	H3.Weights("tinyh3.safetensors", 16).prefix is ""
 	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
 	Safetensors(path, bits, prefix)
-Blocks(model Safetensors, prefix Text) List(H3Block)
-	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.").Length is 2
+Blocks(model Safetensors, prefix Text, loras Text) List(H3Block)
+	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
 	for Named(TensorFile.Header(model.path), model.prefix + prefix).Length
-		H3Block.Loaded(model, prefix + index + ".")
+		H3Block.Loaded(model, prefix + index + ".", loras)
 Named(header Text, prefix Text) Texts
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2

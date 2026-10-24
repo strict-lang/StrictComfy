@@ -38,6 +38,21 @@ The checked-in 4090 report calls the c1829a08 regression **Moss VAE**, not H3 VA
 
 Exact H3/4090 failing command and old/new run logs remain needed to reproduce the reported 0.3 s increase. Do not mark that issue fixed. Diagnostic compiler worktree StrictVaeCheck is unmerged; model executables restored to current production artifacts. Evidence: D:/StrictDumps/vae-regression, including profile.sqlite, fixed-latent controls and moss-*-pair*.log. JPEG codec check, ImageProcessing VM tests, native JPEG reader/ImageSaver tests, allocator/cache checks and both changed-folder checks pass.
 
+## H3 LoRAs, step counts and Spectrum (2026-10-25, 4090 unlocked, quiet machine)
+
+Plain runs of `H3Video.exe`, t2va 480x832, 124 frames. "Reference" is `C:\StrictDumps\h3` (its per-layer comparison before sampling uploads the weights, so step 0 is warm), "fresh" a folder without references where step 0 includes the first upload of all 21 GB (about 12 s).
+
+| Run | Load | Steps (ms) | Sampling | Result |
+|---|---:|---|---:|---|
+| Turbo INT8, 8 steps, reference | 18.5 s | 4757 3498 3603 3509 3630 3523 3658 3554 | 29.7 s | video 0.3053642975063925, audio 0.0918839879386419: identical to before |
+| Turbo INT8, 8 steps, Spectrum period 2, reference | 16.2 s | 3963 0 3796 51 3686 53 3724 3699 | 19.0 s | video 0.415, audio 0.123 against ComfyUI's 8 steps; PSNR 18.05 instead of 21.74 dB |
+| Base FL2VA, 3 steps, fresh | 20.3 s | 15961 3753 3575 | 23.3 s | no LoRA |
+| Base + TaoMate 3-step LoRA merged, 3 steps, fresh | 41.7 s | 18154 4046 3495 | 25.7 s | |
+| Base + turbo 8-step LoRA (rank 384/128) merged, 8 steps, fresh | 99.6 s | 17916 4139 4373 3591 3636 3562 3684 3583 | 44.5 s | same composition as the pre-merged turbo INT8 model |
+
+Rejected: applying LoRAs per step as an extra low rank product (`MossLora.Applied`, what Moss does) took 17.1 / 13.2 / 9.2 s per TaoMate step and 27-45 s per turbo LoRA step: the low rank products are cheap, but every linear writes a full size f32 delta (qkv 14865 x 21504 = 1.28 GB) and its sum next to the base output, which pushes the streamed weights out (eviction rounds, synchronizations, idle host gaps of about 250 ms). ComfyUI also merges into the int8 weights (requantized with stochastic rounding). Merging costs load time instead: `TensorFile_Tuned` adds rank 384 to a 21504 x 5376 matrix in about 450 ms on 32 pool threads (11.7 instead of 4.6 multiply-adds per ns per thread with tiles of 8 rows x 128 columns), plus 230 ms to join its 10M factor numbers in Strict.
+
+Spectrum on H3 forecasting the hidden residual of the last block (like upstream) saved little or got slower: 26.6 s with a flat history (its concatenation of 80M-number anchors has no GPU kernel: about 1 GB down and up per remembered step), and with anchors kept as separate bf16 lists the remembering steps alone took 5-7.9 s instead of 3.6 s (GPU-only lists can't be spilled, ../Strict/improvements.md 13). Forecasting the output (1.4M numbers) keeps every actual step at 3.7 s and costs 0-50 ms per forecast, with the same error level as the feature forecast (0.415 against 0.42).
 ## RTX 3080 end-to-end timing correction (2026-10-24)
 
 Compiler/runtime: Strict 30781d21. The resident runner uses its explicit workspace release and optional stored PNG output.

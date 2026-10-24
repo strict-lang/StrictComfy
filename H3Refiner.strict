@@ -2,14 +2,16 @@ has condition Batch
 has refiner List(H3Block)
 has refinedNorm Numbers
 constant Tiny = H3Refiner.Loaded("tinyh3.safetensors")
-Loaded(path Text) H3Refiner
+constant Tuned = H3Refiner.Loaded("tinyh3.safetensors", H3Lora.Half.loras)
+Loaded(path Text, loras = "") H3Refiner
 	Tiny.refiner.Length is 2
 	let halves = H3.Weights(path, 16)
-	let refiners = H3.Blocks(H3.Weights(path, 32), "token_refiner.blocks.")
+	let refiners = H3.Blocks(H3.Weights(path, 32), "token_refiner.blocks.", loras)
 	H3Refiner(MossText.Dense(halves, "condition_proj"), refiners, halves.Values("token_refiner.final_norm.weight"))
 Refined(context Numbers) Numbers
 	Tiny.Refined(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
+	MossImage(Logger).Error(Tuned.Refined(H3.Model.Values("context")), H3Lora.Refined) < 0.02
 	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
 	mutable hidden = condition.Sums(context)
 	for refiner

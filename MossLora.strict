@@ -1,5 +1,6 @@
 has down Batch
 has up Batch
+has scales Numbers
 constant Unbiased = List(Number) + 0
 constant Linears = ("q", "k", "v", "o", "ffn_up_gate", "ffn_down")
 constant File = "tinylora.safetensors"
@@ -8,18 +9,23 @@ constant Reference = Safetensors(File, 32, "reference.")
 constant Layers = MossLora.Layer(File, "layers.0.")
 constant Query = Reference.Values("q")
 constant Zeros = MossLora.Joined(Query * 0, Query * 0, Query * 0, 256)
-constant Input = MossBlock.Input
 constant Latent = Reference.Values("x")
 constant Lowered = Moss.Loaded("tinymoss.safetensors", File)
 constant Words = MossLora.Lowered.TextEmbedded(Moss.Context, 3)
-Loaded(path Text, prefix Text) MossLora
+constant Empty = MossLora(Batch(List(Numbers), Unbiased), Batch(List(Numbers), Unbiased), List(Number))
+Loaded(path Text, prefix Text, strength = 1) MossLora
 	Tiny.down.weights.Length is 8
 	Tiny.up.weights.Length is 256
 	Tiny.up.weights.First.Length is 8
+	Tiny.scales is MossLora.Repeated(2, 8)
 	let file = Safetensors(path, 16, prefix)
-	let downs = file.Rows("lora_down.weight")
-	let scale = file.Values("alpha").First / downs.Length
-	MossLora(Batch(downs, Unbiased), Batch(Scaled(file.Rows("lora_up.weight"), scale), Unbiased))
+	let peft = file.Entry("lora_A.weight") is not ""
+	if (peft is false) and (file.Entry("lora_down.weight") is "")
+		return Empty
+	let downs = file.Rows(peft then "lora_A.weight" else "lora_down.weight")
+	let scale = file.Entry("alpha") is "" then strength else strength * file.Values("alpha").First / downs.Length
+	let ups = file.Rows(peft then "lora_B.weight" else "lora_up.weight")
+	MossLora(Batch(downs, Unbiased), Batch(ups, Unbiased), Repeated(scale, downs.Length))
 Layer(path Text, prefix Text) List(MossLora)
 	MossLora.Layer(File, "layers.1.").Length is 6
 	MossLora.Layer(File, "layers.1.")(5).up.weights.Length is 256
@@ -28,29 +34,57 @@ Layer(path Text, prefix Text) List(MossLora)
 		return List(MossLora)
 	for Linears
 		Loaded(path, "diffusion_model." + prefix + "proj." + value + ".")
-Scaled(rows List(Numbers), scale Number) List(Numbers)
-	MossLora.Scaled(((1, 2), (3, 4)), 2) is ((2, 4), (6, 8))
-	for rows
-		value * scale
+Repeated(number Number, count Number) Numbers
+	MossLora.Repeated(2, 3) is (2, 2, 2)
+	for count
+		number
+Ranked(inner Numbers) Numbers
+	MossLora(Tiny, scales = (2, 3)).Ranked((1, 1, 1, 1)) is (2, 3, 2, 3)
+	for inner.Length
+		inner(index) * scales(index % scales.Length)
 Delta(input Numbers) Numbers
-	Tiny.Delta(Input).Length is 4864
-	MossImage(Logger).Error(Tiny.Delta(Input), Query) < 0.005
-	up.Sums(down.Sums(input))
+	Tiny.Delta(MossBlock.Input).Length is 4864
+	MossImage(Logger).Error(Tiny.Delta(MossBlock.Input), Query) < 0.005
+	up.Sums(Ranked(down.Sums(input)))
 Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Numbers
 	MossLora.Applied(List(MossLora), 0, (1, 2), (3, 4)) is (1, 2)
-	MossImage(Logger).Error(MossLora.Applied(Layers, 0, Query, Input), Query * 2) < 0.005
+	MossLora.Applied(List(MossLora) + Empty, 0, (1, 2), (3, 4)) is (1, 2)
+	MossImage(Logger).Error(MossLora.Applied(Layers, 0, Query, MossBlock.Input), Query * 2) < 0.005
 	MossImage(Logger, 4).Compared(Lowered, Reference) < 0.02
-	loras.Length is 0 then base else MossText.Added(base, loras(linear).Delta(input))
+	if loras.Length is 0
+		return base
+	loras(linear).down.weights.Length is 0 then base else MossText.Added(base, loras(linear).Delta(input))
 Attended(loras List(MossLora), combined Numbers, normed Numbers) Numbers
 	MossLora.Attended(List(MossLora), (1, 2, 3), (4)) is (1, 2, 3)
 	MossImage(Logger).Error(Lowered.Output(Latent, 0.75, Words, MossBlock.Rotation), Reference.Values("output")) < 0.02
-	MossLora.Attended(Layers, Zeros, Input)(768 + 5).IsNearlyEqual(Query(256 + 5), 0.01)
-	MossLora.Attended(Layers, Zeros, Input)(256).IsNearlyEqual(Layers(1).Delta(Input)(0), 0.0001)
+	MossLora.Attended(Layers, Zeros, MossBlock.Input)(768 + 5).IsNearlyEqual(Query(256 + 5), 0.01)
+	MossLora.Attended(Layers, Zeros, MossBlock.Input)(256).IsNearlyEqual(Layers(1).Delta(MossBlock.Input)(0), 0.0001)
 	if loras.Length is 0
 		return combined
 	let width = loras.First.up.weights.Length
 	let joined = Joined(loras(0).Delta(normed), loras(1).Delta(normed), loras(2).Delta(normed), width)
 	MossText.Added(combined, joined)
+Stacked(other MossLora) MossLora
+	Empty.Stacked(Tiny).down.weights.Length is 8
+	Tiny.Stacked(Empty).up.weights.First.Length is 8
+	Tiny.Stacked(Tiny).down.weights.Length is 16
+	Tiny.Stacked(Tiny).up.weights.First.Length is 16
+	MossImage(Logger).Error(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
+	if down.weights.Length is 0
+		return other
+	if other.down.weights.Length is 0
+		return value
+	let downs = Batch(down.weights + other.down.weights, Unbiased)
+	MossLora(downs, Batch(Widened(up.weights, other.up.weights), Unbiased), scales + other.scales)
+Flat(rows List(Numbers)) Numbers
+	MossLora.Flat(((1, 2), (3, 4))) is (1, 2, 3, 4)
+	let width = rows.First.Length
+	for rows.Length * width
+		rows((index / width).Floor)(index % width)
+Widened(rows List(Numbers), more List(Numbers)) List(Numbers)
+	MossLora.Widened(((1, 2), (3, 4)), ((5), (6))) is ((1, 2, 5), (3, 4, 6))
+	for rows
+		value + more(index)
 Joined(queries Numbers, keys Numbers, values Numbers, width Number) Numbers
 	MossLora.Joined((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
 	for queries.Length * 3

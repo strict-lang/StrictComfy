@@ -7,30 +7,45 @@ has output List(Numbers)
 has expansion List(Numbers)
 has reduction List(Numbers)
 has adaln Batch
+has deltas List(MossLora) = List(MossLora)
 constant Model = Safetensors("tinyh3.safetensors")
 constant Tiny = H3Block.Loaded(Model, "blocks.0.")
 constant Input = Model.Values("reference.blocks.0.input")
-constant Qkv = Model.Values("reference.blocks.0.attn.qkv_proj")
 constant Layered = Tiny.Output(Input, Model.Values("reference.t_emb"), H3Layout.Tiny.Rows(0.75), Rope.Turning)
 constant Epsilon = 0.00001
-Loaded(model Safetensors, prefix Text) H3Block
+Loaded(model Safetensors, prefix Text, loras = "") H3Block
 	Tiny.attention.Length is 1536
-	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
 	let rows = Safetensors(model.path, 16, model.prefix + prefix)
 	let norms = Safetensors(model.path, 32, rows.prefix)
 	let first = norms.Values("norm1.weight")
 	let second = norms.Values("norm2.weight")
 	let queried = norms.Values("attn.q_norm.weight")
 	let keyed = norms.Values("attn.k_norm.weight")
-	let attended = Projection(rows, "attn.qkv_proj")
-	let projected = Projection(rows, "attn.out_proj")
-	let expanded = Projection(rows, "mlp.fc1")
-	H3Block(first, second, queried, keyed, attended, projected, expanded, Projection(rows, "mlp.fc2"), Curved(norms))
+	let qkv = Merged(rows, "attn.qkv_proj", loras, prefix)
+	let projected = Merged(rows, "attn.out_proj", loras, prefix)
+	let expanded = Merged(rows, "mlp.fc1", loras, prefix)
+	let reduced = Merged(rows, "mlp.fc2", loras, prefix)
+	H3Block(first, second, queried, keyed, qkv, projected, expanded, reduced, Curved(norms), Deltas(rows, loras, prefix))
+Deltas(rows Safetensors, loras Text, prefix Text) List(MossLora)
+	H3Lora.Block.deltas.Length is 0
+	H3Block.Loaded(Model, "token_refiner.blocks.0.", H3Lora.Half.loras).deltas.Length is 4
+	rows.Entry("attn.qkv_proj.comfy_quant") is "" then H3Lora(loras).Tuning(prefix) else List(MossLora)
 Projection(rows Safetensors, name Text) List(Numbers)
 	Tiny.Projection(Safetensors(Model.path, 16, "token_refiner.blocks.0."), "mlp.fc2").Length is 256
 	rows.Entry(name + ".comfy_quant") is "" then rows.Rows(name + ".weight") else rows.Quantized(name)
+Merged(rows Safetensors, name Text, loras Text, prefix Text) List(Numbers)
+	Tiny.Merged(Safetensors(Model.path, 16, "blocks.0."), "mlp.fc2", "", "blocks.0.") is Tiny.reduction
+	H3Lora.Block.attention is not Tiny.attention
+	MossImage(Logger).Error(H3Lora.Layered, H3Lora.Reference.Values("blocks.0")) < 0.02
+	if (rows.Entry(name + ".comfy_quant") is "") or (loras is "")
+		return Projection(rows, name)
+	let lora = H3Lora(loras).Stacked(prefix + name + ".")
+	if lora.down.weights.Length is 0
+		return Projection(rows, name)
+	rows.Tuned(name, Convrot(MossLora.Flat(lora.down.weights)).Rotated, MossLora.Flat(lora.up.weights), lora.scales)
 Curved(curves Safetensors) Batch
 	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
+	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
 	if curves.Entry("adaln_proj.linear.weight") is ""
 		return Batch(List(Numbers), MossLora.Unbiased)
 	MossText.Dense(curves, "adaln_proj.linear")
@@ -45,19 +60,22 @@ Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers) Numbers
 	Gated(attended, fed, modulation, starts, 5)
 Refined(input Numbers, rotation Numbers) Numbers
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").Refined(Input, Rope.Turning).Length is 4352
-	let combined = Batch(attention, MossLora.Unbiased).Sums(Normalized(input, attentionNorm))
-	let attended = MossText.Added(input, Batch(output, MossLora.Unbiased).Sums(Heads(combined, rotation).Merged))
-	let expanded = Batch(expansion, MossLora.Unbiased).Sums(Normalized(attended, feedNorm))
-	MossText.Added(attended, Batch(reduction, MossLora.Unbiased).Sums(Activated(expanded, reduction.First.Length)))
+	let merged = Heads(Projected(0, attention, Normalized(input, attentionNorm)), rotation).Merged
+	let attended = MossText.Added(input, Projected(1, output, merged))
+	let expanded = Projected(2, expansion, Normalized(attended, feedNorm))
+	MossText.Added(attended, Projected(3, reduction, Activated(expanded, reduction.First.Length)))
+Projected(linear Number, rows List(Numbers), input Numbers) Numbers
+	Tiny.Projected(0, ((1, 2), (3, 4)), (1, 1)) is (3, 7)
+	MossLora.Applied(deltas, linear, Batch(rows, MossLora.Unbiased).Sums(input), input)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
 	let merged = Heads(Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), rotation).Merged
 	Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated)
 Heads(combined Numbers, rotation Numbers) Attention
-	Tiny.Heads(Qkv, Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
-	Tiny.Heads(Qkv, Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)
-	Tiny.Heads(Qkv, Rope.Turning).Merged(8703).IsNearlyEqual(0.490234, 0.02)
+	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
+	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)
+	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(8703).IsNearlyEqual(0.490234, 0.02)
 	let size = queryNorm.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
 	let scales = Qwen3Block.Scales(combined, size, Epsilon)
