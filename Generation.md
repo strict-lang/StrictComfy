@@ -1,5 +1,42 @@
 # Moss speed and quality comparisons
 
+## Generate from a prompt file
+
+Build the launcher and backend once, from StrictComfy:
+
+```powershell
+../Strict/strict.exe build MossGenerate.strict
+../Strict/strict.exe build MossImage.strict
+```
+
+Then run from any working folder containing your UTF-8 `prompt.txt`:
+
+```powershell
+C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss-image-sft-dit-int8-convrot-dmd.safetensors
+```
+
+Weighted stacks use repeated `--lora` arguments. Paths may be absolute, relative to the working folder, or relative to ComfyUI's `models/loras`. Model names also resolve under `models/diffusion_models`.
+
+```powershell
+./MossImage.exe --prompt prompt.txt --model moss.safetensors --steps 4 --lora somelora1.safetensors:0.5 --lora somelora2.safetensors:0.31 --output MossImage.jpg
+```
+
+Defaults: `--prompt prompt.txt`, `--steps 8`, `--output MossImage.jpg`, 720x1280, guidance 1, JPEG quality 85, random seed. `--seed 42` fixes both prompt choices and initial noise. `--width`, `--height`, `--guidance`, `--quality`, `--vae` and `--te` override those settings; dimensions must be multiples of 16. Choose an int8 Convrot Moss checkpoint. Eight steps assumes a turbo checkpoint or an explicitly supplied turbo LoRA; the command does not silently add one. Four steps does not automatically select a four-step adapter. Rapid-MOSS's separate time/data-space adapter remains available through the comparison harness, not this simple command.
+
+Every output gets at least four digits: `MossImage0001.jpg`, `MossImage0002.jpg`, etc. Numbering starts after the largest existing number for that base/extension, then reserves a free file exclusively; concurrent commands cannot overwrite each other's images. Existing unnumbered files are untouched. `.jpg`, `.jpeg` and `.png` are accepted; JPEG uses the Windows codec. Each image has a `.jpg.json` / `.png.json` sidecar with its resolved prompt, seed, model, weighted adapters and settings.
+
+Prompt alternatives use `{choice|choice|}`. The trailing empty choice is real: `{a woman|a man|}` selects `a woman`, `a man` or nothing. Multiple and nested groups are supported; `|` outside a group remains literal. Unbalanced braces report an error. The prompt file itself is not modified.
+
+The command reuses the installed ComfyUI text encoder in a worker that exits before Strict inference, freeing its GPU memory. Windows portable installations on D: and C: are detected. For another installation, pass `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe`; `COMFYUI` also selects the ComfyUI directory. The default encoder is `qwen3.5_9b_int8_convrot.safetensors` and VAE `flux2-vae.safetensors`. Keep `moss.py`, `merge.py`, `dump.py`, `MossGenerate.exe` and its matching PTX files next to the launcher.
+
+Resolved prompt conditioning, weighted merged models and CUDA compilation are cached under `StrictComfy/artifacts/moss`; `--cache D:/StrictDumps/moss-cli/cache` changes the location. A new LoRA stack creates a full cached checkpoint (about 5.4 GB for the tested model). All weighted deltas are added before a single int8 requantization; source files are unchanged. Kohya down/up and PEFT A/B adapters are supported, including fused qkv split into q/k/v, plus matching floating-point dense targets. LoKR and other adapter formats are not supported by this merger; a completely unmatched adapter fails instead of silently doing nothing. Zero strengths leave the base unchanged; finite negative strengths are accepted. This is the existing int8 merge quality tradeoff, not unmerged floating-point LoRA evaluation.
+
+First use includes text encoding, LoRA merging and driver compilation. Cached calls still load a fresh native model: the tested default eight-step command took 10.81 s end to end, with 5.66 s inside generation. This is not the earlier resident 3.47 s timing. A ComfyUI sampler node is deferred until a resident backend and text-encoder/Strict VRAM handoff can avoid those cold loads; the local command is usable now. Existing positional `MossImage.exe dumps model lora vae` diagnostics still work.
+
+Command checks (no full model needed): `D:/ComfyUI_windows_portable/python_embeded/python.exe test_moss.py`.
+
+## Comparison harness
+
 `MossGenerate` generates images without the per-layer and per-step reference comparisons in `MossImage`. `MossSampling` supports the existing flow Euler schedule, ordinary CFG with zero conditioning, separate Spectrum histories for its positive/negative branches, and Rapid-MOSS data-space iteration. No error or PNG equality requirement is imposed across these methods.
 
 `compare_moss.py` prepares identical conditioning/noise within each prompt/seed case, runs the variants and writes a local HTML gallery. Default cases: lighthouse, portrait with hands, and a cafe menu; seeds 42 and 1234; 720x1280. Edit `comparison.json` in the chosen output root to use your own prompts, seeds or settings, then prepare again.

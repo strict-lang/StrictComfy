@@ -17,6 +17,7 @@ publish/
 *.pfx
 Backup*/
 node_modules/
+__pycache__/
 
 # Build results
 [Dd]ebug/

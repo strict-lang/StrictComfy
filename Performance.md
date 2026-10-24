@@ -1,5 +1,13 @@
 # Moss performance
 
+## User command timing (2026-10-24, RTX 3080)
+
+MossImage.exe now accepts prompt files, repeated weighted LoRAs and numbered output paths; usage is at the top of Generation.md. Full command validation used 720x1280, the existing merged eight-step DMD checkpoint, and two PEFT style adapters at 0.5/0.31 (246 matched modules each). A four-step invocation checks CLI plumbing only; shortening an eight-step checkpoint is not a four-step quality recommendation.
+
+A cached default eight-step invocation from another working directory took 10.81 s end to end: fresh native load 3.076 s, sampling 4.132 s, decode 1.505 s, JPEG save 19 ms, full generation including cleanup 5.658 s. Prompt conditioning, merged stack and driver compilation were cached. This is a new native process per invocation, not the resident 3.47 s measurement below. First use is slower: one successful new-stack/first-driver-use run took 51.47 s with prompt conditioning already cached. Cold decode also varies (1.5-4.1 s in these plumbing checks). No comparison against ComfyUI's warm pipeline is claimed from these timings.
+
+Actual outputs MossImage0001.jpg / MossImage0002.jpg, per-image settings, logs and caches: D:/StrictDumps/moss-cli. Default prompt/steps/output, spaces in output paths, and cache hits all passed full-size runs. Nine lightweight command tests plus VM/native launcher tests and folder checks pass. A resident worker and coordinated ComfyUI text-encoder/Strict VRAM handoff remain needed before a sampler node avoids cold model loading.
+
 ## JPEG output and merged decoder check (2026-10-24, RTX 3080)
 
 JPEG quality 85 is now MossGenerate/compare_moss.py's Windows default. Native ImageCodec.SaveJpeg uses the built-in Windows codec on flat RGB values; --format png retains lossless stored PNG, --format png --compressed retains compressed PNG. Same portrait pixels: 95,022-byte JPEG versus 3,688,028-byte stored PNG (97.4% smaller), JPEG PSNR 42.22 dB and mean absolute byte difference 1.45/255. Actual Strict save costs 23-30 ms versus 451-473 ms for stored PNG in the fresh normal-clock pair, including foreign argument conversion. This is lossy output compression, not a model-precision change.

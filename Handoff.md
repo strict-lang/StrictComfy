@@ -1,5 +1,15 @@
 # Handoff: Moss elementwise kernels, step wall time below ComfyUI (RTX 3080)
 
+## Latest checkpoint: usable local Moss command (2026-10-24)
+
+MossImage.exe now accepts named generation options and retains its four-positional-argument diagnostic mode. MossCommand.strict launches moss.py with the installed ComfyUI Python; MossGenerate.exe remains the inference backend. See Generation.md's first section. Defaults: prompt.txt in the caller's working folder, eight steps, MossImage.jpg, 720x1280, guidance 1, quality 85, random seed. Repeated --lora path:strength forms a cached weighted int8 stack; paths and strengths are recorded in the output sidecar. The old merger's relative-path strength parsing was broken and is fixed. Matching floating dense targets are now merged too; fused qkv is split for the user CLI. Completely unmatched adapters fail. No LoKR support or automatic turbo adapter selection is claimed.
+
+Prompt groups {a woman|a man|} include the empty alternative, support multiple/nested groups, and are seeded along with generation noise. Numbered outputs reserve files exclusively (MossImage0001.jpg etc.) and never overwrite another image. Cached text encoding runs in a separate worker that exits before native inference. Keep source helpers/backend/PTX beside the launcher; use --python/--comfyui for nonstandard installations. Cached stacks occupy one full checkpoint each; --cache selects their folder.
+
+Validation: nine command tests pass, including concurrency-safe numbering, seeded/empty prompt choices, relative/Windows weighted paths, native launcher help and spaces, invalid checkpoints, and stacked-versus-single equivalent int8/floating merges. VM/native launcher checks and StrictComfy check pass. Full 720x1280 runs used two installed PEFT adapters at 0.5 and 0.31 (246 modules each): four-step output MossImage0001.jpg, then a run from D:/StrictDumps/moss-cli with prompt/steps/output omitted created MossImage0002.jpg at eight steps; another run verified a spaced output directory. Actual prompt/seed/settings sidecars and logs: D:/StrictDumps/moss-cli. No clock/power changes. CLI cached end-to-end remains 10.81 s (generation 5.66 s), including a fresh native model load; do not quote resident timings for this command.
+
+ComfyUI node deferred: a subprocess-only node would retain cold model loads, and resident Strict weights need coordinated offload before ComfyUI's large text encoder uses this 10 GB GPU. Next usability step is a resident backend/VRAM phase protocol, then a sampler node using native ComfyUI conditioning. Existing decoder/performance investigations below remain open. No compiler/runtime sources changed for this command.
+
 ## Latest checkpoint: JPEG and decoder regression investigation (2026-10-24)
 
 Merged H3 prefetch/streaming-trim guard is validated. Keep it; explicit phase-boundary Moss cleanup still matters. Cache test merge errors repaired; its streaming guard and explicit-release assertions now both pass. No allocator/compiler performance policy changed this session.
