@@ -27,7 +27,7 @@ The node reports approximately 2-2.5x with its default setup; this is an upstrea
 
 ## Proposed diffusion experiment
 
-The generic fit/history core is now merged; an experimental MOSS adapter is checkpointed on `codex/spectrum-moss`, with full-size off/shadow/live results in that branch's Spectrum.md and Handoff.md. It is not merged because a normal native-build VAE transition regression remains open. Exact inference stays the default. Start with Moss/Euler, then H3; share only the fitted predictor and history/scheduling arithmetic when both adapters establish the same contract.
+The fit/history core and opt-in MOSS adapter are now merged. Standard native off/on runs pass after safe GPU cache-copy eviction under memory pressure; off/shadow/live results and quality limits are in Spectrum.md and Handoff.md. Decoder transition overhead remains open. Exact inference stays the default. Start with Moss/Euler, then H3; share only the fitted predictor and history/scheduling arithmetic when both adapters establish the same contract.
 
 1. Capture actual final-block image features immediately after `Moss.Transformed`. Split `Moss.Output` so its timestep embedding and final normalization/modulation/projection can run with either actual or predicted image features. Preserve `MossImage.Sampled`'s sigma schedule and Euler update. Never replace the latent directly with a forecast hidden state.
 2. First run in shadow mode: predict at each eligible evaluation but still execute the network. Compare predicted features and outputs to that real evaluation before adding its feature to history. Store only real evaluations as anchors. This measures local fitting error; a second, live-skip test is still necessary because shadow mode does not measure accumulated trajectory drift.
@@ -80,3 +80,14 @@ It requires a different trained tokenizer/generator/decoder; ordinary Qwen weigh
 3. Validate a conservative live-skip Moss preset; then implement H3-specific joint audio/video validation.
 4. In parallel as independent work, tune existing verified Flash MTP and expert-block execution using current profiling evidence.
 5. Consider lossy weight/KV/model architecture changes independently, with task-specific quality tests. Do not combine several approximations before measuring each one.
+
+
+## Consumer tensor-core issue-rate unlock assessment, 2026-10-24
+
+The linked [gpu-unlock project](https://github.com/Zagitta/gpu-unlock) currently implements a Linux pre-driver kernel module for GA102/103/104/106. The local 3080's hardware family is supported; this is not a Windows driver setting. Ada/4090 is outside this project's supported targets. The author's measured 3090 Ti gains vary by datatype; an instruction-rate increase is not a promised whole-model speedup.
+
+[NVIDIA's GA102 specification](https://www.nvidia.com/content/PDF/nvidia-ampere-ga-102-gpu-architecture-whitepaper-v2.1.pdf) lists the RTX 3080's dense FP16 tensor rate at 119 TFLOPS with FP16 accumulation and 59.5 with FP32 accumulation; INT8 is a separate datapath. Our generated INT8 GEMMs use s8 inputs and INT32 accumulators, so their FP32 scale/bias epilogue does not make them eligible for this FP32 tensor-accumulation unlock. Elementwise, normalization, quantization and memory transfers are also outside its scope.
+
+Current NativeRuntimeAttention QK uses `strict_device_halves_mma16` (FP16 inputs, FP32 accumulation); its main PV path already uses FP16 accumulation. Products and VAE convolutions use FP16 tensor math with FP32 accumulation. These are potential beneficiaries on supported hardware. Actual gains depend on compute versus memory/reduction/synchronization time. H3's attention-heavy workloads may expose more eligible work, but the server's chosen SOL/PSA/Sage paths must be inspected separately. No unlock was installed or benchmarked here, and no firmware/driver settings were changed.
+
+Amdahl example only: if 10% of total runtime becomes twice as fast, overall speed rises 5.3%, not 2x. Preserve accumulation precision when comparing an unlock; changing the arithmetic precision is a separate quality experiment.
