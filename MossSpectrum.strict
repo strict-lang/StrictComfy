@@ -22,18 +22,18 @@ Coord(step Number) Number
 	Tiny.Coord(0) is -1
 	Tiny.Coord(7) is 1
 	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
-Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, step Number) MossSpectrum
-	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, 0).output.Length is 256
+Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum
+	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, MossBlock.Rotation, 0).output.Length is 256
 	if mode is "off"
-		return MossSpectrum(value, output = moss.Output(latent, sigma, text, width))
+		return MossSpectrum(value, output = moss.Output(latent, sigma, text, rotation))
 	if mode is not in ("on", "shadow")
 		return Error("Unknown Spectrum mode")
 	let vector = moss.TimeEmbedded(sigma)
 	if (mode is "on") and (IsActual(step) is false)
 		return Forecast(moss, vector, step)
-	Measured(moss, latent, text, vector, step)
-Measured(moss Moss, latent Numbers, text Numbers, vector Numbers, step Number) MossSpectrum
-	let image = moss.Features(latent, text, width, vector)
+	Measured(moss, latent, text, rotation, vector, step)
+Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, step Number) MossSpectrum
+	let image = moss.Features(latent, text, rotation, vector)
 	let coord = Coord(step)
 	Shadowed(image, coord)
 	if image.Length * 4 * history.maximum > cacheBytes

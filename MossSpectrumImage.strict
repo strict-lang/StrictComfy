@@ -6,10 +6,11 @@ Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context
 	let sigmas = euler.Sigmas
 	mutable current = spectrum
 	mutable latent = data.Values(data.Entry("x.0") is "" then "x" else "x.0")
+	let rotation = moss.Rotation(latent, text, spectrum.width)
 	for euler.steps
 		let before = Process.Elapsed
-		current = current.Advanced(moss, latent, sigmas(index), text, index)
-		latent = euler.Stepped(latent, current.output, index)
+		current = current.Advanced(moss, latent, sigmas(index), text, rotation, index)
+		latent = euler.Stepped(latent, current.output, sigmas, index)
 		MossTiming(logger).Measured(index, before, latent, data, ", forecasts " + current.forecasts)
 	latent
 Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup Number, period Number, degree Number)

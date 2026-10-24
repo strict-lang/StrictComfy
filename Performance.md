@@ -8,6 +8,10 @@ Fixed installed CUTLASS controls isolate roughly 5-6 ms/step from its smaller o 
 
 # Moss on RTX 4090
 
+## A: step-boundary round trips removed (2026-10-24, 4090, locked 2400/10251)
+
+Paired alternating runs, steps 1-6 mean: baseline 187.0 / 182.7 / 187.8 ms, candidate 169.8 / 161.7 / 163.5 ms; idle per step 23.2 -> 5.0 ms (only the harness's latent download is left), no uploads or graph re-instantiation per step, identical errors and PNG. Details, the rule behind the round trips and the B1 estimate: [Handoff.md](Handoff.md), section "A done on the 4090".
+
 ## Locked-clock baseline (2026-10-24, Strict master e1cb907b + native-flags build fix 23e61750)
 
 Same fixture, model and settings as below. After the repaste (no thermal throttling since, see the GPU section of Handoff.md) every timing run here used `nvidia-smi -lgc 2400,2400` and `-lmc 10251,10251` (10451 MHz effective with the +200 MHz offset). The lock is for A/B timing only, production runs stay unlocked. 2400 is the highest lock tested that holds steadily: locked at 2550 the clock reads 2550 but bf16 GEMM throughput swings between 139 and 160 TFLOPS, against 151-153 at 2400 and 163-166 unlocked. Memory is not slowed by the lock: under CUDA the driver uses the P2 point (10451 MHz effective with +200) whether locked or not (`-lmc 10501` changes nothing); 10701 MHz for CUDA would need NVIDIA Profile Inspector's "CUDA - Force P2 State" off. Both held in every one-second sample, no throttle flags, hotspot at most 61 °C in Moss runs (84 °C after 60 s of bf16 GEMM stress at 370-376 W). ComfyUI used the same conditioning, tokens, noise and sigmas, bit-identical to the fixture, and reproduced the fixture's final latent bit for bit.

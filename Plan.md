@@ -2,9 +2,9 @@
 This file lists only what is still to be implemented: remove an item once it is done (results and numbers go into commit messages or a README), add what is found. Goal: run ComfyUI's Moss (image DiT, RTX 3080) and MiniMax H3 (video+audio DiT, RTX 4090) in Strict, faster than ComfyUI, then plug Strict into ComfyUI through a node.
 
 ## Current work split (2026-10-24)
-- 4090 agent: A, remove sigma/time-embedding/rotation-table host round trips, then B1, Activated into Hadamard/quantization. These remain separate from the 3080 work.
+- 4090 agent: A is done and ready to commit (idle per step 23.2 -> 5.0 ms, identical outputs, see Handoff.md "A done on the 4090"); next B1, Activated into Hadamard/quantization. These remain separate from the 3080 work.
 - 3080 agent: C analysis completed in [GemmStalls3080.md](GemmStalls3080.md). Matching qkv/up main loops do not show a general tensor-loop deficit; scale/bias setup and epilogue work explain the excess. Installed CUTLASS also uses a smaller o tile and Stream-K for down. Emitter changes await the user's review. Coordinate epilogue work with B2.
-- Once A lands: pull/rebuild and alternate paired full runs on 3080 at the same stable locked clocks, including `busy.py` idle and exact error/PNG checks. A has not landed at this checkpoint.
+- Once A lands: pull/rebuild and alternate paired full runs on 3080 at the same stable locked clocks, including `busy.py` idle and exact error/PNG checks.
 - Current full-model numbers and priorities are in [Performance.md](Performance.md) and [Handoff.md](Handoff.md). The October 22 numbers and phase lists below are historical and contain superseded work; do not use them as a current speed baseline.
 
 ## Historical status (2026-10-22, RTX 3080)

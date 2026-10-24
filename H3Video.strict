@@ -47,8 +47,8 @@ Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numb
 	for count
 		let before = Process.Elapsed
 		let output = h3.Output(video, audio, Euler(count, 12).Sigmas(index), text, layout, conditions)
-		video = Euler(count, 12).Stepped(video, Safetensors.Part(output, 0, video.Length, 1), index)
-		audio = Euler(count, 3).Stepped(audio, Safetensors.Part(output, video.Length, audio.Length, 1), index)
+		video = Euler.Stepped(video, Safetensors.Part(output, 0, video.Length, 1), Euler(count, 12).Sigmas, index)
+		audio = Euler.Stepped(audio, Safetensors.Part(output, video.Length, audio.Length, 1), Euler(count, 3).Sigmas, index)
 		let took = ((Process.Elapsed - before) * 1000).Round
 		logger.Log("step " + index + " " + took + " ms" + Errors(steps, index + 1, video, audio))
 	video + audio

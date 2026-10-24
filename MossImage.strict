@@ -32,9 +32,10 @@ Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers
 	mutable latent = steps.Values(steps.Entry("x.0") is "" then "x" else "x.0")
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
 	let sigmas = euler.Sigmas
+	let rotation = moss.Rotation(latent, text, width)
 	for euler.steps
 		let before = Process.Elapsed
-		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), text, width), index)
+		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), text, rotation), sigmas, index)
 		MossTiming(logger).Measured(index, before, latent, steps)
 	latent
 Compared(moss Moss, step Safetensors) Number

@@ -2,6 +2,66 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## A done on the 4090, ready to commit (2026-10-24)
+Step-boundary host round trips are gone. Outputs are identical: step 0 error 0.006325429288679978, latent 0.2228712467784174, PSNR 32.36 dB, PNG SHA-256 prefix `a439d0b78f51c944` in every run.
+
+Measured on Strict 4d1cafc9 + this change, clocks locked at 2400/10251 MHz:
+
+| | Baseline (StrictComfy HEAD, same compiler) | Candidate |
+|---|---:|---:|
+| Steps 1-6, three alternating pairs (model changes only) | 179.3 / 182.2 / 176.8 ms | 165.8 / 164.3 / 167.7 ms |
+| Steps 1-6, three alternating pairs (full change) | 187.0 / 182.7 / 187.8 ms | 169.8 / 161.7 / 163.5 ms |
+| GPU idle per step (nsys, `idle.py`) | 17-33 ms, mean 23.2 | 3.0-7.3 ms, mean 5.0 |
+| Uploads per step | 11.2 MB | 0 |
+| Graph re-instantiation idle per step | up to 7.5 ms | 0 |
+
+The only sync left in a step is the harness's own latent download for its error log (1.8 MB, 3-5 ms). Production runs would not have it.
+
+The general rule behind the round trips: a loop with no 32-bit-readable input list runs its 64-bit ("double") kernel, and a double kernel's result always went to the host after its failure flag was checked. A 64-bit Power or Logarithm doesn't exist on the GPU and fails on every launch, so the CPU runs the loop instead. `Sinusoid` (time embedding, Logarithm/Exponential) and `MossBlock.Rotations` (`10000 ^ x`) failed on the GPU every step. Their results and flags came back, the CPU recomputed them, and they were uploaded again. `Euler.Sigmas` (9 numbers) launched and synced every step.
+
+The change:
+- **StrictComfy**:
+  - `Euler.Stepped(latent, output, sigmas, step)` takes the per-run sigmas.
+  - `Moss.Rotation(latent, text, width)` builds the rotation table once per run; `Output`/`Features` take it.
+  - `MossImage`, `MossSpectrum`/`MossSpectrumImage` and `MossLora` are updated.
+  - `H3Video` calls `Euler.Stepped` and still recomputes its 9 sigmas per step, now on the CPU.
+- **Strict, emitter** (new `Compiler/MlirDoubles.strict`):
+  - `Failing`: a loop whose double kernel needs a 64-bit Power or Logarithm (also in callees, depth 3) gets no double kernel, so the CPU runs it without a failed launch, sync or download.
+  - `Kept`: a collecting loop that reads no list and has no calls or Power passes result format 64, so its doubles stay on the GPU.
+  - Both use existing launch parameters, so old binaries keep working.
+- **Strict, runtime** (`NativeRuntime.mlir`):
+  - a loop of fewer than 256 numbers reading no list stays on the CPU, also with `STRICT_GPU=all`;
+  - format 64 results stay resident; the CPU downloads them only when it reads them (new 64-bit unpack);
+  - a 32-bit kernel reading a big resident double list gets a device-side f32 copy (`strict_device_singles`), rounded exactly like the existing host copy;
+  - `STRICT_GPU_DOWNLOADS=1` prints every list the GPU sends to the host.
+- **Regression check:** `Compiler/check_gpu_residency.py` builds and runs a small program. It fails if a numbers-only table or a Power loop round-trips; it also checks a 32-bit consumer of a resident table and a host read of one.
+
+Validation:
+- VM tests of every changed file;
+- `strict check` 0 issues for Compiler and StrictComfy;
+- strict rebuilt, fixpoint identical (stage 2 = stage 3 `Strict.mlir`);
+- native GPU tests of Batch, Normalization, Gpt2Block, Qwen3Block, Softmax, Layer, Attention, Products, FeatureMap, Float8 and MossBlock. BFloat16 fails only on the known VM bug below, unrelated. One Attention build hit the sporadic mlir-opt crash and passed on retry.
+
+**For the 3080 agent, once A is pushed:**
+1. Archive the current baseline build.
+2. Pull and rebuild.
+3. Alternate paired full runs at 1695/9756 MHz.
+4. Report steady steps and `busy.py` idle, and compare errors and PNG SHA-256.
+
+The removed costs are host-side, so expect roughly the same absolute saving there (about 15-20 ms per step).
+
+Found, not fixed: a `Bytes` result computed on the GPU is downloaded (`16000 numbers in 9 bits` in the check) before a GPU loop reads it, possibly by the host-side `Byte` constraint checks. It's not on the Moss path.
+
+**B1 estimate (next):**
+- **Cost today, from the single-pass counters:** Activated is 174 us per layer at 94 % of DRAM peak; the Hadamard/quantization after it is 107 us.
+- **Fused cost:** it would read `expanded` (bf16, ~110 MB from DRAM) instead of `activated`: about 153 us at Activated's 945 GB/s, 216 us at the Hadamard kernel's current 640 GB/s.
+- **Saving:** **2.7-5.4 ms per step on the 4090**, more on the 3080, where Activated is instruction bound (455 us per call).
+
+Planned through the general emitter, with unchanged rounding:
+1. An elementwise loop also gets an element device function. It returns element i rounded to the loop's stored format (bf16 for `BFloat16s`), and the loop's own kernel calls the same function.
+2. The emitter instantiates the runtime's `hadamard_tokens` kernel with its eight source reads replaced by calls to that function.
+3. The runtime launches that variant when the list's next reader is the lazy rotation and quantization. It materializes the list first for any other reader, for example `MossLora.Applied` with LoRAs.
+
 ## RTX 4090 baseline and plan (2026-10-24)
 Full tables, method and scripts: [Performance.md](Performance.md), section "Locked-clock baseline". Strict master e1cb907b (+ build fix 23e61750), clocks locked at 2400/10251 MHz for every timing run, same fixture/noise/conditioning as ComfyUI. The lock is for A/B timing only, production runs stay unlocked. 2400 is the highest lock tested that holds steadily: locked at 2550 the clock reads 2550 but bf16 GEMM throughput swings between 139 and 160 TFLOPS, against 151-153 at 2400 and 163-166 unlocked. Memory is not slowed by the lock: under CUDA the driver uses the P2 point (10451 MHz effective with +200) whether locked or not (`-lmc 10501` changes nothing); 10701 MHz for CUDA would need NVIDIA Profile Inspector's "CUDA - Force P2 State" off.
 

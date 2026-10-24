@@ -11,7 +11,7 @@ has headModulation Batch
 constant Tiny = Moss.Loaded("tinymoss.safetensors", "")
 constant Model = Safetensors("tinymoss.safetensors")
 constant Context = Model.Values("reference.context")
-constant Forward = Moss.Tiny.Output(Model.Values("reference.x"), 0.75, Moss.Tiny.TextEmbedded(Context, 3), 4)
+constant Forward = Moss.Tiny.Output(Model.Values("reference.x"), 0.75, Moss.Tiny.TextEmbedded(Context, 3), MossBlock.Rotation)
 constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "time_embedding.2", "shared_block_modulation", "final_linear_video", "video_head_modulation")
 Loaded(path Text, lora Text) Moss
 	Tiny.layers.Length is 2
@@ -54,17 +54,19 @@ Brain(number Number) Number
 	Moss.Brain(972.65625) is 972
 	Moss.Brain(0) is 0
 	number is 0 then 0 else number.Stepped(2 ^ ((number.Absolute.Logarithm / 2.Logarithm).Floor - 7))
-Output(latent Numbers, sigma Number, text Numbers, width Number) Numbers
+Output(latent Numbers, sigma Number, text Numbers, rotation Numbers) Numbers
 	Forward(0).IsNearlyEqual(-1.9609, 0.05)
 	Forward(5).IsNearlyEqual(-0.5156, 0.05)
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)
 	let vector = TimeEmbedded(sigma)
-	Head(Features(latent, text, width, vector), vector)
-Features(latent Numbers, text Numbers, width Number, vector Numbers) Numbers
+	Head(Features(latent, text, rotation, vector), vector)
+Rotation(latent Numbers, text Numbers, width Number) Numbers
+	Tiny.Rotation(Model.Values("reference.x"), Tiny.TextEmbedded(Context, 3), 4) is MossBlock.Rotation
+	let count = latent.Length / video.weights.First.Length
+	MossBlock.Rotations(count / width, width, text.Length / finalNorm.Length, 128)
+Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
 	let channels = video.weights.First.Length
 	let count = latent.Length / channels
-	let words = text.Length / finalNorm.Length
-	let rotation = MossBlock.Rotations(count / width, width, words, 128)
 	let hidden = video.Sums(Transposed(latent, channels)) + text
 	let transformed = Transformed(hidden, blockModulation.Sums(vector), rotation)
 	Safetensors.Part(transformed, 0, count * finalNorm.Length, 1)

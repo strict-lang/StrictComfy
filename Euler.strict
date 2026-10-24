@@ -10,9 +10,8 @@ Sigmas Numbers
 	for steps + 1
 		let time = 1 - index / steps
 		shift * time / (1 + (shift - 1) * time)
-Stepped(latent Numbers, output Numbers, step Number) Numbers
-	Moss.Stepped((1, 2), (2, 4), 7)(1).IsNearlyEqual(2 - 5 / 12 * 4)
-	let sigmas = Sigmas
+Stepped(latent Numbers, output Numbers, sigmas Numbers, step Number) Numbers
+	Moss.Stepped((1, 2), (2, 4), Moss.Sigmas, 7)(1).IsNearlyEqual(2 - 5 / 12 * 4)
 	let change = sigmas(step + 1) - sigmas(step)
 	for latent
 		value + change * output(index)
