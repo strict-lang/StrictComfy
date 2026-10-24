@@ -37,7 +37,7 @@ Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 - Errors: the norms and the fused quantize are exact (final video error 0.3227169, audio 0.1445423). `H3Final.Unpatched`/`Unpacked` on the GPU keep the final layer's output there, so the Euler steps run in 32 instead of 64 bit (the host round trip made it a host list of doubles): step 0 video error 0.0024212779 -> 0.0024211848, final 0.3054 and 0.0919 (8 steps amplify small differences).
 - Idle: 11 of the 50 blocks (4.8 GB) go up from their pinned copies in order on the one stream (0.21 s, the GPU waits at the quantize before each of their GEMMs), a few eviction rounds (gaps of 36-113 ms with driver frees, they move when the memory pattern changes) and the step boundary.
 - ComfyUI (2026-10-23 profile, the text encoder share included): attention 2.61 s, GEMM ~1.25 s, convrot int8 quantize 0.17 s, other elementwise 0.14 s, RoPE 0.07 s per step.
-- Plain runs while nsys imported a report took 4.6-5.5 s per step: time H3 only on a quiet machine.
+- Plain runs are 0.8 s per step slower than under `nsys -t cuda` (the GPU memory handover lands in another regime, ../Strict/improvements.md item 4), alternating on a quiet machine: Strict fc3817b3 4.86 and 5.20 s per step, today's changes 4.68 and 4.73 s (identical to themselves run to run, 37.7-37.9 s for the 8 steps); nsys numbers above are for comparing kernels.
 
 ### 3080 against ComfyUI per category (nsys, ms per evaluation, locked 1695/9756)
 
