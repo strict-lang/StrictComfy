@@ -2,6 +2,22 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## B1 diagnostic: fusing Activated into Hadamard/quantization is not worth building on the 4090 (2026-10-24)
+The fused kernel was hand-assembled outside production in `C:/StrictDumps/exp/b1` (`diag.kernels.mlir`, `fused.py`). It is r2's generated module plus a copy of `strict_device_hadamard_tokens_run` whose eight source reads compute situ per element: the same `MossBlock_Situ_2_devices`, bf16 reads of `expanded`, then the same `truncf` to bf16 as Activated's store.
+
+It is bit-identical to Activated + `strict_device_hadamard_tokens`: 0 of 33.5 MB of int8 numbers and scales differ, 3631 tokens x 8192.
+
+Locked 2400/10251, CUDA graphs of 20 layers, 8 alternating rounds:
+
+| | Separate | Fused | Saving per step |
+|---|---:|---:|---:|
+| Element index by 64-bit division | 289.6 us | 255.5 us | 1.4 ms |
+| Best case, shift and mask | 287.9 us | 236.2 us | 2.2 ms |
+
+The fused kernel moves ~138 MB at about 585 GB/s, against Activated's 945 GB/s. The Hadamard kernel's shape (1024-thread blocks, shuffles, eight situ evaluations per thread) limits it. With the emitter's magic-number division the gain would be about 1.5-2 ms per step, at the noise floor. The general version (element functions, a generated dispatcher, deferred producer launches in the runtime) is about a day of compiler and runtime work, so it is not built.
+
+On the 3080 the bytes count more (760 GB/s), but Activated is instruction bound there and fusion keeps its instructions. Rerun `fused.py` there before deciding, from a 3080 build of `diag.kernels.mlir`.
+
 ## A done on the 4090, ready to commit (2026-10-24)
 Step-boundary host round trips are gone. Outputs are identical: step 0 error 0.006325429288679978, latent 0.2228712467784174, PSNR 32.36 dB, PNG SHA-256 prefix `a439d0b78f51c944` in every run.
 
