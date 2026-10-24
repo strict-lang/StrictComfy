@@ -22,6 +22,23 @@ Reference for every run: PNG sha256 `50ab7c7f...`, latent error 0.26915976336351
 
 Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 
+# H3 on RTX 4090
+
+## Kernels and idle per step (2026-10-24, unlocked, nsys `--cuda-graph-trace=node`, one step)
+
+| Build | Kernels | Idle | Steps under nsys |
+|---|---:|---:|---:|
+| Strict fc3817b3 | 3504 ms | 520-570 ms | 4.01-4.08 s |
+| + norm weights at 32 bits | 3394 ms | 506-579 ms | 3.89-3.96 s |
+| + fused fc2 quantize, H3Final loops on the GPU | 3270 ms | 613-805 ms | 3.88-4.08 s |
+
+- `Rope.Rotated` 192 -> 80 ms and `H3Block.Modulated` 87 -> 73 ms per step: with the 16 bit norm weights next to 32 bit lists no format copy fit and the generic kernel ran.
+- fc2's 14336 wide input: `strict_device_hadamards` + `strict_device_quantize_tokens` (163 ms) -> `strict_device_hadamard_tokens` with two groups of 256 per warp (63 ms).
+- Errors: the norms and the fused quantize are exact (final video error 0.3227169, audio 0.1445423). `H3Final.Unpatched`/`Unpacked` on the GPU keep the final layer's output there, so the Euler steps run in 32 instead of 64 bit (the host round trip made it a host list of doubles): step 0 video error 0.0024212779 -> 0.0024211848, final 0.3054 and 0.0919 (8 steps amplify small differences).
+- Idle: 11 of the 50 blocks (4.8 GB) go up from their pinned copies in order on the one stream (0.21 s, the GPU waits at the quantize before each of their GEMMs), a few eviction rounds (gaps of 36-113 ms with driver frees, they move when the memory pattern changes) and the step boundary.
+- ComfyUI (2026-10-23 profile, the text encoder share included): attention 2.61 s, GEMM ~1.25 s, convrot int8 quantize 0.17 s, other elementwise 0.14 s, RoPE 0.07 s per step.
+- Plain runs while nsys imported a report took 4.6-5.5 s per step: time H3 only on a quiet machine.
+
 # Moss on RTX 4090
 
 ## bf16 residual like ComfyUI: faster, but further from ComfyUI (2026-10-24, 4090, locked 2400/10251)
