@@ -88,6 +88,16 @@ Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 | Before | 5049 3902 5004 5059 4742 4891 5257 5227 | 39.1 s |
 
   Identical errors; 30 driver allocations of 2.6 GB and 4 rounds per step. ComfyUI took 4.15-4.38 s per step (2026-10-23).
+- Spilled rows go up ahead on a copy stream (Strict 2354fc5c, `strict_gpu_prefetch`): each spill remembers the spill that went up after it, the next one goes up after the launches so far while they run, the launches wait at its first use. Under nsys 150-170 of the 280 ms of uploads per step now overlap kernels (none before, about half of the 6.5 GB per step still goes up in order where the chain breaks), GPU idle 370-640 -> 225-335 ms. The same commit stops `strict_gpu_obtain`'s trim of unused pool blocks while rows are spilled: with the 3080 session's merge (c1829a08) 3 of 9 runs took 10-15 s for steps 0-2 (285 and 245 trims with a GPU wait each, freeing 130 and 96 GB of blocks the next layers allocated again). Alternating plain runs, master 7e61d34e against 2354fc5c:
+
+| Build | Steps 0-7 (ms) | Total |
+|---|---|---:|
+| Copy stream | 4744 3563 3568 3555 3536 3517 3585 3478 | 29.5 s |
+| Master | 10032 9872 4405 3875 3770 3842 3924 3662 | 43.4 s |
+| Master | 3939 4474 3854 3950 3689 3783 3715 3928 | 31.3 s |
+| Copy stream | 4768 3569 3531 3523 3656 3522 3501 3518 | 29.6 s |
+
+  Steady steps 3.82 -> 3.54 s, 15-19 % faster than ComfyUI's 4.15-4.38 s, identical errors (final video 0.3053642975063925, audio 0.0918839879386419). A first version that forked each upload from the start of its graph overlapped 53 of 277 ms (the GEMM that needs the rows comes early in the graph) and gained nothing.
 
 ### 3080 against ComfyUI per category (nsys, ms per evaluation, locked 1695/9756)
 
@@ -110,6 +120,17 @@ Why the elementwise kernels are slow, measured with ncu on the 3080: Modulated (
 bf16 residual experiment (Gated returns `BFloat16s`, batching relaxed to any number of linear reads, `width` as a Gated parameter; patches `gated-bf16-*.patch`): Gated 167 -> 110 us per call (-4.8 ms/step), Modulated 155 -> 128 us (bf16 input), but PSNR against ComfyUI 28.74 -> 25.43 dB (latent error 0.269 -> 0.350) and full steps 1-6 only 401 / 411 / 401 against 410 / 410 / 410 ms (alternating, the candidate is bimodal 401 or 411, the baseline always 410). Not committed: an earlier agent rejected the same precision change, needs a decision. Also tried and dropped: bf16 branch in `strict_device_squares` (Rotated 173 -> 164 us), lowering the bf16 list threshold from 2^20 to 2048 (VAE convolutions 11 -> 127 ms), Modulated/norm weights as bf16 lists.
 
 # Moss on RTX 4090
+
+## bf16 residual, q/k and native bf16 attention from the 3080 session (2026-10-24, 4090, locked 2400/10251)
+
+Strict 7e61d34e (c1829a08 merged) with StrictComfy 7712c60 against Strict 793f4b79 with cb1f417, alternating, first run of each new build left out (cold):
+
+| Build | Steps 1-6 | Step 0 error | Latent error | PSNR | PNG |
+|---|---:|---:|---:|---:|---|
+| f32 residual and q/k | 161.2 / 161.8 / 162.5 ms | 0.006325 | 0.2229 | 32.36 dB | a439d0b78f51c944 |
+| bf16 residual and q/k, native bf16 attention | 151.0 / 154.7 / 152.3 ms | 0.006656 | 0.2184 | 32.04 dB | 81ca899073054026 |
+
+9.5 ms per step faster (5.9 %) for 0.3 dB (the 3080 fixture lost 5.4 dB). The whole diagnostic run takes 22 -> 38 s: the step 0 comparison after every layer reads the bf16 outputs on the CPU, 8.4 -> 21.6 s for the 42 layers (the new compiler with the f32 MossBlock: 8.9 s); the VAE decode takes 0.93 -> 1.2-1.6 s since c1829a08 (not its trim: 1.3 s without it). The copy stream commit (2354fc5c) gives the same PNG, steps 150.8-152.8 ms.
 
 ## bf16 residual like ComfyUI: faster, but further from ComfyUI (2026-10-24, 4090, locked 2400/10251)
 
