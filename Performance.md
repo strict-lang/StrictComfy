@@ -39,6 +39,26 @@ Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 - ComfyUI (2026-10-23 profile, the text encoder share included): attention 2.61 s, GEMM ~1.25 s, convrot int8 quantize 0.17 s, other elementwise 0.14 s, RoPE 0.07 s per step.
 - Plain runs while nsys imported a report took 4.6-5.5 s per step: time H3 only on a quiet machine.
 
+### 3080 against ComfyUI per category (nsys, ms per evaluation, locked 1695/9756)
+
+Strict `profile-c-baseline` (9 evaluations incl. cold), ComfyUI `comfy-prof/comfy.sqlite` (16 evaluations, same fixture, `comfy_locked.py` copy):
+
+| | Strict | ComfyUI |
+|---|---:|---:|
+| int8 GEMM | 195.5 | 190.4 |
+| Attention | 128.9 | 153.4 |
+| Quantize/Hadamard (+ Activated) | 24.2 (+11.5) | 37.0 (Activated fused) |
+| Rotated vs `rope_kernel` (q and k in one launch) | 14.3 | 9.2 |
+| Gated + Modulated vs `elementwise_kernel` + `adaln_kernel` | 27.1 | 16.4 |
+
+Kernel sums are about equal (Strict ~402, ComfyUI ~408); Strict loses on idle (3-6 ms) and on elementwise. ComfyUI runs the whole residual stream, gate/modulation and q/k in bf16 (checked at runtime: `gated_residual` gets bf16, bf16, bf16), Strict keeps the residual and rotated q/k in f32.
+
+Fusions on the 3080 (`benchmark_fusion.py`, bit-identical, per layer pair): B1 separate 582.9 us, fused 600.5 us (-0.74 ms/step, rejected); B3 separate 322.6 us, fused 297.4 us (+1.06 ms/step for one pair per layer, about 2 ms with both, not worth a day of work).
+
+Why the elementwise kernels are slow, measured with ncu on the 3080: Modulated (bf16 in) is L1/TEX bound at 88.7 % with 58 % DRAM, about 97 executed instructions per element (bounds checks, failure stores, index math per number). Gated moves 115 MB at 685 GB/s with the f32 residual, which is its floor.
+
+bf16 residual experiment (Gated returns `BFloat16s`, batching relaxed to any number of linear reads, `width` as a Gated parameter; patches `gated-bf16-*.patch`): Gated 167 -> 110 us per call (-4.8 ms/step), Modulated 155 -> 128 us (bf16 input), but PSNR against ComfyUI 28.74 -> 25.43 dB (latent error 0.269 -> 0.350) and full steps 1-6 only 401 / 411 / 401 against 410 / 410 / 410 ms (alternating, the candidate is bimodal 401 or 411, the baseline always 410). Not committed: an earlier agent rejected the same precision change, needs a decision. Also tried and dropped: bf16 branch in `strict_device_squares` (Rotated 173 -> 164 us), lowering the bf16 list threshold from 2^20 to 2048 (VAE convolutions 11 -> 127 ms), Modulated/norm weights as bf16 lists.
+
 # Moss on RTX 4090
 
 ## bf16 residual like ComfyUI: faster, but further from ComfyUI (2026-10-24, 4090, locked 2400/10251)
