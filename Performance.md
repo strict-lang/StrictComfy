@@ -24,6 +24,18 @@ Scripts and logs: `D:/StrictDumps/gemm-c-implementation`.
 
 # Moss on RTX 4090
 
+## bf16 residual like ComfyUI: faster, but further from ComfyUI (2026-10-24, 4090, locked 2400/10251)
+
+ComfyUI keeps the residual stream in bf16 (`gated_residual` is `x.addcmul_(y, gate)` on the bf16 `x`, `rms_adaln` reads it). Strict keeps it in f32 (`MossBlock.Gated` returns `Numbers`), which is most of its extra elementwise bytes (Gated 111 against 67 MB, Modulated 67 against 45 MB per call). Measured by returning `BFloat16s` from `Gated` (residual) and also from `Rotated` (q/k), Strict master e7752f3f, one run each in order res, both, master, res:
+
+| Variant | Steps 1-6 | Step 0 error | Latent error | PSNR |
+|---|---:|---:|---:|---:|
+| Master (f32 residual and q/k) | 163.8 ms | 0.006325 | 0.2229 | 32.36 dB |
+| bf16 residual | 156.5 / 156.8 ms | 0.006809 | 0.2922 | 27.47 dB |
+| bf16 residual and q/k | 159.2 ms | 0.006659 | 0.2750 | 28.90 dB |
+
+The bf16 residual saves 7 ms per step (4.3 %) but moves 31 % further from ComfyUI's own result: both round the residual to bf16 in different places, so their errors add up instead of cancelling. bf16 q/k make attention slower (the bf16 key path converts through f32 to f16). Not taken; the f32 residual stays.
+
 ## A: step-boundary round trips removed (2026-10-24, 4090, locked 2400/10251)
 
 Paired alternating runs, steps 1-6 mean: baseline 187.0 / 182.7 / 187.8 ms, candidate 169.8 / 161.7 / 163.5 ms; idle per step 23.2 -> 5.0 ms (only the harness's latent download is left), no uploads or graph re-instantiation per step, identical errors and PNG. Details, the rule behind the round trips and the B1 estimate: [Handoff.md](Handoff.md), section "A done on the 4090".
