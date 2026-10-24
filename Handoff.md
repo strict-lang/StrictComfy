@@ -2,6 +2,41 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## Current handoff: resident timing and phase-boundary memory (2026-10-24)
+
+The user confirmed ComfyUI's 6-6.5 s is at 720x1280 with the model already loaded. The earlier fresh-process 9.7 s comparison was inappropriate for that case. MossGenerate now retains both model and decoder for optional resident repetitions; compare_moss.py exposes --resident-runs, records every sampling/full-generation timing, and labels total-process time separately. Default remains one image per process.
+
+Measured production warm eight-step runs: 4.098-4.179 s including decode, PNG saving and cleanup between passes. Sampling is 3.155-3.171 s. Matched headless ComfyUI is 3.511-3.516 s total, sampling 3.159-3.164 s. Both use saved conditioning/noise and the same merged DMD, at locked 1695/9506 MHz. The remaining ~0.6 s backend gap is mainly VAE decode (Strict ~0.63 s / Comfy ~0.27) and PNG saving (~0.28 / ~0.08). A fresh Strict process is still 9.057 s. Do not imply a cold-start or matched-backend win.
+
+The concrete memory issue: after the VAE, free pooled buffers made Moss re-upload about 2 GB of weights per steady evaluation. Explicit GpuMemory.Released between resident generations frees unused large pool blocks and preserves live cached tensor copies; steady uploads drop to 2048 bytes. The first evaluation still reloads some weights. The global H3 allocation/eviction order is unchanged. Global pool-first and spilled-row free-space alternatives remain rejected diagnostics. The new runtime hook has a native cache/lifetime regression and is documented in ../Strict/NeuralNetworks/README.md.
+
+PNG compression alone cost about 0.93 s. ImageSaver now supports compressed=false via existing Deflate.Stored; its global default stays true. MossGenerate selects stored PNGs by default, saving about 0.65 s with identical decoded pixels and larger files (3.69 MB versus 2.99 MB on the portrait). --compressed restores compression.
+
+Next: close the matched ~0.6 s gap in VAE decode and image encoding, then cold model loading (~3 s versus ComfyUI's lazy ~0.11 s construction, with upload work counted during sampling). Keep resident reuse when integrating the ComfyUI node. Grouped Modulated/Rotated work and the index miscompile remain open; no GEMM emitter changes were made. Leave H3 copy-stream work to the 4090 agent.
+
+Evidence and tests: D:/StrictDumps/moss-end-to-end; Performance.md's end-to-end correction has stage timings and before/after counters. Public harness, VM/native/GPU checks, decoded-pixel checks and compiler fixpoint pass. Benchmark clock limits are restored; Afterburner settings were untouched.
+
+## Current handoff: sampling presets and high-level speed (2026-10-24)
+
+Completed the Spectrum audit and 36-image comparison requested by the user. See [Generation.md](Generation.md) for the runnable harness and settings, [Performance.md](Performance.md) for full timings, and [Spectrum.md](Spectrum.md) for upstream coverage. Local gallery: D:/StrictDumps/moss-speed-comparison/index.html. Three prompts, two seeds and six variants all completed; image size/link checks pass. Current compiler is Strict 7e61d34e including the H3 fixed-budget allocator.
+
+Median sampling times: base25 20.423 s, Spectrum25 13.448 s, turbo8 4.413 s, Spectrum8 4.147 s, akhaliq4 2.892 s, darask0 rapid4 2.922 s. These include initial uploads/text projection and exclude model loading/decode/save. Whole-process medians are 25.75 / 18.37 / 9.70 / 9.58 / 8.18 / 8.29 s. All use int8 Convrot and bf16 residual/QK; the four-step speed variants merge/requantize their LoRAs. Outputs are expected to differ; no equality requirement is imposed across these presets.
+
+The 25-step comparison is explicitly ordinary Euler CFG 3 with zero conditioning, not the release's negative-block skip or ER-SDE preset. darask0 needs its own data-space loop and replacement time weights; akhaliq's current root LoRA uses stock Euler. Both are implemented. Unmerged akhaliq is much slower (48 s sampling); unmerged darask0 timed out after 240 s, so neither is the speed default. Both int8 merges matched 252 projections. Pinned sources are in Generation.md.
+
+A writable per-process CUDA cache under the comparison root eliminates repeated ~28-second setup compilation after warmup. Do not mix uncached runs with the reported matrix. CLI progress timestamps mark host submission, not individual completed GPU evaluations. Benchmark clock limits have been reset; Afterburner settings were untouched. All 476 high-load samples held 1695/9506 MHz, without thermal slowdown.
+
+H3 fixed-budget accounting is already merged and tested here. Two alternating pairs averaged 395.50 versus 399.92 ms steady evaluations; noisy/modest, not a 20% Moss improvement. No copy-stream prefetch commit was available at the final fetch; leave that work to the 4090 agent.
+
+Next priorities:
+1. Let the user review the gallery and extend comparison.json with preferred prompts/seeds/LoRA stacks. Keep four-step models as comparison options until quality is accepted. Do not reject faster methods merely because their images differ.
+2. Improve end-to-end cost: model load is around 2.6 s and decode/save around 2 s per fresh process. Profile reusable model/decoder execution and phase transitions; the generation runner already removes reference-comparison overhead.
+3. Spectrum's predictor is implemented, but adaptive p95/p99 drift control, expanding-window scheduling, detail/repair guards and ER-SDE solver integration are not. Implement/measure these if pursuing the upstream 2-2.5x claims; current periodic 25-step preset is about 1.52x faster, eight-step about 1.06x.
+4. Continue grouped Modulated/Rotated vectorization and the full-size index miscompile below. Keep integer addressing precise. B1/B3 remain rejected on 3080 and the GEMM emitter remains unchanged.
+5. If dynamic unmerged LoRA use matters, profile low-rank loading/products and memory pressure. The existing path loses the few-step speed benefit here; do not silently claim upstream fp32-LoRA fidelity from the int8 merge.
+
+Validation: VM/native/forced-GPU Guided and channel-major Q mixing checks pass, StrictComfy check reports 0 issues, both compiler executables rebuilt with the merged runtime, native tiny CFG/Spectrum probe passed, and all 36 full-size generation cases completed. Diagnostics, failed trials and a tiny probe are retained outside production under D:/StrictDumps/moss-speed-comparison.
+
 ## RTX 3080 bf16 residual and QK (2026-10-24, validated)
 
 Precision policy is in ../Strict/Agents.md: prefer supported int8 Convrot projections, bf16 activation/residual/attention storage, and f32 where precision or measured performance requires it, including H3 audio VAE. Keep necessary precise accumulators and exact integer address/index arithmetic. Do not lower the global bf16 list threshold: that regressed VAE convolutions.

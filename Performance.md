@@ -1,5 +1,63 @@
 # Moss performance
 
+## RTX 3080 end-to-end timing correction (2026-10-24)
+
+Compiler/runtime: Strict 30781d21. The resident runner uses its explicit workspace release and optional stored PNG output.
+
+The user's 6-6.5 s ComfyUI measurement is 720x1280 with the model already loaded. The previous 9.70 s Strict number restarted the process for each image, so it was not a fair resident-model comparison. The old sampling-only win also did not establish an end-to-end win.
+
+Implemented resident generations with the same loaded Moss model and VAE, stage timing, and optional stored-DEFLATE PNGs. Four warm production passes (two processes, each generating three times; first pass excluded) take 4.098 / 4.179 / 4.098 / 4.139 s. Full inference executes every time with the saved conditioning/noise; it does not reuse a generated image. Same int8 DMD model, 720x1280, eight Euler steps, CFG 1, Spectrum off. Core locked at 1695 MHz, actual CUDA memory 9506 MHz. Conditioning is precomputed in both implementations; UI/display and text encoding are excluded from the matched comparison.
+
+| Warm generation stage | Strict | Installed ComfyUI, headless |
+|---|---:|---:|
+| Sampling | 3.155-3.171 s | 3.159-3.164 s |
+| VAE decode and readback | 0.628-0.634 s | 0.267-0.268 s |
+| Pixel conversion | about 0.026 s | 0.005-0.007 s |
+| PNG saving | 0.271-0.315 s | 0.078-0.079 s |
+| Complete generation, including boundary cleanup when another follows | **4.098-4.179 s** | **3.511-3.516 s** |
+
+Strict remains roughly 0.6 s behind the matched headless pipeline; the remaining gap is mainly VAE decoding and PNG encoding. Do not describe the 4.1 s result as proof of beating ComfyUI's backend. A fresh Strict process still takes 9.057 s in the single-image check (2.988 s loading, 5.605 s generation, plus startup/shutdown), so cold loading remains a separate issue. The user's loaded-model comparison is the relevant warm target.
+
+Two avoidable costs were identified and fixed:
+
+- PNG compression cost about 0.92-0.95 s. Existing Deflate.Stored reduces it to about 0.28 s without changing decoded pixels; the portrait PNG grows from 2994029 to 3688028 bytes. ImageSaver's shared default remains compressed. MossGenerate defaults to the faster stored PNG; --compressed selects the old mode.
+- After VAE decoding, retained free workspace left Moss streaming weights on subsequent evaluations. nsys showed mean HtoD of 1.991 GB per evaluation for warm steps 1-6, despite the model fitting before decoding. Explicit GpuMemory.Released between resident generations collects dead temporaries and returns unused large pool blocks without evicting live copies. Afterward, steps 1-6 upload only 2048 bytes; traced windows fall 476.91 -> 380.66 ms. A first-evaluation reload remains after decoding, so average upload over steps 0-6 is still about 370 MB/evaluation. Automatic H3 allocation/eviction policy is unchanged.
+
+Global pool-first eviction and a spilled-row free-space guard were tested only in generated-host diagnostics; neither gave a robust improvement and neither is shipped. The explicit phase boundary did improve the full pipeline and is used by the resident runner. It increases warm VAE decode from about 0.55 to 0.63 s because workspace must be allocated again; total generation still improves.
+
+Validation: resident-repeat check failed before implementation and now passes; PNG option's regression failed before the branch and passes in VM/native tests; native cache test checks collection/drain counts and retained live cache entries; compiler native mapping tests and stage 2/3 fixpoint pass. Full-size stored/compressed/resident images decode to identical pixels. The merged cache test's duplicate allocator mocks and missing pool DLL exports were also repaired so all budget, pool and lifetime checks run together.
+
+Evidence: D:/StrictDumps/moss-end-to-end. Production logs/JSON: harness/portrait-42/turbo8/run-{0,1}; fresh-process case: single/portrait-42/turbo8/run-0; ComfyUI: comfy-end-to-end.json and comfy.py; before/after traces: profile-before.sqlite / profile.sqlite and phase-comparison.json. Clock limits restored after timing. Reproduce with compare_moss.py --resident-runs 3; see [Generation.md](Generation.md).
+
+## RTX 3080 sampling tradeoffs: 25, 8 and 4 steps (2026-10-24)
+
+36 images completed: lighthouse, portrait with hands and cafe menu; seeds 42 and 1234; 720x1280. Shared conditioning and CPU noise within each case. Strict 7e61d34e (includes H3's fixed-budget memory accounting) and the MossGenerate/MossSampling changes. Locked core 1695 MHz / actual CUDA memory 9506 MHz throughout all 476 high-load telemetry samples; maximum sampled GPU temperature 64.56 C, no thermal slowdown flags. Limits reset after timing.
+
+| Variant | Sampling median | Range | Whole process median |
+|---|---:|---:|---:|
+| base25 | 20.422 s | 20.370-20.674 s | 25.75 s |
+| spectrum25 | 13.448 s | 13.363-13.744 s | 18.37 s |
+| turbo8 | 4.413 s | 4.380-4.462 s | 9.70 s |
+| spectrum8 | 4.146 s | 4.084-4.215 s | 9.58 s |
+| akhaliq4 | 2.892 s | 2.859-2.900 s | 8.18 s |
+| rapid4 | 2.922 s | 2.900-2.936 s | 8.29 s |
+
+Sampling includes text projection/setup, initial weight uploads and final latent synchronization; loading and decode/save are separate. Whole-process times include those costs. The writable CUDA JIT cache is warmed. An initial uncached setup took about 28 seconds; it is excluded from this matrix. The executable is restarted for each image, so these are not resident-model steady-step-only timings.
+
+Spectrum reduces 25-step sampling time by 34.2% (1.52x faster) with 14 actual evaluations plus 11 forecasts per CFG branch, versus 25 actual evaluations per branch. On the eight-step turbo it saves 6.0% with only one forecast. Four-step merged adapters save about 34% sampling time against the existing eight-step turbo, rather than a full 2x because setup/initial uploads remain. They are comparison options, not selected final-quality defaults.
+
+The 25-step preset is Euler/shift 5, ordinary CFG 3 with zero conditioning, no negative block skip. It is not the upstream release's negative-block-22-skip configuration or ComfyUI's ER-SDE quality preset. Eight-step uses the current merged DMD/Euler setup, CFG 1. akhaliq's pinned current root LoRA is Euler-native; darask0 uses its required custom data-space loop, Q, step codes and replacement f32 time weights/biases. Both speed versions are merged/requantized into int8 Convrot with the existing merge.py; this may lose small LoRA deltas.
+
+Quality review: all 36 images were retained rather than rejected for differences. The four-step examples are coherent and, on these prompts, generally sharper and render the cafe text better than the existing eight-step model. They change composition and appearance substantially. Spectrum stays visually close on the inspected comparisons, but this small set does not establish a universal quality preset. Gallery: D:/StrictDumps/moss-speed-comparison/index.html; contact sheets lighthouse-comparison.jpg, portrait-comparison.jpg and menu-comparison.jpg. Full-resolution PNGs and commands/timings are in each case folder.
+
+Unmerged tests on lighthouse-42: akhaliq completed, sampling 48.004 s, process 106.49 s (load 35.46 s, decode/save 22.16 s). darask0's unmerged path timed out after 240 s. Those paths use Strict's existing 16-bit low-rank loading, not upstream's fp32-LoRA configuration. Int8 merging took about 10.6 / 10.8 s once and matched all 252 projection modules for each adapter. It produced coherent images and is the speed comparison's default.
+
+The new generation runner omits per-layer reference comparisons. It uses independent explicitly configured Spectrum histories for CFG branches; partial construction without explicit history initially crashed on the first real anchor, while the existing Configured helper resolves it. This is not presented as a generic compiler lifetime fix. No shared compiler change was needed for the sampler work.
+
+H3 fixed-budget allocator check on 3080, two alternating pairs against the prior trim build: budget 395.33 / 395.67 ms steady evaluations, previous 403.17 / 396.67 ms. Mean 395.50 versus 399.92 ms (about 1.1%); variation is too large to claim a substantial gain. Exact errors and PNG stayed unchanged. The H3-sized ~20% improvement does not transfer to this Moss fixture. Diagnostics: D:/StrictDumps/bf16-attention/{budget1,basebudget1,basebudget2,budget2}.json. Copy-stream prefetch is still the 4090 agent's separate work; no such change was available at the final fetch.
+
+Reproduction, adapter provenance, timing definitions and limitations: [Generation.md](Generation.md). Upstream Spectrum coverage: [Spectrum.md](Spectrum.md); adaptive scheduling and ER-SDE integration remain missing.
+
 ## RTX 3080 precision results (2026-10-24)
 
 Same 720x1280 merged-int8-Convrot Moss fixture, eight Euler evaluations, steps 1-6 averaged. Locked core 1695 MHz, actual CUDA memory 9506 MHz; no thermal slowdown. Compiler c1829a08, model parent 502da91 plus the precision changes described in Handoff.md. F32 control uses the same compiler/runtime as bf16.

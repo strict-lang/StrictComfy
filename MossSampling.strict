@@ -1,0 +1,57 @@
+has logger
+has width Number = 45
+has steps Number = 8
+has guidance Number = 1
+has mode Text = "off"
+has warmup Number = 8
+has period Number = 2
+Guided(positive Numbers, negative Numbers) Numbers
+	MossSampling(Logger, guidance = 3).Guided((2, 4), (1, 2)) is (4, 8)
+	for positive.Length
+		negative(index) + guidance * (positive(index) - negative(index))
+Mixed(noise Numbers, latent Numbers, mixing Batch) Numbers
+	MossSampling(Logger).Mixed((1, 2, 3, 4), (10, 20, 30, 40), Batch.Pair) is (81, 112, 173, 244)
+	let channels = mixing.weights.Length
+	let mixed = mixing.Sums(Moss.Transposed(latent, channels))
+	MossText.Added(noise, Moss.Transposed(mixed, latent.Length / channels))
+Sampled(moss Moss, noise Numbers, context Numbers) Numbers
+	let count = context.Length / moss.textProjection.weights.First.Length
+	logger.Log("text setup at " + Process.Elapsed.Round(3))
+	let text = moss.TextEmbedded(context, count)
+	logger.Log("text ready at " + Process.Elapsed.Round(3))
+	let negative = guidance is 1 then text else moss.TextEmbedded(context * 0, count)
+	Looped(moss, noise, text, negative, moss.Rotation(noise, text, width), Euler(steps, 5).Sigmas)
+Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Numbers, sigmas Numbers) Numbers
+	mutable positive = State
+	mutable unconditional = State
+	mutable latent = noise
+	for steps
+		logger.Log("evaluation " + index + " at " + Process.Elapsed.Round(3))
+		positive = positive.Advanced(moss, latent, sigmas(index), text, rotation, index)
+		unconditional = Unconditioned(unconditional, moss, latent, sigmas(index), negative, rotation, index)
+		let output = guidance is 1 then positive.output else Guided(positive.output, unconditional.output)
+		latent = Euler(steps, 5).Stepped(latent, output, sigmas, index)
+	logger.Log("forecasts " + positive.forecasts + ", unconditional " + unconditional.forecasts)
+	latent
+Unconditioned(state MossSpectrum, moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum
+	guidance is 1 then state else state.Advanced(moss, latent, sigma, text, rotation, step)
+Dataspace(moss Moss, noise Numbers, context Numbers, adapter Safetensors) Numbers
+	logger.Log("text setup at " + Process.Elapsed.Round(3))
+	let codes = adapter.Values("step_codes")
+	if (steps < 1) or (steps > codes.Length) or (guidance is not 1)
+		return Error("Invalid data-space schedule")
+	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
+	logger.Log("text ready at " + Process.Elapsed.Round(3))
+	MixedSteps(moss, noise, text, moss.Rotation(noise, text, width), adapter)
+MixedSteps(moss Moss, noise Numbers, text Numbers, rotation Numbers, adapter Safetensors) Numbers
+	let mixing = Batch(adapter.Rows("latent_mix.Q"), MossLora.Unbiased)
+	let codes = adapter.Values("step_codes")
+	mutable latent = noise * 0
+	for steps
+		logger.Log("evaluation " + index + " at " + Process.Elapsed.Round(3))
+		let input = Mixed(noise, latent, mixing)
+		let vector = moss.timeOut.Sums(Moss.Silu(moss.timeIn.Sums(Moss.Sinusoid(codes(index), 256))))
+		latent = MossText.Added(noise, moss.Head(moss.Features(input, text, rotation, vector), vector) * -1)
+	latent
+State MossSpectrum
+	MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, 4)

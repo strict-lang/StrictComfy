@@ -18,6 +18,27 @@ Use `shadow 8 5 2 4` to measure fitting on the existing turbo fixture, or `on 8 
 
 History retains at most eight real features and disables forecasting if its estimated raw FP32 capacity exceeds 512 MiB. For 3600 x 3072 features, eight FP32 anchors cost 337.5 MiB before pooling/scratch. This is an estimate, not a measured peak-VRAM guarantee. Ridge is 0.1; fitted and last-two linear weights blend equally. Coordinates are normalized evaluation indices. Changing conditioning, model, LoRA, shape or schedule requires a fresh state.
 
+## Upstream audit, 2026-10-24
+
+Checked current Rkkss source against the checked-in Strict implementation. We implement the predictor core, not the complete ComfyUI node:
+
+| Capability | Strict status |
+|---|---|
+| Capture final-block image features; rerun current-time head | Implemented |
+| Degree-four Chebyshev fit, ridge 0.1, equal linear blend | Implemented |
+| Eight real anchors; forecasts excluded from history | Implemented |
+| Normalized step coordinates, warmup, actual final step | Implemented |
+| Skip full transformer on forecast steps | Implemented |
+| Manual scheduling | Fixed period, rather than upstream's expanding window |
+| Adaptive local p95/p99 drift controller, detail guard, repair/cooldown | Missing |
+| ER-SDE solver bridge and synchronized branch decisions | Missing; Euler only |
+| Cache-placement choices, control/patch signature lifecycle | Missing; fresh invocation required |
+| Forecast finite-value replacement/clamping | Missing; no claim of collapse protection |
+
+The prior eight-step validation skipped only one evaluation. It does not establish upstream's advertised 2-2.5x gain, nor a validated 25-step quality preset. Default warmup eight skips nothing at eight steps. New comparison work uses separately labeled 25-step CFG and eight-step turbo cases; changing their outputs is expected. Image quality and generation time, not bit identity across sampling methods, determine useful presets.
+
+Upstream sources: [node implementation](https://github.com/Rkkss/ComfyUI-Spectrum-MOSS/blob/main/nodes.py), [ER-SDE bridge](https://github.com/Rkkss/ComfyUI-Spectrum-MOSS/blob/main/er_sde_bridge.py). The local mathematical implementation remains independent; upstream GPL node code is not vendored.
+
 ## RTX 3080 validation, 2026-10-23
 
 Driver 621.01, existing user clock settings, same saved noise/conditioning and merged eight-step turbo model. Tests and source checks pass. The generated predictor uses the ordinary GPU loop/reduction emitter.
