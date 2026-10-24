@@ -33,6 +33,9 @@ class MossCommandTests(unittest.TestCase):
 	def test_defaults(self):
 		args = self.module().arguments(['--model', 'moss.safetensors'])
 		self.assertEqual((args.prompt, args.steps, args.output), (Path('prompt.txt'), 8, Path('MossImage.jpg')))
+		self.assertTrue(hasattr(args, 'json_output'), 'JSON sidecar option is missing')
+		self.assertFalse(args.json_output)
+		self.assertTrue(self.module().arguments(['--json_output']).json_output)
 
 	def test_visible_defaults_and_long_help_only(self):
 		module = self.module()
@@ -42,7 +45,7 @@ class MossCommandTests(unittest.TestCase):
 			except SystemExit:
 				self.fail('Default model is missing')
 			self.assertEqual((args.width, args.height, args.steps, args.guidance, args.jpg_quality), (720, 1280, 8, 1, 85))
-			self.assertEqual(Path(args.model), Path('D:/ComfyUI_windows_portable/ComfyUI/models/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors'))
+			self.assertEqual(Path(args.model), Path('D:/ComfyUI_windows_portable/ComfyUI/models/diffusion_models/moss-image-sft-dit-int8-convrot.safetensors'))
 			self.assertEqual(Path(args.vae).name, 'flux2-vae.safetensors')
 			self.assertEqual(Path(args.te).name, 'qwen3.5_9b_int8_convrot.safetensors')
 			for option in ('-h', '--quality'):
@@ -128,6 +131,84 @@ class MossCommandTests(unittest.TestCase):
 			save_file({'weight': torch.zeros((1, 1))}, str(path))
 			with self.assertRaisesRegex(ValueError, 'int8 Convrot'):
 				module.validate_model(path)
+
+	def test_turbo_selected_only_for_eight_steps_without_duplication(self):
+		module = self.module()
+		self.assertTrue(hasattr(module, 'selected_loras'), 'Automatic runtime turbo selection is missing')
+		with tempfile.TemporaryDirectory() as temporary:
+			models = Path(temporary)
+			path = models / 'loras/moss/dmd_turbo_lora.safetensors'
+			path.parent.mkdir(parents=True)
+			path.touch()
+			args = module.arguments(['--steps', '8'])
+			self.assertEqual(module.selected_loras(args, models), [(path.resolve(), 1)])
+			for steps in (25, 50):
+				args.steps = steps
+				self.assertEqual(module.selected_loras(args, models), [])
+			args.steps = 8
+			args.lora = [str(path) + ':0.5']
+			self.assertEqual(module.selected_loras(args, models), [(path.resolve(), 0.5)])
+
+	def test_runtime_stack_preserves_small_deltas_and_base_file(self):
+		import torch
+		from safetensors.torch import save_file, load_file
+		module = self.module()
+		self.assertTrue(hasattr(module, 'runtime_adapter'), 'Runtime LoRA stacking is missing')
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			base = folder / 'base.safetensors'
+			save_file({'layers.0.proj.' + name + '.weight': torch.ones((2, 4), dtype=torch.int8)
+				for name in ('q', 'k', 'v', 'o', 'ffn_up_gate', 'ffn_down')}, str(base))
+			original = base.read_bytes()
+			prefix = 'diffusion_model.layers.0.proj.q.'
+			loras = []
+			for index, (down, up) in enumerate((('lora_down', 'lora_up'), ('lora_A', 'lora_B'))):
+				path = folder / f'adapter{index}.safetensors'
+				save_file({prefix + down + '.weight': torch.ones((1, 4)),
+					prefix + up + '.weight': torch.full((2, 1), (index + 1) * 1e-5)}, str(path))
+				loras.append((path, (0.5, 0.25)[index]))
+			args = module.arguments(['--cache', str(folder)])
+			packed = Path(module.runtime_adapter(args, base, loras))
+			weights = load_file(str(packed))
+			self.assertTrue(torch.allclose(weights[prefix + 'lora_up.weight'] @ weights[prefix + 'lora_down.weight'],
+				torch.full((2, 4), 1e-5), atol=1e-8, rtol=1e-4))
+			self.assertEqual(weights[prefix + 'alpha'].item(), 2)
+			self.assertEqual(base.read_bytes(), original)
+			self.assertEqual(module.runtime_adapter(args, base, []), '')
+			fused = 'diffusion_model.layers.0.proj.qkv.'
+			save_file({fused + 'lora_A.weight': torch.ones((1, 4)),
+				fused + 'lora_B.weight': torch.arange(1, 7).float().reshape(6, 1) * 1e-5}, str(loras[1][0]))
+			weights = load_file(module.runtime_adapter(args, base, loras))
+			key = 'diffusion_model.layers.0.proj.k.'
+			self.assertTrue(torch.allclose(weights[key + 'lora_up.weight'] @ weights[key + 'lora_down.weight'],
+				torch.tensor([[7.5e-6] * 4, [1e-5] * 4]), atol=1e-8, rtol=1e-4))
+
+	def test_json_sidecar_is_opt_in(self):
+		from contextlib import redirect_stdout
+		from unittest.mock import patch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			model = folder / 'model.safetensors'
+			model.touch()
+			prompt = folder / 'prompt.txt'
+			prompt.write_text('woman', encoding='utf-8')
+			source = folder / 'native.jpg'
+			source.write_bytes(b'native image bytes')
+			def batch(*args, **kwargs):
+				yield 0, source, 10
+			for enabled in (False, True):
+				output = folder / ('with.jpg' if enabled else 'without.jpg')
+				command = ['--model', str(model), '--vae', str(model), '--te', str(model), '--steps', '25',
+					'--prompt', str(prompt), '--output', str(output), '--seed', '42', '--cache', str(folder)]
+				if enabled:
+					command.append('--json_output')
+				with patch.object(module, 'validate_model'), patch.object(module, 'conditioning', return_value=[model]), \
+					patch.object(module, 'generated', side_effect=batch), redirect_stdout(io.StringIO()):
+					self.assertEqual(module.main(command), 0)
+				image = output.with_name(output.stem + '0001.jpg')
+				self.assertEqual(image.read_bytes(), source.read_bytes())
+				self.assertEqual(image.with_suffix('.jpg.json').exists(), enabled)
 
 	def test_launcher_preserves_spaces(self):
 		name = 'missing model with spaces.safetensors'

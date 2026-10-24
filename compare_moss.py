@@ -51,8 +51,8 @@ if not manifest.exists():
 		"variants": {
 			"base25": {"model": base, "steps": 25, "guidance": 3},
 			"spectrum25": {"model": base, "steps": 25, "guidance": 3, "mode": "on", "warmup": 8, "period": 3},
-			"turbo8": {"model": models + "/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors", "steps": 8, "guidance": 1},
-			"spectrum8": {"model": models + "/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors", "steps": 8, "guidance": 1, "mode": "on", "warmup": 5, "period": 2},
+			"turbo8": {"model": base, "lora": models + "/loras/moss/dmd_turbo_lora.safetensors", "steps": 8, "guidance": 1},
+			"spectrum8": {"model": base, "lora": models + "/loras/moss/dmd_turbo_lora.safetensors", "steps": 8, "guidance": 1, "mode": "on", "warmup": 3, "period": 2},
 			"akhaliq4": {"model": str(root / "merged/akhaliq-int8.safetensors"), "steps": 4, "guidance": 1},
 			"rapid4": {"model": str(root / "merged/darask0-int8.safetensors"), "adapter": str(root / "darask0"), "steps": 4, "guidance": 1},
 			"akhaliq4-unmerged": {"model": base, "lora": str(root / "akhaliq/lora.safetensors"), "steps": 4, "guidance": 1, "optional": True},

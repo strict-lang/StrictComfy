@@ -1,5 +1,19 @@
 # Moss performance
 
+## Quality correction: original floating turbo adapter (2026-10-25)
+
+The old premerged DMD default is not a validated turbo baseline: sampled q/FFN-down INT8 code arrays are unchanged from the base checkpoint, with only tiny row-scale differences. Earlier 45.07 s/ten-image timing measured that artifact, not the corrected runtime-LoRA workload. CLI now loads unchanged base INT8 weights and automatically applies original DMD at eight steps. It packs weighted adapter stacks without quantizing their deltas into base weights. New comparison manifests use the same runtime approach; existing manifests are not rewritten.
+
+Same prompt "Portrait photograph of a woman, natural daylight.", seed 42, 720x1280, no Spectrum. Base50/base25 use CFG3, no LoRA; turbo8 uses CFG1 and original DMD. Direct native backend times (unlocked clocks, not a calibrated ComfyUI comparison):
+
+| Case | Sampling | Decode/save/full generation | Process including load |
+|---|---:|---:|---:|
+| Base 50 | 37.315 s | 37.861 s | 71.91 s (33.672 s first-use load/JIT) |
+| Base 25 | 19.316 s | 21.087 s | 24.52 s |
+| Runtime turbo 8 | 11.464 s | 12.563 s | 18.39 s |
+
+MossLora.Scaled now preserves original packed rows when scale is 1; prior runtime turbo exceeded 180 s and reached only step 2. The normal CLI check took 26.04 s and reproduced the native turbo JPEG exactly; it created no JSON by default. Sixteen command tests pass, including floating stack preservation of updates smaller than base quantization steps. Images/logs are under D:/StrictDumps/moss-quality-review/{base50,base25,turbo8-runtime}; the user should judge these three samples. No claim that all prompts are fixed or that runtime turbo now beats ComfyUI. An additional run became contended with a separate GPU benchmark and was stopped; its timing is invalid. Next performance target is the floating LoRA product path and resident adapter/weight memory behavior.
+
 ## Resident randomized CLI batches (2026-10-24, RTX 3080)
 
 --count now reuses one native model and VAE across different prompts/noise, rather than restarting inference for every image. Same 720x1280 merged DMD, eight steps, two PEFT adapters at 0.5/0.31, normal Afterburner settings. --seed 42 fixes a ten-image batch with ten distinct seeds and three randomized prompt variants. The first batch took 78.34 s including one encoder load for two uncached unique prompts, one stack merge and one native load. A fully cached repeat took **45.07 s for ten images**, with one 3.052 s native load. Completed-image native durations: 5298 / 4507 / 4189 / 3563 / 3537 / 3477 / 3473 / 3482 / 4469 / 4001 ms; median after image one **3563 ms**, including VAE/JPEG and between-image cleanup. No clocks/power settings changed; this is not a locked-clock ComfyUI comparison.

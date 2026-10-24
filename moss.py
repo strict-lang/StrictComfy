@@ -69,7 +69,7 @@ def arguments(argv=None):
 	default_comfy = next((Path(drive + ':/ComfyUI_windows_portable/ComfyUI') for drive in ('D', 'C')
 		if Path(drive + ':/ComfyUI_windows_portable/ComfyUI').is_dir()), Path('ComfyUI'))
 	default_comfy = Path(os.environ.get('COMFYUI', default_comfy))
-	files = [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot-dmd.safetensors', 'int8 Convrot turbo model'),
+	files = [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot.safetensors', 'Base int8 Convrot model'),
 		('vae', 'vae', 'flux2-vae.safetensors', 'Image VAE'),
 		('te', 'text_encoders', 'qwen3.5_9b_int8_convrot.safetensors', 'Text encoder')]
 	parser = argparse.ArgumentParser(prog='MossImage.exe', description=__doc__, add_help=False,
@@ -79,17 +79,18 @@ def arguments(argv=None):
 		parser.add_argument('--' + name, default=argparse.SUPPRESS,
 			help=f'{description} (default: {default_comfy / "models" / folder / filename})')
 	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--steps', type=int, default=8, help='Diffusion sampling steps')
+	parser.add_argument('--steps', type=int, default=8, help='Diffusion sampling steps; 8 automatically applies the DMD turbo LoRA')
 	parser.add_argument('--count', type=int, default=1, help='images per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
 	parser.add_argument('--output', type=Path, default=Path('MossImage.jpg'), help='numbered output base; never overwritten')
+	parser.add_argument('--json_output', action='store_true', help='write a per-image JSON settings sidecar')
 	parser.add_argument('--width', type=int, default=720, help='Image width in pixels')
 	parser.add_argument('--height', type=int, default=1280, help='Image height in pixels')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
 	parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
 	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
-	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, merged-model and CUDA caches')
+	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, runtime-adapter and CUDA caches')
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
 	for name, folder, filename, description in files:
@@ -124,6 +125,15 @@ def located(name, folder):
 		if candidate.is_file():
 			return candidate.resolve()
 	raise FileNotFoundError(f'File not found: {name} (also checked {folder})')
+
+
+def selected_loras(args, models):
+	selected = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
+	if args.steps == 8:
+		turbo = located('moss/dmd_turbo_lora.safetensors', models / 'loras')
+		if not any(path == turbo for path, strength in selected):
+			selected.insert(0, (turbo, 1.0))
+	return selected
 
 
 def identity(path):
@@ -183,25 +193,81 @@ def conditioning(args, prompts, encoder):
 	return paths
 
 
-def merged(args, model, loras):
+def lora_factors(file, prefix):
+	for down_name, up_name in (('lora_down', 'lora_up'), ('lora_A', 'lora_B')):
+		if prefix + down_name + '.weight' in file.keys():
+			down = file.get_tensor(prefix + down_name + '.weight').float()
+			up = file.get_tensor(prefix + up_name + '.weight').float()
+			alpha = float(file.get_tensor(prefix + 'alpha')) if prefix + 'alpha' in file.keys() else down.shape[0]
+			return down, up, alpha / down.shape[0]
+	return None
+
+
+def runtime_adapter(args, model, loras):
+	from contextlib import ExitStack
+	import torch
+	from safetensors import safe_open
+	from safetensors.torch import save_file
 	active = [(path, strength) for path, strength in loras if strength != 0]
 	if not active:
-		return model
-	key = cache_key([2, identity(ROOT / 'merge.py'), identity(model), [(identity(path), strength) for path, strength in active]])
-	path = args.cache / ('model-' + key + '.safetensors')
-	if not path.exists():
-		print('Merging weighted LoRA stack once; subsequent calls reuse the cached model', flush=True)
+		return ''
+	key = cache_key([1, identity(ROOT / 'moss.py'), identity(model), [(identity(path), strength) for path, strength in active]])
+	path = args.cache / ('adapter-' + key + '.safetensors')
+	if path.exists():
+		print('Using cached runtime LoRA stack', flush=True)
+		return str(path)
+	with ExitStack() as stack:
+		base = stack.enter_context(safe_open(model, framework='pt'))
+		files = [stack.enter_context(safe_open(source, framework='pt')) for source, strength in active]
+		names = sorted(key[:-7] for key in base.keys() if re.fullmatch(r'layers\.\d+\.proj\.(q|k|v|o|ffn_up_gate|ffn_down)\.weight', key))
+		prefixes = {'diffusion_model.' + name + '.' for name in names}
+		provided = [{key[:-len(ending)] for key in file.keys() for ending in ('lora_down.weight', 'lora_A.weight')
+			if key.endswith(ending)} for file in files]
+		if len(active) == 1 and active[0][1] == 1 and provided[0] == prefixes:
+			if all(prefix + ending in files[0].keys() for prefix in prefixes
+				for ending in ('lora_down.weight', 'lora_up.weight', 'alpha')):
+				print('Applying original runtime LoRA: ' + str(active[0][0]), flush=True)
+				return str(active[0][0])
+		tensors, used = {}, [set() for file in files]
+		for name in names:
+			prefix = 'diffusion_model.' + name + '.'
+			rows, columns = base.get_slice(name + '.weight').get_shape()
+			downs, ups = [], []
+			for index, (file, (source, strength)) in enumerate(zip(files, active)):
+				own = prefix
+				part = lora_factors(file, own)
+				if part is None and name.rsplit('.', 1)[1] in ('q', 'k', 'v'):
+					own = 'diffusion_model.' + name.rsplit('.', 1)[0] + '.qkv.'
+					part = lora_factors(file, own)
+					if part is not None:
+						down, up, scale = part
+						if up.shape[0] % 3:
+							raise ValueError('Invalid fused qkv LoRA shape: ' + str(source))
+						part = down, up.chunk(3, dim=0)['qkv'.index(name.rsplit('.', 1)[1])], scale
+				if part is not None:
+					down, up, scale = part
+					if down.ndim != 2 or up.ndim != 2 or down.shape[1] != columns or tuple(up.shape) != (rows, down.shape[0]):
+						raise ValueError('LoRA shape does not match ' + name + ': ' + str(source))
+					downs.append(down)
+					ups.append(up * (scale * strength))
+					used[index].add(own)
+			if not downs:
+				downs, ups = [torch.zeros((1, columns))], [torch.zeros((rows, 1))]
+			tensors[prefix + 'lora_down.weight'] = torch.cat(downs, dim=0)
+			tensors[prefix + 'lora_up.weight'] = torch.cat(ups, dim=1)
+			tensors[prefix + 'alpha'] = torch.tensor(float(tensors[prefix + 'lora_down.weight'].shape[0]))
+		for index, (source, strength) in enumerate(active):
+			if not used[index] or provided[index] - used[index]:
+				raise ValueError('Unsupported LoRA targets or format (runtime supports Moss layer projections): ' + str(source))
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-			output = Path(temporary) / 'model.safetensors'
-			subprocess.run([sys.executable, str(ROOT / 'merge.py'), str(model), str(output),
-				*[str(path) + ':' + repr(strength) for path, strength in active], '--split-qkv'], check=True)
+			output = Path(temporary) / 'adapter.safetensors'
+			save_file(tensors, str(output), metadata={'runtime_loras': json.dumps([(str(source), strength) for source, strength in active])})
 			os.replace(output, path)
-	else:
-		print('Using cached LoRA stack', flush=True)
-	return path
+	print('Prepared runtime LoRA stack; base checkpoint unchanged', flush=True)
+	return str(path)
 
 
-def generated(args, model, vae, contexts, plan, folder):
+def generated(args, model, vae, contexts, plan, folder, adapter=''):
 	import torch
 	from safetensors.torch import load_file, save_file
 	for index, (context, job) in enumerate(zip(contexts, plan)):
@@ -217,7 +283,7 @@ def generated(args, model, vae, contexts, plan, folder):
 			save_file(data, str(folder / 'generation.safetensors'))
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), '', str(vae), 'off', '']
+	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), 'off', '']
 	worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
 		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 	completed = 0
@@ -253,30 +319,34 @@ def main(argv=None):
 	validate_model(model)
 	vae = located(args.vae, models / 'vae')
 	encoder = located(args.te, models / 'text_encoders')
-	loras = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
+	loras = selected_loras(args, models)
 	if not (ROOT / 'MossGenerate.exe').is_file():
 		raise FileNotFoundError('Build MossGenerate.strict first: ../Strict/strict.exe build MossGenerate.strict')
 	plan = jobs(args, args.prompt.read_text(encoding='utf-8-sig').strip())
 	for index, job in enumerate(plan):
 		print(f'Image {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
+	print('Base model: ' + str(model), flush=True)
+	for path, strength in loras:
+		print(f'Runtime LoRA: {path}, strength {strength}', flush=True)
 	args.cache = args.cache.resolve()
 	args.cache.mkdir(parents=True, exist_ok=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	weights = merged(args, model, loras)
+	adapter = runtime_adapter(args, model, loras)
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-		with closing(generated(args, weights, vae, contexts, plan, Path(temporary))) as images:
+		with closing(generated(args, model, vae, contexts, plan, Path(temporary), adapter)) as images:
 			for index, image, generation_ms in images:
 				output, handle = reserve_output(args.output.resolve())
 				try:
 					with handle, image.open('rb') as source:
 						shutil.copyfileobj(source, handle)
-					metadata = dict(plan[index], model=str(model), loras=[(str(path), strength) for path, strength in loras],
-						steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
-						jpg_quality=args.jpg_quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started,
-						batch_index=index + 1, count=args.count, generation_ms=generation_ms)
-					with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
-						json.dump(metadata, sidecar, indent=2, ensure_ascii=False)
+					if args.json_output:
+						metadata = dict(plan[index], model=str(model), loras=[(str(path), strength) for path, strength in loras],
+							steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
+							jpg_quality=args.jpg_quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started,
+							batch_index=index + 1, count=args.count, generation_ms=generation_ms)
+						with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
+							json.dump(metadata, sidecar, indent=2, ensure_ascii=False)
 				except BaseException:
 					handle.close()
 					output.unlink(missing_ok=True)

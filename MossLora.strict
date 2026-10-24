@@ -30,6 +30,8 @@ Layer(path Text, prefix Text) List(MossLora)
 		Loaded(path, "diffusion_model." + prefix + "proj." + value + ".")
 Scaled(rows List(Numbers), scale Number) List(Numbers)
 	MossLora.Scaled(((1, 2), (3, 4)), 2) is ((2, 4), (6, 8))
+	if scale is 1
+		return rows
 	for rows
 		value * scale
 Delta(input Numbers) Numbers
