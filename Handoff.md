@@ -1,5 +1,15 @@
 # Handoff: Moss elementwise kernels, step wall time below ComfyUI (RTX 3080)
 
+## Latest checkpoint: JPEG and decoder regression investigation (2026-10-24)
+
+Merged H3 prefetch/streaming-trim guard is validated. Keep it; explicit phase-boundary Moss cleanup still matters. Cache test merge errors repaired; its streaming guard and explicit-release assertions now both pass. No allocator/compiler performance policy changed this session.
+
+MossGenerate now defaults to JPEG quality 85 on Windows; compare_moss.py accepts --format jpg|png and --quality 0..100. Stored PNG remains --format png, compressed PNG --format png --compressed. Actual save 23-30 ms, versus 451-473 ms stored PNG in the new normal-clock pair; portrait 95 KB instead of 3.69 MB. Latest third resident generation 3.473 s JPEG / 3.836 s PNG, with decode variability. These use the user's normal Afterburner settings, not the older locked 1695 MHz benchmark. No clocks or power settings changed in this session. “Restored clock limits” in older entries meant removing temporary nvidia-smi locks; it did not reset Afterburner offsets. Stop repeating that phrase without this distinction.
+
+Decoder work is still open: the 4090 Performance.md entry reports Moss VAE 0.93 -> 1.2-1.6 s since c1829a08; user called it H3 VAE. Asked which precise decoder/log is intended. Current 3080 full-model decoder 480/475 ms versus pre-change GPU/compiler-path ablation 470/473 ms; standalone batching ablation 433/431 ms, same fixed latent and PSNR. Including Attention selects Ampere code but gave 405 ms warm decode, so neither wider batching nor target selection reproduces a 300 ms loss here. Do not revert these blindly or claim the regression fixed. Ablations stay in StrictVaeCheck / D:/StrictDumps/vae-regression. Production MossImage executable/PTX restored to the current build.
+
+Next: obtain exact old/new command and logs for the reported decoder regression, distinguish Moss from H3, then compare kernel work versus host allocation/readback gaps on that reproduction. Current resident Moss trace has ~383 ms VAE kernels, ~308 ms convolutions, ~31 ms Products; decode warmup/host gaps remain variable. Preserve H3 copy-stream work. Continue VAE convolution performance after reproducing the regression. Fresh JPEG/PNG timing and all controls are documented at the top of Performance.md. Older stored-PNG defaults and “prefetch not yet landed” statements below are historical.
+
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
 ## Current handoff: resident timing and phase-boundary memory (2026-10-24)

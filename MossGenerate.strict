@@ -34,13 +34,12 @@ Adapted(moss Moss, adapter Text) Moss
 	Moss(moss, timeIn = first, timeOut = second, blockModulation = block, headModulation = head)
 Repeated(moss Moss, sampling MossSampling, decoder FluxDecoder, data Safetensors, dumps Text, adapter Text) None
 	let count = Count(data)
-	let compressed = data.Entry("compressed") is "" then false else data.Values("compressed").First is 1
 	for count
 		let before = Process.Elapsed
 		let latent = Generated(moss, sampling, data, adapter)
 		let suffix = count > 1 then "-" + index else ""
-		let path = dumps + "/strict-" + sampling.mode + suffix + ".png"
-		Saved(latent, sampling.width, decoder, path, compressed)
+		let path = dumps + "/strict-" + sampling.mode + suffix + Extension(data)
+		Saved(latent, sampling.width, decoder, path, data)
 		if index + 1 < count
 			GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
@@ -50,15 +49,22 @@ Count(data Safetensors) Number
 	if (count < 1) or (count.Floor is not count)
 		return Error("Invalid generation count")
 	count
-Saved(latent Numbers, width Number, decoder FluxDecoder, path Text, compressed Boolean) None
+Extension(data Safetensors) Text
+	MossGenerate(Logger).Extension(MossImage.Reference) is (Process.OperatingSystem is "Windows" then ".jpg" else ".png")
+	let jpeg = data.Entry("jpeg") is "" then Process.OperatingSystem is "Windows" else data.Values("jpeg").First is 1
+	jpeg then ".jpg" else ".png"
+Saved(latent Numbers, width Number, decoder FluxDecoder, path Text, data Safetensors) None
 	let before = Process.Elapsed
 	let image = decoder.Decoded(latent, width)
 	logger.Log("decode " + image.First + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-	let coloring = Process.Elapsed
-	let pixels = FluxImage(logger).Colors(image)
-	logger.Log("colors " + pixels.Length + " in " + ((Process.Elapsed - coloring) * 1000).Round + " ms")
-	let size = Size(width * 16, latent.Length / (128 * width) * 16)
 	let writing = Process.Elapsed
-	ImageSaver(path, compressed).Save(Image(size, pixels))
+	if path.EndsWith(".jpg")
+		ImageCodec.SaveJpeg(path, image, width * 16, data.Entry("quality") is "" then 85 else data.Values("quality").First)
+	else
+		SavedPng(image, width * 16, path, data)
 	logger.Log("save in " + ((Process.Elapsed - writing) * 1000).Round + " ms")
 	logger.Log("decoded and saved in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+SavedPng(image Numbers, width Number, path Text, data Safetensors) None
+	let compressed = data.Entry("compressed") is "" then false else data.Values("compressed").First is 1
+	let pixels = FluxImage(logger).Colors(image)
+	ImageSaver(path, compressed).Save(Image(Size(width, image.Length / (3 * width)), pixels))

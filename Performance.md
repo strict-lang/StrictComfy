@@ -1,5 +1,29 @@
 # Moss performance
 
+## JPEG output and merged decoder check (2026-10-24, RTX 3080)
+
+JPEG quality 85 is now MossGenerate/compare_moss.py's Windows default. Native ImageCodec.SaveJpeg uses the built-in Windows codec on flat RGB values; --format png retains lossless stored PNG, --format png --compressed retains compressed PNG. Same portrait pixels: 95,022-byte JPEG versus 3,688,028-byte stored PNG (97.4% smaller), JPEG PSNR 42.22 dB and mean absolute byte difference 1.45/255. Actual Strict save costs 23-30 ms versus 451-473 ms for stored PNG in the fresh normal-clock pair, including foreign argument conversion. This is lossy output compression, not a model-precision change.
+
+Full public-harness pair, same 720x1280 turbo8 inputs/checkpoint, Spectrum off, model/decoder reused three times per process:
+
+| Format | Sampling, passes 0/1/2 | VAE decode, passes 0/1/2 | Save, passes 0/1/2 | Full generation, passes 0/1/2 |
+|---|---|---|---|---|
+| JPEG 85 | 4445 / 2875 / 2796 ms | 1845 / 995 / 649 ms | 25 / 27 / 23 ms | 6347 / 3938 / 3473 ms |
+| Stored PNG | 4473 / 2935 / 2808 ms | 1934 / 901 / 574 ms | 473 / 464 / 451 ms | 6946 / 4380 / 3836 ms |
+
+Normal Afterburner settings, no nvidia-smi locks or clock/power changes this session. Do not compare these directly with the earlier locked-clock ComfyUI table. Decode still varies with allocator warmup; the save stage is the clear measured improvement. Earlier normal-clock JPEG pass reached 3424 ms total. Diagnostics: D:/StrictDumps/vae-regression/{jpg,png}-final{,-stages}.log.
+
+The merged H3 copy-stream/trim guard is present (Strict 2354fc5c). Keep it: trimming while rows stream repeatedly drains/frees workspace that subsequent layers need. Native cache checks confirm opportunistic trim is suppressed with spilled rows, while explicit GpuMemory.Released still frees unused large blocks between resident Moss generations. Fixed a test merge break: wrong DLL/export, two-element view of three counters, and leftover blocks from the streaming guard test. No allocator policy change was made in this session.
+
+The checked-in 4090 report calls the c1829a08 regression **Moss VAE**, not H3 VAE. It is not reproduced as a 300 ms regression on this 3080. Diagnostic ablations only, current host allocator retained:
+
+- Same fixed latent, standalone decoder, current versus pre-change linear batching: warm 433 / 431 ms, PSNR 61.01 dB in both. No meaningful regression.
+- Including Attention in an isolated decoder selects sm_80 instead of sm_75 (a c1829a08 build change): warm decode 405 ms. No slowdown from that target change here.
+- Full MossImage after layer comparisons/sampling, current versus all pre-c1829a08 GPU/compiler paths: decode current 480 / 475 ms, ablation 470 / 473 ms, order current/ablation/ablation/current. Same model/noise/conditioning, but old attention math changes the sampled latent, so this is a performance ablation, not an exact-output comparison. No production compiler rollback is justified by this result. First-use driver compilation excluded from decode timings.
+- Current resident nsys trace: VAE kernel work about 383 ms each pass, roughly 308 ms in convolutions and 31 ms in Products; host/transfer/allocation gaps vary with warmup. This remains slower than ComfyUI's earlier locked-clock decoder, but is separate from establishing the claimed regression.
+
+Exact H3/4090 failing command and old/new run logs remain needed to reproduce the reported 0.3 s increase. Do not mark that issue fixed. Diagnostic compiler worktree StrictVaeCheck is unmerged; model executables restored to current production artifacts. Evidence: D:/StrictDumps/vae-regression, including profile.sqlite, fixed-latent controls and moss-*-pair*.log. JPEG codec check, ImageProcessing VM tests, native JPEG reader/ImageSaver tests, allocator/cache checks and both changed-folder checks pass.
+
 ## RTX 3080 end-to-end timing correction (2026-10-24)
 
 Compiler/runtime: Strict 30781d21. The resident runner uses its explicit workspace release and optional stored PNG output.
