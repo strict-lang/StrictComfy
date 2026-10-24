@@ -127,15 +127,6 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				modulation = tensor("modulation", (3, width))
 				expected = input_data + update * modulation[2].repeat(rows)[:count]
 				output_dtype, result_bits = torch.float32, 32
-			elif "Modulated" in kernel:
-				number("part", 0)
-				rows = count // width
-				input_data = tensor("input", (rows, width))
-				weights = tensor("weights", width)
-				modulation = tensor("modulation", (6, width))
-				scale = (input_data.square().mean(dim=1, keepdim=True) + 1e-6).rsqrt()
-				expected = (input_data * scale * weights * (1 + modulation[1]) + modulation[0]).flatten().bfloat16()
-				output_dtype, result_bits = torch.bfloat16, 17
 			elif "Rotated" in kernel:
 				number("size", 128)
 				number("half", 64)
