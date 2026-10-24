@@ -2,6 +2,20 @@
 
 Goal: MossImage at 720x1280, 8 steps, merged LoRA model `moss-image-int8-convrot-dmd-lenovo-finger.safetensors`, faster per step than ComfyUI on the local RTX 3080 (10 GB). Build the ComfyUI node only once Strict is faster. Rules: `AGENTS.md` here and in `../Strict` (TDD, tabs, CRLF, `strict check` 0 issues, no handwritten CUDA without an emitter, commit only your own hunks in `../Strict`, other sessions edit it in parallel).
 
+## Current handoff: resident timing and phase-boundary memory (2026-10-24)
+
+The user confirmed ComfyUI's 6-6.5 s is at 720x1280 with the model already loaded. The earlier fresh-process 9.7 s comparison was inappropriate for that case. MossGenerate now retains both model and decoder for optional resident repetitions; compare_moss.py exposes --resident-runs, records every sampling/full-generation timing, and labels total-process time separately. Default remains one image per process.
+
+Measured production warm eight-step runs: 4.098-4.179 s including decode, PNG saving and cleanup between passes. Sampling is 3.155-3.171 s. Matched headless ComfyUI is 3.511-3.516 s total, sampling 3.159-3.164 s. Both use saved conditioning/noise and the same merged DMD, at locked 1695/9506 MHz. The remaining ~0.6 s backend gap is mainly VAE decode (Strict ~0.63 s / Comfy ~0.27) and PNG saving (~0.28 / ~0.08). A fresh Strict process is still 9.057 s. Do not imply a cold-start or matched-backend win.
+
+The concrete memory issue: after the VAE, free pooled buffers made Moss re-upload about 2 GB of weights per steady evaluation. Explicit GpuMemory.Released between resident generations frees unused large pool blocks and preserves live cached tensor copies; steady uploads drop to 2048 bytes. The first evaluation still reloads some weights. The global H3 allocation/eviction order is unchanged. Global pool-first and spilled-row free-space alternatives remain rejected diagnostics. The new runtime hook has a native cache/lifetime regression and is documented in ../Strict/NeuralNetworks/README.md.
+
+PNG compression alone cost about 0.93 s. ImageSaver now supports compressed=false via existing Deflate.Stored; its global default stays true. MossGenerate selects stored PNGs by default, saving about 0.65 s with identical decoded pixels and larger files (3.69 MB versus 2.99 MB on the portrait). --compressed restores compression.
+
+Next: close the matched ~0.6 s gap in VAE decode and image encoding, then cold model loading (~3 s versus ComfyUI's lazy ~0.11 s construction, with upload work counted during sampling). Keep resident reuse when integrating the ComfyUI node. Grouped Modulated/Rotated work and the index miscompile remain open; no GEMM emitter changes were made. Leave H3 copy-stream work to the 4090 agent.
+
+Evidence and tests: D:/StrictDumps/moss-end-to-end; Performance.md's end-to-end correction has stage timings and before/after counters. Public harness, VM/native/GPU checks, decoded-pixel checks and compiler fixpoint pass. Benchmark clock limits are restored; Afterburner settings were untouched.
+
 ## Current handoff: sampling presets and high-level speed (2026-10-24)
 
 Completed the Spectrum audit and 36-image comparison requested by the user. See [Generation.md](Generation.md) for the runnable harness and settings, [Performance.md](Performance.md) for full timings, and [Spectrum.md](Spectrum.md) for upstream coverage. Local gallery: D:/StrictDumps/moss-speed-comparison/index.html. Three prompts, two seeds and six variants all completed; image size/link checks pass. Current compiler is Strict 7e61d34e including the H3 fixed-budget allocator.

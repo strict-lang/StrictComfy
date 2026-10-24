@@ -1,5 +1,34 @@
 # Moss performance
 
+## RTX 3080 end-to-end timing correction (2026-10-24)
+
+Compiler/runtime: Strict 30781d21. The resident runner uses its explicit workspace release and optional stored PNG output.
+
+The user's 6-6.5 s ComfyUI measurement is 720x1280 with the model already loaded. The previous 9.70 s Strict number restarted the process for each image, so it was not a fair resident-model comparison. The old sampling-only win also did not establish an end-to-end win.
+
+Implemented resident generations with the same loaded Moss model and VAE, stage timing, and optional stored-DEFLATE PNGs. Four warm production passes (two processes, each generating three times; first pass excluded) take 4.098 / 4.179 / 4.098 / 4.139 s. Full inference executes every time with the saved conditioning/noise; it does not reuse a generated image. Same int8 DMD model, 720x1280, eight Euler steps, CFG 1, Spectrum off. Core locked at 1695 MHz, actual CUDA memory 9506 MHz. Conditioning is precomputed in both implementations; UI/display and text encoding are excluded from the matched comparison.
+
+| Warm generation stage | Strict | Installed ComfyUI, headless |
+|---|---:|---:|
+| Sampling | 3.155-3.171 s | 3.159-3.164 s |
+| VAE decode and readback | 0.628-0.634 s | 0.267-0.268 s |
+| Pixel conversion | about 0.026 s | 0.005-0.007 s |
+| PNG saving | 0.271-0.315 s | 0.078-0.079 s |
+| Complete generation, including boundary cleanup when another follows | **4.098-4.179 s** | **3.511-3.516 s** |
+
+Strict remains roughly 0.6 s behind the matched headless pipeline; the remaining gap is mainly VAE decoding and PNG encoding. Do not describe the 4.1 s result as proof of beating ComfyUI's backend. A fresh Strict process still takes 9.057 s in the single-image check (2.988 s loading, 5.605 s generation, plus startup/shutdown), so cold loading remains a separate issue. The user's loaded-model comparison is the relevant warm target.
+
+Two avoidable costs were identified and fixed:
+
+- PNG compression cost about 0.92-0.95 s. Existing Deflate.Stored reduces it to about 0.28 s without changing decoded pixels; the portrait PNG grows from 2994029 to 3688028 bytes. ImageSaver's shared default remains compressed. MossGenerate defaults to the faster stored PNG; --compressed selects the old mode.
+- After VAE decoding, retained free workspace left Moss streaming weights on subsequent evaluations. nsys showed mean HtoD of 1.991 GB per evaluation for warm steps 1-6, despite the model fitting before decoding. Explicit GpuMemory.Released between resident generations collects dead temporaries and returns unused large pool blocks without evicting live copies. Afterward, steps 1-6 upload only 2048 bytes; traced windows fall 476.91 -> 380.66 ms. A first-evaluation reload remains after decoding, so average upload over steps 0-6 is still about 370 MB/evaluation. Automatic H3 allocation/eviction policy is unchanged.
+
+Global pool-first eviction and a spilled-row free-space guard were tested only in generated-host diagnostics; neither gave a robust improvement and neither is shipped. The explicit phase boundary did improve the full pipeline and is used by the resident runner. It increases warm VAE decode from about 0.55 to 0.63 s because workspace must be allocated again; total generation still improves.
+
+Validation: resident-repeat check failed before implementation and now passes; PNG option's regression failed before the branch and passes in VM/native tests; native cache test checks collection/drain counts and retained live cache entries; compiler native mapping tests and stage 2/3 fixpoint pass. Full-size stored/compressed/resident images decode to identical pixels. The merged cache test's duplicate allocator mocks and missing pool DLL exports were also repaired so all budget, pool and lifetime checks run together.
+
+Evidence: D:/StrictDumps/moss-end-to-end. Production logs/JSON: harness/portrait-42/turbo8/run-{0,1}; fresh-process case: single/portrait-42/turbo8/run-0; ComfyUI: comfy-end-to-end.json and comfy.py; before/after traces: profile-before.sqlite / profile.sqlite and phase-comparison.json. Clock limits restored after timing. Reproduce with compare_moss.py --resident-runs 3; see [Generation.md](Generation.md).
+
 ## RTX 3080 sampling tradeoffs: 25, 8 and 4 steps (2026-10-24)
 
 36 images completed: lighthouse, portrait with hands and cafe menu; seeds 42 and 1234; 720x1280. Shared conditioning and CPU noise within each case. Strict 7e61d34e (includes H3's fixed-budget memory accounting) and the MossGenerate/MossSampling changes. Locked core 1695 MHz / actual CUDA memory 9506 MHz throughout all 476 high-load telemetry samples; maximum sampled GPU temperature 64.56 C, no thermal slowdown flags. Limits reset after timing.

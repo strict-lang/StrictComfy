@@ -21,6 +21,8 @@ parser.add_argument("--run", action="store_true")
 parser.add_argument("--cases", nargs="*")
 parser.add_argument("--variants", nargs="*")
 parser.add_argument("--repeat", type=int, default=1)
+parser.add_argument("--resident-runs", type=int, default=1, help="generations per loaded model/decoder process")
+parser.add_argument("--compressed", action="store_true", help="compress PNGs; default stored PNGs save CPU time")
 options = parser.parse_args()
 if options.prepare and (options.run or options.merge):
 	parser.error("Run --prepare separately so the text encoder releases GPU memory before inference or merging")
@@ -54,7 +56,7 @@ if not manifest.exists():
 settings = json.loads(manifest.read_text(encoding="utf-8"))
 if options.variants and set(options.variants) - set(settings["variants"]):
 	parser.error("Unknown variant: " + ", ".join(sorted(set(options.variants) - set(settings["variants"]))))
-assert options.repeat > 0, "repeat must be positive"
+assert options.repeat > 0 and options.resident_runs > 0, "repeat counts must be positive"
 assert settings["width"] > 0 and settings["width"] % 16 == 0, "width must be a positive multiple of 16"
 assert settings["height"] > 0 and settings["height"] % 16 == 0, "height must be a positive multiple of 16"
 if options.download:
@@ -113,6 +115,8 @@ if options.run:
 				configuration = dict(inputs)
 				for key, default in [("steps", 8), ("guidance", 1), ("warmup", 8), ("period", 2)]:
 					configuration[key] = torch.tensor([variant.get(key, default)], dtype=torch.float32)
+				configuration["runs"] = torch.tensor([options.resident_runs], dtype=torch.float32)
+				configuration["compressed"] = torch.tensor([int(options.compressed)], dtype=torch.float32)
 				save_file(configuration, str(folder / "generation.safetensors"))
 				mode = variant.get("mode", "off")
 				command = [str(repository / "MossGenerate.exe"), str(folder), variant["model"], variant.get("lora", ""), settings["vae"], mode, variant.get("adapter", "")]
@@ -122,13 +126,16 @@ if options.run:
 						result = subprocess.run(command, cwd=repository, env=dict(os.environ, STRICT_GPU="all", CUDA_CACHE_PATH=str(cache), CUDA_CACHE_MAXSIZE="4294967296"), stdout=log, stderr=subprocess.STDOUT, timeout=240)
 					text = (folder / ("run-" + str(run) + ".log")).read_text(encoding="utf-8")
 					assert result.returncode == 0, (case, label, result.returncode, text[-2000:])
-					assert (folder / ("strict-" + mode + ".png")).exists(), (case, label, text[-1000:])
-					matched = re.search(r"sampling (\d+) ms", text)
-					assert matched, text
-					setup = re.search(r"text setup at ([0-9.]+)", text)
-					first = re.search(r"evaluation 0 at ([0-9.]+)", text)
-					denoising = int(matched[1]) - 1000 * (float(first[1]) - float(setup[1])) if setup and first else None
-					measurement = {"denoising_ms": round(denoising, 1) if denoising is not None else None, "case": case, "variant": label, "run": run, "sampling_ms": int(matched[1]), "wall_seconds": time.perf_counter() - started, "command": command, "configuration": variant}
+					suffix = "-" + str(options.resident_runs - 1) if options.resident_runs > 1 else ""
+					image_name = "strict-" + mode + suffix + ".png"
+					assert (folder / image_name).exists(), (case, label, text[-1000:])
+					sampling_runs = [int(value) for value in re.findall(r"sampling (\d+) ms", text)]
+					generation_runs = [int(value) for value in re.findall(r"generation \d+ in (\d+) ms", text)]
+					assert len(sampling_runs) == options.resident_runs, text
+					setup = re.findall(r"text setup at ([0-9.]+)", text)
+					first = re.findall(r"evaluation 0 at ([0-9.]+)", text)
+					denoising = sampling_runs[-1] - 1000 * (float(first[-1]) - float(setup[-1])) if setup and first else None
+					measurement = {"denoising_ms": round(denoising, 1) if denoising is not None else None, "case": case, "variant": label, "run": run, "sampling_ms": sampling_runs[-1], "sampling_runs_ms": sampling_runs, "generation_runs_ms": generation_runs, "resident_runs": options.resident_runs, "compressed_png": options.compressed, "image_name": image_name, "wall_seconds": time.perf_counter() - started, "command": command, "configuration": variant}
 					(folder / ("run-" + str(run) + ".json")).write_text(json.dumps(measurement, indent=2), encoding="utf-8")
 					print(json.dumps(measurement), flush=True)
 if options.report:
@@ -148,19 +155,24 @@ if options.report:
 			for label in labels:
 				folder = root / case / label
 				files = sorted(folder.glob("run-*.json"), key=lambda path: path.stat().st_mtime_ns)
-				image = folder / ("strict-" + settings["variants"][label].get("mode", "off") + ".png")
+				data = json.loads(files[-1].read_text(encoding="utf-8")) if files else {}
+				image = folder / data.get("image_name", "strict-" + settings["variants"][label].get("mode", "off") + ".png")
 				if not files or not image.exists():
 					pages.append("<td>Pending</td>"); continue
-				data = json.loads(files[-1].read_text(encoding="utf-8"))
 				measurements[label].append(data)
 				link = image.relative_to(root).as_posix()
-				pages.append("<td><a href='" + link + "'><img loading='lazy' src='" + link + "'></a><br>Sampling " + str(round(data["sampling_ms"] / 1000, 2)) + " s<br>Process " + str(round(data["wall_seconds"], 2)) + " s</td>")
+				last_generation = "<br>Last generation " + str(round(data["generation_runs_ms"][-1] / 1000, 2)) + " s" if data.get("generation_runs_ms") else ""
+				pages.append("<td><a href='" + link + "'><img loading='lazy' src='" + link + "'></a><br>Sampling " + str(round(data["sampling_ms"] / 1000, 2)) + " s" + last_generation + "<br>Process (" + str(data.get("resident_runs", 1)) + " images) " + str(round(data["wall_seconds"], 2)) + " s</td>")
 			pages.append("</tr>")
 		pages.append("</table>")
 	summary = {}
 	for label, rows in measurements.items():
 		if rows:
 			summary[label] = {"images": len(rows), "sampling_median_ms": statistics.median(row["sampling_ms"] for row in rows), "sampling_range_ms": [min(row["sampling_ms"] for row in rows), max(row["sampling_ms"] for row in rows)], "process_median_s": statistics.median(row["wall_seconds"] for row in rows)}
+			generations = [row["generation_runs_ms"][-1] for row in rows if row.get("generation_runs_ms")]
+			if generations:
+				summary[label]["generation_last_median_ms"] = statistics.median(generations)
+				summary[label]["resident_runs"] = sorted(set(row.get("resident_runs", 1) for row in rows))
 	(root / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 	(root / "index.html").write_text("\n".join(pages), encoding="utf-8")
 	print(json.dumps(summary, indent=2))
