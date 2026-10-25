@@ -45,16 +45,16 @@ Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Number
 ImageAttended(normed Numbers, rotation Numbers, kept Number) Numbers
 	Tiny.ImageAttended(Input, Rotation, 4096) is Safetensors.Part(Tiny.Attended(Input, Rotation), 0, 4096, 1)
 	let width = attentionNorm.Length
-	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let combined = MossLora.Attended(loras, Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let queries = Safetensors.Part(Rotated(combined, 0, width, queryNorm, rotation), 0, kept, 1)
 	let keys = Rotated(combined, width, width, keyNorm, rotation)
 	let merged = Attention(queries, keys, combined, Heads, Heads, queryNorm.Length, 1, false, 2 * width, 3 * width).Merged
-	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
+	MossLora.Applied(loras, 3, Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated), merged)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Input, Rotation).Length is 4864
-	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let combined = MossLora.Attended(loras, Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let merged = Merged(combined, rotation, queryNorm, keyNorm)
-	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
+	MossLora.Applied(loras, 3, Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated), merged)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
@@ -66,9 +66,9 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Number
 	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width).Merged
 FedForward(normed Numbers) Numbers
 	Tiny.FedForward(Input).Length is 4864
-	let expanded = MossLora.Applied(loras, 4, Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let expanded = MossLora.Applied(loras, 4, Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
 	let activated = Activated(expanded, reduction.First.Length)
-	MossLora.Applied(loras, 5, Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated), activated)
+	MossLora.Applied(loras, 5, Batch(reduction, Layer.Unbiased).Sums(Convrot(activated).Rotated), activated)
 Activated(expanded Numbers, width Number) BFloat16s
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2

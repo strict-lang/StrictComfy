@@ -3,7 +3,6 @@ has up Numbers
 has rank Number
 has columns Number
 constant Gain = 64
-constant Unbiased = List(Number) + 0
 constant Linears = ("q", "k", "v", "o", "ffn_up_gate", "ffn_down")
 constant Tiny = MossLora.Loaded("tinylora.safetensors", "diffusion_model.layers.0.proj.q.")
 constant Reference = Safetensors("tinylora.safetensors", 32, "reference.")

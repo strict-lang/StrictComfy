@@ -47,7 +47,7 @@ Curved(curves Safetensors) Batch
 	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
 	if curves.Entry("adaln_proj.linear.weight") is ""
-		return Batch(List(Numbers), MossLora.Unbiased)
+		return Batch(List(Numbers), Layer.Unbiased)
 	MossText.Dense(curves, "adaln_proj.linear")
 Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers) Numbers
 	Layered(0).IsNearlyEqual(-1.015625, 0.03)
@@ -66,12 +66,12 @@ Refined(input Numbers, rotation Numbers) Numbers
 	MossText.Added(attended, Projected(3, reduction, Activated(expanded, reduction.First.Length)))
 Projected(linear Number, rows List(Numbers), input Numbers) Numbers
 	Tiny.Projected(0, ((1, 2), (3, 4)), (1, 1)) is (3, 7)
-	MossLora.Applied(deltas, linear, Batch(rows, MossLora.Unbiased).Sums(input), input)
+	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(input), input)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
-	let merged = Heads(Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), rotation).Merged
-	Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated)
+	let merged = Heads(Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), rotation).Merged
+	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
 Heads(combined Numbers, rotation Numbers) Attention
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)
@@ -98,9 +98,9 @@ FedForward(normed Numbers, chunk Number) Numbers
 	fed
 Fed(normed Numbers) Numbers
 	Tiny.Fed(Model.Values("reference.blocks.0.mlp.input"))(0).IsNearlyEqual(0.046875, 0.02)
-	let expanded = Batch(expansion, MossLora.Unbiased).Sums(Convrot(normed).Rotated)
+	let expanded = Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let activated = Activated(expanded, reduction.First.Length)
-	Batch(reduction, MossLora.Unbiased).Sums(Convrot(activated).Rotated)
+	Batch(reduction, Layer.Unbiased).Sums(Convrot(activated).Rotated)
 Activated(expanded Numbers, width Number) Numbers
 	Tiny.Activated((2, 1, 3, 0), 1)(0).IsNearlyEqual(1.761594)
 	Tiny.Activated((2, 1, 3, 0), 1)(1) is 0

@@ -44,7 +44,7 @@ Dataspace(moss Moss, noise Numbers, context Numbers, adapter Safetensors) Number
 	logger.Log("text ready at " + Process.Elapsed.Round(3))
 	MixedSteps(moss, noise, text, moss.Rotation(noise, text, width), adapter)
 MixedSteps(moss Moss, noise Numbers, text Numbers, rotation Numbers, adapter Safetensors) Numbers
-	let mixing = Batch(adapter.Rows("latent_mix.Q"), MossLora.Unbiased)
+	let mixing = Batch(adapter.Rows("latent_mix.Q"), Layer.Unbiased)
 	let codes = adapter.Values("step_codes")
 	mutable latent = noise * 0
 	for steps
