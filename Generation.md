@@ -73,9 +73,13 @@ Prompt groups `{a woman|a man|}` include the empty alternative. Multiple/nested 
 
 The full command currently needs an installed ComfyUI source tree and its Python environment; the UI/server need not be running.
 
+Startup messages such as `Found comfy_kitchen backend` and `Using pytorch attention` come from the ComfyUI text-encoder worker. The first lists available backends; it does not prove a particular kernel was dispatched. The second selects PyTorch SDPA for that attention path, which can itself use fused CUDA implementations. Kitchen-backed quantized operations can coexist with it. These messages do not select Strict's diffusion attention or VAE kernels. Cached conditioning skips this worker entirely.
+
 - ComfyUI: tokenization, Qwen text encoding, encoder loading/custom operations and setup reused through dump.py. Its encoder worker exits before native inference to release GPU memory.
 - PyTorch/safetensors: input noise, conditioning files, cached model merging and floating adapter-stack preparation. This is not ComfyUI sampling.
 - Strict native backend: Euler sampling, diffusion transformer/GEMM/attention/elementwise operations, VAE decoding and JPEG saving. With prepared conditioning, MossGenerate.exe can run without Python/ComfyUI.
+
+Progress `step N at ...` timestamps mark host submission, not synchronized step completion. Short intervals followed by a long gap do not imply individual steps executed that quickly. Sampling time includes final latent synchronization; decode and save have separate wall timers. Cold model I/O, CPU preparation and CUDA JIT can leave the GPU idle during startup. Reuse the merge/conditioning/CUDA caches and `--count` before comparing warm image times. A late decode spike needs a trace to distinguish kernel work from allocation, collection, paging or other GPU activity; progress logs alone cannot identify its cause.
 
 Use `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe` for another installation. Keep moss.py, merge.py, dump.py, MossGenerate.exe and matching PTX files beside the launcher. Prompt/model/adapter/CUDA caches default to StrictComfy/artifacts/moss; --cache changes their location. The existing positional `MossImage.exe dumps model lora vae` diagnostic mode remains available.
 

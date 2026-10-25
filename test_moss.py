@@ -2,7 +2,7 @@
 import importlib.util
 import io
 import json
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import random
 import subprocess
@@ -150,13 +150,15 @@ class MossCommandTests(unittest.TestCase):
 				save_file({'context': torch.full((1, 2, 3), float(index))}, str(path))
 				contexts.append(path)
 			process = MagicMock()
-			process.stdout = io.StringIO('generation 0 in 20 ms\ngeneration 1 in 21 ms\n')
+			process.stdout = io.StringIO('evaluation 0 at 1.234\ngeneration 0 in 20 ms\ngeneration 1 in 21 ms\n')
 			process.wait.return_value = 0
 			process.poll.return_value = 0
-			with patch.object(module.subprocess, 'Popen', return_value=process) as launch:
+			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()) as output:
 				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
 					module.jobs(args, '{a|b}'), folder))
 			self.assertEqual(launch.call_count, 1)
+			self.assertIn('step 0 at 1.234', output.getvalue())
+			self.assertNotIn('evaluation ', output.getvalue())
 			self.assertEqual(launch.call_args.args[0][5], 'on')
 			self.assertEqual([result[1].name for result in results], ['strict-on-0.jpg', 'strict-on-1.jpg'])
 			self.assertEqual([result[0] for result in results], [0, 1])

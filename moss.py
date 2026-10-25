@@ -343,6 +343,8 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 	completed = 0
 	try:
 		for line in worker.stdout:
+			if line.startswith('evaluation '):
+				line = 'step ' + line[len('evaluation '):]
 			print(line, end='', flush=True)
 			match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
 			if match:
