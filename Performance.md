@@ -84,6 +84,31 @@ The checked-in 4090 report calls the c1829a08 regression **Moss VAE**, not H3 VA
 
 Exact H3/4090 failing command and old/new run logs remain needed to reproduce the reported 0.3 s increase. Do not mark that issue fixed. Diagnostic compiler worktree StrictVaeCheck is unmerged; model executables restored to current production artifacts. Evidence: D:/StrictDumps/vae-regression, including profile.sqlite, fixed-latent controls and moss-*-pair*.log. JPEG codec check, ImageProcessing VM tests, native JPEG reader/ImageSaver tests, allocator/cache checks and both changed-folder checks pass.
 
+## H3 first upload, resident rows and ComfyUI's attention kernels (2026-10-25 evening, 4090, quiet GPU)
+
+Alternating plain runs of `H3Video.exe C:/StrictDumps/h3fox` (`C:/StrictDumps/ab/pairs.sh`, step 0 uploads all 21.8 GB of weights):
+
+| Strict runtime | Step 0 | Steps 1-7 mean |
+|---|---:|---:|
+| master 0d18343f | 14.4-14.9 s | 3.70-3.77 s |
+| rows tables up to 256 MB through the pinned staging buffer (taken, ../Strict) | 10.1-10.6 s | 3.68-3.70 s |
+| + rows with one scale uploaded with that scale alone, uploads taking over spilled rows until 1.25 GB are free | 8.7-9.4 s | 3.82-3.84 s |
+| first try: compact rows with an own reserve halved whenever a trimmed class came back | 13.8-14.5 s | 3.88-4.23 s |
+| first try + bf16 `Modulated`, `Activated` and `Rope.Rotated` results | 12.6 s | 4.44-4.71 s |
+
+The first step took 68 ms per 165 MB table: ~45 ms gathering into a fresh `malloc` (a page fault per 4 KB) and ~21 ms of synchronous copy through the driver's own staging; with the pinned buffer most of what is left is the gather on one thread. nsys of steps 3-4 (`C:/StrictDumps/prof/{master,resident}.sqlite`): master keeps 37 of 50 blocks resident and streams the rest by taking over spilled rows, GPU busy 3431 of 3663 ms; the compact rows keep 44 blocks resident (16.0 GB) next to 5.7 GB of pool blocks, but a 1 GB activation block and the re-uploaded weights then pushed each other out at every block (`cuMemFree` of 1 GB, ~20 ms and a synchronization each, GPU busy 75 %). The power of two pool classes hold 7 blocks of 512 MB for 319 MB lists (14,844 tokens x 5376 x 4 bytes) and 1 GB for the ~600 MB feed forward chunk, ~1.9 GB unused, about what is missing to fit everything. ComfyUI does not fit either: 47 GB of uploads in one 8 step run (`comfyh3.sqlite`), it overlaps them with the kernels.
+
+ComfyUI's own faster attention kernels, `dump.py h3 --runs 2` (warm second run, final latents against the default run's):
+
+| ComfyUI attention | Per call | Sampling | Video, audio error |
+|---|---:|---:|---|
+| default (cuDNN flash) | 3.22-3.24 s | 26.3 s | |
+| SageAttention 1.0.6 (`--use-sage-attention`) | 2.35-2.36 s | 19.5 s | 0.279, 0.141 |
+| comfy_kitchen INT8 (`--attention int8`: Hadamard rotated int8 Q and K, int8 V, uint8 shares) | 2.06-2.08 s | 17.1 s | 0.256, 0.164 |
+| comfy_kitchen Sol-Attn (`--attention sol`, tau 1: 64 token blocks attend routed key blocks exactly, the others pooled) | 1.56-1.60 s | 13.1 s | 0.594, 0.346 |
+
+Strict against ComfyUI's default is 0.305, 0.092, so INT8 and Sage stay as close as Strict does; Sol-Attn changes the composition but not the quality (frames in `C:/StrictDumps/h3attn-*`). Attention is now the biggest gap: ComfyUI's INT8 kernel saves 1.16 s of its 1.96 s per step, Strict's f16 attention takes 1.70 s.
+
 ## H3 step against ComfyUI by category, and what did not help (2026-10-25, 4090, nsys windows of plain runs)
 
 Per 8-step turbo INT8 step (14,844 tokens), Strict `C:/StrictDumps/prof/now/fox.sqlite` (steps 1-4), ComfyUI `comfy.sqlite` (dump.py h3, 8 warm steps of run 0, 3.22-3.24 s each under nsys):

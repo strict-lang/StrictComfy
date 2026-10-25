@@ -38,7 +38,8 @@ arguments.add_argument("--lora", nargs="*", default=None, help="LoRA names in th
 arguments.add_argument("--lora-strength", type=float, default=1.0)
 arguments.add_argument("--vae", default=None)
 arguments.add_argument("--audio-vae", default="minimax_h3_audio_vae_fp32.safetensors")
-options = arguments.parse_args()
+arguments.add_argument("--attention", choices=["int8", "sol"], default=None, help="h3 attention through comfy_kitchen's int8 or sparse Sol-Attn kernels")
+options, comfy_arguments = arguments.parse_known_args()
 DEFAULTS = {"moss": {"width": 576, "height": 1024, "dit": "moss-image-sft-dit-int8-convrot.safetensors", "te": "qwen3.5_9b_int8_convrot.safetensors",
 		"lora": [r"moss\dmd_turbo_lora.safetensors"], "vae": "flux2-vae.safetensors"},
 	"h3": {"width": 480, "height": 832, "dit": "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors",
@@ -50,7 +51,7 @@ prompt_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt.t
 if options.prompt is None:
 	options.prompt = open(prompt_file, encoding="utf-8").read().strip() if os.path.exists(prompt_file) else ""
 	options.prompt = options.prompt or "A weathered lighthouse on a rocky cliff at sunset, waves crashing below, warm golden light, photo"
-sys.argv = sys.argv[:1]
+sys.argv = sys.argv[:1] + comfy_arguments
 
 import logging  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -241,6 +242,12 @@ def h3():
 	model = with_loras(comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit)))
 	loaded = time.perf_counter()
 	diffusion = model.model.diffusion_model
+	if options.attention:
+		from comfy.ldm.modules import attention
+		chosen = attention.attention_comfy_kitchen_int8 if options.attention == "int8" else attention.attention_comfy_kitchen_sol
+		for module in diffusion.modules():
+			if isinstance(module, attention.ComfyAttention):
+				module.function = chosen
 	sigmas = BasicScheduler.execute(model, options.scheduler, options.steps, 1.0).result[0]
 	guider = BasicGuider.execute(model, conditioning).result[0]
 	sampler = KSamplerSelect.execute("euler").result[0]
