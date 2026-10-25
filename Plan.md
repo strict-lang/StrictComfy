@@ -1,34 +1,19 @@
 # Diffusion inference in Strict: pending work
 This file lists only what is still to be implemented: remove an item once it is done (results and numbers go into commit messages or a README), add what is found. Goal: run ComfyUI's Moss (image DiT, RTX 3080) and MiniMax H3 (video+audio DiT, RTX 4090) in Strict, faster than ComfyUI, then plug Strict into ComfyUI through a node.
 
-## Current work split (2026-10-24)
-- 4090 agent owns H3 optimizations. A is committed and validated on 3080. B1/B3 are rejected on 3080; do not rebuild them.
-- 3080 precision first pass is validated: bf16 residual/QK and native bf16 attention yield 395.22 ms steady evaluations versus f32 405.89 ms and fresh same-clock ComfyUI 402.50 ms. PSNR is 23.30 versus 28.74 dB, and the full debug harness remains slower. Broader quality and end-to-end overhead still require work before treating the overall milestone as complete.
-- Next: grouped Modulated/Rotated vectorization, the recorded full-size Rotated index miscompile, gate/modulation precision alignment, and debug comparison/phase-transition overhead. Follow the ordered instructions in Handoff.md; preserve integer indexing and precise accumulators.
-- C analysis is in [GemmStalls3080.md](GemmStalls3080.md); no accepted GEMM emitter change. Coordinate any future epilogue work with B2. The shared native bf16/runtime changes are validated on the 4090: Moss steps 161.8 -> 152.6 ms at 32.04 instead of 32.36 dB, H3 errors unchanged; their pool trim slowed H3's first steps to 10-15 s in 3 of 9 runs and is skipped while rows are spilled (Strict 2354fc5c).
-- Current measurements and pending work are in [Performance.md](Performance.md) and [Handoff.md](Handoff.md). October 22 sections below are historical, not the current speed baseline.
-- Next: close the matched decode/encoding gap, then reduce cold loading. Use the resident path for node integration. Grouped Modulated/Rotated vectorization and the full-size index miscompile remain open.
-- Spectrum audit and 36-image 25/8/4-step comparison are complete. The user judges quality; no cross-preset equality gate. Details in Generation.md, Spectrum.md and Performance.md. Adaptive/ER-SDE coverage remains incomplete.
-- C analysis remains in GemmStalls3080.md; no accepted GEMM emitter change. Coordinate future epilogue work with B2; B1/B3 remain rejected on 3080.
-- Current instructions are at the top of Handoff.md. October 22 sections below are historical.
-
-## Historical status (2026-10-22, RTX 3080)
-- Whole image generated in Strict (`MossImage.exe <dumps> <model> "" <vae>`): 0.70 s per step against ComfyUI's 0.15 s, every layer within 4 % of ComfyUI, image 31.3 dB PSNR against ComfyUI's (`D:\StrictDumps\moss480\moss-strict.png`). VAE decode (FluxImage, no STRICT_GPU needed) 0.54 s at 720x1280, 0.47 s repeated (61 dB against ComfyUI's decode, ComfyUI 0.54 s), 0.39 / 0.31 s at 576x1024 (62.4 dB, ComfyUI 0.36 s), 0.41 s in MossImage after the DiT; open items in ../Strict/improvements.md item 3.
-- DiT steps at 720x1280 with the dmd-lenovo-finger merge (`D:\StrictDumps\mix720`): 0.59 s against ComfyUI's 0.33-0.40 s, GPU bound. Kernel time per step: int8 GEMM 202 ms (190 TOPS), attention 113 ms, elementwise loops (Rotated, Activated, Modulated, Gated, Scales, Columns) 160 ms, Hadamard + token quantization 69 ms, few-token products (blockss) 35 ms; what is left is in ../Strict/improvements.md item 6. Layer errors grow from 0.004 (layer 0) to 0.40 (layer 41), latent error 0.27, PSNR 29.3 dB; teacher-forced every layer is within 2 % (`layer.py --forced`), the float32 torch reference drifts the same way (0.37 at layer 41), so this is the late layers amplifying rounding, not a bug.
-
 ## Conventions
 - Model specific Strict code and fixtures (`Moss*`, `H3*`, `Euler`, VAEs, `tinymoss.safetensors`) live here in StrictComfy, run with `../Strict/strict.exe test|build X.strict`; only generic pieces go into `../Strict` (other sessions work there too).
 - `dump.py` (ComfyUI's `python_embeded`) writes reference dumps to `D:\StrictDumps\<name>` (`moss` with the DMD LoRA, `moss-base` without), prompt from `prompt.txt` (not checked in), 720 wide × 1280 high by default. `layer.py` recomputes layer 0 step by step in float32 torch from a dump (`layer0.safetensors`) to find where a port differs.
 - Convrot int8 weights load as 8 bit packed rows whose per-32 scales all are the row scale (`Safetensors.Quantized`, exact) and run on the existing int8 tensor core path; activations are quantized per 32 numbers (ComfyUI: per token).
 
-## Phase 1: Moss on the RTX 3080
-1. **Full-size layer accuracy**: find what still differs in 32 bit GPU kernels at full size (3672 tokens, lists past 2^24 numbers). Comparisons in 32 bit kernels are exact now (`MlirRational.Compared`), the error is unchanged when the layer inputs stay on the GPU; with inputs read back to the CPU layer 0 matches (0.0035). Narrow it down per stage against `layer0.safetensors`, fix the root cause in the compiler or runtime with a failing test first.
-2. **Speed** (7.5 s → below 0.44 s per step): profile every piece of a layer first. Suspects: `Modulated`/`Qwen3Block.Normalized` recompute the RMS of 3072 numbers for every element (one scale per token instead), 8 bit rows never use the tiles kernel (per-32 float scale work in `strict_device_block_eight`), 4 Hadamard passes × 5 per layer (one fused kernel, or rotation inside the quantize kernel), attention at 3672 tokens. Then the row-scaled int8 format (int8 row + one scale per row in `Compiler/strict.h`, `strict_gpu_rows`) with int32 accumulation over the whole row and scale + bias in the epilogue of the tiles kernel (`NativeRuntimeTokens.mlir`), per-token activation quantization.
-3. **LoRAs**: merged once with `merge.py <model> <out> <lora>[:strength] ...` (int8 convrot rows: W·Hᵀ + s·α/r·(up·down)·Hᵀ, requantized per row, nearest rounding; DMD merge takes 30 s, `moss-image-sft-dit-int8-convrot-dmd.safetensors`), no runtime cost; `MossLora` keeps unmerged LoRAs for quick experiments (sliders). Pending: per-32 scales in the merged file for less rounding, the user's LoRA stacks.
-4. **Flux2 VAE decoder** (`flux2-vae.safetensors`, F32): latent × √(running_var + 1e-4) + running_mean, un-patchify 2×2 (128 → 32 channels, 160×90), 1×1 `post_quant_conv`, `conv_in` 32 → 512, mid (ResNet, single-head attention over 14400 positions with head size 512, ResNet), up levels 512/512/256/128 with 3 ResNet blocks each and nearest ×2 + 3×3 conv, GroupNorm(32, eps 1e-6) + swish, 3×3 `conv_out`, (x + 1) / 2 clamped. 3×3 convs as 9 shifted matmuls over a zero-padded channel-last image with `Products` (f16 tensor cores); GroupNorm statistics in two passes; mid attention with `Products` + softmax (the attention kernel takes at most 128 per head). Keep peak VRAM bounded (ComfyUI's legacy path needed 10–20 GB). PNG via `ImageSaver`.
-5. **MossImage output**: write the final latent and the PNG, PSNR against ComfyUI's image, per-step and total times, peak VRAM.
-
-Milestone: 720×1280 8-step DMD image from dumped conditioning, PSNR against ComfyUI's image, faster than ComfyUI on the same 3080.
+## Moss (RTX 3080)
+- Sampling regression: 8 steps at 720x1280 take 17.5 s on the 3080 since 2026-10-25 evening (4.0 s in the morning), the GPU at 100% and 330 W, torch reaches 65 fp16 TFLOPS and 213 int8 TOPS, also for the original checkpoint without merge. Likely one of the Strict commits of 2026-10-25 (cd036c45 .. 206b3b3e); a build of the older Strict could not run the current StrictComfy code, bisect the Strict commits with a MossBlock or Moss test timing.
+- Node: negative conditioning for cfg above 1 (Strict guides against a zero prompt of the positive's length; another length needs its own rotation table), an H3 node like the Moss one.
+- Runtime LoRA speed (5.3 s per image against 3.25 s merged): the LoRA epilogue (base + delta / Gain) fused into the expand `Products` (about 0.38 s per image of memory traffic), occupancy of the rank-128 down projection (split-K or a 64x128 tile), the per-image re-uploads (56/31/28 MB x 42).
+- Strict's Flux 2 VAE decode 430-450 ms against ComfyUI's 270 ms (the node decodes in ComfyUI), the cold model load (about 3 s against ComfyUI's lazy 0.11 s).
+- Grouped Modulated/Rotated vectorization, the full-size Rotated index miscompile, gate/modulation precision alignment.
+- Merged LoRAs: per-32 scales for less rounding (stochastic rounding is approximate, 21-25 dB against runtime adapters). Spectrum: adaptive scheduling and ER-SDE are not covered (Spectrum.md).
+- GEMM: no emitter change accepted yet, the analysis is in [GemmStalls3080.md](GemmStalls3080.md).
 
 ## Phase 2: H3 on the RTX 4090 (blocks developed on the 3080)
 Facts: `comfy/ldm/minimax/model.py`, 50 blocks, 5376 wide, 56×128 heads, bidirectional attention over `[text | cond | audio | video]`, modality-tagged adaLN from `adaln_t_table` (curve form), 3D RoPE on the first 96 dims, audio on its own shift-3 clock, 12 s at 480×832 ≈ 36k tokens per step (attention ≈ 60 % of the FLOPs). HyperFlow = rank-256 LoRA merged + 9 fixed sigmas, Euler, no CFG. Video VAE decoder is a 36-block int8 ViT, encoder causal conv3d; audio VAE is BigVGAN.
@@ -58,9 +43,6 @@ Milestone: 5 s 480×832 i2v from dumped conditioning on the 4090, step time agai
 ## Phase 4: Text encoders
 - Moss: Qwen3.5 9B from int8 convrot safetensors (`qwen3.5_9b_int8_convrot.safetensors`) on the existing qwen35 path, final-norm output, chat template; tokenizer from ComfyUI's Qwen tokenizer files (token ids are in the dumps' `conditioning.safetensors`). Only the language model layers on the GPU, freed before the DiT.
 - H3: Qwen3-VL 32B truncated to 50 layers, NVFP4 (E2M1 high nibble first, FP8 block scales in the 128×4 tiled layout, `weight_scale_2`, `pre_quant_scale` on o/down), M-RoPE, vision tower (27 blocks, patch 16, merge 2) with DeepStack into layers 0–2.
-
-## Phase 5: ComfyUI node (StrictComfy)
-Node that hands conditioning/latents to a Strict program (first as a subprocess exchanging safetensors files, later the `strict build ... library` DLL via ctypes) and returns latents or decoded outputs; LoRA stacks passed as file lists.
 
 ## Verification
 - TDD per piece with inline tests against tiny fixtures (`strict test <file>`), native builds (`strict build <file>`, run with `STRICT_GPU=all` to force the GPU), `strict check .` 0 issues; after changes in `../Strict/Compiler` rebuild `strict` and run `NeuralNetworks/Attention.strict` and `Qwen3Block.strict` natively.
