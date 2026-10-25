@@ -40,9 +40,9 @@ Merged(rows Safetensors, name Text, loras Text, prefix Text) List(Numbers)
 	if (rows.Entry(name + ".comfy_quant") is "") or (loras is "")
 		return Projection(rows, name)
 	let lora = H3Lora(loras).Stacked(prefix + name + ".")
-	if lora.down.weights.Length is 0
+	if lora.rank is 0
 		return Projection(rows, name)
-	rows.Tuned(name, Convrot(MossLora.Flat(lora.down.weights)).Rotated, MossLora.Flat(lora.up.weights), lora.scales)
+	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
 Curved(curves Safetensors) Batch
 	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0

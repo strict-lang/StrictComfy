@@ -14,23 +14,25 @@ constant Outputs = Reference.Values("video_output") + Reference.Values("audio_ou
 constant Forward = Tuned.Output(H3Spectrum.Video, H3Spectrum.Audio, 0.75, Refined, H3Layout.Tiny, List(Number))
 Tuning(prefix Text) List(MossLora)
 	H3Lora("").Tuning("blocks.0.").Length is 0
-	Half.Tuning("blocks.1.")(3).down.weights.Length is 5
-	H3Lora(File).Tuning("blocks.1.")(3).up.weights.Length is 256
+	Half.Tuning("blocks.1.")(3).rank is 5
+	H3Lora(File).Tuning("blocks.1.")(3).up.Length is 256 * 5
 	MossImage(Logger).Error(Quarters.Tuning("blocks.0.")(0).Delta(Normed), Reference.Values("qkv")) < 0.005
 	if loras is ""
 		return List(MossLora)
 	for Linears
 		Stacked(prefix + value + ".")
 Stacked(name Text) MossLora
-	Half.Stacked("blocks.0.mlp.fc1.").down.weights.Length is 2
-	Half.Stacked("blocks.1.mlp.fc2.").scales is MossLora.Repeated(0.5, 5)
-	Half.Stacked("blocks.0.adaln_proj.linear.").down.weights.Length is 0
-	mutable stacked = MossLora.Empty
+	Half.Stacked("blocks.0.mlp.fc1.").rank is 2
+	Half.Stacked("blocks.1.mlp.fc2.").up is H3Lora(File).Stacked("blocks.1.mlp.fc2.").up * 0.5
+	Half.Stacked("blocks.0.adaln_proj.linear.").rank is 0
+	mutable stacked = MossLora(List(Number), List(Number), 0, 0)
 	for loras.Split(";")
 		let parts = value.Split("=")
 		let strength = parts.Length is 1 then 1 else parts.Last to Number
-		let isPrefixed = TensorFile.Header(parts.First).IndexOf("\"diffusion_model.") >= 0
-		stacked = stacked.Stacked(MossLora.Loaded(parts.First, (isPrefixed then "diffusion_model." else "") + name, strength))
+		let header = TensorFile.Header(parts.First)
+		let prefix = (header.IndexOf("\"diffusion_model.") >= 0 then "diffusion_model." else "") + name
+		if header.IndexOf("\"" + prefix + "lora_") >= 0
+			stacked = stacked.Stacked(MossLora.Loaded(parts.First, prefix, strength))
 	stacked
 Report Text
 	H3Lora("").Report is ""
