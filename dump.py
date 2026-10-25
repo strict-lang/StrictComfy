@@ -11,6 +11,7 @@
   python_embeded\\python.exe dump.py tinyh3lora (tinyh3lora.safetensors here, an H3 LoRA for tinyh3 + outputs with it, for H3Block.strict)
 """
 import argparse
+import functools
 import json
 import os
 import sys
@@ -322,6 +323,13 @@ def h3():
 	print(json.dumps(times))
 
 
+@functools.lru_cache(maxsize=1)
+def audio_decoder():
+	"""The --audio-vae (a path or a name in the vae folder), loaded once for every decoded video."""
+	heard_from = options.audio_vae if os.path.isfile(options.audio_vae) else folder_paths.get_full_path_or_raise("vae", options.audio_vae)
+	return comfy.sd.VAE(sd=comfy.utils.load_torch_file(heard_from))
+
+
 def decoded_av(vae, video, audio, out, prefix):
 	"""Decodes an H3 video latent [1, 24, T, H, W] and audio latent [1, 32, 2, T] with ComfyUI's VAEs: the frames as uint8
 	(the first, middle and last also as prefix + frame-*.png), prefix + audio.wav, the seconds both decodes took."""
@@ -334,10 +342,8 @@ def decoded_av(vae, video, audio, out, prefix):
 	frames = (frames.reshape(-1, *frames.shape[-3:]).clamp(0, 1) * 255).round().byte().cpu()
 	for name, frame in (("first", 0), ("middle", len(frames) // 2), ("last", len(frames) - 1)):
 		Image.fromarray(frames[frame].numpy()).save(os.path.join(out, f"{prefix}frame-{name}.png"))
-	heard_from = options.audio_vae if os.path.isfile(options.audio_vae) else folder_paths.get_full_path_or_raise("vae", options.audio_vae)
-	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(heard_from))
 	heard = time.perf_counter()
-	sound = vae_decode_audio(audio_vae, {"samples": audio})
+	sound = vae_decode_audio(audio_decoder(), {"samples": audio})
 	waveform = (sound["waveform"][0].clamp(-1, 1) * 32767).round().short().T.contiguous().cpu().numpy()
 	with wave.open(os.path.join(out, prefix + "audio.wav"), "wb") as file:
 		file.setnchannels(waveform.shape[1])
@@ -350,12 +356,13 @@ def decoded_av(vae, video, audio, out, prefix):
 
 
 def encoded(frames, audio, path):
-	"""H.265 MP4 of uint8 frames [T, H, W, 3] at 24 fps with the audio WAV, through the installed ffmpeg (libx265)."""
+	"""H.264 MP4 (like ComfyUI's SaveVideo, 5 times faster than libx265 at the same size) of uint8 frames [T, H, W, 3] at 24 fps
+	with the audio WAV, through the installed ffmpeg."""
 	import shutil
 	import subprocess
 	command = [shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{frames.shape[2]}x{frames.shape[1]}",
-		"-r", "24", "-i", "-", "-i", audio, "-c:v", "libx265", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-tag:v", "hvc1",
-		"-x265-params", "log-level=error", "-c:a", "aac", "-b:a", "192k", "-shortest", path]
+		"-r", "24", "-i", "-", "-i", audio, "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p",
+		"-c:a", "aac", "-b:a", "192k", "-shortest", path]
 	subprocess.run(command, input=frames.contiguous().numpy().tobytes(), check=True)
 	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB")
 

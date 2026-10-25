@@ -1,5 +1,5 @@
 has logger
-constant Encoding = " -c:v libx265 -crf 18 -preset medium -pix_fmt yuv420p -tag:v hvc1 -x265-params log-level=error -c:a aac -b:a 192k -shortest "
+constant Encoding = " -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "
 Run(dumps Text, video Text, audio Text)
 	let steps = Safetensors(dumps + "/steps.safetensors", 32)
 	let started = Process.Elapsed

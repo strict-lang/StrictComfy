@@ -84,6 +84,29 @@ The checked-in 4090 report calls the c1829a08 regression **Moss VAE**, not H3 VA
 
 Exact H3/4090 failing command and old/new run logs remain needed to reproduce the reported 0.3 s increase. Do not mark that issue fixed. Diagnostic compiler worktree StrictVaeCheck is unmerged; model executables restored to current production artifacts. Evidence: D:/StrictDumps/vae-regression, including profile.sqlite, fixed-latent controls and moss-*-pair*.log. JPEG codec check, ImageProcessing VM tests, native JPEG reader/ImageSaver tests, allocator/cache checks and both changed-folder checks pass.
 
+## H3 step against ComfyUI by category, and what did not help (2026-10-25, 4090, nsys windows of plain runs)
+
+Per 8-step turbo INT8 step (14,844 tokens), Strict `C:/StrictDumps/prof/now/fox.sqlite` (steps 1-4), ComfyUI `comfy.sqlite` (dump.py h3, 8 warm steps of run 0, 3.22-3.24 s each under nsys):
+
+| | Strict | ComfyUI |
+|---|---:|---:|
+| Attention | 1704 ms (`strict_device_attentions`) | 1962 ms (cuDNN flash fprop) |
+| int8 GEMM | 961 ms (`strict_device_wholes_fast`) | 896 ms (CUTLASS `Kernel2`) |
+| Quantize + Hadamard | 113 ms | 110 ms |
+| Elementwise | 467 ms: Rope.Rotated 105, Gated 84, Qwen3Block.Scales 73, Modulated 73, Activated 65, Safetensors.Part 31, Batch.Columns 22 | ~206 ms: elementwise 126, rope 46, layer norm 34 |
+| Kernels | 3250 ms | ~3170 ms |
+| Idle | 460-650 ms | ~60 ms |
+
+Both do the same work; Strict's attention is 258 ms faster, its elementwise kernels 260 ms slower and it idles 0.5 s per step. The idle of one step (50 gaps over 0.2 ms, 468 ms): host waits in small downloads (99 ms), `cuMemFree` (44 ms) and `cuMemAlloc` (15 ms, one of 34.5 ms at the step start), synchronizations around the streamed blocks (1-34 ms), uploads the next GEMM waits for (86 ms), the FedForward chunk loop (about 110 ms between its 4 chunks per block) and the step boundary (about 60 ms). 4.57 GB of weights go up per step (the device rows keep a float scale for every 32 int8 numbers: 436 instead of 387 MB per block, 21.8 GB in all).
+
+Tried on alternating h3fox runs (steps 1-7, base 3.58-3.92 s):
+- Strided attention values like Moss (combined qkv as values, no `Batch.Columns` copy): 3.64-4.32 s, slower, the combined list stays alive through the attention (+640 MB) and more weights stream.
+- Inlining `normed` and `expanded` so they die earlier: 3.69-3.87 s, no change (the runtime frees them at their last use already); FedForward chunks of 2048 instead of 4096 tokens: 3.70-4.03 s, no change.
+- `Qwen3Block.HeadScale` inside Modulated, Normalized and Rope.Rotated (Moss's fused form): 6.1-7.8 s, its reduction over H3's 5376-wide rows is not shared across the row.
+- The pool's own-allocation reserve at 256 MB instead of 1 GB (../Strict NativeRuntime.mlir): 50 blocks unchanged (rows are spilled, the trim is skipped then); a test with 40 of the 50 blocks (everything resident) took 9.5-12 s per step with 1 GB (440 driver allocations and frees, 200 synchronizations per step) and 2.8 s with 256 MB, 0.27 s of that idle. Recorded in ../Strict/improvements.md 5 (c, d): the trim policy and a compact layout for rows with one scale come first, fitting alone would save about 0.1 s per step.
+
+End to end after the latent and decoder fixes (`H3Video.exe --count 2`, cached prompt, timestamped, 141.2 s instead of 163.3 s): launcher 3.9 s, model load 12.6 s, the first video 41.6 s (with the 12 s first upload of the weights), the second 30.1 s (29.8 s sampling, the binary latent costs milliseconds instead of 5.4 s of text), then 12 s until the ComfyUI decode worker prints, 18.5 s of its start and VAE loading, 20.7 s decoding both (the audio VAE is loaded once instead of per video, libx264 takes 0.93 instead of libx265's 4.96 s per mp4 at the same size). A warm video costs 29.8 + about 10.3 s = 40 s against ComfyUI's warm 26.7 + 7.4 + 2.8 s + the mp4 = about 38 s; with spectrum8_w1p2 about 29.6 s. The decode worker's 30 s start is the biggest fixed cost left for single videos.
+
 ## H3 against today's ComfyUI, the H3Video command and bf16 results (2026-10-25, 4090, quiet GPU)
 
 ComfyUI re-measured with `dump.py h3 --runs 2` (the second, warm run): turbo INT8 8 steps 26.7 s (3.26-3.29 s per call), base FL2VA INT8 + TaoMate 3-step LoRA (208 patches) 10.7 s (3.35-3.40 s per call), video VAE 7.4 s, audio VAE 2.8 s. The older 38.5 s (4.6-5.0 s per call) predates the GPU repaste and is withdrawn; ComfyUI's outputs are unchanged (Strict's per step errors against both dumps are identical). ComfyUI keeps the whole model resident ("19995MB Staged"), Strict streams part of the weights every step.
