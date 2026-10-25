@@ -2,7 +2,7 @@
   python_embeded\\python.exe dump.py moss [--out D:\\StrictDumps\\moss] [--width 576 --height 1024 ...], prompt from prompt.txt
   python_embeded\\python.exe dump.py h3 [--out C:\\StrictDumps\\h3] [--image first.png --length 124 ...], t2va or i2v at 480x832
   python_embeded\\python.exe dump.py h3 --runs 0 --out C:\\StrictDumps\\cat --prompt "..." --seed 7   (t2va inputs only, no ComfyUI sampling)
-  python_embeded\\python.exe dump.py h3decode [--out C:\\StrictDumps\\h3]   (every <name>-latent.txt of H3Video.strict decoded with ComfyUI's VAEs as <name>-video.mp4)
+  python_embeded\\python.exe dump.py h3decode [--out C:\\StrictDumps\\h3]   (every <name>-latent.safetensors of H3Video.strict decoded with ComfyUI's VAEs as <name>-video.mp4)
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
@@ -189,10 +189,24 @@ def moss():
 
 
 def h3_condition(conditioning):
-	"""Qwen3-VL states and token tags of an H3 conditioning as conditioning.safetensors keeps them."""
+	"""Qwen3-VL states, token tags and keyframe latents with their frame indices of an H3 conditioning, as
+	conditioning.safetensors keeps them."""
 	tags = conditioning[0][1].get("minimax_token_tags")
 	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
-	return {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
+	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
+	keyframes = conditioning[0][1].get("minimax_keyframes") or []
+	for index, keyframe in enumerate(keyframes):
+		condition[f"keyframe.{index}"] = keyframe["latent"][0]
+	if keyframes:
+		condition["keyframes"] = torch.tensor([float(keyframe["resolved_frame_index"]) for keyframe in keyframes])
+	return condition
+
+
+def image_tensor(path):
+	"""An image file as ComfyUI's IMAGE: [1, height, width, 3] floats from 0 to 1."""
+	import numpy
+	from PIL import Image
+	return torch.from_numpy(numpy.array(Image.open(path).convert("RGB"))).float()[None] / 255
 
 
 def h3():
@@ -202,8 +216,6 @@ def h3():
 	refined text, block 0's input, the curve rows and the outputs of a few blocks in the first call), steps.safetensors (per call
 	the streams and velocities of _forward, each stream on its own schedule, and the sampler's packed ones as sampler.*), the
 	decoded frames (first, middle and last as PNG) and audio (audio.wav), times.json."""
-	import numpy
-	from PIL import Image
 	from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
 	from comfy_extras.nodes_custom_sampler import BasicScheduler, KSamplerSelect, BasicGuider, RandomNoise, SamplerCustomAdvanced
 	out = options.out or r"C:\StrictDumps\h3"
@@ -211,15 +223,11 @@ def h3():
 	started = time.perf_counter()
 	clip = comfy.sd.load_clip([folder_paths.get_full_path_or_raise("text_encoders", options.te)], clip_type=comfy.sd.CLIPType.MINIMAX)
 	vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.vae)))
-	image = torch.from_numpy(numpy.array(Image.open(options.image).convert("RGB"))).float()[None] / 255 if options.image else None
+	image = image_tensor(options.image) if options.image else None
 	conditioning, latent = MiniMaxH3ImageToVideo.execute(clip, vae, options.prompt, options.width, options.height, options.length, first_frame=image).result
 	encoded = time.perf_counter()
 	condition = h3_condition(conditioning)
 	keyframes = conditioning[0][1].get("minimax_keyframes") or []
-	for index, keyframe in enumerate(keyframes):
-		condition[f"keyframe.{index}"] = keyframe["latent"][0]
-	if keyframes:
-		condition["keyframes"] = torch.tensor([float(keyframe["resolved_frame_index"]) for keyframe in keyframes])
 	saved(condition, os.path.join(out, "conditioning.safetensors"), {"prompt": options.prompt})
 	del clip
 	comfy.model_management.unload_all_models()
@@ -353,16 +361,17 @@ def encoded(frames, audio, path):
 
 
 def decoded_latent(vae, path, shapes, out, prefix):
-	"""decoded_av of a latent text file H3Video.strict wrote: the video numbers, then the audio numbers, one per line."""
+	"""decoded_av of a latent H3Video.strict wrote: its "latent" tensor holds the video numbers, then the audio numbers."""
 	import math
-	import numpy
-	numbers = torch.from_numpy(numpy.loadtxt(path, dtype=numpy.float32))
+	from safetensors.torch import load
+	with open(path, "rb") as file:
+		numbers = load(file.read())["latent"]
 	size = math.prod(shapes[0])
 	return decoded_av(vae, numbers[:size].reshape(*shapes[0])[None], numbers[size:].reshape(*shapes[1])[None], out, prefix)
 
 
 def h3decode():
-	"""Decodes every <name>-latent.txt H3Video.strict wrote into --out that is newer than its <name>-video.mp4 (the video then the
+	"""Decodes every <name>-latent.safetensors H3Video.strict wrote into --out that is newer than its <name>-video.mp4 (the video then the
 	audio numbers, one per line, shaped like video.0 and audio.0 of steps.safetensors) into <name>-frame-*.png, <name>-audio.wav
 	and <name>-video.mp4, PSNR against ComfyUI's frames when steps.safetensors has them."""
 	import glob
@@ -372,8 +381,8 @@ def h3decode():
 	steps = load_file(os.path.join(out, "steps.safetensors"))
 	shapes = steps["video.0"].shape, steps["audio.0"].shape
 	vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.vae)))
-	for path in sorted(glob.glob(os.path.join(out, "*-latent.txt"))):
-		prefix = os.path.basename(path)[:-len("latent.txt")]
+	for path in sorted(glob.glob(os.path.join(out, "*-latent.safetensors"))):
+		prefix = os.path.basename(path)[:-len("latent.safetensors")]
 		movie = os.path.join(out, prefix + "video.mp4")
 		if os.path.exists(movie) and os.path.getmtime(movie) > os.path.getmtime(path):
 			continue

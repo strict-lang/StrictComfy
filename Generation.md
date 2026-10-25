@@ -176,11 +176,12 @@ The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB c
 cd C:\StrictDumps\videos
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --count 4
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --spectrum spectrum8_w1p2
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --count 4
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --steps 3 --lora h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:0.8
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --steps 4 --lora h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:0.6 --lora_mode runtime
 ```
 
-The prompts are encoded in one ComfyUI worker (cached per prompt under `artifacts/h3`, the same Qwen3-VL states and token tags as ComfyUI's H3 node), the noise is ComfyUI's for the same seed, `H3Video.exe` samples every job with one model load, then one ComfyUI worker decodes all latents with the video and audio VAEs and ffmpeg writes `H3Video0001.mp4`, `H3Video0002.mp4`, ... Text to video and audio only, image inputs are not wired yet.
+The prompts are encoded in one ComfyUI worker (cached per prompt under `artifacts/h3`, the same Qwen3-VL states and token tags as ComfyUI's H3 node), the noise is ComfyUI's for the same seed, `H3Video.exe` samples every job with one model load, then one ComfyUI worker decodes all latents with the video and audio VAEs and ffmpeg writes `H3Video0001.mp4`, `H3Video0002.mp4`, ... `--image first.png` (and `--last_image last.png`) makes it image to video like ComfyUI's MiniMaxH3ImageToVideo node: the worker encodes the frames with the video VAE and the prompt together with them (cached per prompt, images and size), the launcher adds ComfyUI's noise augmented condition rows for each seed; the conditioning matches ComfyUI's exactly.
 
 LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and kohya's `lora_unet_<module with _>`, `lora_A`/`lora_B` or `lora_down`/`lora_up` with an optional `alpha`. `--lora_mode merged` (default) merges every matching tensor once into a cached int8 model with `merge.py`: the block linears, the dense token refiner, adaln and final layer, a full 21 GB file per model, LoRA and strength combination in `artifacts/h3`, so delete old ones after trying many strengths. `--lora_mode runtime` lets `H3Video.exe` merge the block linears and the token refiner at every load instead (`Safetensors.Tuned`, no cached file, about 20 s more load for TaoMate, 110 s for rank 384); its load line counts the applied tensors. FastH3's `diff`/`diff_b` tensors are applied by neither.
 
@@ -188,7 +189,7 @@ LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and 
 
 ## Diagnostic mode: positional arguments
 
-`dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps); a full `dump.py h3` run (also with `--lora name:strength`) adds ComfyUI's per step references, which the positional mode compares against. `dump.py h3decode` decodes every `<name>-latent.txt` in a folder with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs).
+`dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps); a full `dump.py h3` run (also with `--lora name:strength`) adds ComfyUI's per step references, which the positional mode compares against. `dump.py h3decode` decodes every `<name>-latent.safetensors` in a folder with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs).
 
 ```powershell
 cd C:\code\GitHub\strict-lang\StrictComfy
@@ -203,7 +204,7 @@ $env:STRICT_GPU = "all"
 
 Arguments after the executable: `dumps model name loras steps shift period warmup degree`, defaults `strict "" 0 12 0 1 1`.
 
-- `name`: the output is `<name>-latent.txt`.
+- `name`: the output is `<name>-latent.safetensors` (one F32 tensor `latent`: the video, then the audio numbers).
 - `loras`: `path=strength` entries separated by `;`, a path without `=` has strength 1, an empty argument for none (`'""'` in Windows PowerShell 5.1, which drops `""`). Keys `[diffusion_model.]blocks.N.{attn.qkv_proj,attn.out_proj,mlp.fc1,mlp.fc2}.{lora_A,lora_B,lora_down,lora_up}.weight` with an optional `alpha` (scale alpha / rank, 1 without, times the strength), the same for `token_refiner.blocks.N`. Several LoRAs stack by rank. The int8 convrot block weights get the update merged at load like ComfyUI does (dequantized, the rotated update added, requantized per row with stochastic rounding; `Safetensors.Tuned` in ../Strict), so steps cost the same as without LoRA; the dense token refiner applies them per call. The load line reports how many of each file's tensors were applied: adaln, patch projection and final layer LoRAs and FastH3's `diff`/`diff_b` tensors are not applied yet.
 - `steps`: 0 takes the count of the folder's `sigmas`; the schedule is ComfyUI's simple flow schedule `shift t / (1 + (shift - 1) t)` (8 steps match ComfyUI exactly), `shift` is the video flow shift and the audio sigmas follow from it with shift 3 like ComfyUI's MiniMax H3 shift node. Per step errors against ComfyUI print only when the folder has its references and the step count matches.
 - `period`: Spectrum, 0 is off. After `warmup` actual steps every `period`-th step is actual, the others are forecast from the last actual ones, the last step is always actual: 8 steps with period 2 are A F A F A F A A (5 transformer evaluations), period 3 skips two of three. `degree` is the Chebyshev degree of the fit (ridge 0.1, blended half with the line through the last two, `SpectralFit`), it keeps `degree + 1` anchors; with one anchor the forecast holds it. H3 forecasts its output, not its features ([Spectrum.md](Spectrum.md)).

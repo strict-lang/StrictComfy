@@ -37,7 +37,7 @@ Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), arguments 
 		let before = Process.Elapsed
 		let sampled = Generated(h3, value, Steps(arguments(0), value), texts(index), numbers, arguments(0))
 		let file = value.Entry("video") is "" then name else name + "-" + index
-		File(arguments(0) + "/" + file + "-latent.txt").Write(Text.Combine(sampled, Character.NewLine))
+		Safetensors(arguments(0) + "/" + file + "-latent.safetensors").Written("latent", sampled)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 		GpuMemory.Released
 Steps(dumps Text, condition Safetensors) Safetensors

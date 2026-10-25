@@ -444,7 +444,7 @@ class GenerationCommandTests(unittest.TestCase):
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
 			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1'])
-			self.assertEqual([result[1].name for result in results], ['strict-0-latent.txt', 'strict-1-latent.txt'])
+			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')
 			second = self.tensors(folder / 'generation-1.safetensors')
@@ -458,7 +458,7 @@ class GenerationCommandTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--comfyui', str(folder)], 'h3')
-			latents = [(index, folder / f'strict-{index}-latent.txt', 20 + index) for index in range(2)]
+			latents = [(index, folder / f'strict-{index}-latent.safetensors', 20 + index) for index in range(2)]
 			def worker(command, **kwargs):
 				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
 				self.assertEqual([job['latent'] for job in request['jobs']], [str(path) for index, path, ms in latents])
@@ -493,6 +493,75 @@ class GenerationCommandTests(unittest.TestCase):
 				merged = self.tensors(folder / (label + '-merged.safetensors'))
 				self.assertTrue(torch.allclose(merged['model.diffusion_model.' + name + '.weight'].float() *
 					merged['model.diffusion_model.' + name + '.weight_scale'], torch.full((2, 256), 1.5)))
+
+	def test_h3_image_options(self):
+		module = self.module()
+		args = module.arguments(['--image', 'first.png', '--last_image', 'last.png'], 'h3')
+		self.assertEqual((args.image, args.last_image), (Path('first.png'), Path('last.png')))
+		self.assertIsNone(module.arguments([], 'h3').image)
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--image', 'first.png'])
+
+	def test_h3_image_rows_restart_the_seeded_noise_per_keyframe(self):
+		import torch
+		module = self.module()
+		latent = torch.arange(24 * 4 * 6, dtype=torch.float32).reshape(24, 1, 4, 6)
+		rows = module.h3_rows([latent, latent], 42)
+		self.assertEqual(tuple(rows.shape), (12, 96))
+		self.assertTrue(torch.equal(rows[:6], rows[6:]))
+		self.assertTrue(torch.allclose(rows[0, :4], 0.999 * torch.tensor([0.0, 1, 6, 7]) +
+			0.001 * torch.randn((6, 96), generator=torch.Generator().manual_seed(42))[0, :4]))
+
+	def test_h3_image_conditioning_is_cached_per_image_and_size(self):
+		from unittest.mock import patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			(folder / 'comfy').mkdir()
+			(folder / 'comfy/sd.py').write_text('fixture')
+			for name in ('encoder.safetensors', 'vae.safetensors', 'first.png', 'other.png'):
+				(folder / name).write_bytes(name.encode())
+			requests = []
+			def worker(command, **kwargs):
+				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
+				requests.append(request)
+				for index in range(len(request['prompts'])):
+					save_file({'context': torch.zeros((2, 3))}, str(Path(command[4]) / f'{index}.safetensors'))
+			paths = []
+			for image in ('first.png', 'other.png', 'first.png'):
+				args = module.arguments(['--comfyui', str(folder), '--cache', str(folder), '--image', str(folder / image),
+					'--vae', str(folder / 'vae.safetensors')], 'h3')
+				with patch.object(module.subprocess, 'run', side_effect=worker):
+					paths += module.conditioning(args, ['prompt'], folder / 'encoder.safetensors')
+			self.assertEqual(len(requests), 2)
+			self.assertEqual(requests[0]['images'], [str(folder / 'first.png'), ''])
+			self.assertEqual((requests[0]['width'], requests[0]['height'], requests[0]['length']), (480, 832, 124))
+			self.assertNotEqual(paths[0], paths[1])
+			self.assertEqual(paths[0], paths[2])
+
+	def test_h3_image_jobs_carry_rows_instead_of_keyframe_latents(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--seed', '42', '--width', '32', '--height', '32', '--length', '5', '--cache', str(folder)], 'h3')
+			context = folder / 'context.safetensors'
+			latent = torch.ones((24, 1, 2, 2))
+			save_file({'context': torch.zeros((2, 3)), 'tags': torch.ones(2), 'keyframe.0': latent,
+				'keyframes': torch.zeros(1)}, str(context))
+			process = MagicMock()
+			process.stdout = io.StringIO('generation 0 in 20 ms\n')
+			process.wait.return_value = 0
+			process.poll.return_value = 0
+			with patch.object(module.subprocess, 'Popen', return_value=process), redirect_stdout(io.StringIO()):
+				list(module.generated(args, Path('model'), Path('vae'), [context], module.jobs(args, 'a'), folder, ''))
+			job = self.tensors(folder / 'generation-0.safetensors')
+			self.assertEqual(set(job), {'context', 'tags', 'keyframes', 'rows', 'video', 'audio'})
+			self.assertTrue(torch.equal(job['rows'], module.h3_rows([latent], 42)))
 
 if __name__ == '__main__':
 	unittest.main()

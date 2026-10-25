@@ -109,6 +109,8 @@ def arguments(argv=None, family='moss'):
 	if family == 'h3':
 		parser.add_argument('--length', type=int, default=124, help='Frames at 24 fps, snapped up to 17k+5 like ComfyUI')
 		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
+		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
+		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
@@ -245,9 +247,18 @@ def encoded(request, output):
 	types = dump.comfy.sd.CLIPType
 	clip = dump.comfy.sd.load_clip([request['te']], embedding_directory=dump.folder_paths.get_folder_paths('embeddings'),
 		clip_type=types.MINIMAX if family == 'h3' else types.MOSS_IMAGE)
+	images = request.get('images', [])
+	if any(images):
+		from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
+		vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
+		first, last = [dump.image_tensor(path) if path else None for path in images]
 	for index, prompt in enumerate(request['prompts']):
 		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
-		conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
+		if any(images):
+			conditioning = MiniMaxH3ImageToVideo.execute(clip, vae, prompt, request['width'], request['height'], request['length'],
+				first_frame=first, last_frame=last).result[0]
+		else:
+			conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
 		tensors = dump.h3_condition(conditioning) if family == 'h3' else {'context': conditioning[0][0]}
 		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
 			str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
@@ -266,11 +277,21 @@ def decoding(request):
 		dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])
 
 
+def framing(args):
+	"""The H3 frame images and what their conditioning depends on, empty without images."""
+	images = [str(path) if path else '' for path in (getattr(args, 'image', None), getattr(args, 'last_image', None))]
+	if not any(images):
+		return {}
+	return {'images': images, 'width': args.width, 'height': args.height, 'length': args.length, 'vae': str(args.vae)}
+
+
 def conditioning(args, prompts, encoder):
 	paths, missing = [], {}
+	framed = framing(args)
 	for prompt in prompts:
-		request = {'prompt': prompt, 'te': str(encoder), 'comfyui': str(args.comfyui.resolve())}
-		key = cache_key([1, request, identity(encoder), identity(args.comfyui / 'comfy' / 'sd.py')])
+		request = {'prompt': prompt, 'te': str(encoder), 'comfyui': str(args.comfyui.resolve()), **framed}
+		inputs = [Path(path) for path in framed.get('images', []) if path] + ([Path(framed['vae'])] if framed else [])
+		key = cache_key([1, request, identity(encoder), identity(args.comfyui / 'comfy' / 'sd.py'), *map(identity, inputs)])
 		path = args.cache / ('context-' + key + '.safetensors')
 		paths.append(path)
 		if not path.exists():
@@ -280,7 +301,7 @@ def conditioning(args, prompts, encoder):
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 			folder = Path(temporary)
 			request = {'prompts': list(missing.values()), 'te': str(encoder), 'comfyui': str(args.comfyui.resolve()),
-				'family': args.family}
+				'family': args.family, **framed}
 			(folder / 'request.json').write_text(json.dumps(request), encoding='utf-8')
 			subprocess.run([sys.executable, str(ROOT / 'generate.py'), '_encode', str(folder / 'request.json'),
 				str(folder)], check=True)
@@ -383,6 +404,20 @@ def h3_noise(args, seed):
 	return tuple(torch.randn(shape, generator=generator)[0] for shape in shapes)
 
 
+def h3_rows(latents, seed):
+	"""ComfyUI's conditioning rows of H3 keyframe latents: 2x2 patches, 0.999 latent and 0.001 noise, the seeded noise
+	restarting for every keyframe."""
+	import torch
+	rows = []
+	for latent in latents:
+		channels, frames, height, width = latent.shape
+		patches = latent.float().reshape(channels, frames, height // 2, 2, width // 2, 2).permute(1, 2, 4, 0, 3, 5)
+		patches = patches.reshape(-1, channels * 4)
+		noise = torch.randn(patches.shape, generator=torch.Generator('cpu').manual_seed(seed))
+		rows.append(0.999 * patches + 0.001 * noise)
+	return torch.cat(rows)
+
+
 def backend(args, folder, model, vae, adapter):
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
@@ -398,6 +433,9 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 	for index, (context, job) in enumerate(zip(contexts, plan)):
 		data = load(Path(context).read_bytes())
 		if args.family == 'h3':
+			latents = [data.pop(f'keyframe.{number}') for number in range(len(data.get('keyframes', [])))]
+			if latents:
+				data['rows'] = h3_rows(latents, job['seed'])
 			data['video'], data['audio'] = h3_noise(args, job['seed'])
 		else:
 			data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
@@ -428,7 +466,7 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 				completed += 1
 				suffix = f'-{index}' if len(plan) > 1 else ''
 				extension = '.png' if args.output.suffix.lower() == '.png' else '.jpg'
-				name = f'strict-{index}-latent.txt' if args.family == 'h3' else 'strict-' + mode + suffix + extension
+				name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else 'strict-' + mode + suffix + extension
 				yield index, folder / name, int(match[2])
 		code = worker.wait()
 		if code:
@@ -472,6 +510,7 @@ def main(argv=None):
 	vae = args.vae = located(args.vae, models / 'vae')
 	if args.family == 'h3':
 		args.audio_vae = located(args.audio_vae, models / 'vae')
+		args.image, args.last_image = [located(path, Path.cwd()) if path else None for path in (args.image, args.last_image)]
 	encoder = located(args.te, models / 'text_encoders')
 	name = Path(FAMILIES[args.family]['backend']).stem
 	if not (ROOT / (name + '.exe')).is_file():
@@ -501,6 +540,7 @@ def main(argv=None):
 							steps=args.steps, width=args.width, height=args.height, vae=str(vae), te=str(encoder),
 							seconds=time.perf_counter() - started, batch_index=index + 1, count=args.count, generation_ms=generation_ms)
 						settings.update({name: getattr(args, name) for name in ('guidance', 'length', 'shift') if hasattr(args, name)})
+						settings.update({name: str(getattr(args, name)) for name in ('image', 'last_image') if getattr(args, name, None)})
 						if args.family == 'moss':
 							settings['jpg_quality'] = args.jpg_quality if output.suffix.lower() != '.png' else None
 						with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
