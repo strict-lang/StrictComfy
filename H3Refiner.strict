@@ -17,3 +17,7 @@ Refined(context Numbers) Numbers
 	for refiner
 		hidden = value.Refined(hidden, unturned)
 	H3Block.Normalized(hidden, refinedNorm)
+Texts(conditions List(Safetensors)) List(Numbers)
+	Tiny.Texts(List(Safetensors) + H3.Model)(0) is Tiny.Refined(H3.Model.Values("context"))
+	for conditions
+		Refined(value.Values("context"))

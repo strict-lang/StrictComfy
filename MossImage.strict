@@ -4,7 +4,7 @@ constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
 constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
 Run(arguments Texts) Number
 	if (arguments.Length is 0) or arguments(0).StartsWith("-")
-		return MossCommand(logger).Run(arguments)
+		return GenerationCommand(logger).Run("moss", arguments)
 	if arguments.Length is not 4
 		logger.Log("Use --help, or diagnostic arguments: dumps model lora vae")
 		return 2

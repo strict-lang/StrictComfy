@@ -29,11 +29,20 @@ Stacked(name Text) MossLora
 	for loras.Split(";")
 		let parts = value.Split("=")
 		let strength = parts.Length is 1 then 1 else parts.Last to Number
-		let header = TensorFile.Header(parts.First)
-		let prefix = (header.IndexOf("\"diffusion_model.") >= 0 then "diffusion_model." else "") + name
-		if header.IndexOf("\"" + prefix + "lora_") >= 0
+		let prefix = Prefixed(TensorFile.Header(parts.First), name)
+		if prefix is not ""
 			stacked = stacked.Stacked(MossLora.Loaded(parts.First, prefix, strength))
 	stacked
+Prefixed(header Text, name Text) Text
+	Half.Prefixed("\"diffusion_model.b.fc1.lora_A.weight\"", "b.fc1.") is "diffusion_model.b.fc1."
+	Half.Prefixed("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."
+	Half.Prefixed("\"b.fc1.lora_down.weight\"", "b.fc1.") is "b.fc1."
+	Half.Prefixed("\"b.fc1.alpha\"", "b.fc1.") is ""
+	let kohya = "lora_unet_" + name.Substring(0, name.Length - 1).Replace(".", "_") + "."
+	for ("diffusion_model." + name, name, kohya)
+		if header.IndexOf("\"" + value + "lora_") >= 0
+			return value
+	""
 Report Text
 	H3Lora("").Report is ""
 	Half.Report is ", tinyh3lora.safetensors applies 35 of its 43 tensors"
@@ -48,7 +57,11 @@ Report Text
 	report
 Applied(header Text) Number
 	Half.Applied("\"b.mlp.fc1.lora_A.weight\":{},\"b.mlp.fc1.alpha\":{},\"b.norm1.diff\"") is 2
+	Half.Applied("\"lora_unet_b_mlp_fc1.lora_down.weight\":{},\"lora_unet_b_mlp_fc1.alpha\":{}") is 2
 	mutable count = 0
 	for Linears
-		count = count + header.Split("." + value + ".lora_").Length + header.Split("." + value + ".alpha").Length - 2
+		count = count + Counted(header, "." + value + ".") + Counted(header, "_" + value.Replace(".", "_") + ".")
 	count
+Counted(header Text, module Text) Number
+	Half.Counted("\"a.b.lora_A\",\"a.b.alpha\",\"a.c.alpha\"", ".b.") is 2
+	header.Split(module + "lora_").Length + header.Split(module + "alpha").Length - 2

@@ -90,6 +90,15 @@ def saved(tensors, path, metadata=None):
 	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB")
 
 
+def with_loras(model):
+	"""The model patched with every --lora name[:strength] (in the loras folder) like ComfyUI's LoraLoaderModelOnly."""
+	for entry in [entry for entry in options.lora if entry]:
+		name, strength = (entry.rsplit(":", 1)[0], float(entry.rsplit(":", 1)[1])) if ":" in entry else (entry, options.lora_strength)
+		lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", name), safe_load=True)
+		model, _ = comfy.sd.load_lora_for_models(model, None, lora, strength, 0)
+	return model
+
+
 def moss():
 	out = options.out or r"D:\StrictDumps\moss"
 	os.makedirs(out, exist_ok=True)
@@ -106,11 +115,7 @@ def moss():
 		os.path.join(out, "conditioning.safetensors"), {"prompt": options.prompt})
 	del clip
 	comfy.model_management.unload_all_models()
-	model = comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit))
-	for entry in [entry for entry in options.lora if entry]:
-		name, strength = (entry.rsplit(":", 1)[0], float(entry.rsplit(":", 1)[1])) if ":" in entry else (entry, options.lora_strength)
-		lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", name), safe_load=True)
-		model, _ = comfy.sd.load_lora_for_models(model, None, lora, strength, 0)
+	model = with_loras(comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit)))
 	loaded = time.perf_counter()
 	diffusion = model.model.diffusion_model
 	latent = torch.zeros([1, 128, options.height // 16, options.width // 16])
@@ -183,6 +188,13 @@ def moss():
 	print(json.dumps(times))
 
 
+def h3_condition(conditioning):
+	"""Qwen3-VL states and token tags of an H3 conditioning as conditioning.safetensors keeps them."""
+	tags = conditioning[0][1].get("minimax_token_tags")
+	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
+	return {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
+
+
 def h3():
 	"""t2va (i2v with --image) through ComfyUI's own H3 nodes like the UI workflow (MiniMaxH3ImageToVideo, euler, the simple
 	scheduler, BasicGuider): conditioning.safetensors (Qwen3-VL states, token tags, keyframe latents, their frame indices and
@@ -202,11 +214,8 @@ def h3():
 	image = torch.from_numpy(numpy.array(Image.open(options.image).convert("RGB"))).float()[None] / 255 if options.image else None
 	conditioning, latent = MiniMaxH3ImageToVideo.execute(clip, vae, options.prompt, options.width, options.height, options.length, first_frame=image).result
 	encoded = time.perf_counter()
-	values = conditioning[0][1]
-	tags = values.get("minimax_token_tags")
-	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
-	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
-	keyframes = values.get("minimax_keyframes") or []
+	condition = h3_condition(conditioning)
+	keyframes = conditioning[0][1].get("minimax_keyframes") or []
 	for index, keyframe in enumerate(keyframes):
 		condition[f"keyframe.{index}"] = keyframe["latent"][0]
 	if keyframes:
@@ -220,7 +229,7 @@ def h3():
 		times = torch.linspace(1, 0, options.steps + 1, dtype=torch.float64)
 		steps = {"sigmas": (12 * times / (1 + 11 * times)).float(), "video.0": noises[0][0], "audio.0": noises[1][0]}
 		return saved(steps, os.path.join(out, "steps.safetensors"), {"seed": str(options.seed)})
-	model = comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit))
+	model = with_loras(comfy.sd.load_diffusion_model(folder_paths.get_full_path_or_raise("diffusion_models", options.dit)))
 	loaded = time.perf_counter()
 	diffusion = model.model.diffusion_model
 	sigmas = BasicScheduler.execute(model, options.scheduler, options.steps, 1.0).result[0]
@@ -317,7 +326,8 @@ def decoded_av(vae, video, audio, out, prefix):
 	frames = (frames.reshape(-1, *frames.shape[-3:]).clamp(0, 1) * 255).round().byte().cpu()
 	for name, frame in (("first", 0), ("middle", len(frames) // 2), ("last", len(frames) - 1)):
 		Image.fromarray(frames[frame].numpy()).save(os.path.join(out, f"{prefix}frame-{name}.png"))
-	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", options.audio_vae)))
+	heard_from = options.audio_vae if os.path.isfile(options.audio_vae) else folder_paths.get_full_path_or_raise("vae", options.audio_vae)
+	audio_vae = comfy.sd.VAE(sd=comfy.utils.load_torch_file(heard_from))
 	heard = time.perf_counter()
 	sound = vae_decode_audio(audio_vae, {"samples": audio})
 	waveform = (sound["waveform"][0].clamp(-1, 1) * 32767).round().short().T.contiguous().cpu().numpy()
@@ -342,6 +352,15 @@ def encoded(frames, audio, path):
 	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB")
 
 
+def decoded_latent(vae, path, shapes, out, prefix):
+	"""decoded_av of a latent text file H3Video.strict wrote: the video numbers, then the audio numbers, one per line."""
+	import math
+	import numpy
+	numbers = torch.from_numpy(numpy.loadtxt(path, dtype=numpy.float32))
+	size = math.prod(shapes[0])
+	return decoded_av(vae, numbers[:size].reshape(*shapes[0])[None], numbers[size:].reshape(*shapes[1])[None], out, prefix)
+
+
 def h3decode():
 	"""Decodes every <name>-latent.txt H3Video.strict wrote into --out that is newer than its <name>-video.mp4 (the video then the
 	audio numbers, one per line, shaped like video.0 and audio.0 of steps.safetensors) into <name>-frame-*.png, <name>-audio.wav
@@ -358,10 +377,7 @@ def h3decode():
 		movie = os.path.join(out, prefix + "video.mp4")
 		if os.path.exists(movie) and os.path.getmtime(movie) > os.path.getmtime(path):
 			continue
-		numbers = torch.from_numpy(numpy.loadtxt(path, dtype=numpy.float32))
-		video = numbers[:shapes[0].numel()].reshape(shapes[0])[None]
-		audio = numbers[shapes[0].numel():].reshape(shapes[1])[None]
-		frames, decode_s, audio_s = decoded_av(vae, video, audio, out, prefix)
+		frames, decode_s, audio_s = decoded_latent(vae, path, shapes, out, prefix)
 		compared = ""
 		if "frames" in steps:
 			error = (frames.float() - steps["frames"].float()).pow(2).mean().item()

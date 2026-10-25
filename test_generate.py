@@ -15,11 +15,15 @@ sys.path.insert(0, str(ROOT))
 sys.dont_write_bytecode = True
 
 
-class MossCommandTests(unittest.TestCase):
+class GenerationCommandTests(unittest.TestCase):
 	def module(self):
-		self.assertIsNotNone(importlib.util.find_spec('moss'), 'Local Moss command is missing')
-		import moss
-		return moss
+		self.assertIsNotNone(importlib.util.find_spec('generate'), 'Local generation command is missing')
+		import generate
+		return generate
+
+	def tensors(self, path):
+		from safetensors.torch import load
+		return load(Path(path).read_bytes())
 
 	def test_executable_help(self):
 		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--help'], capture_output=True, text=True)
@@ -76,7 +80,7 @@ class MossCommandTests(unittest.TestCase):
 			with patch.object(module, 'validate_model', return_value={}), \
 				patch.object(module, 'cached_merge', return_value=merged), \
 				patch.object(module, 'conditioning') as encode:
-				self.assertEqual(module.main(['--model', str(base), '--lora', str(lora),
+				self.assertEqual(module.main(['moss', '--model', str(base), '--lora', str(lora),
 					'--cache', str(folder), '--merge_only', '--prompt', str(folder / 'missing.txt'),
 					'--te', 'missing-encoder', '--vae', 'missing-vae']), 0)
 				encode.assert_not_called()
@@ -84,7 +88,7 @@ class MossCommandTests(unittest.TestCase):
 	def test_merge_keeps_sub_quantization_updates(self):
 		import torch
 		from safetensors import safe_open
-		from safetensors.torch import save_file, load_file
+		from safetensors.torch import save_file
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			name = 'layers.0.proj.q'
@@ -100,7 +104,7 @@ class MossCommandTests(unittest.TestCase):
 			result = subprocess.run([sys.executable, str(ROOT / 'merge.py'), str(folder / 'base.safetensors'),
 				str(folder / 'merged.safetensors'), str(folder / 'lora.safetensors')], capture_output=True, text=True)
 			self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-			merged = load_file(str(folder / 'merged.safetensors'))
+			merged = self.tensors(folder / 'merged.safetensors')
 			self.assertGreater((merged[name + '.weight'] != weight).sum().item(), 10)
 			with safe_open(folder / 'merged.safetensors', framework='pt') as file:
 				self.assertIn('strict_lora_merge', file.metadata())
@@ -137,7 +141,7 @@ class MossCommandTests(unittest.TestCase):
 	def test_batch_launches_backend_once_with_distinct_inputs(self):
 		from unittest.mock import MagicMock, patch
 		import torch
-		from safetensors.torch import save_file, load_file
+		from safetensors.torch import save_file
 		module = self.module()
 		self.assertTrue(hasattr(module, 'jobs'), 'Resident batch jobs are missing')
 		with tempfile.TemporaryDirectory() as temporary:
@@ -162,10 +166,10 @@ class MossCommandTests(unittest.TestCase):
 			self.assertEqual(launch.call_args.args[0][5], 'on')
 			self.assertEqual([result[1].name for result in results], ['strict-on-0.jpg', 'strict-on-1.jpg'])
 			self.assertEqual([result[0] for result in results], [0, 1])
-			self.assertEqual(load_file(str(folder / 'generation.safetensors'))['jobs'].item(), 2)
-			first = load_file(str(folder / 'generation-0.safetensors'))
+			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
+			first = self.tensors(folder / 'generation-0.safetensors')
 			self.assertEqual((first['warmup'].item(), first['period'].item()), (3, 3))
-			second = load_file(str(folder / 'generation-1.safetensors'))
+			second = self.tensors(folder / 'generation-1.safetensors')
 			self.assertFalse(torch.equal(first['noise'], second['noise']))
 			self.assertFalse(torch.equal(first['context'], second['context']))
 
@@ -224,7 +228,7 @@ class MossCommandTests(unittest.TestCase):
 
 	def test_runtime_stack_preserves_small_deltas_and_base_file(self):
 		import torch
-		from safetensors.torch import save_file, load_file
+		from safetensors.torch import save_file
 		module = self.module()
 		self.assertTrue(hasattr(module, 'runtime_adapter'), 'Runtime LoRA stacking is missing')
 		with tempfile.TemporaryDirectory() as temporary:
@@ -242,7 +246,7 @@ class MossCommandTests(unittest.TestCase):
 				loras.append((path, (0.5, 0.25)[index]))
 			args = module.arguments(['--cache', str(folder)])
 			packed = Path(module.runtime_adapter(args, base, loras))
-			weights = load_file(str(packed))
+			weights = self.tensors(packed)
 			self.assertTrue(torch.allclose(weights[prefix + 'lora_up.weight'] @ weights[prefix + 'lora_down.weight'],
 				torch.full((2, 4), 1e-5), atol=1e-8, rtol=1e-4))
 			self.assertEqual(weights[prefix + 'alpha'].item(), 2)
@@ -251,7 +255,7 @@ class MossCommandTests(unittest.TestCase):
 			fused = 'diffusion_model.layers.0.proj.qkv.'
 			save_file({fused + 'lora_A.weight': torch.ones((1, 4)),
 				fused + 'lora_B.weight': torch.arange(1, 7).float().reshape(6, 1) * 1e-5}, str(loras[1][0]))
-			weights = load_file(module.runtime_adapter(args, base, loras))
+			weights = self.tensors(module.runtime_adapter(args, base, loras))
 			key = 'diffusion_model.layers.0.proj.k.'
 			self.assertTrue(torch.allclose(weights[key + 'lora_up.weight'] @ weights[key + 'lora_down.weight'],
 				torch.tensor([[7.5e-6] * 4, [1e-5] * 4]), atol=1e-8, rtol=1e-4))
@@ -272,7 +276,7 @@ class MossCommandTests(unittest.TestCase):
 				yield 0, source, 10
 			for enabled in (False, True):
 				output = folder / ('with.jpg' if enabled else 'without.jpg')
-				command = ['--model', str(model), '--vae', str(model), '--te', str(model), '--steps', '25',
+				command = ['moss', '--model', str(model), '--vae', str(model), '--te', str(model), '--steps', '25',
 					'--prompt', str(prompt), '--output', str(output), '--seed', '42', '--cache', str(folder)]
 				if enabled:
 					command.append('--json_output')
@@ -340,7 +344,7 @@ class MossCommandTests(unittest.TestCase):
 
 	def test_relative_weighted_stack_merges_once(self):
 		import torch
-		from safetensors.torch import save_file, load_file
+		from safetensors.torch import save_file
 		with tempfile.TemporaryDirectory() as folder:
 			folder = Path(folder)
 			name = 'layers.0.proj.q'
@@ -359,14 +363,136 @@ class MossCommandTests(unittest.TestCase):
 				result = subprocess.run([sys.executable, str(ROOT / 'merge.py'), 'base.safetensors',
 					label + '.safetensors', *stack], cwd=folder, capture_output=True, text=True)
 				self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-			stack = load_file(str(folder / 'stack.safetensors'))
-			single = load_file(str(folder / 'single.safetensors'))
+			stack = self.tensors(folder / 'stack.safetensors')
+			single = self.tensors(folder / 'single.safetensors')
 			self.assertTrue(torch.equal(stack[name + '.weight'], single[name + '.weight']))
 			self.assertTrue(torch.equal(stack[name + '.weight_scale'], single[name + '.weight_scale']))
 			self.assertTrue(torch.allclose(stack[name + '.weight'].float() * stack[name + '.weight_scale'],
 				torch.full((2, 256), 1.75)))
 			self.assertTrue(torch.equal(stack['video_embedder.weight'], torch.full((2, 3), 0.75)))
 
+
+	def test_h3_executable_help(self):
+		result = subprocess.run([str(ROOT / 'H3Video.exe'), '--help'], capture_output=True, text=True)
+		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+		for option in ('--prompt', '--lora', '--length', '--count', '--spectrum'):
+			self.assertIn(option, result.stdout)
+		self.assertNotIn('--jpg_quality', result.stdout)
+
+	def test_h3_defaults(self):
+		module = self.module()
+		args = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
+		self.assertEqual((args.width, args.height, args.length, args.steps, args.shift, args.output),
+			(480, 832, 124, 8, 12, Path('H3Video.mp4')))
+		self.assertEqual(Path(args.model).name, 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors')
+		self.assertEqual(Path(args.audio_vae).name, 'minimax_h3_audio_vae_fp32.safetensors')
+		self.assertEqual(args.cache, ROOT / 'artifacts' / 'h3')
+		self.assertFalse(hasattr(args, 'jpg_quality'))
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--output', 'video.jpg'], 'h3')
+
+	def test_h3_spectrum_preset(self):
+		module = self.module()
+		self.assertEqual(module.spectrum_config(module.arguments(['--spectrum', 'spectrum8_w1p2'], 'h3')), ('on', 1, 2))
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--spectrum', 'spectrum8_w1p2', '--steps', '6'], 'h3')
+
+	def test_h3_noise_follows_comfyui_order(self):
+		import torch
+		module = self.module()
+		video, audio = module.h3_noise(module.arguments(['--width', '64', '--height', '32', '--length', '30'], 'h3'), 7)
+		self.assertEqual((tuple(video.shape), tuple(audio.shape)), ((24, 12, 2, 4), (32, 2, 65)))
+		generator = torch.manual_seed(7)
+		self.assertTrue(torch.equal(video, torch.randn((1, 24, 12, 2, 4), generator=generator)[0]))
+		self.assertTrue(torch.equal(audio, torch.randn((1, 32, 2, 65), generator=generator)[0]))
+
+	def test_h3_checkpoint_with_model_prefix_is_accepted(self):
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		quant = json.dumps({'convrot': True, 'convrot_groupsize': 256, 'format': 'int8_tensorwise'})
+		with tempfile.TemporaryDirectory() as folder:
+			path = Path(folder) / 'h3.safetensors'
+			save_file({'model.diffusion_model.blocks.0.attn.qkv_proj.comfy_quant': torch.tensor(list(quant.encode()),
+				dtype=torch.uint8)}, str(path))
+			self.assertEqual(module.validate_model(path, 'h3'), {})
+			with self.assertRaisesRegex(ValueError, 'int8 Convrot'):
+				module.validate_model(path)
+
+	def test_h3_batch_launches_backend_once_with_distinct_inputs(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--count', '2', '--seed', '42', '--width', '32', '--height', '32', '--length', '5',
+				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2'], 'h3')
+			contexts = []
+			for index in range(2):
+				path = folder / f'context{index}.safetensors'
+				save_file({'context': torch.full((2, 3), float(index)), 'tags': torch.ones(2)}, str(path))
+				contexts.append(path)
+			process = MagicMock()
+			process.stdout = io.StringIO('step 0 3500 ms, forecasts 0\ngeneration 0 in 20 ms\ngeneration 1 in 21 ms\n')
+			process.wait.return_value = 0
+			process.poll.return_value = 0
+			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
+				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
+					module.jobs(args, '{a|b}'), folder, 'style.safetensors=0.5'))
+			self.assertEqual(launch.call_count, 1)
+			command = launch.call_args.args[0]
+			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
+			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1'])
+			self.assertEqual([result[1].name for result in results], ['strict-0-latent.txt', 'strict-1-latent.txt'])
+			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
+			first = self.tensors(folder / 'generation-0.safetensors')
+			second = self.tensors(folder / 'generation-1.safetensors')
+			self.assertEqual(set(first), {'context', 'tags', 'video', 'audio'})
+			self.assertEqual((tuple(first['video'].shape), tuple(first['audio'].shape)), ((24, 2, 2, 2), (32, 2, 8)))
+			self.assertFalse(torch.equal(first['video'], second['video']))
+
+	def test_h3_latents_decode_in_one_worker(self):
+		from unittest.mock import patch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--comfyui', str(folder)], 'h3')
+			latents = [(index, folder / f'strict-{index}-latent.txt', 20 + index) for index in range(2)]
+			def worker(command, **kwargs):
+				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
+				self.assertEqual([job['latent'] for job in request['jobs']], [str(path) for index, path, ms in latents])
+				self.assertEqual(request['jobs'][1]['prefix'], 'strict-1-')
+			with patch.object(module.subprocess, 'run', side_effect=worker) as launch:
+				videos = list(module.decoded(args, iter(latents), folder))
+			self.assertEqual(launch.call_count, 1)
+			self.assertEqual(videos, [(0, folder / 'strict-0-video.mp4', 20), (1, folder / 'strict-1-video.mp4', 21)])
+
+	def test_h3_runtime_loras_become_one_backend_argument(self):
+		self.assertEqual(self.module().runtime_spec([(Path('a.safetensors'), 1.0), (Path('b c.safetensors'), 0.5)]),
+			'a.safetensors=1.0;b c.safetensors=0.5')
+
+	def test_merge_finds_kohya_peft_and_bare_lora_names(self):
+		import torch
+		from safetensors.torch import save_file
+		with tempfile.TemporaryDirectory() as folder:
+			folder = Path(folder)
+			name = 'blocks.0.attn.qkv_proj'
+			quant = json.dumps({'convrot': True, 'convrot_groupsize': 256, 'format': 'int8_tensorwise'})
+			save_file({'model.diffusion_model.' + name + '.weight': torch.ones((2, 256), dtype=torch.int8),
+				'model.diffusion_model.' + name + '.weight_scale': torch.ones((2, 1)),
+				'model.diffusion_model.' + name + '.comfy_quant': torch.tensor(list(quant.encode()), dtype=torch.uint8)},
+				str(folder / 'base.safetensors'))
+			down, up = torch.ones((1, 256)), torch.full((2, 1), 0.5)
+			for label, prefix, names in [('peft', 'diffusion_model.' + name + '.', ('lora_A', 'lora_B')),
+				('kohya', 'lora_unet_blocks_0_attn_qkv_proj.', ('lora_down', 'lora_up')), ('bare', name + '.', ('lora_down', 'lora_up'))]:
+				save_file({prefix + names[0] + '.weight': down, prefix + names[1] + '.weight': up}, str(folder / (label + '.safetensors')))
+				result = subprocess.run([sys.executable, str(ROOT / 'merge.py'), 'base.safetensors', label + '-merged.safetensors',
+					label + '.safetensors'], cwd=folder, capture_output=True, text=True)
+				self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+				merged = self.tensors(folder / (label + '-merged.safetensors'))
+				self.assertTrue(torch.allclose(merged['model.diffusion_model.' + name + '.weight'].float() *
+					merged['model.diffusion_model.' + name + '.weight_scale'], torch.full((2, 256), 1.5)))
 
 if __name__ == '__main__':
 	unittest.main()

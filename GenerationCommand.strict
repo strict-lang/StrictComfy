@@ -1,7 +1,8 @@
 has logger
-Run(arguments Texts) Number
+Run(family Text, arguments Texts) Number
 	let folder = Path(Process.Current.executable).PathOnly.text
-	Python(arguments).Started(Quoted(folder + "/moss.py") + " " + Text.Combine(QuotedAll(arguments), " "))
+	let script = Quoted(folder + "/generate.py") + " " + family + " "
+	Python(arguments).Started(script + Text.Combine(QuotedAll(arguments), " "))
 Python(arguments Texts) Process
 	for arguments
 		if value is "--python"
@@ -16,18 +17,32 @@ QuotedAll(arguments Texts) Texts
 	for arguments
 		Quoted(value)
 Quoted(argument Text) Text
-	MossCommand(Logger).Quoted("a b") is "\"a b\""
-	MossCommand(Logger).Quoted("a\"b") is "\"a\\\"b\""
-	MossCommand(Logger).Quoted("C:\\out\\") is "\"C:\\out\\\\\""
+	GenerationCommand(Logger).Quoted("a b") is "\"a b\""
+	GenerationCommand(Logger).Quoted("a\"b") is "\"a\\\"b\""
+	GenerationCommand(Logger).Quoted("C:\\out\\") is "\"C:\\out\\\\\""
 	mutable parts = List(Mutable(Text))
 	for argument.Split("\"")
 		parts.Add(DoubledTail(value))
 	"\"" + Text.Combine(parts, "\\\"") + "\""
 DoubledTail(text Text) Text
-	MossCommand(Logger).DoubledTail("a\\\\") is "a\\\\\\\\"
+	GenerationCommand(Logger).DoubledTail("a\\\\") is "a\\\\\\\\"
 	mutable result = text
 	for text.Length
 		if text(text.Length - index - 1) is not "\\"
 			return result
 		result = result + "\\"
 	result
+Count(data Safetensors) Number
+	GenerationCommand(Logger).Count(MossImage.Reference) is 1
+	let key = data.Entry("jobs") is "" then "runs" else "jobs"
+	let count = data.Entry(key) is "" then 1 else data.Values(key).First
+	if (count < 1) or (count.Floor is not count)
+		return Error("Invalid generation count")
+	count
+Job(data Safetensors, dumps Text, index Number) Safetensors
+	GenerationCommand(Logger).Job(MossImage.Reference, "", 0).path is "tinymoss.safetensors"
+	data.Entry("jobs") is "" then data else Safetensors(dumps + "/generation-" + index + ".safetensors", 32)
+Option(arguments Texts, index Number, default Text) Text
+	GenerationCommand(Logger).Option(("a", "b"), 1, "c") is "b"
+	GenerationCommand(Logger).Option(("a", "b"), 2, "c") is "c"
+	arguments.Length > index then arguments(index) else default

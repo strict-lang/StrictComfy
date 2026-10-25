@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import torch
-from moss import lora_spec
+from generate import lora_spec
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -35,10 +35,10 @@ def rotated(rows, group):
 def delta(files, name):
 	total = None
 	for index, (file, strength) in enumerate(files):
-		part = product(file, "diffusion_model." + name + ".")
+		part = found(file, name)
 		parent, _, own = name.rpartition(".")
 		if part is None and own in ("q", "k", "v") and split:
-			fused = product(file, "diffusion_model." + parent + ".qkv.")
+			fused = found(file, parent + ".qkv")
 			if fused is not None:
 				third = fused.shape[0] // 3
 				part = fused["qkv".index(own) * third:("qkv".index(own) + 1) * third]
@@ -46,6 +46,13 @@ def delta(files, name):
 			matched[index] += 1
 			total = strength * part if total is None else total + strength * part
 	return total
+
+
+def found(file, module):
+	"""The product of the first LoRA module named like ComfyUI matches it: diffusion_model.<name>, <name> or kohya's lora_unet_<name>."""
+	bare = module.removeprefix("model.").removeprefix("diffusion_model.")
+	prefixes = ("diffusion_model." + bare + ".", bare + ".", "lora_unet_" + bare.replace(".", "_") + ".")
+	return next((part for part in (product(file, prefix) for prefix in prefixes) if part is not None), None)
 
 
 def product(file, prefix):

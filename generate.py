@@ -1,4 +1,5 @@
-"""User-facing Moss generation; ComfyUI encodes text, Strict samples and decodes."""
+"""Moss images (MossImage.exe) and H3 videos with sound (H3Video.exe): ComfyUI encodes the prompts and decodes H3 videos,
+Strict samples (and decodes Moss images)."""
 import argparse
 import hashlib
 import json
@@ -16,6 +17,19 @@ import time
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+FAMILIES = {
+	'moss': {'program': 'MossImage.exe', 'backend': 'MossGenerate.exe', 'noun': 'Image', 'output': 'MossImage.jpg',
+		'suffixes': ('.jpg', '.jpeg', '.png'), 'width': 720, 'height': 1280, 'spectrum': 'spectrum8_w3p3', 'linear': 'layers.0.proj.q',
+		'files': [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot.safetensors', 'Base int8 Convrot model'),
+			('vae', 'vae', 'flux2-vae.safetensors', 'Image VAE'),
+			('te', 'text_encoders', 'qwen3.5_9b_int8_convrot.safetensors', 'Text encoder')]},
+	'h3': {'program': 'H3Video.exe', 'backend': 'H3Video.exe', 'noun': 'Video', 'output': 'H3Video.mp4',
+		'suffixes': ('.mp4',), 'width': 480, 'height': 832, 'spectrum': 'spectrum8_w1p2', 'linear': 'blocks.0.attn.qkv_proj',
+		'files': [('model', 'diffusion_models', 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'int8 Convrot model'),
+			('vae', 'vae', 'minimax_h3_video_vae_int8_convrot.safetensors', 'Video VAE'),
+			('audio_vae', 'vae', 'minimax_h3_audio_vae_fp32.safetensors', 'Audio VAE'),
+			('te', 'text_encoders', 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', 'Text encoder')]}}
+SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
 
 
 def lora_spec(text):
@@ -65,59 +79,71 @@ def reserve_output(base):
 		number += 1
 
 
-def arguments(argv=None):
+def arguments(argv=None, family='moss'):
+	settings = FAMILIES[family]
 	default_comfy = next((Path(drive + ':/ComfyUI_windows_portable/ComfyUI') for drive in ('D', 'C')
 		if Path(drive + ':/ComfyUI_windows_portable/ComfyUI').is_dir()), Path('ComfyUI'))
 	default_comfy = Path(os.environ.get('COMFYUI', default_comfy))
-	files = [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot.safetensors', 'Base int8 Convrot model'),
-		('vae', 'vae', 'flux2-vae.safetensors', 'Image VAE'),
-		('te', 'text_encoders', 'qwen3.5_9b_int8_convrot.safetensors', 'Text encoder')]
-	parser = argparse.ArgumentParser(prog='MossImage.exe', description=__doc__, add_help=False,
+	files = settings['files']
+	parser = argparse.ArgumentParser(prog=settings['program'], description=__doc__, add_help=False,
 		allow_abbrev=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--help', action='help', help='show this help message and exit')
 	for name, folder, filename, description in files:
 		parser.add_argument('--' + name, default=argparse.SUPPRESS,
 			help=f'{description} (default: {default_comfy / "models" / folder / filename})')
 	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--steps', type=int, default=8, help='Diffusion sampling steps; 8 automatically applies the DMD turbo LoRA')
-	parser.add_argument('--count', type=int, default=1, help='images per loaded model; fresh seed/prompt choices each time')
+	parser.add_argument('--steps', type=int, default=8,
+		help='Diffusion sampling steps' + ('; 8 automatically applies the DMD turbo LoRA' if family == 'moss' else ''))
+	parser.add_argument('--count', type=int, default=1, help='outputs per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
 	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged',
-		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: floating adapters')
+		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: ' +
+		('floating adapters' if family == 'moss' else 'merged by Strict at every load, no cached model file'))
 	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
-	parser.add_argument('--spectrum', choices=['off', 'spectrum8_w3p3'], default='off',
-		help='optional 3-forecast eight-step predictor; changes the sampling result')
-	parser.add_argument('--output', type=Path, default=Path('MossImage.jpg'), help='numbered output base; never overwritten')
-	parser.add_argument('--json_output', action='store_true', help='write a per-image JSON settings sidecar')
-	parser.add_argument('--width', type=int, default=720, help='Image width in pixels')
-	parser.add_argument('--height', type=int, default=1280, help='Image height in pixels')
+	parser.add_argument('--spectrum', default='off',
+		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result')
+	parser.add_argument('--output', type=Path, default=Path(settings['output']), help='numbered output base; never overwritten')
+	parser.add_argument('--json_output', action='store_true', help='write a per-output JSON settings sidecar')
+	parser.add_argument('--width', type=int, default=settings['width'], help='Width in pixels')
+	parser.add_argument('--height', type=int, default=settings['height'], help='Height in pixels')
+	if family == 'h3':
+		parser.add_argument('--length', type=int, default=124, help='Frames at 24 fps, snapped up to 17k+5 like ComfyUI')
+		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
-	parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
-	parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
+	if family == 'moss':
+		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
+		parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
 	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
-	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / 'moss', help='Prompt, merged-model, runtime-adapter and CUDA caches')
+	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family, help='Prompt, merged-model, runtime-adapter and CUDA caches')
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
+	args.family = family
 	for name, folder, filename, description in files:
 		if not hasattr(args, name):
 			setattr(args, name, str(args.comfyui / 'models' / folder / filename))
 	if args.steps < 1 or args.count < 1 or min(args.width, args.height) < 16 or args.width % 16 or args.height % 16:
 		parser.error('count/steps must be positive; width/height must be positive multiples of 16')
-	if not 0 <= args.jpg_quality <= 100 or not math.isfinite(args.guidance):
+	if family == 'moss' and (not 0 <= args.jpg_quality <= 100 or not math.isfinite(args.guidance)):
 		parser.error('jpg_quality must be 0-100 and guidance finite')
+	if family == 'h3' and (args.length < 5 or not math.isfinite(args.shift) or args.shift <= 0):
+		parser.error('length must be at least 5 frames and shift positive')
 	if args.seed is not None and not 0 <= args.seed < 2**63:
 		parser.error('seed must be between 0 and 2^63-1')
-	if args.output.suffix.lower() not in ('.jpg', '.jpeg', '.png'):
-		parser.error('output extension must be .jpg, .jpeg or .png')
-	if args.spectrum != 'off' and args.steps != 8:
-		parser.error('spectrum8_w3p3 requires --steps 8')
+	if args.output.suffix.lower() not in settings['suffixes']:
+		parser.error('output extension must be ' + ' or '.join(settings['suffixes']))
+	spectrum = SPECTRUM.fullmatch(args.spectrum)
+	if args.spectrum != 'off' and spectrum is None:
+		parser.error('--spectrum must be off or spectrum<steps>_w<warmup>p<period>')
+	if spectrum and int(spectrum[1]) != args.steps:
+		parser.error(f'{args.spectrum} requires --steps {spectrum[1]}')
 	if args.merge_only and args.lora_mode != 'merged':
 		parser.error('--merge_only requires --lora_mode merged')
 	return args
 
 
 def spectrum_config(args):
-	return ('off', 5, 2) if args.spectrum == 'off' else ('on', 3, 3)
+	spectrum = SPECTRUM.fullmatch(args.spectrum)
+	return ('off', 5, 2) if spectrum is None else ('on', int(spectrum[2]), int(spectrum[3]))
 
 
 def jobs(args, template):
@@ -155,7 +181,7 @@ def selected_loras(args, models, metadata=None):
 	has_turbo = any(Path(str(path).replace('\\', '/')).name == 'dmd_turbo_lora.safetensors' and strength != 0
 		for path, strength in baked_loras(metadata))
 	explicit_turbo = any(path.name == 'dmd_turbo_lora.safetensors' for path, strength in selected)
-	if args.steps == 8 and not has_turbo and not explicit_turbo:
+	if args.family == 'moss' and args.steps == 8 and not has_turbo and not explicit_turbo:
 		turbo = located('moss/dmd_turbo_lora.safetensors', models / 'loras')
 		selected.insert(0, (turbo, 1.0))
 	return selected
@@ -166,12 +192,13 @@ def identity(path):
 	return [str(path.resolve()), stat.st_size, stat.st_mtime_ns]
 
 
-def validate_model(path):
+def validate_model(path, family='moss'):
 	from safetensors import safe_open
 	with safe_open(path, framework='pt') as checkpoint:
-		key = 'layers.0.proj.q.comfy_quant'
-		if key not in checkpoint.keys():
-			raise ValueError('--model must be an int8 Convrot Moss checkpoint')
+		names = [prefix + FAMILIES[family]['linear'] + '.comfy_quant' for prefix in ('', 'model.diffusion_model.')]
+		key = next((name for name in names if name in checkpoint.keys()), None)
+		if key is None:
+			raise ValueError('--model must be an int8 Convrot checkpoint for ' + FAMILIES[family]['program'])
 		quant = json.loads(bytes(checkpoint.get_tensor(key).tolist()))
 		if not quant.get('convrot') or quant.get('convrot_groupsize') != 256 or quant.get('format') != 'int8_tensorwise':
 			raise ValueError('--model must use int8 Convrot with group size 256')
@@ -211,15 +238,32 @@ def cached_merge(args, model, loras):
 
 def encoded(request, output):
 	os.environ['COMFYUI'] = request['comfyui']
-	sys.argv = ['dump.py', 'moss']
+	family = request['family']
+	sys.argv = ['dump.py', family]
 	import dump
 	from safetensors.torch import save_file
-	clip = dump.comfy.sd.load_clip([request['te']],
-		embedding_directory=dump.folder_paths.get_folder_paths('embeddings'), clip_type=dump.comfy.sd.CLIPType.MOSS_IMAGE)
+	types = dump.comfy.sd.CLIPType
+	clip = dump.comfy.sd.load_clip([request['te']], embedding_directory=dump.folder_paths.get_folder_paths('embeddings'),
+		clip_type=types.MINIMAX if family == 'h3' else types.MOSS_IMAGE)
 	for index, prompt in enumerate(request['prompts']):
 		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
-		context = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))[0][0].detach().cpu().float().contiguous()
-		save_file({'context': context}, str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
+		conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
+		tensors = dump.h3_condition(conditioning) if family == 'h3' else {'context': conditioning[0][0]}
+		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
+			str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
+
+
+def decoding(request):
+	"""Worker: decodes every H3 latent of the request with ComfyUI's video and audio VAEs into <prefix>video.mp4."""
+	os.environ['COMFYUI'] = request['comfyui']
+	sys.argv = ['dump.py', 'h3', '--audio-vae', request['audio_vae']]
+	import dump
+	from safetensors import safe_open
+	vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
+	for job in request['jobs']:
+		with safe_open(job['generation'], framework='pt') as file:
+			shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
+		dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])
 
 
 def conditioning(args, prompts, encoder):
@@ -235,9 +279,10 @@ def conditioning(args, prompts, encoder):
 		print(f'Preparing {len(missing)} uncached prompts with one text-encoder load', flush=True)
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 			folder = Path(temporary)
-			request = {'prompts': list(missing.values()), 'te': str(encoder), 'comfyui': str(args.comfyui.resolve())}
+			request = {'prompts': list(missing.values()), 'te': str(encoder), 'comfyui': str(args.comfyui.resolve()),
+				'family': args.family}
 			(folder / 'request.json').write_text(json.dumps(request), encoding='utf-8')
-			subprocess.run([sys.executable, str(ROOT / 'moss.py'), '_encode', str(folder / 'request.json'),
+			subprocess.run([sys.executable, str(ROOT / 'generate.py'), '_encode', str(folder / 'request.json'),
 				str(folder)], check=True)
 			for index, path in enumerate(missing):
 				os.replace(folder / f'{index}.safetensors', path)
@@ -264,7 +309,7 @@ def runtime_adapter(args, model, loras):
 	active = [(path, strength) for path, strength in loras if strength != 0]
 	if not active:
 		return ''
-	key = cache_key([1, identity(ROOT / 'moss.py'), identity(model), [(identity(path), strength) for path, strength in active]])
+	key = cache_key([1, identity(ROOT / 'generate.py'), identity(model), [(identity(path), strength) for path, strength in active]])
 	path = args.cache / ('adapter-' + key + '.safetensors')
 	if path.exists():
 		print('Using cached runtime LoRA stack', flush=True)
@@ -320,24 +365,53 @@ def runtime_adapter(args, model, loras):
 	return str(path)
 
 
+def runtime_spec(loras):
+	"""The path=strength;... argument H3Video.exe merges at load."""
+	active = [(str(path), strength) for path, strength in loras if strength != 0]
+	if any(';' in path or '=' in path for path, strength in active):
+		raise ValueError('LoRA paths for --lora_mode runtime must not contain ; or =')
+	return ';'.join(f'{path}={strength}' for path, strength in active)
+
+
+def h3_noise(args, seed):
+	"""Video and audio noise of one H3 job like ComfyUI's RandomNoise: one generator, the video latent first."""
+	import torch
+	frames = args.length + (5 - args.length) % 17
+	latent = 2 if frames <= 5 else (frames - 5) // 17 * 5 + 2
+	shapes = (1, 24, latent, args.height // 16, args.width // 16), (1, 32, 2, round(frames / 24 * 40))
+	generator = torch.Generator('cpu').manual_seed(seed)
+	return tuple(torch.randn(shape, generator=generator)[0] for shape in shapes)
+
+
+def backend(args, folder, model, vae, adapter):
+	mode, warmup, period = spectrum_config(args)
+	if args.family == 'h3':
+		return [str(ROOT / 'H3Video.exe'), str(folder), str(model), 'strict', adapter, str(args.steps), f'{args.shift:g}',
+			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1']
+	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
+
+
 def generated(args, model, vae, contexts, plan, folder, adapter=''):
 	import torch
-	from safetensors.torch import load_file, save_file
+	from safetensors.torch import load, save_file
 	mode, warmup, period = spectrum_config(args)
 	for index, (context, job) in enumerate(zip(contexts, plan)):
-		data = load_file(str(context))
-		data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
-			generator=torch.Generator('cpu').manual_seed(job['seed']))
-		for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period,
-			'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
-			data[name] = torch.tensor([value], dtype=torch.float32)
+		data = load(Path(context).read_bytes())
+		if args.family == 'h3':
+			data['video'], data['audio'] = h3_noise(args, job['seed'])
+		else:
+			data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
+				generator=torch.Generator('cpu').manual_seed(job['seed']))
+			for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period,
+				'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
+				data[name] = torch.tensor([value], dtype=torch.float32)
 		save_file(data, str(folder / f'generation-{index}.safetensors'))
 		if index == 0:
 			data['jobs'] = torch.tensor([len(plan)], dtype=torch.float32)
 			save_file(data, str(folder / 'generation.safetensors'))
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	command = [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
+	command = backend(args, folder, model, vae, adapter)
 	worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
 		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 	completed = 0
@@ -354,12 +428,13 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 				completed += 1
 				suffix = f'-{index}' if len(plan) > 1 else ''
 				extension = '.png' if args.output.suffix.lower() == '.png' else '.jpg'
-				yield index, folder / ('strict-' + mode + suffix + extension), int(match[2])
+				name = f'strict-{index}-latent.txt' if args.family == 'h3' else 'strict-' + mode + suffix + extension
+				yield index, folder / name, int(match[2])
 		code = worker.wait()
 		if code:
 			raise subprocess.CalledProcessError(code, command)
 		if completed != len(plan):
-			raise RuntimeError('Native backend did not complete the requested image count; rebuild MossGenerate.strict')
+			raise RuntimeError('Native backend did not complete the requested count; rebuild ' + Path(command[0]).stem + '.strict')
 	finally:
 		if worker.poll() is None:
 			worker.terminate()
@@ -367,12 +442,26 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 		worker.stdout.close()
 
 
+def decoded(args, latents, folder):
+	"""Decodes the latents H3Video.exe wrote in one ComfyUI worker (after the backend gave the GPU back)."""
+	latents = list(latents)
+	request = {'comfyui': str(args.comfyui.resolve()), 'vae': str(args.vae), 'audio_vae': str(args.audio_vae), 'folder': str(folder),
+		'jobs': [{'latent': str(path), 'generation': str(folder / f'generation-{index}.safetensors'), 'prefix': f'strict-{index}-'}
+			for index, path, milliseconds in latents]}
+	(folder / 'decode.json').write_text(json.dumps(request), encoding='utf-8')
+	subprocess.run([sys.executable, str(ROOT / 'generate.py'), '_decode', str(folder / 'decode.json')], check=True)
+	return [(index, folder / f'strict-{index}-video.mp4', milliseconds) for index, path, milliseconds in latents]
+
+
 def main(argv=None):
-	args = arguments(argv)
+	argv = sys.argv[1:] if argv is None else argv
+	if not argv or argv[0] not in FAMILIES:
+		raise ValueError('The first argument must be ' + ' or '.join(FAMILIES))
+	args = arguments(argv[1:], argv[0])
 	started = time.perf_counter()
 	models = args.comfyui / 'models'
 	model = located(args.model, models / 'diffusion_models')
-	metadata = validate_model(model)
+	metadata = validate_model(model, args.family)
 	loras = selected_loras(args, models, metadata)
 	args.cache = args.cache.resolve()
 	args.cache.mkdir(parents=True, exist_ok=True)
@@ -380,23 +469,27 @@ def main(argv=None):
 	if args.merge_only:
 		print('Merged model: ' + str(loaded), flush=True)
 		return 0
-	vae = located(args.vae, models / 'vae')
+	vae = args.vae = located(args.vae, models / 'vae')
+	if args.family == 'h3':
+		args.audio_vae = located(args.audio_vae, models / 'vae')
 	encoder = located(args.te, models / 'text_encoders')
-	if not (ROOT / 'MossGenerate.exe').is_file():
-		raise FileNotFoundError('Build MossGenerate.strict first: ../Strict/strict.exe build MossGenerate.strict')
+	name = Path(FAMILIES[args.family]['backend']).stem
+	if not (ROOT / (name + '.exe')).is_file():
+		raise FileNotFoundError(f'Build {name}.strict first: ../Strict/strict.exe build {name}.strict')
 	plan = jobs(args, args.prompt.read_text(encoding='utf-8-sig').strip())
 	for index, job in enumerate(plan):
-		print(f'Image {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
+		print(f'{FAMILIES[args.family]["noun"]} {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
 	print('Input model: ' + str(model), flush=True)
 	print('LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
 	for path, strength in loras:
 		print(f'LoRA: {path}, strength {strength}', flush=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	adapter = runtime_adapter(args, model, loras) if args.lora_mode == 'runtime' else ''
+	adapter = '' if args.lora_mode == 'merged' else runtime_spec(loras) if args.family == 'h3' else runtime_adapter(args, model, loras)
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
-			for index, image, generation_ms in images:
+			outputs = decoded(args, images, Path(temporary)) if args.family == 'h3' else images
+			for index, image, generation_ms in outputs:
 				output, handle = reserve_output(args.output.resolve())
 				try:
 					with handle, image.open('rb') as source:
@@ -405,9 +498,11 @@ def main(argv=None):
 						settings = dict(plan[index], model=str(model), loaded_model=str(loaded),
 							loras=[(str(path), strength) for path, strength in loras], baked_loras=baked_loras(metadata),
 							lora_mode=args.lora_mode, spectrum=args.spectrum,
-							steps=args.steps, width=args.width, height=args.height, guidance=args.guidance, vae=str(vae), te=str(encoder),
-							jpg_quality=args.jpg_quality if output.suffix.lower() != '.png' else None, seconds=time.perf_counter() - started,
-							batch_index=index + 1, count=args.count, generation_ms=generation_ms)
+							steps=args.steps, width=args.width, height=args.height, vae=str(vae), te=str(encoder),
+							seconds=time.perf_counter() - started, batch_index=index + 1, count=args.count, generation_ms=generation_ms)
+						settings.update({name: getattr(args, name) for name in ('guidance', 'length', 'shift') if hasattr(args, name)})
+						if args.family == 'moss':
+							settings['jpg_quality'] = args.jpg_quality if output.suffix.lower() != '.png' else None
 						with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
 							json.dump(settings, sidecar, indent=2, ensure_ascii=False)
 				except BaseException:
@@ -415,7 +510,7 @@ def main(argv=None):
 					output.unlink(missing_ok=True)
 					raise
 				print(f'Saved {output}', flush=True)
-	print(f'Total {time.perf_counter() - started:.2f} s for {args.count} image(s)', flush=True)
+	print(f'Total {time.perf_counter() - started:.2f} s for {args.count} {FAMILIES[args.family]["noun"].lower()}(s)', flush=True)
 	return 0
 
 
@@ -423,8 +518,10 @@ if __name__ == '__main__':
 	try:
 		if len(sys.argv) > 1 and sys.argv[1] == '_encode':
 			encoded(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')), Path(sys.argv[3]))
+		elif len(sys.argv) > 1 and sys.argv[1] == '_decode':
+			decoding(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')))
 		else:
 			raise SystemExit(main())
 	except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
-		print('Moss: ' + str(error), file=sys.stderr)
+		print(Path(sys.argv[0]).stem + ': ' + str(error), file=sys.stderr)
 		raise SystemExit(1)

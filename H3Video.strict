@@ -2,19 +2,59 @@ has logger
 constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
-Run(dumps Text, model Text, name = "strict", loras = "", steps = 0, shift = 12, period = 0, warmup = 1, degree = 1)
-	let data = Safetensors(dumps + "/steps.safetensors", 64)
-	let condition = Safetensors(dumps + "/conditioning.safetensors", 64)
+Run(arguments Texts) Number
+	if (arguments.Length is 0) or arguments(0).StartsWith("-")
+		return GenerationCommand(logger).Run("h3", arguments)
+	if arguments.Length < 2
+		logger.Log("Use --help, or diagnostic arguments: dumps model name loras steps shift period warmup degree")
+		return 2
+	let loras = GenerationCommand(logger).Option(arguments, 3, "")
+	let conditions = Conditions(arguments(0))
+	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
+	Generations(Loaded(arguments(1), loras), conditions, texts, arguments)
+	0
+Numbered(arguments Texts) Numbers
+	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1)
+	for (0, 12, 0, 1, 1)
+		arguments.Length > index + 4 then arguments(index + 4) to Number else value
+Loaded(model Text, loras Text) H3
+	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2
 	let started = Process.Elapsed
-	let text = H3Refiner.Loaded(model, loras).Refined(condition.Values("context"))
 	let h3 = H3.Loaded(model, loras)
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
-	let layout = H3Layout(Layout(data.Shape("video.0"), data.Shape("audio.0"), condition), shift = shift)
+	h3
+Conditions(dumps Text) List(Safetensors)
+	H3Video(Logger).Conditions(".").Length is 1
+	let data = Safetensors(dumps + "/generation.safetensors", 32)
+	if File(data.path).Exists is false
+		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
+	for GenerationCommand(logger).Count(data)
+		GenerationCommand(logger).Job(data, dumps, index)
+Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), arguments Texts) None
+	let numbers = Numbered(arguments)
+	let name = GenerationCommand(logger).Option(arguments, 2, "strict")
+	for conditions
+		let before = Process.Elapsed
+		let sampled = Generated(h3, value, Steps(arguments(0), value), texts(index), numbers, arguments(0))
+		let file = value.Entry("video") is "" then name else name + "-" + index
+		File(arguments(0) + "/" + file + "-latent.txt").Write(Text.Combine(sampled, Character.NewLine))
+		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		GpuMemory.Released
+Steps(dumps Text, condition Safetensors) Safetensors
+	H3Video(Logger).Steps("", Reference) is Reference
+	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
+Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers Numbers, dumps Text) Numbers
+	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1), "").Length is 960
+	let video = steps.Shape(Stream(steps, "video"))
+	let layout = H3Layout(Layout(video, steps.Shape(Stream(steps, "audio")), condition), shift = numbers(1))
 	let conditions = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
 	Checked(h3, dumps, text, layout)
-	let spectrum = H3Spectrum(steps is 0 then Count(data) else steps, SpectralFit(degree, 0.1, 0.5), period, warmup)
-	let sampled = Sampled(h3, data, text, layout, conditions, spectrum)
-	File(dumps + "/" + name + "-latent.txt").Write(Text.Combine(sampled, Character.NewLine))
+	let count = numbers(0) is 0 then Count(steps) else numbers(0)
+	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3))
+	Sampled(h3, steps, text, layout, conditions, spectrum)
+Stream(steps Safetensors, name Text) Text
+	H3Video(Logger).Stream(Reference, "audio") is "audio"
+	steps.Entry(name + ".0") is "" then name else name + ".0"
 Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
@@ -49,8 +89,8 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum) Numbers
 	H3Video(Logger).Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny).Length is 960
 	let sigmas = Euler(spectrum.steps, layout.shift).Sigmas
-	mutable video = steps.Values(steps.Entry("video.0") is "" then "video" else "video.0")
-	mutable audio = steps.Values(steps.Entry("audio.0") is "" then "audio" else "audio.0")
+	mutable video = steps.Values(Stream(steps, "video"))
+	mutable audio = steps.Values(Stream(steps, "audio"))
 	mutable state = spectrum
 	for spectrum.steps
 		let before = Process.Elapsed

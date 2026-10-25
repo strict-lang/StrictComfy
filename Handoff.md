@@ -1,5 +1,9 @@
 # Handoff: Moss elementwise kernels, step wall time below ComfyUI (RTX 3080)
 
+## Shared generation command for Moss and H3 (2026-10-25, 4090 session)
+
+`moss.py` is now `generate.py`, `test_moss.py` is `test_generate.py` and `MossCommand.strict` is `GenerationCommand.strict`: `MossImage.exe` and `H3Video.exe` both start `generate.py <moss|h3> ...` with the same options (the family table `FAMILIES` holds the defaults; `arguments(argv, family='moss')`, `main(['moss', ...])`). Moss behaves as before, the prompt cache keys are unchanged. Shared Strict parts: `GenerationCommand.Run(family, arguments)`, `Count`/`Job` (moved from MossGenerate) and `Option`. `--spectrum` takes any `spectrum<steps>_w<warmup>p<period>` (Moss `spectrum8_w3p3` unchanged). `merge.py` finds LoRA modules as ComfyUI does (`diffusion_model.<name>`, `<name>`, kohya `lora_unet_<name>`) and strips a `model.diffusion_model.` model prefix. Tests read safetensors with `load(bytes)` so Windows can delete their temporary folders (5 tests failed with PermissionError here before). 28 command tests pass.
+
 ## Latest checkpoint: fast runtime-LoRA turbo 8, elementwise/VAE wins (2026-10-25 01:40)
 
 Scope: runtime turbo 8 only (base INT8 + automatic DMD LoRA), one JPEG, resident --count flow. Nothing committed yet.

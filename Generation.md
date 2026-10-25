@@ -1,12 +1,13 @@
-# Moss generation and quality comparisons
+# Moss and H3 generation, quality comparisons
 
 ## Generate from a prompt file
 
-Build the launcher/backend from StrictComfy:
+Build the launchers/backends from StrictComfy (`MossImage.exe` and `H3Video.exe` both start `generate.py` through `GenerationCommand.strict` and share every option below; H3 differences are in the H3 section at the end):
 
 ```powershell
 ../Strict/strict.exe build MossGenerate.strict
 ../Strict/strict.exe build MossImage.strict
+../Strict/strict.exe build H3Video.strict
 ```
 
 From any folder containing UTF-8 `prompt.txt`:
@@ -81,7 +82,7 @@ Startup messages such as `Found comfy_kitchen backend` and `Using pytorch attent
 
 Progress `step N at ...` timestamps mark host submission, not synchronized step completion. Short intervals followed by a long gap do not imply individual steps executed that quickly. Sampling time includes final latent synchronization; decode and save have separate wall timers. Cold model I/O, CPU preparation and CUDA JIT can leave the GPU idle during startup. Reuse the merge/conditioning/CUDA caches and `--count` before comparing warm image times. A late decode spike needs a trace to distinguish kernel work from allocation, collection, paging or other GPU activity; progress logs alone cannot identify its cause.
 
-Use `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe` for another installation. Keep moss.py, merge.py, dump.py, MossGenerate.exe and matching PTX files beside the launcher. Prompt/model/adapter/CUDA caches default to StrictComfy/artifacts/moss; --cache changes their location. The existing positional `MossImage.exe dumps model lora vae` diagnostic mode remains available.
+Use `--comfyui C:/path/ComfyUI --python C:/path/python_embeded/python.exe` for another installation. Keep generate.py, merge.py, dump.py, MossGenerate.exe/H3Video.exe and matching PTX files beside the launcher. Prompt/model/adapter/CUDA caches default to StrictComfy/artifacts/moss (artifacts/h3 for H3); --cache changes their location. The existing positional `MossImage.exe dumps model lora vae` diagnostic mode remains available.
 
 ## Quality review and timing correction
 
@@ -95,7 +96,7 @@ Review samples: 720x1280, prompt `Portrait photograph of a woman, natural daylig
 
 The direct native turbo run took 18.39 seconds including load (12.56 seconds generation); the full CLI check took 26.04 seconds and matched that JPEG exactly. These are slower than the old merged path. Identity scaling now preserves packed adapter rows; before that fix the same runtime experiment exceeded 180 seconds. Runtime LoRA GEMMs remain a performance target. These three images are for review, not a multi-prompt quality acceptance claim. A ComfyUI sampler node still needs coordinated encoder/Strict VRAM handoff.
 
-Checks: `D:/ComfyUI_windows_portable/python_embeded/python.exe test_moss.py`.
+Checks: `D:/ComfyUI_windows_portable/python_embeded/python.exe test_generate.py`.
 
 ## Comparison harness
 
@@ -167,9 +168,27 @@ Sources and pinned adapter revisions:
 
 The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB cap. A cold compiled module may add tens of seconds; warm it before comparing timings. This is a per-process setting, not a global driver change. RTX 3080 results use locked 1695 MHz graphics / 9506 MHz actual CUDA memory, with clock limits restored afterwards. Results and quality observations are in [Performance.md](Performance.md).
 
-# H3 generation with LoRAs, step counts and Spectrum (RTX 4090)
+# H3 videos with sound from a prompt file (RTX 4090)
 
-`dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps). Text to video and audio only; image to video needs a full `dump.py h3` run for its noise augmented cond rows. `H3Video.exe` samples a folder, `dump.py h3decode` decodes every `<name>-latent.txt` in it with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs), so several variants of one prompt and seed sit side by side.
+`H3Video.exe` has the options of `MossImage.exe` above: `prompt.txt` with `{a|b|}` choices, `--count` resident batches with distinct seeds, `--seed`, repeated `--lora path:strength`, `--lora_mode`, `--merge_only`, `--spectrum`, numbered outputs that are never overwritten and `--json_output`. It adds `--length` (frames at 24 fps, snapped up to 17k+5 like ComfyUI, default 124 = 5.2 s) and `--shift` (12, the audio follows with shift 3), and has no `--guidance` or `--jpg_quality`. Defaults: the turbo INT8 8-step model, 480x832, 8 steps, `H3Video.mp4`, `minimax_h3_video_vae_int8_convrot`, `minimax_h3_audio_vae_fp32` and the `qwen3vl_32b_minimax_h3_nvfp4_awq` text encoder under `--comfyui`.
+
+```powershell
+cd C:\StrictDumps\videos
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --count 4
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --spectrum spectrum8_w1p2
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --steps 3 --lora h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:0.8
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --steps 4 --lora h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:0.6 --lora_mode runtime
+```
+
+The prompts are encoded in one ComfyUI worker (cached per prompt under `artifacts/h3`, the same Qwen3-VL states and token tags as ComfyUI's H3 node), the noise is ComfyUI's for the same seed, `H3Video.exe` samples every job with one model load, then one ComfyUI worker decodes all latents with the video and audio VAEs and ffmpeg writes `H3Video0001.mp4`, `H3Video0002.mp4`, ... Text to video and audio only, image inputs are not wired yet.
+
+LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and kohya's `lora_unet_<module with _>`, `lora_A`/`lora_B` or `lora_down`/`lora_up` with an optional `alpha`. `--lora_mode merged` (default) merges every matching tensor once into a cached int8 model with `merge.py`: the block linears, the dense token refiner, adaln and final layer, a full 21 GB file per model, LoRA and strength combination in `artifacts/h3`, so delete old ones after trying many strengths. `--lora_mode runtime` lets `H3Video.exe` merge the block linears and the token refiner at every load instead (`Safetensors.Tuned`, no cached file, about 20 s more load for TaoMate, 110 s for rank 384); its load line counts the applied tensors. FastH3's `diff`/`diff_b` tensors are applied by neither.
+
+`--spectrum spectrum<steps>_w<warmup>p<period>`: after `warmup` actual steps every `period`-th step is actual, the others are forecast, the last is always actual; `spectrum8_w1p2` is A F A F A F A A (5 of 8 transformer evaluations). Moss uses `spectrum8_w3p3`.
+
+## Diagnostic mode: positional arguments
+
+`dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps); a full `dump.py h3` run (also with `--lora name:strength`) adds ComfyUI's per step references, which the positional mode compares against. `dump.py h3decode` decodes every `<name>-latent.txt` in a folder with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs).
 
 ```powershell
 cd C:\code\GitHub\strict-lang\StrictComfy
