@@ -15,7 +15,6 @@ import tempfile
 import threading
 import time
 
-sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 FAMILIES = {
@@ -198,16 +197,33 @@ def identity(path):
 	return [str(path.resolve()), stat.st_size, stat.st_mtime_ns]
 
 
+def native(path, family='moss'):
+	"""True when Strict loads the checkpoint as it is, False for a Moss checkpoint merge.py converts first
+	(bf16, fp16 or fp8 linears, fused qkv, ComfyUI's model prefix)."""
+	from safetensors import safe_open
+	with safe_open(path, framework='pt') as checkpoint:
+		return layout(checkpoint, family)
+
+
+def layout(checkpoint, family):
+	names = [prefix + FAMILIES[family]['linear'] + '.comfy_quant' for prefix in ('', 'model.diffusion_model.')]
+	key = next((name for name in names if name in checkpoint.keys()), None)
+	if key is None:
+		layouts = [prefix + 'layers.0.proj.' + name + '.weight' for prefix in ('', 'model.diffusion_model.') for name in ('q', 'qkv')]
+		if family == 'moss' and any(name in checkpoint.keys() for name in layouts):
+			return False
+		raise ValueError('--model must be an int8 Convrot checkpoint for ' + FAMILIES[family]['program'] +
+			(', or a bf16, fp16 or fp8 Moss checkpoint' if family == 'moss' else ''))
+	quant = json.loads(bytes(checkpoint.get_tensor(key).tolist()))
+	if not quant.get('convrot') or quant.get('convrot_groupsize') != 256 or quant.get('format') != 'int8_tensorwise':
+		raise ValueError('--model must use int8 Convrot with group size 256')
+	return not key.startswith('model.') or family != 'moss'
+
+
 def validate_model(path, family='moss'):
 	from safetensors import safe_open
 	with safe_open(path, framework='pt') as checkpoint:
-		names = [prefix + FAMILIES[family]['linear'] + '.comfy_quant' for prefix in ('', 'model.diffusion_model.')]
-		key = next((name for name in names if name in checkpoint.keys()), None)
-		if key is None:
-			raise ValueError('--model must be an int8 Convrot checkpoint for ' + FAMILIES[family]['program'])
-		quant = json.loads(bytes(checkpoint.get_tensor(key).tolist()))
-		if not quant.get('convrot') or quant.get('convrot_groupsize') != 256 or quant.get('format') != 'int8_tensorwise':
-			raise ValueError('--model must use int8 Convrot with group size 256')
+		layout(checkpoint, family)
 		return checkpoint.metadata() or {}
 
 
@@ -216,8 +232,9 @@ def cache_key(data):
 
 
 def cached_merge(args, model, loras):
+	from safetensors import safe_open
 	active = [(path, strength) for path, strength in loras if strength != 0]
-	if not active:
+	if not active and native(model, args.family):
 		return model
 	script = ROOT / 'merge.py'
 	version = hashlib.sha256(script.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
@@ -225,13 +242,16 @@ def cached_merge(args, model, loras):
 		[(identity(path), strength) for path, strength in active]])
 	path = args.cache / ('merged-stochastic-v1-' + key + '.safetensors')
 	if path.exists():
-		from safetensors import safe_open
 		with safe_open(path, framework='pt') as file:
-			if not baked_loras(file.metadata()):
+			if 'strict_lora_merge' not in (file.metadata() or {}):
 				raise ValueError('Invalid cached merge: ' + str(path))
-		print('Using cached merged model: ' + str(path), flush=True)
+		print('Using cached int8 Convrot model: ' + str(path), flush=True)
+		os.utime(path)
 		return path
-	print('Preparing cached stochastic INT8 merge; source files stay unchanged', flush=True)
+	for old in sorted(args.cache.glob('merged-stochastic-v1-*.safetensors'), key=lambda file: file.stat().st_mtime)[:-2]:
+		old.unlink()
+	print('Please wait: ' + ('merging LoRAs into an' if active else 'converting to an') +
+		' optimized int8 Convrot model, it is reused on the next run!', flush=True)
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 		output = Path(temporary) / 'merged.safetensors'
 		command = [sys.executable, str(script), str(model), str(output),
@@ -393,6 +413,53 @@ def runtime_adapter(args, model, loras):
 	return str(path)
 
 
+def patched_adapter(cache, patches):
+	"""The LoRA patches of a ComfyUI MODEL (LoraLoader nodes) as one stacked adapter file in runtime_adapter's layout,
+	named by its content so cached merges and adapters stay valid."""
+	import torch
+	from safetensors.torch import save_file
+	tensors = {}
+	for key, entries in sorted(patches.items()):
+		downs, ups = [], []
+		for strength, adapter, model_strength, offset, function in entries:
+			weights = getattr(adapter, 'weights', ())
+			if (getattr(adapter, 'name', '') != 'lora' or model_strength != 1 or offset is not None or function is not None
+				or any(value is not None for value in weights[3:])):
+				raise ValueError('Only plain LoRA patches are supported, not on ' + key)
+			up, down, alpha = weights[:3]
+			if strength != 0:
+				downs.append(down.float().cpu().flatten(1))
+				ups.append(up.float().cpu().flatten(1) * (strength * (1 if alpha is None else alpha / down.shape[0])))
+		if downs:
+			prefix = key.removesuffix('.weight') + '.'
+			tensors[prefix + 'lora_down.weight'] = torch.cat(downs).contiguous()
+			tensors[prefix + 'lora_up.weight'] = torch.cat(ups, dim=1).contiguous()
+			tensors[prefix + 'alpha'] = torch.tensor(float(tensors[prefix + 'lora_down.weight'].shape[0]))
+	if not tensors:
+		return None
+	content = hashlib.sha256()
+	for name, value in tensors.items():
+		content.update(name.encode('utf-8'))
+		content.update(value.numpy().tobytes())
+	path = cache / ('patches-' + content.hexdigest() + '.safetensors')
+	if not path.exists():
+		with tempfile.TemporaryDirectory(dir=cache) as temporary:
+			save_file(tensors, str(Path(temporary) / 'adapter.safetensors'))
+			os.replace(Path(temporary) / 'adapter.safetensors', path)
+	return path
+
+
+def turbo_patched(patches, turbo):
+	"""Whether a LoraLoader node already applied the turbo LoRA, recognized by its first lora_down tensor."""
+	import torch
+	from safetensors import safe_open
+	key = 'diffusion_model.layers.0.proj.ffn_down.'
+	with safe_open(turbo, framework='pt') as file:
+		down = file.get_tensor(key + 'lora_down.weight').float()
+	return any(getattr(entry[1], 'name', '') == 'lora' and entry[1].weights[1].shape == down.shape and
+		torch.equal(entry[1].weights[1].float().cpu(), down) for entry in patches.get(key + 'weight', []))
+
+
 def runtime_spec(loras):
 	"""The path=strength;... argument H3Video.exe merges at load."""
 	active = [(str(path), strength) for path, strength in loras if strength != 0]
@@ -433,7 +500,7 @@ def backend(args, folder, model, vae, adapter):
 	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
 
 
-def generated(args, model, vae, contexts, plan, folder, adapter=''):
+def prepared(args, contexts, plan, folder):
 	import torch
 	from safetensors.torch import load, save_file
 	mode, warmup, period = spectrum_config(args)
@@ -454,37 +521,83 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 		if index == 0:
 			data['jobs'] = torch.tensor([len(plan)], dtype=torch.float32)
 			save_file(data, str(folder / 'generation.safetensors'))
+
+
+def started(args, command):
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	command = backend(args, folder, model, vae, adapter)
-	worker = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
-		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
+	return subprocess.Popen(command, cwd=ROOT, env=environment, stdin=subprocess.PIPE if command[1] == '-' else None,
+		stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
+
+
+def collected(args, worker, vae, plan, folder):
+	"""The outputs of plan from the backend's output lines, as soon as each generation is done."""
+	mode = spectrum_config(args)[0]
 	completed = 0
+	for line in worker.stdout:
+		if line.startswith('evaluation '):
+			line = 'step ' + line[len('evaluation '):]
+		print(line, end='', flush=True)
+		match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
+		if match:
+			index = int(match[1])
+			if index != completed or index >= len(plan):
+				raise RuntimeError('Unexpected generation index from native backend')
+			completed += 1
+			suffix = f'-{index}' if len(plan) > 1 else ''
+			extension = '-latent.safetensors' if vae == '' else '.png' if args.output.suffix.lower() == '.png' else '.jpg'
+			name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else 'strict-' + mode + suffix + extension
+			yield index, folder / name, int(match[2])
+			if completed == len(plan):
+				return
+	code = worker.wait()
+	if code:
+		raise subprocess.CalledProcessError(code, worker.args)
+	raise RuntimeError('Native backend did not complete the requested count; rebuild ' + Path(worker.args[0]).stem + '.strict')
+
+
+def stopped(worker):
+	if worker.poll() is None:
+		worker.terminate()
+		worker.wait()
+	worker.stdout.close()
+
+
+def generated(args, model, vae, contexts, plan, folder, adapter=''):
+	prepared(args, contexts, plan, folder)
+	worker = started(args, backend(args, folder, model, vae, adapter))
 	try:
-		for line in worker.stdout:
-			if line.startswith('evaluation '):
-				line = 'step ' + line[len('evaluation '):]
-			print(line, end='', flush=True)
-			match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
-			if match:
-				index = int(match[1])
-				if index != completed or index >= len(plan):
-					raise RuntimeError('Unexpected generation index from native backend')
-				completed += 1
-				suffix = f'-{index}' if len(plan) > 1 else ''
-				extension = '.png' if args.output.suffix.lower() == '.png' else '.jpg'
-				name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else 'strict-' + mode + suffix + extension
-				yield index, folder / name, int(match[2])
+		yield from collected(args, worker, vae, plan, folder)
 		code = worker.wait()
 		if code:
-			raise subprocess.CalledProcessError(code, command)
-		if completed != len(plan):
-			raise RuntimeError('Native backend did not complete the requested count; rebuild ' + Path(command[0]).stem + '.strict')
+			raise subprocess.CalledProcessError(code, worker.args)
 	finally:
-		if worker.poll() is None:
-			worker.terminate()
-			worker.wait()
-		worker.stdout.close()
+		stopped(worker)
+
+
+class Resident:
+	"""One MossGenerate.exe that keeps its model loaded between runs: each run writes its folder to the backend's input,
+	other settings (model, LoRAs, VAE, Spectrum) start a new one."""
+	worker, command = None, None
+
+	def generated(self, args, model, vae, contexts, plan, folder, adapter=''):
+		prepared(args, contexts, plan, folder)
+		command = backend(args, '-', model, vae, adapter)
+		if self.worker is None or self.worker.poll() is not None or self.command != command:
+			self.close()
+			self.worker, self.command = started(args, command), command
+		try:
+			self.worker.stdin.write(str(folder) + '\n')
+			self.worker.stdin.flush()
+			yield from collected(args, self.worker, vae, plan, folder)
+		except BaseException:
+			self.close()
+			raise
+
+	def close(self):
+		if self.worker is not None:
+			stopped(self.worker)
+			self.worker = None
 
 
 def decoded(args, latents, folder):
@@ -529,7 +642,7 @@ def main(argv=None):
 	loras = selected_loras(args, models, metadata)
 	args.cache = args.cache.resolve()
 	args.cache.mkdir(parents=True, exist_ok=True)
-	loaded = cached_merge(args, model, loras) if args.lora_mode == 'merged' else model
+	loaded = cached_merge(args, model, loras if args.lora_mode == 'merged' else [])
 	if args.merge_only:
 		print('Merged model: ' + str(loaded), flush=True)
 		return 0
@@ -549,7 +662,7 @@ def main(argv=None):
 	for path, strength in loras:
 		print(f'LoRA: {path}, strength {strength}', flush=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	adapter = '' if args.lora_mode == 'merged' else runtime_spec(loras) if args.family == 'h3' else runtime_adapter(args, model, loras)
+	adapter = '' if args.lora_mode == 'merged' else runtime_spec(loras) if args.family == 'h3' else runtime_adapter(args, loaded, loras)
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
@@ -581,6 +694,7 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+	sys.dont_write_bytecode = True
 	try:
 		if len(sys.argv) > 1 and sys.argv[1] == '_encode':
 			encoded(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')), Path(sys.argv[3]))

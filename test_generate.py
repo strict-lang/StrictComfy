@@ -86,6 +86,22 @@ class GenerationCommandTests(unittest.TestCase):
 					'--te', 'missing-encoder', '--vae', 'missing-vae']), 0)
 				encode.assert_not_called()
 
+	def test_cached_merge_keeps_the_three_newest_models(self):
+		import os
+		from unittest.mock import patch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			old = [folder / f'merged-stochastic-v1-{index}.safetensors' for index in range(4)]
+			for index, path in enumerate(old):
+				path.touch()
+				os.utime(path, (index, index))
+			(folder / 'base.safetensors').touch()
+			args = module.arguments(['--cache', str(folder)])
+			with patch.object(module.subprocess, 'run', side_effect=lambda command, **kwargs: Path(command[3]).touch()):
+				merged = module.cached_merge(args, folder / 'base.safetensors', [(folder / 'base.safetensors', 1)])
+			self.assertEqual(sorted(folder.glob('merged-*')), sorted([merged, *old[2:]]))
+
 	def test_merge_keeps_sub_quantization_updates(self):
 		import torch
 		from safetensors import safe_open
@@ -109,6 +125,27 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertGreater((merged[name + '.weight'] != weight).sum().item(), 10)
 			with safe_open(folder / 'merged.safetensors', framework='pt') as file:
 				self.assertIn('strict_lora_merge', file.metadata())
+
+	def test_fp8_fused_checkpoint_converts_to_strict_layout(self):
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			prefix = 'model.diffusion_model.layers.0.'
+			thirds = [torch.randn((64, 256), generator=torch.Generator().manual_seed(index)) * (index + 1) for index in range(3)]
+			save_file({prefix + 'proj.qkv.weight': torch.cat(thirds).to(torch.float8_e4m3fn),
+				prefix + 'norm1.weight': torch.ones(256).to(torch.float8_e4m3fn)}, str(folder / 'fp8.safetensors'))
+			self.assertEqual(module.validate_model(folder / 'fp8.safetensors'), {})
+			args = module.arguments(['--cache', str(folder)])
+			converted = self.tensors(module.cached_merge(args, folder / 'fp8.safetensors', []))
+			self.assertEqual(set(converted), {'layers.0.norm1.weight'} | {'layers.0.proj.' + name + '.' + part
+				for name in 'qkv' for part in ('weight', 'weight_scale', 'comfy_quant')})
+			self.assertEqual(converted['layers.0.norm1.weight'].dtype, torch.bfloat16)
+			for name, third in zip('qkv', thirds):
+				weight = converted['layers.0.proj.' + name + '.weight'].float() * converted['layers.0.proj.' + name + '.weight_scale']
+				expected = third.to(torch.float8_e4m3fn).float().norm(dim=1)
+				self.assertTrue(torch.allclose(weight.norm(dim=1), expected, rtol=0.02), name)
 
 	def test_visible_defaults_and_long_help_only(self):
 		module = self.module()
@@ -173,6 +210,92 @@ class GenerationCommandTests(unittest.TestCase):
 			second = self.tensors(folder / 'generation-1.safetensors')
 			self.assertFalse(torch.equal(first['noise'], second['noise']))
 			self.assertFalse(torch.equal(first['context'], second['context']))
+
+	def test_resident_backend_keeps_one_process_per_settings(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--width', '16', '--height', '16', '--cache', str(folder)])
+			save_file({'context': torch.zeros((1, 2, 3))}, str(folder / 'context.safetensors'))
+			process = MagicMock()
+			process.stdout = io.StringIO('loaded in 1 s\ngeneration 0 in 20 ms\ngeneration 0 in 21 ms\n')
+			process.poll.return_value = None
+			resident = module.Resident()
+			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
+				for run in range(3):
+					(folder / str(run)).mkdir()
+				for run in range(2):
+					results = list(resident.generated(args, Path('model'), '', [folder / 'context.safetensors'],
+						[{'seed': run}], folder / str(run)))
+					self.assertEqual([(index, path.name, milliseconds) for index, path, milliseconds in results],
+						[(0, 'strict-off-latent.safetensors', 20 + run)])
+				self.assertEqual(launch.call_count, 1)
+				self.assertEqual(launch.call_args.args[0][1], '-')
+				self.assertEqual([call.args[0] for call in process.stdin.write.call_args_list],
+					[str(folder / '0') + '\n', str(folder / '1') + '\n'])
+				args.spectrum = 'spectrum8_w3p3'
+				launch.return_value = MagicMock(stdout=io.StringIO('generation 0 in 22 ms\n'))
+				launch.return_value.poll.return_value = None
+				list(resident.generated(args, Path('model'), '', [folder / 'context.safetensors'], [{'seed': 2}], folder / '2'))
+				self.assertEqual(launch.call_count, 2)
+				process.terminate.assert_called_once()
+
+	def test_backend_without_vae_returns_latents(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			args = module.arguments(['--width', '16', '--height', '16', '--cache', str(folder)])
+			context = folder / 'context.safetensors'
+			save_file({'context': torch.zeros((1, 2, 3))}, str(context))
+			process = MagicMock()
+			process.stdout = io.StringIO('generation 0 in 20 ms\n')
+			process.wait.return_value = 0
+			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
+				results = list(module.generated(args, Path('model'), '', [context], [{'seed': 1}], folder))
+			self.assertEqual(launch.call_args.args[0][4], '')
+			self.assertEqual([result[1].name for result in results], ['strict-off-latent.safetensors'])
+
+	def test_comfyui_lora_patches_become_one_cached_adapter(self):
+		from types import SimpleNamespace
+		import torch
+		module = self.module()
+		up, down = torch.randn(4, 2), torch.randn(2, 3)
+		other_up, other_down = torch.randn(4, 1), torch.randn(1, 3)
+		lora = lambda weights: SimpleNamespace(name='lora', weights=(*weights, None, None, None))
+		patches = {'diffusion_model.layers.0.proj.q.weight': [(0.5, lora((up, down, 4.0)), 1.0, None, None),
+			(2.0, lora((other_up, other_down, None)), 1.0, None, None)]}
+		with tempfile.TemporaryDirectory() as temporary:
+			path = module.patched_adapter(Path(temporary), patches)
+			self.assertEqual(module.patched_adapter(Path(temporary), patches), path)
+			tensors = self.tensors(path)
+			prefix = 'diffusion_model.layers.0.proj.q.'
+			self.assertEqual(tensors[prefix + 'alpha'].item(), 3)
+			expected = 0.5 * 4 / 2 * up @ down + 2 * other_up @ other_down
+			torch.testing.assert_close(tensors[prefix + 'lora_up.weight'] @ tensors[prefix + 'lora_down.weight'], expected)
+			patches['diffusion_model.layers.0.proj.q.weight'][0] = (1.0, lora((up, down, 4.0)), 1.0, (0, 0, 2), None)
+			with self.assertRaises(ValueError):
+				module.patched_adapter(Path(temporary), patches)
+
+	def test_comfyui_patches_with_turbo_lora_are_detected(self):
+		from types import SimpleNamespace
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		down = torch.randn(2, 3)
+		patch = lambda weights: {'diffusion_model.layers.0.proj.ffn_down.weight':
+			[(1.0, SimpleNamespace(name='lora', weights=(torch.randn(4, 2), weights, None, None, None, None)), 1.0, None, None)]}
+		with tempfile.TemporaryDirectory() as temporary:
+			turbo = Path(temporary) / 'dmd_turbo_lora.safetensors'
+			save_file({'diffusion_model.layers.0.proj.ffn_down.lora_down.weight': down}, str(turbo))
+			self.assertTrue(module.turbo_patched(patch(down.clone()), turbo))
+			self.assertFalse(module.turbo_patched(patch(torch.randn(2, 3)), turbo))
+			self.assertFalse(module.turbo_patched({}, turbo))
 
 	def test_batch_encodes_unique_missing_prompts_in_one_worker(self):
 		from unittest.mock import patch
@@ -281,8 +404,9 @@ class GenerationCommandTests(unittest.TestCase):
 					'--prompt', str(prompt), '--output', str(output), '--seed', '42', '--cache', str(folder)]
 				if enabled:
 					command.append('--json_output')
-				with patch.object(module, 'validate_model'), patch.object(module, 'conditioning', return_value=[model]), \
-					patch.object(module, 'generated', side_effect=batch), redirect_stdout(io.StringIO()):
+				with patch.object(module, 'validate_model'), patch.object(module, 'native', return_value=True), \
+					patch.object(module, 'conditioning', return_value=[model]), patch.object(module, 'generated', side_effect=batch), \
+					redirect_stdout(io.StringIO()):
 					self.assertEqual(module.main(command), 0)
 				image = output.with_name(output.stem + '0001.jpg')
 				self.assertEqual(image.read_bytes(), source.read_bytes())

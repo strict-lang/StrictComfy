@@ -1,12 +1,34 @@
 # Moss performance
 
+## MossImage decodes after sampling (2026-10-25 22:00, RTX 3080)
+
+MossGenerate decoded each image right after sampling it while the 5.4 GB of Moss weights were still on the GPU: 9.6 of 10 GB in use, the decoder evicted and uploaded rows all the time (decode 4.6-10 s instead of 0.43 s). Now it samples every job first, lets the Moss weights go (`GpuMemory.Released`), then loads the VAE and decodes all latents: 0.47-0.49 s per decode. `--count 4 --spectrum spectrum8_w3p3`, warm: 15.6 s in total, sampling 3.2 s then 1.9 s per image. The resident ComfyUI backend (no VAE) is unchanged: 3.0 s per run warm.
+
+## Resident weights against freed VRAM in ComfyUI (2026-10-25 21:45, RTX 3080)
+
+Three prompts with new texts each (the 9.3 GB text encoder runs every time, ComfyUI streams it with dynamic VRAM loading), 720x1280, 8 steps, DMD merged. Backend resident: 7.25 and 6.93 s per prompt, sampling 2.78 s. Backend stopped after every run (VRAM free for the encoder): 10.33 and 10.30 s, load 2.7 s and sampling 4.03 s (the first sampling after a load includes the weight upload). The text encoder and VAE take about 0.9 s longer next to the resident weights, an upload of the weights costs about 1.2 s, so freeing them does not pay off on the 3080.
+
+## Sampling regression found (2026-10-25 21:30, RTX 3080)
+
+Bisected with MossGenerate builds of each Strict commit: 9047bc59 3.9 s, febffb86 slow. Strict 206b3b3e made `Qwen3Block.HeadScale` call `Normalization.Scale(Normalization.Squared(...))`; the compiler turns a call in a GPU loop into a per group sum only when the callee is the summing loop itself, so MossBlock.Modulated summed 3072 numbers for every element again (4.0 -> 17.5 s). MossBlock calls `Normalization.Squared` directly now: 3.98 s sampling with the current Strict, same image quality. ec0c55e4 (Attention.quantized) only slowed builds of the stage 0 bootstrap compiler (over 100 s), not the full build.
+
+## Resident ComfyUI backend (2026-10-25 20:15, RTX 3080)
+
+MossGenerate.exe `-` reads one job folder per line from stdin (Strict `Process.InputLine`) and keeps the model loaded. Three queued prompts in a headless ComfyUI, DMD from a LoraLoader, merged: 40.4 s (merge 15 s, load 4.3 s, sampling 18.5 s), then 18.9 and 18.6 s with sampling 17.3 and 17.2 s, so 1.4-1.6 s per prompt around sampling instead of about 4.5 s with a process per prompt. fp8 `mossImageFinalcut5GB_universal` converted and merged with the automatic DMD in 14 s, 36.7 s for its first prompt.
+
+Sampling itself is 4x slower than in the morning (17.2-18.8 s instead of 4.0 s), also for the original checkpoint and in the CLI, while the GPU is at 100% and 330 W and torch reaches 65 fp16 TFLOPS / 213 int8 TOPS: a Strict regression of the 2026-10-25 commits, see Plan.md.
+
+## ComfyUI node, Strict Moss Sampler (2026-10-25, RTX 3080, normal clocks)
+
+UNETLoader base int8 + LoraLoaderModelOnly DMD 1.0, CLIP Text Encode, Empty Flux 2 Latent 720x1280, seed 43, 8 steps, cfg 1, merged: 8.50 s per queued prompt warm (Strict load 2.61 s, sampling 4.02 s, the rest process start, LoRA patch hashing and ComfyUI's VAE decode). First run of a new MossGenerate build 81.5 s (PTX JIT, 15 s merge). Runtime mode, batch 2: 16.89 s, load 4.09 s, sampling 5.21 / 5.19 s. ComfyUI itself is 6-6.5 s with its model resident; a resident Strict backend is the next step (Plan.md).
+
 ## Runtime-LoRA turbo 8 on tensor cores (2026-10-25 01:40, RTX 3080)
 
 Same inputs as the "Runtime turbo 8" row below. Resident warm passes: sampling 11.464 -> 4.79-4.86 s, decode 1.079 s -> 430-450 ms, generation 12.563 -> 5.28-5.33 s, load 5.34 -> 4.2 s.
 
 Changes: bf16 GPU-resident LoRA through Products tensor cores, fused QKV down projection, bf16 epilogues, plus the elementwise, VAE bf16 and layer-41 text-skip work. PSNR 33.28 dB vs the old control; visually checked.
 
-Details, profile and next steps: Handoff.md. Normal clocks; this is not a matched ComfyUI comparison.
+Normal clocks; this is not a matched ComfyUI comparison.
 
 ## RTX 3080: complete five-adapter stack, merge versus runtime (2026-10-25)
 
@@ -30,7 +52,7 @@ Real MossImage CLI count3 with that stack reused the cache and enabled three for
 
 Prompt: portrait of a woman wearing a green wool sweater, holding a ceramic mug in a cafe. All three merged and Spectrum outputs were inspected: coherent images with visible pose/skin/finger/background changes. This is an approximate quality tradeoff, not proof of fidelity for all adapters/prompts. User review gallery: D:/StrictDumps/moss-merge-study/index.html; raw paired and CLI logs plus quality.json alongside it.
 
-CLI defaults to cached --lora_mode merged, offers floating --lora_mode runtime, and explicitly enables prediction with --spectrum spectrum8_w3p3 (off by default). Previous CLI hardcoded off, explaining forecasts 0. --merge_only prepares/prints a reusable marked checkpoint without encoder/VAE/prompt work; baked DMD metadata prevents automatic reapplication. Cache identity includes model, ordered stack, strengths and merger version; old uncertified caches are unused. Nineteen CPU-only CLI/merge checks pass, StrictComfy folder check 0 issues. No compiler/native production changes in this commit. See Generation.md for commands.
+CLI defaults to cached --lora_mode merged, offers floating --lora_mode runtime, and explicitly enables prediction with --spectrum spectrum8_w3p3 (off by default). Previous CLI hardcoded off, explaining forecasts 0. --merge_only prepares/prints a reusable marked checkpoint without encoder/VAE/prompt work; baked DMD metadata prevents automatic reapplication. Cache identity includes model, ordered stack, strengths and merger version; old uncertified caches are unused. Nineteen CPU-only CLI/merge checks pass, StrictComfy folder check 0 issues. No compiler/native production changes in this commit. Commands are in Readme.md.
 
 ## Quality correction: original floating turbo adapter (2026-10-25)
 
@@ -54,7 +76,7 @@ All ten output hashes differ within a batch and match their corresponding seeded
 
 ## User command timing (2026-10-24, RTX 3080)
 
-MossImage.exe now accepts prompt files, repeated weighted LoRAs and numbered output paths; usage is at the top of Generation.md. Full command validation used 720x1280, the existing merged eight-step DMD checkpoint, and two PEFT style adapters at 0.5/0.31 (246 matched modules each). A four-step invocation checks CLI plumbing only; shortening an eight-step checkpoint is not a four-step quality recommendation.
+MossImage.exe now accepts prompt files, repeated weighted LoRAs and numbered output paths; usage is in Readme.md. Full command validation used 720x1280, the existing merged eight-step DMD checkpoint, and two PEFT style adapters at 0.5/0.31 (246 matched modules each). A four-step invocation checks CLI plumbing only; shortening an eight-step checkpoint is not a four-step quality recommendation.
 
 A cached default eight-step invocation from another working directory took 10.81 s end to end: fresh native load 3.076 s, sampling 4.132 s, decode 1.505 s, JPEG save 19 ms, full generation including cleanup 5.658 s. Prompt conditioning, merged stack and driver compilation were cached. This is a new native process per invocation, not the resident 3.47 s measurement below. First use is slower: one successful new-stack/first-driver-use run took 51.47 s with prompt conditioning already cached. Cold decode also varies (1.5-4.1 s in these plumbing checks). No comparison against ComfyUI's warm pipeline is claimed from these timings.
 
@@ -200,7 +222,7 @@ Global pool-first eviction and a spilled-row free-space guard were tested only i
 
 Validation: resident-repeat check failed before implementation and now passes; PNG option's regression failed before the branch and passes in VM/native tests; native cache test checks collection/drain counts and retained live cache entries; compiler native mapping tests and stage 2/3 fixpoint pass. Full-size stored/compressed/resident images decode to identical pixels. The merged cache test's duplicate allocator mocks and missing pool DLL exports were also repaired so all budget, pool and lifetime checks run together.
 
-Evidence: D:/StrictDumps/moss-end-to-end. Production logs/JSON: harness/portrait-42/turbo8/run-{0,1}; fresh-process case: single/portrait-42/turbo8/run-0; ComfyUI: comfy-end-to-end.json and comfy.py; before/after traces: profile-before.sqlite / profile.sqlite and phase-comparison.json. Clock limits restored after timing. Reproduce with compare_moss.py --resident-runs 3; see [Generation.md](Generation.md).
+Evidence: D:/StrictDumps/moss-end-to-end. Production logs/JSON: harness/portrait-42/turbo8/run-{0,1}; fresh-process case: single/portrait-42/turbo8/run-0; ComfyUI: comfy-end-to-end.json and comfy.py; before/after traces: profile-before.sqlite / profile.sqlite and phase-comparison.json. Clock limits restored after timing. Reproduce with compare_moss.py --resident-runs 3; see [Readme.md](Readme.md).
 
 ## RTX 3080 sampling tradeoffs: 25, 8 and 4 steps (2026-10-24)
 
@@ -229,11 +251,11 @@ The new generation runner omits per-layer reference comparisons. It uses indepen
 
 H3 fixed-budget allocator check on 3080, two alternating pairs against the prior trim build: budget 395.33 / 395.67 ms steady evaluations, previous 403.17 / 396.67 ms. Mean 395.50 versus 399.92 ms (about 1.1%); variation is too large to claim a substantial gain. Exact errors and PNG stayed unchanged. The H3-sized ~20% improvement does not transfer to this Moss fixture. Diagnostics: D:/StrictDumps/bf16-attention/{budget1,basebudget1,basebudget2,budget2}.json. Copy-stream prefetch is still the 4090 agent's separate work; no such change was available at the final fetch.
 
-Reproduction, adapter provenance, timing definitions and limitations: [Generation.md](Generation.md). Upstream Spectrum coverage: [Spectrum.md](Spectrum.md); adaptive scheduling and ER-SDE integration remain missing.
+Reproduction, adapter provenance, timing definitions and limitations: [Readme.md](Readme.md). Upstream Spectrum coverage: [Spectrum.md](Spectrum.md); adaptive scheduling and ER-SDE integration remain missing.
 
 ## RTX 3080 precision results (2026-10-24)
 
-Same 720x1280 merged-int8-Convrot Moss fixture, eight Euler evaluations, steps 1-6 averaged. Locked core 1695 MHz, actual CUDA memory 9506 MHz; no thermal slowdown. Compiler c1829a08, model parent 502da91 plus the precision changes described in Handoff.md. F32 control uses the same compiler/runtime as bf16.
+Same 720x1280 merged-int8-Convrot Moss fixture, eight Euler evaluations, steps 1-6 averaged. Locked core 1695 MHz, actual CUDA memory 9506 MHz; no thermal slowdown. Compiler c1829a08, model parent 502da91 plus the precision changes (git history of Handoff.md). F32 control uses the same compiler/runtime as bf16.
 
 | Alternating pair | F32 residual/QK (ms) | BF16 residual/QK (ms) |
 |---|---:|---:|
@@ -270,7 +292,7 @@ Native bf16 attention uses a noinline constant-format specialization: otherwise 
 
 Unused pool blocks are trimmed before large activation allocations under memory pressure. Global reserve, power-of-two classes and weight-cache policy remain unchanged. Eager lending, finer classes, global 1 GiB reserve and Readable comparison materialization were rejected. Inlining Rotated's half-width expression exposed a separate full-size miscompile; original arithmetic is retained and the bug is recorded in ../Strict/improvements.md.
 
-All scripts, raw counters, paired JSONs and rejected patches: `D:/StrictDumps/bf16-attention`; final paired binaries `model-trim` / `model-trim-base`, traces `profile-final-*`. Full validation and next steps: [Handoff.md](Handoff.md).
+All scripts, raw counters, paired JSONs and rejected patches: `D:/StrictDumps/bf16-attention`; final paired binaries `model-trim` / `model-trim-base`, traces `profile-final-*`.
 
 ## RTX 3080 GEMM analysis (2026-10-24)
 
@@ -377,11 +399,11 @@ The bf16 residual saves 7 ms per step (4.3 %) but moves 31 % further from ComfyU
 
 ## A: step-boundary round trips removed (2026-10-24, 4090, locked 2400/10251)
 
-Paired alternating runs, steps 1-6 mean: baseline 187.0 / 182.7 / 187.8 ms, candidate 169.8 / 161.7 / 163.5 ms; idle per step 23.2 -> 5.0 ms (only the harness's latent download is left), no uploads or graph re-instantiation per step, identical errors and PNG. Details, the rule behind the round trips and the B1 estimate: [Handoff.md](Handoff.md), section "A done on the 4090".
+Paired alternating runs, steps 1-6 mean: baseline 187.0 / 182.7 / 187.8 ms, candidate 169.8 / 161.7 / 163.5 ms; idle per step 23.2 -> 5.0 ms (only the harness's latent download is left), no uploads or graph re-instantiation per step, identical errors and PNG.
 
 ## Locked-clock baseline (2026-10-24, Strict master e1cb907b + native-flags build fix 23e61750)
 
-Same fixture, model and settings as below. After the repaste (no thermal throttling since, see the GPU section of Handoff.md) every timing run here used `nvidia-smi -lgc 2400,2400` and `-lmc 10251,10251` (10451 MHz effective with the +200 MHz offset). The lock is for A/B timing only, production runs stay unlocked. 2400 is the highest lock tested that holds steadily: locked at 2550 the clock reads 2550 but bf16 GEMM throughput swings between 139 and 160 TFLOPS, against 151-153 at 2400 and 163-166 unlocked. Memory is not slowed by the lock: under CUDA the driver uses the P2 point (10451 MHz effective with +200) whether locked or not (`-lmc 10501` changes nothing); 10701 MHz for CUDA would need NVIDIA Profile Inspector's "CUDA - Force P2 State" off. Both held in every one-second sample, no throttle flags, hotspot at most 61 °C in Moss runs (84 °C after 60 s of bf16 GEMM stress at 370-376 W). ComfyUI used the same conditioning, tokens, noise and sigmas, bit-identical to the fixture, and reproduced the fixture's final latent bit for bit.
+Same fixture, model and settings as below. After the repaste (no thermal throttling since) every timing run here used `nvidia-smi -lgc 2400,2400` and `-lmc 10251,10251` (10451 MHz effective with the +200 MHz offset). The lock is for A/B timing only, production runs stay unlocked. 2400 is the highest lock tested that holds steadily: locked at 2550 the clock reads 2550 but bf16 GEMM throughput swings between 139 and 160 TFLOPS, against 151-153 at 2400 and 163-166 unlocked. Memory is not slowed by the lock: under CUDA the driver uses the P2 point (10451 MHz effective with +200) whether locked or not (`-lmc 10501` changes nothing); 10701 MHz for CUDA would need NVIDIA Profile Inspector's "CUDA - Force P2 State" off. Both held in every one-second sample, no throttle flags, hotspot at most 61 °C in Moss runs (84 °C after 60 s of bf16 GEMM stress at 370-376 W). ComfyUI used the same conditioning, tokens, noise and sigmas, bit-identical to the fixture, and reproduced the fixture's final latent bit for bit.
 
 Run to run, plain runs without a profiler, steps 1-6 mean:
 

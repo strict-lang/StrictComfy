@@ -1,11 +1,13 @@
 """Merges LoRAs into an int8 convrot model once, so Strict (and ComfyUI) load the result like any model. Run with ComfyUI's python:
   python_embeded\\python.exe merge.py <model.safetensors> <out.safetensors> <lora.safetensors>[:strength] ...
 Each convrot linear: W·Hᵀ (int8 · row scale) + strength · alpha / rank · (up · down)·Hᵀ, requantized to int8 with one scale per row
-(stochastic rounding like ComfyUI: nearest rounding drops LoRA deltas below half a step). Matching floating-point weights receive their deltas without quantization. LoRAs trained on a fused proj.qkv
+(stochastic rounding like ComfyUI: nearest rounding drops LoRA deltas below half a step). Moss checkpoints in other layouts
+(bf16, fp16 or fp8 linears, fused qkv, ComfyUI's model prefix) are converted to the unfused int8 convrot one Strict loads. Matching floating-point weights receive their deltas without quantization. LoRAs trained on a fused proj.qkv
 match no weight of this unfused model and are skipped like ComfyUI does (strengths tuned in ComfyUI expect that);
 --split-qkv applies their q/k/v thirds instead.
 """
 import json
+import re
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -26,6 +28,7 @@ for _ in range(3):
 	hadamard = torch.kron(hadamard, h4)
 hadamard = (hadamard / 16).to(device)
 generator = torch.Generator(device=device).manual_seed(0)
+QUANT = json.dumps({"format": "int8_tensorwise", "convrot": True, "convrot_groupsize": 256})
 
 
 def rotated(rows, group):
@@ -71,26 +74,41 @@ specs = [(path, strength) for path, strength in map(lora_spec, loras) if strengt
 files = [(safe_open(path, "pt"), strength) for path, strength in specs]
 matched = [0] * len(files)
 tensors, merged = {}, 0
+moss = any(key.removeprefix("model.diffusion_model.").startswith("layers.") for key in source.keys())
 for key in source.keys():
-	tensors[key] = source.get_tensor(key)
+	tensors[key.removeprefix("model.diffusion_model.") if moss else key] = source.get_tensor(key)
+for key in [key for key in tensors if ".proj.qkv." in key]:
+	fused = tensors.pop(key)
+	parts = (fused,) * 3 if key.endswith((".comfy_quant", ".scale_weight")) else fused.chunk(3)
+	for own, part in zip("qkv", parts):
+		tensors[key.replace(".proj.qkv.", ".proj." + own + ".")] = part.clone()
+for key in list(tensors):
+	name = key.removesuffix(".weight")
+	if re.fullmatch(r"layers\.\d+\.proj\.(q|k|v|o|ffn_up_gate|ffn_down)", name) and name + ".comfy_quant" not in tensors:
+		tensors[name + ".comfy_quant"] = torch.tensor(list(QUANT.encode()), dtype=torch.uint8)
 for key in list(tensors):
 	if not key.endswith(".comfy_quant"):
 		continue
 	name = key[:-len(".comfy_quant")]
 	quant = json.loads(bytes(tensors[key].tolist()))
-	change = delta(files, name)
-	if change is None:
-		continue
 	assert quant.get("convrot") and quant.get("convrot_groupsize") == 256 and quant.get("format") == "int8_tensorwise", quant
-	weight = tensors[name + ".weight"].float().to(device) * tensors[name + ".weight_scale"].float().to(device)
-	if change.shape != weight.shape:
-		raise ValueError(f"LoRA shape {tuple(change.shape)} does not match {name}: {tuple(weight.shape)}")
-	weight = weight + rotated(change, quant["convrot_groupsize"])
+	change = delta(files, name)
+	weight = tensors[name + ".weight"]
+	if change is None and weight.dtype == torch.int8:
+		continue
+	if weight.dtype == torch.int8:
+		weight = weight.float().to(device) * tensors[name + ".weight_scale"].float().to(device)
+	else:
+		weight = rotated(weight.float().to(device) * tensors.pop(name + ".scale_weight", torch.ones(())).float().to(device), 256)
+	if change is not None:
+		if change.shape != weight.shape:
+			raise ValueError(f"LoRA shape {tuple(change.shape)} does not match {name}: {tuple(weight.shape)}")
+		weight = weight + rotated(change, quant["convrot_groupsize"])
+		merged += 1
 	scale = (weight.abs().amax(dim=1, keepdim=True) / 127).clamp(min=1e-30)
-	noise = torch.rand(weight.shape, generator=generator, device=device)
+	noise = torch.rand(weight.shape, generator=generator, device=device) if change is not None else 0.5
 	tensors[name + ".weight"] = (weight / scale + noise).floor().clamp(-128, 127).to(torch.int8).cpu()
-	tensors[name + ".weight_scale"] = scale.to(tensors[name + ".weight_scale"].dtype).cpu()
-	merged += 1
+	tensors[name + ".weight_scale"] = scale.float().cpu()
 quantized = {key[:-len('.comfy_quant')] for key in tensors if key.endswith('.comfy_quant')}
 for key in list(tensors):
 	if not key.endswith('.weight') or key[:-len('.weight')] in quantized:
@@ -103,6 +121,9 @@ for key in list(tensors):
 		raise ValueError('Unsupported LoRA target: ' + key)
 	tensors[key] = (weight.float().to(device) + change).to(dtype=weight.dtype, device='cpu')
 	merged += 1
+for key in tensors:
+	if moss and tensors[key].is_floating_point() and not key.endswith(".weight_scale"):
+		tensors[key] = tensors[key].to(torch.bfloat16)
 for (path, strength), count in zip(specs, matched):
 	if count == 0:
 		raise ValueError('LoRA matched no supported model modules: ' + path)
