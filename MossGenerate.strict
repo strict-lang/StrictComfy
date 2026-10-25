@@ -18,6 +18,7 @@ Generated(moss Moss, sampling MossSampling, data Safetensors, adapter Text) Numb
 	let before = Process.Elapsed
 	let latent = Sampled(moss, sampling, noise, context, adapter)
 	logger.Log("sample " + latent.First + ", sampling " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	GpuMemory.Released
 	latent
 Sampled(moss Moss, sampling MossSampling, noise Numbers, context Numbers, adapter Text) Numbers
 	if adapter is ""

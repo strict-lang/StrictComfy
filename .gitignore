@@ -77,5 +77,6 @@ bld/
 !tinyh3.safetensors
 !tinyh3vae.safetensors
 !tinyh3audio.safetensors
-prompt.txt
+prompt*.txt
 benchmark.py
+*.jpg

@@ -36,8 +36,10 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 	let image = moss.Features(latent, text, rotation, vector)
 	let coord = Coord(step)
 	Shadowed(image, coord)
-	if image.Length * 4 * history.maximum > cacheBytes
-		return MossSpectrum(value, output = moss.Head(image, vector), mode = "off", history = SpectralHistory)
+	let bytes = image.Length * 2 * history.maximum
+	if (NeedsHistory(step) is false) or (bytes > cacheBytes)
+		let updated = bytes > cacheBytes then "off" else mode
+		return MossSpectrum(value, output = moss.Head(image, vector), mode = updated, history = SpectralHistory)
 	let next = history.Remembered(coord, image)
 	MossSpectrum(value, output = moss.Head(image, vector), history = next)
 Shadowed(image Numbers, coord Number) None
@@ -47,3 +49,10 @@ Shadowed(image Numbers, coord Number) None
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum
 	let image = history.Predicted(Coord(step))
 	MossSpectrum(value, output = moss.Head(image, vector), forecasts = forecasts + 1)
+NeedsHistory(step Number) Boolean
+	Primed.NeedsHistory(5)
+	Primed.NeedsHistory(6) is false
+	MossSpectrum(Primed, mode = "shadow").NeedsHistory(6)
+	MossSpectrum(Primed, mode = "shadow").NeedsHistory(7) is false
+	let last = mode is "shadow" then steps - 1 else steps - 2
+	step < last

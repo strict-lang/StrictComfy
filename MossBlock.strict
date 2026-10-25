@@ -37,6 +37,19 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers
 	let width = attentionNorm.Length
 	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, width, 5)
+Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers
+	Tiny.Cropped(Input, Modulation, Rotation, 4096) is Safetensors.Part(Layered, 0, 4096, 1)
+	let normed = Modulated(input, attentionNorm, modulation, 0)
+	let attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, attentionNorm.Length, 2)
+	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, attentionNorm.Length, 5)
+ImageAttended(normed Numbers, rotation Numbers, kept Number) Numbers
+	Tiny.ImageAttended(Input, Rotation, 4096) is Safetensors.Part(Tiny.Attended(Input, Rotation), 0, 4096, 1)
+	let width = attentionNorm.Length
+	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let queries = Safetensors.Part(Rotated(combined, 0, width, queryNorm, rotation), 0, kept, 1)
+	let keys = Rotated(combined, width, width, keyNorm, rotation)
+	let merged = Attention(queries, keys, combined, Heads, Heads, queryNorm.Length, 1, false, 2 * width, 3 * width).Merged
+	MossLora.Applied(loras, 3, Batch(output, MossLora.Unbiased).Sums(Convrot(merged).Rotated), merged)
 Attended(normed Numbers, rotation Numbers) Numbers
 	Tiny.Attended(Input, Rotation).Length is 4864
 	let combined = MossLora.Attended(loras, Batch(attention, MossLora.Unbiased).Sums(Convrot(normed).Rotated), normed)
@@ -70,8 +83,8 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloa
 		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) BFloat16s
-	Tiny.Gated((1, 2), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
-	for input.Length
+	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
+	for update.Length
 		input(index) + update(index) * modulation(part * width + index % width)
 Rotations(height Number, width Number, text Number, size Number) Numbers
 	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
@@ -109,7 +122,7 @@ Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation 
 		let token = ((index / size).Floor / heads).Floor
 		let within = index % size
 		let first = index - within + token * 2 * width + start
-		let partner = within < half then within + half else within - half
+		let scale = Qwen3Block.HeadScale(combined, first, size, Qwen3Block.Epsilon)
+		let partner = (within + half) % size
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
-		let other = combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)
-		(own + other) * Qwen3Block.HeadScale(combined, first, size, Qwen3Block.Epsilon)
+		(own + combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)) * scale
