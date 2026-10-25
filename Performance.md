@@ -1,5 +1,43 @@
 # Moss performance
 
+## RTX 3080: complete five-adapter stack, merge versus runtime (2026-10-25)
+
+User's approximately 15 s/image report used DMD plus four style adapters. Old premerged/no-runtime-adapter Spectrum results were a different workload. Latest concurrent native MossLora rewrite already improves the exact floating stack. Same pinned executable/PTX, identical conditioning/noise, 720x1280, eight steps, CFG1, JPEG85, three resident generations per variant:
+
+| Path | First generation | Next two complete generations |
+|---|---:|---:|
+| Base + complete floating runtime stack | 9.638 s | 7.232 / 7.183 s |
+| Complete stochastic INT8 merge | 4.418 s | 3.255 / 3.252 s |
+| Same merge + spectrum8_w3p3 | 3.424 s | 2.297 / 2.327 s |
+
+Complete generation includes sampling, decode, save and inter-image cleanup, excludes process/model/text-encoder startup. Normal user Afterburner settings; no clock/power changes. Sequential resident runs, not locked-clock alternating repetitions or a new matched ComfyUI measurement. Exact ordered five-adapter identities/strengths are recorded locally in D:/StrictDumps/moss-merge-study/stack.json. Accumulate all deltas before requantization; CPU stochastic rounding seed 0, split fused qkv. One-time merge took 11.58 s isolated / 15.35 s via launcher. Source checkpoint unchanged; each cached stack occupies a full model.
+
+Real MossImage CLI count3 with that stack reused the cache and enabled three forecasts: sampling 1.723/1.744 s, complete warm generations 2.289/2.307 s. Direct cached-model count2 avoided duplicate DMD and gave 2.291 s warm. Cold CUDA-cache/backend loading took 31.60-41.66 s, but a repeat invocation loaded in 3.059 s and took 10.63 s total for two images. First CLI off run included uncached text encoding and cold loading: 69.44 s total, generations 6.187/4.231/3.462 s. Thus 2.3 s is resident performance, not process wall time. Concurrent agent rebuilt native executable between controlled and CLI tests; pinned comparisons use the same earlier snapshot.
+
+| Seed | Merge vs runtime PSNR | Merge+Spectrum vs runtime PSNR | Spectrum vs merged PSNR |
+|---|---:|---:|---:|
+| 42 | 21.29 dB | 20.51 dB | 25.57 dB |
+| 1234 | 24.50 dB | 22.64 dB | 25.47 dB |
+| 7 | 24.99 dB | 23.37 dB | 27.37 dB |
+
+Prompt: portrait of a woman wearing a green wool sweater, holding a ceramic mug in a cafe. All three merged and Spectrum outputs were inspected: coherent images with visible pose/skin/finger/background changes. This is an approximate quality tradeoff, not proof of fidelity for all adapters/prompts. User review gallery: D:/StrictDumps/moss-merge-study/index.html; raw paired and CLI logs plus quality.json alongside it.
+
+CLI defaults to cached --lora_mode merged, offers floating --lora_mode runtime, and explicitly enables prediction with --spectrum spectrum8_w3p3 (off by default). Previous CLI hardcoded off, explaining forecasts 0. --merge_only prepares/prints a reusable marked checkpoint without encoder/VAE/prompt work; baked DMD metadata prevents automatic reapplication. Cache identity includes model, ordered stack, strengths and merger version; old uncertified caches are unused. Nineteen CPU-only CLI/merge checks pass, StrictComfy folder check 0 issues. No compiler/native production changes in this commit. See Generation.md for commands.
+
+## Quality correction: original floating turbo adapter (2026-10-25)
+
+The old premerged DMD default is not a validated turbo baseline: sampled q/FFN-down INT8 code arrays are unchanged from the base checkpoint, with only tiny row-scale differences. Earlier 45.07 s/ten-image timing measured that artifact, not the corrected runtime-LoRA workload. CLI now loads unchanged base INT8 weights and automatically applies original DMD at eight steps. It packs weighted adapter stacks without quantizing their deltas into base weights. New comparison manifests use the same runtime approach; existing manifests are not rewritten.
+
+Same prompt "Portrait photograph of a woman, natural daylight.", seed 42, 720x1280, no Spectrum. Base50/base25 use CFG3, no LoRA; turbo8 uses CFG1 and original DMD. Direct native backend times (unlocked clocks, not a calibrated ComfyUI comparison):
+
+| Case | Sampling | Decode/save/full generation | Process including load |
+|---|---:|---:|---:|
+| Base 50 | 37.315 s | 37.861 s | 71.91 s (33.672 s first-use load/JIT) |
+| Base 25 | 19.316 s | 21.087 s | 24.52 s |
+| Runtime turbo 8 | 11.464 s | 12.563 s | 18.39 s |
+
+MossLora.Scaled now preserves original packed rows when scale is 1; prior runtime turbo exceeded 180 s and reached only step 2. The normal CLI check took 26.04 s and reproduced the native turbo JPEG exactly; it created no JSON by default. Sixteen command tests pass, including floating stack preservation of updates smaller than base quantization steps. Images/logs are under D:/StrictDumps/moss-quality-review/{base50,base25,turbo8-runtime}; the user should judge these three samples. No claim that all prompts are fixed or that runtime turbo now beats ComfyUI. An additional run became contended with a separate GPU benchmark and was stopped; its timing is invalid. Next performance target is the floating LoRA product path and resident adapter/weight memory behavior.
+
 ## Resident randomized CLI batches (2026-10-24, RTX 3080)
 
 --count now reuses one native model and VAE across different prompts/noise, rather than restarting inference for every image. Same 720x1280 merged DMD, eight steps, two PEFT adapters at 0.5/0.31, normal Afterburner settings. --seed 42 fixes a ten-image batch with ten distinct seeds and three randomized prompt variants. The first batch took 78.34 s including one encoder load for two uncached unique prompts, one stack merge and one native load. A fully cached repeat took **45.07 s for ten images**, with one 3.052 s native load. Completed-image native durations: 5298 / 4507 / 4189 / 3563 / 3537 / 3477 / 3473 / 3482 / 4469 / 4001 ms; median after image one **3563 ms**, including VAE/JPEG and between-image cleanup. No clocks/power settings changed; this is not a locked-clock ComfyUI comparison.

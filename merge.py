@@ -17,6 +17,8 @@ from safetensors.torch import save_file
 split = "--split-qkv" in sys.argv
 paths = [argument for argument in sys.argv[1:] if argument != "--split-qkv"]
 model, out, loras = paths[0], paths[1], paths[2:]
+if Path(out).resolve() in [Path(model).resolve(), *[Path(path).resolve() for path, strength in map(lora_spec, loras)]]:
+	raise ValueError('Merged output must differ from every input file')
 device = "cuda" if torch.cuda.is_available() else "cpu"
 h4 = torch.tensor([[1, 1, 1, -1], [1, 1, -1, 1], [1, -1, 1, 1], [-1, 1, 1, 1]], dtype=torch.float32)
 hadamard = h4
@@ -99,5 +101,9 @@ for (path, strength), count in zip(specs, matched):
 		raise ValueError('LoRA matched no supported model modules: ' + path)
 	print('matched', count, 'modules:', path, 'strength', strength)
 print("merged", merged, "linears")
-save_file(tensors, out, metadata={"merged_loras": json.dumps(loras)})
+inherited = json.loads((source.metadata() or {}).get('strict_lora_merge', '{}'))
+marker = {'algorithm': 'convrot-int8-stochastic-v1', 'seed': 0, 'device': device,
+	'base_model': inherited.get('base_model', str(Path(model).resolve())),
+	'loras': inherited.get('loras', []) + [(str(Path(path).resolve()), strength) for path, strength in specs]}
+save_file(tensors, out, metadata={"merged_loras": json.dumps(loras), 'strict_lora_merge': json.dumps(marker)})
 print("wrote", out)

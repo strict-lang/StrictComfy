@@ -26,7 +26,7 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 	mutable unconditional = State
 	mutable latent = noise
 	for steps
-		logger.Log("evaluation " + index + " at " + Process.Elapsed.Round(3))
+		logger.Log("step " + index + " at " + Process.Elapsed.Round(3))
 		positive = positive.Advanced(moss, latent, sigmas(index), text, rotation, index)
 		unconditional = Unconditioned(unconditional, moss, latent, sigmas(index), negative, rotation, index)
 		let output = guidance is 1 then positive.output else Guided(positive.output, unconditional.output)
@@ -48,7 +48,7 @@ MixedSteps(moss Moss, noise Numbers, text Numbers, rotation Numbers, adapter Saf
 	let codes = adapter.Values("step_codes")
 	mutable latent = noise * 0
 	for steps
-		logger.Log("evaluation " + index + " at " + Process.Elapsed.Round(3))
+		logger.Log("step " + index + " at " + Process.Elapsed.Round(3))
 		let input = Mixed(noise, latent, mixing)
 		let vector = moss.timeOut.Sums(Moss.Silu(moss.timeIn.Sums(Moss.Sinusoid(codes(index), 256))))
 		latent = MossText.Added(noise, moss.Head(moss.Features(input, text, rotation, vector), vector) * -1)

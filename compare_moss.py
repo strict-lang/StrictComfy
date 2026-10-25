@@ -51,8 +51,8 @@ if not manifest.exists():
 		"variants": {
 			"base25": {"model": base, "steps": 25, "guidance": 3},
 			"spectrum25": {"model": base, "steps": 25, "guidance": 3, "mode": "on", "warmup": 8, "period": 3},
-			"turbo8": {"model": models + "/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors", "steps": 8, "guidance": 1},
-			"spectrum8": {"model": models + "/diffusion_models/moss-image-sft-dit-int8-convrot-dmd.safetensors", "steps": 8, "guidance": 1, "mode": "on", "warmup": 5, "period": 2},
+			"turbo8": {"model": base, "lora": models + "/loras/moss/dmd_turbo_lora.safetensors", "steps": 8, "guidance": 1},
+			"spectrum8": {"model": base, "lora": models + "/loras/moss/dmd_turbo_lora.safetensors", "steps": 8, "guidance": 1, "mode": "on", "warmup": 3, "period": 2},
 			"akhaliq4": {"model": str(root / "merged/akhaliq-int8.safetensors"), "steps": 4, "guidance": 1},
 			"rapid4": {"model": str(root / "merged/darask0-int8.safetensors"), "adapter": str(root / "darask0"), "steps": 4, "guidance": 1},
 			"akhaliq4-unmerged": {"model": base, "lora": str(root / "akhaliq/lora.safetensors"), "steps": 4, "guidance": 1, "optional": True},
@@ -141,7 +141,7 @@ if options.run:
 					generation_runs = [int(value) for value in re.findall(r"generation \d+ in (\d+) ms", text)]
 					assert len(sampling_runs) == options.resident_runs, text
 					setup = re.findall(r"text setup at ([0-9.]+)", text)
-					first = re.findall(r"evaluation 0 at ([0-9.]+)", text)
+					first = re.findall(r"(?:step|evaluation) 0 at ([0-9.]+)", text)
 					denoising = sampling_runs[-1] - 1000 * (float(first[-1]) - float(setup[-1])) if setup and first else None
 					measurement = {"denoising_ms": round(denoising, 1) if denoising is not None else None, "case": case, "variant": label, "run": run, "sampling_ms": sampling_runs[-1], "sampling_runs_ms": sampling_runs, "generation_runs_ms": generation_runs, "resident_runs": options.resident_runs, "compressed_png": options.compressed, "image_name": image_name, "wall_seconds": time.perf_counter() - started, "command": command, "configuration": variant}
 					measurement["output_format"] = options.format
@@ -156,7 +156,7 @@ if options.report:
 	pages = ["<!doctype html><meta charset='utf-8'><title>Moss speed and quality comparison</title>",
 		"<style>body{background:#171b21;color:#eee;font:16px system-ui;margin:24px}table{border-collapse:collapse}td,th{padding:8px;text-align:left;vertical-align:top;border:1px solid #444}img{width:200px;height:auto}a{color:#aad4ff}p{max-width:1100px}</style>",
 		"<h1>Moss: sampling speed and visible quality</h1><p>" + str(settings["width"]) + " x " + str(settings["height"]) + "; shared prompt and CPU-generated noise within each row. Click an image for full resolution. All speed presets use int8 Convrot weights and bf16 residual/QK. Base25 uses Euler/shift 5, ordinary CFG 3 with zero conditioning; no negative block skip or ER-SDE. Four-step models are separately trained adapters, not shortened base sampling. Spectrum uses fixed periodic forecasts, not upstream adaptive scheduling.</p>",
-		"<p>Sampling includes text projection/setup and initial weight uploads, but excludes model loading and decode/save. Denoising starts at evaluation 0. CUDA JIT cache is warmed; first-use compilation can add tens of seconds. Each image is a quality tradeoff, not an equivalence check.</p>"]
+		"<p>Sampling includes text projection/setup and initial weight uploads, but excludes model loading and decode/save. Denoising starts at step 0. CUDA JIT cache is warmed; first-use compilation can add tens of seconds. Each image is a quality tradeoff, not an equivalence check.</p>"]
 	for name, prompt in settings["prompts"].items():
 		pages += ["<h2>" + html.escape(name) + "</h2><p>" + html.escape(prompt) + "</p><table><tr><th>Seed</th>" + "".join("<th>" + html.escape(label) + "</th>" for label in labels) + "</tr>"]
 		for seed in settings["seeds"]:
