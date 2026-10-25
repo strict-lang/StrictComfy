@@ -1,5 +1,64 @@
 # Handoff: Moss elementwise kernels, step wall time below ComfyUI (RTX 3080)
 
+## Latest checkpoint: fast runtime-LoRA turbo 8, elementwise/VAE wins (2026-10-25 01:40)
+
+Scope: runtime turbo 8 only (base INT8 + automatic DMD LoRA), one JPEG, resident --count flow. Nothing committed yet.
+
+Resident runtime turbo 8 went from **12.563 s to about 5.28 s per image**. Same prompt/seed as D:/StrictDumps/moss-quality-review/turbo8-runtime; 4 resident runs, normal Afterburner clocks:
+
+| | Before (c946136) | Now, warm passes 1-3 |
+|---|---:|---:|
+| Load | 5.342 s | 4.2-4.3 s |
+| Sampling | 11.464 s | 4.79-4.86 s (first pass 6.2 s) |
+| VAE decode | 1.079 s | 430-450 ms |
+| JPEG save | 18 ms | 17-26 ms |
+| Generation | 12.563 s | 5.275-5.334 s |
+
+Output JPG: D:/StrictDumps/moss-opt-3080/turbo8-runtime/strict-off.jpg. PSNR vs the old control is 33.28 dB (MAD 3.2/255). Visually checked: sharp, same composition. Logs (resident4.log, warmup.log) and nsys profile_nodes.{nsys-rep,sqlite} are in the same folder.
+
+### Changes (uncommitted)
+- MossLora.strict: replaced Batch(16-bit rows).Sums, which fell back to scalar strict_device_blocks, with Products.Multiplied tensor-core GEMMs.
+  - LoRA down and up weights are stored GPU-resident as BFloat16s. Up is pre-scaled by Gain = 64*alpha/rank and divided back out at the end, so small DMD weights don't become fp16 subnormals.
+  - Q/K/V down weights are concatenated once at init. normed is projected once, and CombinedAdded adds all three deltas in one pass.
+  - ScaledAdded and CombinedAdded return BFloat16s.
+  - Important fix: BFloat16.Packed(...) produced CPU lists. Packed(values, 1) keeps them on the GPU, and that change dropped sampling from about 6.5 s to 4.8 s.
+- Strict/Compiler (self-host fixpoint verified earlier):
+  - New formats sxf3/sxf4, wider exact slots, and 4-wide grouped f32 loops (new file MlirGroupBatched.strict).
+  - f32 block reductions replace f64.
+  - bf16 outputs for large Convolved, Products and all-bf16 kernels.
+  - Kernel timings: Modulated 121->84 us, Rotated 156->145 us, Gated now 742 PTX lines.
+- MossBlock/Moss.strict: layer 41 skips the 140 dead text tokens (bit-exact).
+- SpectralHistory, MossSpectrum/MossSampling/MossGenerate: zero-copy appends, coalesced predictor, early history release (Spectrum path only; off for turbo 8).
+
+### UNVERIFIED last change - benchmark or revert first
+Strict/Compiler/NativeRuntimeProducts.mlir now has a new fast path in @strict_device_product_stages. When both operands are contiguous and aligned and inner % 32 == 0, it uses:
+- strict_device_product_load_brains / put_brains: raw bf16 loads, conversion to f16 deferred until after the MMAs;
+- strict_device_product_fetch_fast: 4 loads in one basic block.
+
+It also replaced the fetch loop's unroll annotation with a plain cf.br.
+
+What has run: DeviceBuild/MossGenerate/MossImage tests pass and the exes are rebuilt. What hasn't: it has NOT been benchmarked, and NativeCompiler/strict.exe were not re-bootstrapped. Before keeping it:
+1. Rerun the resident4 benchmark.
+2. Rerun ptxas -v to check registers and spills (the ptxas path used before wasn't found).
+3. Rebuild NativeCompiler and strict.exe and confirm "unchanged".
+
+If it isn't faster: git checkout that file, delete StrictComfy/*.strictbinary, and rebuild MossGenerate/MossImage.
+
+### Where the time goes now (nsys, 2 resident images, GPU kernel time)
+- strict_device_product_tiless 3.27 s (~1.6 s/image). Most of it is LoRA: rank-128 down products (gridX 29/87, low occupancy, ~550 us each) and expand products. Registers are 240 with no spills.
+- strict_device_wholes_fast (INT8 GEMM) 2.35 s; attention 1.66 s; VAE convolutions 0.62 s.
+- LoRA elementwise: ScaledAdded 0.48 s and CombinedAdded 0.28 s.
+- Moss elementwise (Rotated/Activated/Gated/Modulated) is only ~0.3 s total and is no longer the bottleneck.
+- Memcpy: 7.6 GB H2D / 2.2 GB D2H per run, mostly repeated 56/31/28 MB uploads x42.
+
+### Next ideas, by expected gain
+1. Fuse the LoRA epilogue (base + delta/Gain) into the expand Products kernel. The separate pass costs ~0.38 s/image of pure memory traffic.
+2. Fix occupancy of the rank-128 down projection: split-K or a 64x128 tile for small N, or append the LoRA down rows to the INT8 GEMM as extra outputs.
+3. Remove the remaining per-image H2D re-uploads.
+4. Then INT8 GEMM / attention, which are already on par with or ahead of ComfyUI.
+
+Validation done: strict check ../StrictComfy 0 issues, MossLora/MossGenerate/MossImage VM+native tests, test_moss.py (16 OK), check_gpu_residency.py.
+
 ## Latest checkpoint: practical five-adapter speed via cached merge (2026-10-25)
 
 MossImage now defaults to --lora_mode merged: merge the entire selected stack once using existing stochastic INT8 Convrot merge.py, cache a full checkpoint, run without floating adapter products. Sources unchanged. --lora_mode runtime retains the floating path. --merge_only prepares/prints the reusable checkpoint without prompt/encoder/VAE work. New marker records baked adapters and prevents automatic DMD duplication when using that file directly. Cache key includes source identities, ordered strengths and merger implementation; old uncertified merged caches are never reused.

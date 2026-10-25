@@ -30,6 +30,7 @@ Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Num
 	MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
 	Sampled(moss, spectrum, data, Euler(steps, 5), context)
 Configured(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
+	MossSpectrumImage(Logger).Configured(4, "on", 8, 3, 2, 2).history.maximum is 4
 	let fit = SpectralFit(degree, 0.1, 0.5)
 	if (fit.IsValid is false) or (mode is not in ("off", "shadow", "on"))
 		return Error("Invalid Spectrum configuration")
@@ -37,4 +38,4 @@ Configured(width Number, mode Text, steps Number, warmup Number, period Number, 
 		return Error("Invalid Spectrum schedule")
 	if (warmup < 0) or (warmup.Floor is not warmup)
 		return Error("Invalid Spectrum warmup")
-	MossSpectrum(logger, width, steps, warmup, period, mode, SpectralHistory(fit = fit))
+	MossSpectrum(logger, width, steps, warmup, period, mode, SpectralHistory(fit = fit, maximum = degree + 2))

@@ -54,4 +54,7 @@ MixedSteps(moss Moss, noise Numbers, text Numbers, rotation Numbers, adapter Saf
 		latent = MossText.Added(noise, moss.Head(moss.Features(input, text, rotation, vector), vector) * -1)
 	latent
 State MossSpectrum
-	MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, 4)
+	MossSampling(Logger, warmup = 3).State.history.fit.degree is 2
+	MossSampling(Logger, warmup = 2).State.history.fit.degree is 1
+	MossSampling(Logger, warmup = 8).State.history.fit.degree is 4
+	MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))

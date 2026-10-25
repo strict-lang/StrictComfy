@@ -160,7 +160,9 @@ for kernel in ([] if os.getenv("STRICT_BENCH_GEMM") else kernels):
 				input_formats = [values[key] for key in re.findall(r"%(f_\w+_b): i64", signature)]
 				format_index = (0 if all(value == 32 for value in input_formats) else
 					1 if all(value == 17 for value in input_formats) else
-					2 if input_formats == [17] + [32] * (len(input_formats) - 1) else -1)
+					2 if input_formats == [17] + [32] * (len(input_formats) - 1) else
+					3 if len(input_formats) >= 2 and input_formats == [32] * (len(input_formats) - 1) + [17] else
+					4 if len(input_formats) >= 3 and input_formats == [17] * (len(input_formats) - 1) + [32] else -1)
 				if input_formats and format_index >= 0 and not os.getenv("STRICT_BENCH_GENERIC"):
 					formatted = name + "f" + str(format_index)
 					if "@" + formatted + "(" in source:

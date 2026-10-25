@@ -68,8 +68,7 @@ Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
 	let channels = video.weights.First.Length
 	let count = latent.Length / channels
 	let hidden = video.Sums(Transposed(latent, channels)) + text
-	let transformed = Transformed(hidden, blockModulation.Sums(vector), rotation)
-	Safetensors.Part(transformed, 0, count * finalNorm.Length, 1)
+	Transformed(hidden, blockModulation.Sums(vector), rotation, count * finalNorm.Length)
 Head(image Numbers, vector Numbers) Numbers
 	let count = image.Length / finalNorm.Length
 	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
@@ -81,11 +80,12 @@ TextEmbedded(context Numbers, text Number) Numbers
 	for texts
 		hidden = value.Output(hidden, rotation)
 	hidden
-Transformed(hidden Numbers, modulation Numbers, rotation Numbers) Numbers
+Transformed(hidden Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers
 	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
 	mutable state = hidden
 	for layers
-		state = value.Output(state, modulation, rotation)
+		let last = index is layers.Length - 1
+		state = last then value.Cropped(state, modulation, rotation, kept) else value.Output(state, modulation, rotation)
 	state
 Transposed(values Numbers, rows Number) Numbers
 	Moss.Transposed((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)

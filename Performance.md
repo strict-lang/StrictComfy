@@ -1,5 +1,13 @@
 # Moss performance
 
+## Runtime-LoRA turbo 8 on tensor cores (2026-10-25 01:40, RTX 3080)
+
+Same inputs as the "Runtime turbo 8" row below. Resident warm passes: sampling 11.464 -> 4.79-4.86 s, decode 1.079 s -> 430-450 ms, generation 12.563 -> 5.28-5.33 s, load 5.34 -> 4.2 s.
+
+Changes: bf16 GPU-resident LoRA through Products tensor cores, fused QKV down projection, bf16 epilogues, plus the elementwise, VAE bf16 and layer-41 text-skip work. PSNR 33.28 dB vs the old control; visually checked.
+
+Details, profile and next steps: Handoff.md. Normal clocks; this is not a matched ComfyUI comparison.
+
 ## RTX 3080: complete five-adapter stack, merge versus runtime (2026-10-25)
 
 User's approximately 15 s/image report used DMD plus four style adapters. Old premerged/no-runtime-adapter Spectrum results were a different workload. Latest concurrent native MossLora rewrite already improves the exact floating stack. Same pinned executable/PTX, identical conditioning/noise, 720x1280, eight steps, CFG1, JPEG85, three resident generations per variant:
