@@ -111,6 +111,8 @@ ComfyUI's own faster attention kernels, `dump.py h3 --runs 2` (warm second run, 
 
 Strict against ComfyUI's default is 0.305, 0.092, so INT8 and Sage stay as close as Strict does; Sol-Attn changes the composition but not the quality (frames in `C:/StrictDumps/h3attn-*`). Attention is now the biggest gap: ComfyUI's INT8 kernel saves 1.16 s of its 1.96 s per step, Strict's f16 attention takes 1.70 s.
 
+`H3Block.Heads` sets `Attention.quantized` (../Strict ec0c55e4): the keys become 8 bit numbers with a scale per position and head once per launch, the kernel quantizes each query row in registers and computes the scores with m16n8k32 8 bit products. Alternating runs of one binary (steps 2-7, h3fox): f16 3.59 / 3.84 s, 8 bit keys 3.24 / 3.41 s; one attention launch under ncu 40.8 -> 31.1 ms (tensor pipe 53 % busy, 35 of it the f16 products of shares and values); final errors against ComfyUI video 0.236, audio 0.084 (f16 0.305, 0.092). Quantizing the keys inside the kernel was slower (48 ms per launch): each of the 156 query blocks of a head quantized all its keys again, with shuffles and divisions on the path of every tile.
+
 ## H3 step against ComfyUI by category, and what did not help (2026-10-25, 4090, nsys windows of plain runs)
 
 Per 8-step turbo INT8 step (14,844 tokens), Strict `C:/StrictDumps/prof/now/fox.sqlite` (steps 1-4), ComfyUI `comfy.sqlite` (dump.py h3, 8 warm steps of run 0, 3.22-3.24 s each under nsys):

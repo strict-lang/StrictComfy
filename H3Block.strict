@@ -82,7 +82,7 @@ Heads(combined Numbers, rotation Numbers) Attention
 	let queries = Rope.Video.Rotated(combined, 0, width, queryNorm, rotation, scales)
 	let keys = Rope.Video.Rotated(combined, width, width, keyNorm, rotation, scales)
 	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
-	Attention(queries, keys, values, width / size, width / size, size, 1, false)
+	Attention(queries, keys, values, width / size, width / size, size, 1, false, 0, 0, true)
 FedForward(normed Numbers, chunk Number) Numbers
 	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), H3Layout.Chunk)(2309).IsNearlyEqual(-1.125, 0.03)
 	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), 5)(2309).IsNearlyEqual(-1.125, 0.03)
