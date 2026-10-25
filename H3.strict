@@ -70,5 +70,5 @@ Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layou
 	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
 	mutable hidden = kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
 	for blocks
-		hidden = value.Output(hidden, curves, starts, rotation)
+		hidden = value.Output(hidden, curves, starts, rotation, layout.routing)
 	final.Output(hidden, curves, layout, sigma)

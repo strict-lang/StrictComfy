@@ -428,7 +428,7 @@ class GenerationCommandTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--count', '2', '--seed', '42', '--width', '32', '--height', '32', '--length', '5',
-				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2'], 'h3')
+				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2', '--routing', '1'], 'h3')
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
@@ -444,7 +444,7 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(launch.call_count, 1)
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
-			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1'])
+			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1'])
 			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')

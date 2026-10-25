@@ -112,6 +112,9 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
 		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
 		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
+		parser.add_argument('--routing', type=float, default=0, help='Sparse attention like Sol-Attn above 0: key blocks whose '
+			'pooled score stays below this many standard deviations are pooled (1 is ~0.85 s faster per step on a 4090); '
+			'changes the sampling result')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
@@ -426,7 +429,7 @@ def backend(args, folder, model, vae, adapter):
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
 		return [str(ROOT / 'H3Video.exe'), str(folder), str(model), 'strict', adapter, str(args.steps), f'{args.shift:g}',
-			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1']
+			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}']
 	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
 
 

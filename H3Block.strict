@@ -49,13 +49,13 @@ Curved(curves Safetensors) Batch
 	if curves.Entry("adaln_proj.linear.weight") is ""
 		return Batch(List(Numbers), Layer.Unbiased)
 	MossText.Dense(curves, "adaln_proj.linear")
-Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers) Numbers
+Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers, routing = 0) Numbers
 	Layered(0).IsNearlyEqual(-1.015625, 0.03)
 	Layered(2309).IsNearlyEqual(0.40625, 0.03)
 	Layered(4351).IsNearlyEqual(0.304688, 0.03)
 	let modulation = adaln.Sums(curves)
 	let normed = Modulated(input, attentionNorm, modulation, starts, 0)
-	let attended = Gated(input, Attended(normed, rotation), modulation, starts, 2)
+	let attended = Gated(input, Attended(normed, rotation, routing), modulation, starts, 2)
 	let fed = FedForward(Modulated(attended, feedNorm, modulation, starts, 3), H3Layout.Chunk)
 	Gated(attended, fed, modulation, starts, 5)
 Refined(input Numbers, rotation Numbers) Numbers
@@ -67,12 +67,12 @@ Refined(input Numbers, rotation Numbers) Numbers
 Projected(linear Number, rows List(Numbers), input Numbers) Numbers
 	Tiny.Projected(0, ((1, 2), (3, 4)), (1, 1)) is (3, 7)
 	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(input), input)
-Attended(normed Numbers, rotation Numbers) Numbers
+Attended(normed Numbers, rotation Numbers, routing = 0) Numbers
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
-	let merged = Heads(Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), rotation).Merged
+	let merged = Heads(Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), rotation, routing).Merged
 	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
-Heads(combined Numbers, rotation Numbers) Attention
+Heads(combined Numbers, rotation Numbers, routing = 0) Attention
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(8703).IsNearlyEqual(0.490234, 0.02)
@@ -82,7 +82,7 @@ Heads(combined Numbers, rotation Numbers) Attention
 	let queries = Rope.Video.Rotated(combined, 0, width, queryNorm, rotation, scales)
 	let keys = Rope.Video.Rotated(combined, width, width, keyNorm, rotation, scales)
 	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
-	Attention(queries, keys, values, width / size, width / size, size, 1, false, 0, 0, true)
+	Attention(queries, keys, values, width / size, width / size, size, 1, false, 0, 0, true, routing)
 FedForward(normed Numbers, chunk Number) Numbers
 	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), H3Layout.Chunk)(2309).IsNearlyEqual(-1.125, 0.03)
 	Tiny.FedForward(Model.Values("reference.blocks.0.mlp.input"), 5)(2309).IsNearlyEqual(-1.125, 0.03)

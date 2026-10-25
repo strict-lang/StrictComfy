@@ -5,6 +5,7 @@ has frames Number
 has height Number
 has width Number
 has shift Number = 12
+has routing Number = 0
 constant Tiny = H3Layout((1, 1, 1), List(Number), 3, 2, 4, 4)
 constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
 constant Chunk = 4096

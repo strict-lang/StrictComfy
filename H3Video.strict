@@ -6,7 +6,7 @@ Run(arguments Texts) Number
 	if (arguments.Length is 0) or arguments(0).StartsWith("-")
 		return GenerationCommand(logger).Run("h3", arguments)
 	if arguments.Length < 2
-		logger.Log("Use --help, or diagnostic arguments: dumps model name loras steps shift period warmup degree")
+		logger.Log("Use --help, or diagnostic arguments: dumps model name loras steps shift period warmup degree routing")
 		return 2
 	let loras = GenerationCommand(logger).Option(arguments, 3, "")
 	let conditions = Conditions(arguments(0))
@@ -14,8 +14,8 @@ Run(arguments Texts) Number
 	Generations(Loaded(arguments(1), loras), conditions, texts, arguments)
 	0
 Numbered(arguments Texts) Numbers
-	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1)
-	for (0, 12, 0, 1, 1)
+	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0)
+	for (0, 12, 0, 1, 1, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Loaded(model Text, loras Text) H3
 	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2
@@ -44,9 +44,10 @@ Steps(dumps Text, condition Safetensors) Safetensors
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
 Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers Numbers, dumps Text) Numbers
-	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1), "").Length is 960
+	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1, 0), "").Length is 960
 	let video = steps.Shape(Stream(steps, "video"))
-	let layout = H3Layout(Layout(video, steps.Shape(Stream(steps, "audio")), condition), shift = numbers(1))
+	let shaped = Layout(video, steps.Shape(Stream(steps, "audio")), condition)
+	let layout = H3Layout(shaped, shift = numbers(1), routing = numbers(5))
 	let conditions = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
 	Checked(h3, dumps, text, layout)
 	let count = numbers(0) is 0 then Count(steps) else numbers(0)
@@ -80,7 +81,7 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 	mutable state = first.Values("blocks.0.input")
 	mutable error = 0
 	for h3.blocks
-		state = value.Output(state, curves, starts, rotation)
+		state = value.Output(state, curves, starts, rotation, layout.routing)
 		let name = "blocks." + index
 		if first.Entry(name) is not ""
 			error = MossImage(logger).Error(state, first.Values(name))
