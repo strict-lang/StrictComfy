@@ -84,6 +84,24 @@ The checked-in 4090 report calls the c1829a08 regression **Moss VAE**, not H3 VA
 
 Exact H3/4090 failing command and old/new run logs remain needed to reproduce the reported 0.3 s increase. Do not mark that issue fixed. Diagnostic compiler worktree StrictVaeCheck is unmerged; model executables restored to current production artifacts. Evidence: D:/StrictDumps/vae-regression, including profile.sqlite, fixed-latent controls and moss-*-pair*.log. JPEG codec check, ImageProcessing VM tests, native JPEG reader/ImageSaver tests, allocator/cache checks and both changed-folder checks pass.
 
+## H3 against today's ComfyUI, the H3Video command and bf16 results (2026-10-25, 4090, quiet GPU)
+
+ComfyUI re-measured with `dump.py h3 --runs 2` (the second, warm run): turbo INT8 8 steps 26.7 s (3.26-3.29 s per call), base FL2VA INT8 + TaoMate 3-step LoRA (208 patches) 10.7 s (3.35-3.40 s per call), video VAE 7.4 s, audio VAE 2.8 s. The older 38.5 s (4.6-5.0 s per call) predates the GPU repaste and is withdrawn; ComfyUI's outputs are unchanged (Strict's per step errors against both dumps are identical). ComfyUI keeps the whole model resident ("19995MB Staged"), Strict streams part of the weights every step.
+
+| Strict run | Steps (ms) | Sampling | Final error against ComfyUI |
+|---|---|---:|---|
+| Turbo INT8 8 steps, reference folder (step 0 partly warm) | 4763 3529 3639 3580 3643 3494 3608 3493 | 29.7 s | video 0.305, audio 0.092 |
+| Same, second video of `H3Video.exe --count 2` (warm) | 3621 3541 3689 3533 3559 3525 3553 3539 | 28.6 s | |
+| Turbo INT8, `spectrum8_w1p2` | 4832 1 3511 126 3605 33 3587 3579 | 19.3 s | video 0.415, audio 0.123 |
+| Base + TaoMate, cached merge.py model, 3 steps | 5528 3682 3593 | 12.8 s | video 0.352, audio 0.106 |
+| Base + TaoMate merged at load (runtime), 3 steps | 4153 4988 3888 | 13.0 s | video 0.385, audio 0.115 |
+
+So warm Strict steps are about 9 % slower than ComfyUI's on the 4090 (3.57 against 3.27 s), Spectrum makes the 8 steps 28 % faster than ComfyUI. With TaoMate the refined text is as close to ComfyUI as without LoRA (0.0076 against 0.0069), the larger block errors come from both sides requantizing the merged int8 rows with their own stochastic rounding.
+
+`H3Video.exe` end to end (cached prompt, turbo INT8, 8 steps): one video 120.9 s, two videos 163.3 s (load 10.5 s, the first generation 49.8 s with the 12 s first upload of the weights, the second 34.0 s, then one ComfyUI worker decodes both). Each generation spends about 5.4 s writing its 1.4M number latent as text (and the decode worker about as long reading it back): a binary latent needs a float writer in Strict. A fresh CUDA cache (the launcher's `artifacts/h3/cuda`) compiles the kernels during the first step (67 s once).
+
+Rejected, Moss's bf16 elementwise results for H3 (`H3Block.Modulated` and `Activated` returning `BFloat16s` like MossBlock): alternating runs base 3.49-3.78 s per step, bf16 3.65-3.85 s in the first round and 4.4-4.9 s in the second, audio error 0.140 instead of 0.092 (video 0.261 instead of 0.305). The large bf16 results are GPU-only lists, which can't be evicted while H3 streams its weights (../Strict/improvements.md 13), the same effect that slowed the feature anchors of Spectrum.
+
 ## H3 LoRAs, step counts and Spectrum (2026-10-25, 4090 unlocked, quiet machine)
 
 Plain runs of `H3Video.exe`, t2va 480x832, 124 frames. "Reference" is `C:\StrictDumps\h3` (its per-layer comparison before sampling uploads the weights, so step 0 is warm), "fresh" a folder without references where step 0 includes the first upload of all 21 GB (about 12 s).
