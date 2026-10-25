@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 sys.dont_write_bytecode = True
@@ -265,13 +266,16 @@ def encoded(request, output):
 
 
 def decoding(request):
-	"""Worker: decodes every H3 latent of the request with ComfyUI's video and audio VAEs into <prefix>video.mp4."""
+	"""Worker: imports ComfyUI ("decoder started") and loads its video and audio VAEs while the backend samples, then
+	decodes every H3 latent of the jobs on stdin into <prefix>video.mp4."""
 	os.environ['COMFYUI'] = request['comfyui']
 	sys.argv = ['dump.py', 'h3', '--audio-vae', request['audio_vae']]
 	import dump
+	print('decoder started', flush=True)
 	from safetensors import safe_open
 	vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
-	for job in request['jobs']:
+	dump.audio_decoder()
+	for job in json.loads(sys.stdin.read()):
 		with safe_open(job['generation'], framework='pt') as file:
 			shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
 		dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])
@@ -481,13 +485,32 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 
 
 def decoded(args, latents, folder):
-	"""Decodes the latents H3Video.exe wrote in one ComfyUI worker (after the backend gave the GPU back)."""
-	latents = list(latents)
-	request = {'comfyui': str(args.comfyui.resolve()), 'vae': str(args.vae), 'audio_vae': str(args.audio_vae), 'folder': str(folder),
-		'jobs': [{'latent': str(path), 'generation': str(folder / f'generation-{index}.safetensors'), 'prefix': f'strict-{index}-'}
-			for index, path, milliseconds in latents]}
+	"""Decodes the latents H3Video.exe writes in one ComfyUI worker: it imports ComfyUI and loads the VAEs (about 20 s)
+	while the backend loads and samples, and gets the jobs once the backend gave the GPU back."""
+	request = {'comfyui': str(args.comfyui.resolve()), 'vae': str(args.vae), 'audio_vae': str(args.audio_vae), 'folder': str(folder)}
 	(folder / 'decode.json').write_text(json.dumps(request), encoding='utf-8')
-	subprocess.run([sys.executable, str(ROOT / 'generate.py'), '_decode', str(folder / 'decode.json')], check=True)
+	command = [sys.executable, str(ROOT / 'generate.py'), '_decode', str(folder / 'decode.json')]
+	worker = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+		text=True, encoding='utf-8', errors='replace', bufsize=1)
+	def forwarded():
+		for line in worker.stdout:
+			print(line, end='', flush=True)
+	forwarding = threading.Thread(target=forwarded, daemon=True)
+	forwarding.start()
+	try:
+		latents = list(latents)
+		if worker.poll() is not None:
+			raise subprocess.CalledProcessError(worker.returncode, command)
+		worker.stdin.write(json.dumps([{'latent': str(path), 'generation': str(folder / f'generation-{index}.safetensors'),
+			'prefix': f'strict-{index}-'} for index, path, milliseconds in latents]))
+		worker.stdin.close()
+		code = worker.wait()
+	except BaseException:
+		worker.kill()
+		raise
+	forwarding.join()
+	if code:
+		raise subprocess.CalledProcessError(code, command)
 	return [(index, folder / f'strict-{index}-video.mp4', milliseconds) for index, path, milliseconds in latents]
 
 

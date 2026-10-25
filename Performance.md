@@ -107,6 +107,8 @@ ComfyUI's own faster attention kernels, `dump.py h3 --runs 2` (warm second run, 
 | comfy_kitchen INT8 (`--attention int8`: Hadamard rotated int8 Q and K, int8 V, uint8 shares) | 2.06-2.08 s | 17.1 s | 0.256, 0.164 |
 | comfy_kitchen Sol-Attn (`--attention sol`, tau 1: 64 token blocks attend routed key blocks exactly, the others pooled) | 1.56-1.60 s | 13.1 s | 0.594, 0.346 |
 
+`H3Video.exe --count 2` end to end (cached prompt, warm CUDA cache, `C:/StrictDumps/h3cli/e2e.log`): 108.3 instead of 141.2 s. The ComfyUI decode worker now starts with the backend and imports ComfyUI and loads both VAEs (~23 s) while the backend loads and samples, waiting for it before sampling cost those 23 s up front instead; launcher 4.1 s, load 11.9 s, first video 36.2 s (pinned staging), second 29.5 s, both decodes 23 s.
+
 Strict against ComfyUI's default is 0.305, 0.092, so INT8 and Sage stay as close as Strict does; Sol-Attn changes the composition but not the quality (frames in `C:/StrictDumps/h3attn-*`). Attention is now the biggest gap: ComfyUI's INT8 kernel saves 1.16 s of its 1.96 s per step, Strict's f16 attention takes 1.70 s.
 
 ## H3 step against ComfyUI by category, and what did not help (2026-10-25, 4090, nsys windows of plain runs)

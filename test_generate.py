@@ -8,6 +8,7 @@ import random
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parent
@@ -452,20 +453,37 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual((tuple(first['video'].shape), tuple(first['audio'].shape)), ((24, 2, 2, 2), (32, 2, 8)))
 			self.assertFalse(torch.equal(first['video'], second['video']))
 
-	def test_h3_latents_decode_in_one_worker(self):
-		from unittest.mock import patch
+	def test_h3_latents_decode_in_one_worker_sampling_does_not_wait_for(self):
+		from unittest.mock import MagicMock, patch
 		module = self.module()
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--comfyui', str(folder)], 'h3')
-			latents = [(index, folder / f'strict-{index}-latent.safetensors', 20 + index) for index in range(2)]
-			def worker(command, **kwargs):
-				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
-				self.assertEqual([job['latent'] for job in request['jobs']], [str(path) for index, path, ms in latents])
-				self.assertEqual(request['jobs'][1]['prefix'], 'strict-1-')
-			with patch.object(module.subprocess, 'run', side_effect=worker) as launch:
-				videos = list(module.decoded(args, iter(latents), folder))
-			self.assertEqual(launch.call_count, 1)
+			paths = [folder / f'strict-{index}-latent.safetensors' for index in range(2)]
+			events = []
+			sampled = threading.Event()
+			def printed():
+				sampled.wait(2)
+				events.append('printed')
+				yield 'decoder started\n'
+			process = MagicMock()
+			process.stdout = printed()
+			process.wait.return_value = 0
+			process.poll.return_value = None
+			process.stdin.write.side_effect = lambda text: events.append(json.loads(text))
+			def latents():
+				events.append('sampling')
+				sampled.set()
+				yield from [(index, path, 20 + index) for index, path in enumerate(paths)]
+			def launch(command, **kwargs):
+				events.append('worker')
+				return process
+			with patch.object(module.subprocess, 'Popen', side_effect=launch), redirect_stdout(io.StringIO()):
+				videos = module.decoded(args, latents(), folder)
+			self.assertEqual(events[:2], ['worker', 'sampling'])
+			jobs = next(event for event in events if isinstance(event, list))
+			self.assertEqual([job['latent'] for job in jobs], [str(path) for path in paths])
+			self.assertEqual(jobs[1]['prefix'], 'strict-1-')
 			self.assertEqual(videos, [(0, folder / 'strict-0-video.mp4', 20), (1, folder / 'strict-1-video.mp4', 21)])
 
 	def test_h3_runtime_loras_become_one_backend_argument(self):
