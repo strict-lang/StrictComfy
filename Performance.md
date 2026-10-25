@@ -115,6 +115,8 @@ Strict against ComfyUI's default is 0.305, 0.092, so INT8 and Sage stay as close
 
 `--routing 1` (`Attention.routing`, ../Strict e77b332f, the H3 blocks hand `H3Layout.routing` to their attention): sparse attention like Sol-Attn, training free. Per 64 positions the keys, values and queries are pooled first, each block of 128 queries attends exactly the key blocks whose centered pooled score clears routing standard deviations (and its neighbors), every other key block counts once with its pooled score plus the logarithm of its length and its mean value. Alternating runs of one binary (steps 2-7, h3fox): dense 8 bit keys 3.51 / 3.41 s, routing 1 2.67 / 2.53 s. Final errors against ComfyUI video 0.590, audio 0.286, like ComfyUI's own Sol-Attn against its default (0.594, 0.346), the frames clean (`C:/StrictDumps/h3/routed1-frame-*.png`). The two halves of a 128 query block attend about 30 % of the key blocks exactly (a probe of comfy_kitchen's routing in ComfyUI: 23.5 % per block of 64, 30 % for the union of two). Off by default like `--spectrum`, it changes the result.
 
+`H3Video.exe --count 2` end to end (cached prompt, warm CUDA cache, `C:/StrictDumps/h3cli/e2e-*.log`): dense 108.3 s (second video 29.5 s), `--routing 1` 91.1 s (second video 21.8 s), `--routing 1 --spectrum spectrum8_w1p2` 83.8 s (second video 16.9 s); one video with routing 61.5 s. ComfyUI's warm sampling for comparison: default 26.3 s, comfy_kitchen INT8 17.1 s, Sol-Attn 13.1 s.
+
 ## H3 step against ComfyUI by category, and what did not help (2026-10-25, 4090, nsys windows of plain runs)
 
 Per 8-step turbo INT8 step (14,844 tokens), Strict `C:/StrictDumps/prof/now/fox.sqlite` (steps 1-4), ComfyUI `comfy.sqlite` (dump.py h3, 8 warm steps of run 0, 3.22-3.24 s each under nsys):
