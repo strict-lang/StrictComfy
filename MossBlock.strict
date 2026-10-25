@@ -79,7 +79,8 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloa
 	let width = weights.Length
 	for input.Length
 		let channel = index % width
-		let scale = Qwen3Block.HeadScale(input, (index / width).Floor * width, width, Qwen3Block.Epsilon)
+		let squared = Normalization.Squared(input, (index / width).Floor * width, width)
+		let scale = Normalization.Scale(squared, width, Qwen3Block.Epsilon)
 		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) BFloat16s
@@ -122,7 +123,7 @@ Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation 
 		let token = ((index / size).Floor / heads).Floor
 		let within = index % size
 		let first = index - within + token * 2 * width + start
-		let scale = Qwen3Block.HeadScale(combined, first, size, Qwen3Block.Epsilon)
+		let scale = Normalization.Scale(Normalization.Squared(combined, first, size), size, Qwen3Block.Epsilon)
 		let partner = (within + half) % size
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
 		(own + combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)) * scale

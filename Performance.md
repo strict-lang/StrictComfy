@@ -1,5 +1,17 @@
 # Moss performance
 
+## MossImage decodes after sampling (2026-10-25 22:00, RTX 3080)
+
+MossGenerate decoded each image right after sampling it while the 5.4 GB of Moss weights were still on the GPU: 9.6 of 10 GB in use, the decoder evicted and uploaded rows all the time (decode 4.6-10 s instead of 0.43 s). Now it samples every job first, lets the Moss weights go (`GpuMemory.Released`), then loads the VAE and decodes all latents: 0.47-0.49 s per decode. `--count 4 --spectrum spectrum8_w3p3`, warm: 15.6 s in total, sampling 3.2 s then 1.9 s per image. The resident ComfyUI backend (no VAE) is unchanged: 3.0 s per run warm.
+
+## Resident weights against freed VRAM in ComfyUI (2026-10-25 21:45, RTX 3080)
+
+Three prompts with new texts each (the 9.3 GB text encoder runs every time, ComfyUI streams it with dynamic VRAM loading), 720x1280, 8 steps, DMD merged. Backend resident: 7.25 and 6.93 s per prompt, sampling 2.78 s. Backend stopped after every run (VRAM free for the encoder): 10.33 and 10.30 s, load 2.7 s and sampling 4.03 s (the first sampling after a load includes the weight upload). The text encoder and VAE take about 0.9 s longer next to the resident weights, an upload of the weights costs about 1.2 s, so freeing them does not pay off on the 3080.
+
+## Sampling regression found (2026-10-25 21:30, RTX 3080)
+
+Bisected with MossGenerate builds of each Strict commit: 9047bc59 3.9 s, febffb86 slow. Strict 206b3b3e made `Qwen3Block.HeadScale` call `Normalization.Scale(Normalization.Squared(...))`; the compiler turns a call in a GPU loop into a per group sum only when the callee is the summing loop itself, so MossBlock.Modulated summed 3072 numbers for every element again (4.0 -> 17.5 s). MossBlock calls `Normalization.Squared` directly now: 3.98 s sampling with the current Strict, same image quality. ec0c55e4 (Attention.quantized) only slowed builds of the stage 0 bootstrap compiler (over 100 s), not the full build.
+
 ## Resident ComfyUI backend (2026-10-25 20:15, RTX 3080)
 
 MossGenerate.exe `-` reads one job folder per line from stdin (Strict `Process.InputLine`) and keeps the model loaded. Three queued prompts in a headless ComfyUI, DMD from a LoraLoader, merged: 40.4 s (merge 15 s, load 4.3 s, sampling 18.5 s), then 18.9 and 18.6 s with sampling 17.3 and 17.2 s, so 1.4-1.6 s per prompt around sampling instead of about 4.5 s with a process per prompt. fp8 `mossImageFinalcut5GB_universal` converted and merged with the automatic DMD in 14 s, 36.7 s for its first prompt.

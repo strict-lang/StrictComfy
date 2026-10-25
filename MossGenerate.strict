@@ -1,21 +1,28 @@
 has logger
 Run(dumps Text, model Text, lora Text, vae Text, mode Text, adapter Text)
+	if dumps is "-"
+		Served(Loaded(model, lora, adapter), mode, adapter)
+	else
+		let data = Safetensors(dumps + "/generation.safetensors", 32)
+		let sampling = Configured(data, mode)
+		let latents = Latents(Loaded(model, lora, adapter), sampling, data, dumps, adapter)
+		GpuMemory.Released
+		Published(latents, sampling, Decoders(vae), data, dumps)
+Loaded(model Text, lora Text, adapter Text) Moss
 	let before = Process.Elapsed
 	let moss = Adapted(Moss.Loaded(model, lora), adapter)
-	let decoders = Decoders(vae)
 	logger.Log("loaded in " + (Process.Elapsed - before).Round(3) + " s")
-	if dumps is "-"
-		Served(moss, decoders, mode, adapter)
-	else
-		Answered(moss, decoders, dumps, mode, adapter)
-Served(moss Moss, decoders List(FluxDecoder), mode Text, adapter Text) None
+	moss
+Served(moss Moss, mode Text, adapter Text) None
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
-		Answered(moss, decoders, dumps, mode, adapter)
+		let data = Safetensors(dumps + "/generation.safetensors", 32)
+		let sampling = Configured(data, mode)
+		Published(Latents(moss, sampling, data, dumps, adapter), sampling, List(FluxDecoder), data, dumps)
 		dumps = Process.InputLine
-Answered(moss Moss, decoders List(FluxDecoder), dumps Text, mode Text, adapter Text) None
-	let data = Safetensors(dumps + "/generation.safetensors", 32)
-	Repeated(moss, Configured(data, mode), decoders, data, dumps, adapter)
+Latents(moss Moss, sampling MossSampling, data Safetensors, dumps Text, adapter Text) List(Numbers)
+	for GenerationCommand(logger).Count(data)
+		Generated(moss, sampling, GenerationCommand(logger).Job(data, dumps, index), adapter)
 Configured(data Safetensors, mode Text) MossSampling
 	let width = data.Shape("noise").Last
 	let steps = data.Values("steps").First
@@ -42,17 +49,12 @@ Adapted(moss Moss, adapter Text) Moss
 	let block = Batch(moss.blockModulation.weights, time.Values("shared_block_modulation.bias"))
 	let head = Batch(moss.headModulation.weights, time.Values("video_head_modulation.bias"))
 	Moss(moss, timeIn = first, timeOut = second, blockModulation = block, headModulation = head)
-Repeated(moss Moss, sampling MossSampling, decoders List(FluxDecoder), data Safetensors, dumps Text, adapter Text) None
-	let count = GenerationCommand(logger).Count(data)
-	for count
+Published(latents List(Numbers), sampling MossSampling, decoders List(FluxDecoder), data Safetensors, dumps Text) None
+	for latents
 		let before = Process.Elapsed
-		let job = GenerationCommand(logger).Job(data, dumps, index)
-		let latent = Generated(moss, sampling, job, adapter)
-		let suffix = count > 1 then "-" + index else ""
+		let suffix = latents.Length > 1 then "-" + index else ""
 		let path = dumps + "/strict-" + sampling.mode + suffix + Extension(data, decoders.Length)
-		Published(latent, sampling.width, decoders, path, job)
-		if index + 1 < count
-			GpuMemory.Released
+		Published(value, sampling.width, decoders, path, GenerationCommand(logger).Job(data, dumps, index))
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 Decoders(vae Text) List(FluxDecoder)
 	MossGenerate(Logger).Decoders("").Length is 0
