@@ -262,6 +262,23 @@ def cached_merge(args, model, loras):
 	return path
 
 
+def contexts(clip, prompts, size=16):
+	"""Moss contexts of the prompts, encoded in batches of right padded token sections: the encoder is causal, so every
+	prompt's own tokens come out as if encoded alone (48 prompts in 1.6 instead of 50.6 s on the 4090)."""
+	pad = getattr(clip.cond_stage_model, clip.cond_stage_model.clip).special_tokens['pad']
+	for start in range(0, len(prompts), size):
+		tokens = [clip.tokenize(prompt) for prompt in prompts[start:start + size]]
+		name = next(iter(tokens[0]))
+		if any(len(part[name]) != 1 for part in tokens):
+			raise ValueError('A prompt was split into several token sections, they can not be batched')
+		sections = [part[name][0] for part in tokens]
+		longest = max(map(len, sections))
+		combined = clip.encode_from_tokens({name: [section + [(pad, 1.0) + section[-1][2:]] * (longest - len(section))
+			for section in sections]})
+		for index, section in enumerate(sections):
+			yield combined[:, index * longest:index * longest + len(section)]
+
+
 def encoded(request, output):
 	os.environ['COMFYUI'] = request['comfyui']
 	family = request['family']
@@ -276,14 +293,18 @@ def encoded(request, output):
 		from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
 		vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
 		first, last = [dump.image_tensor(path) if path else None for path in images]
+	moss = None if family == 'h3' else contexts(clip, request['prompts'])
 	for index, prompt in enumerate(request['prompts']):
 		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
-		if any(images):
-			conditioning = MiniMaxH3ImageToVideo.execute(clip, vae, prompt, request['width'], request['height'], request['length'],
-				first_frame=first, last_frame=last).result[0]
+		if moss:
+			tensors = {'context': next(moss)}
 		else:
-			conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
-		tensors = dump.h3_condition(conditioning) if family == 'h3' else {'context': conditioning[0][0]}
+			if any(images):
+				conditioning = MiniMaxH3ImageToVideo.execute(clip, vae, prompt, request['width'], request['height'], request['length'],
+					first_frame=first, last_frame=last).result[0]
+			else:
+				conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
+			tensors = dump.h3_condition(conditioning)
 		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
 			str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
 

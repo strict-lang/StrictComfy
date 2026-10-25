@@ -1,5 +1,9 @@
 # Moss performance
 
+## MossImage --count 96 on the 4090: where the time goes (2026-10-25 23:40, RTX 4090)
+
+401.6 s for 96 images of `promptmf.txt` with `spectrum8_w3p3`: LoRA merge (first run of this merge) ~28 s, ComfyUI prompt encoding ~126 s (20 s start, 1.1 s per prompt), load 7.8 s, the CUDA driver compiling the 20 MB `MossImage.runtime.ptx` on one thread 114 s (only the first run of a new build, later runs read `artifacts/moss/cuda`: text setup to text ready 0.56 s), sampling 94 s (825 ms per image, flat over 40 images in a second run), decode and save 31 s. ComfyUI's Qwen3.5 encoder is launch bound (the DeltaNet layers loop 63 times in Python per layer), `--disable-dynamic-vram` or `--highvram` only make it 0.70-0.72 instead of 0.89 s per prompt. The encode worker now encodes 16 prompts at a time as right padded sections of one batch (the encoder is causal, so each prompt's tokens come out as alone): 43 real prompts in 8.6 s with the first load against ~37 s, worst relative error 0.00001 against the cached one-by-one contexts. `ptxas --split-compile 0` compiles the runtime PTX in 43 s (83 s on one thread), its largest functions are the generic `strict_device_whole_run`, `wholes`, `whole` and `eights_scaled` (41-63k PTX lines each).
+
 ## MossImage decodes after sampling (2026-10-25 22:00, RTX 3080)
 
 MossGenerate decoded each image right after sampling it while the 5.4 GB of Moss weights were still on the GPU: 9.6 of 10 GB in use, the decoder evicted and uploaded rows all the time (decode 4.6-10 s instead of 0.43 s). Now it samples every job first, lets the Moss weights go (`GpuMemory.Released`), then loads the VAE and decodes all latents: 0.47-0.49 s per decode. `--count 4 --spectrum spectrum8_w3p3`, warm: 15.6 s in total, sampling 3.2 s then 1.9 s per image. The resident ComfyUI backend (no VAE) is unchanged: 3.0 s per run warm.
