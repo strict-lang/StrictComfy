@@ -1,5 +1,19 @@
 # Moss performance
 
+## H3 against plain ComfyUI, with and without Spectrum (2026-10-26 07:30, RTX 4090, Strict e43fa6a4)
+
+Same inputs (`C:/StrictDumps/h3fox`: the fox prompt, seed 7, 480x832, 124 frames, turbo INT8, 8 steps). ComfyUI is `dump.py h3 --runs 2` (default attention, the second run timed), Strict `H3Video.exe C:/StrictDumps/h3fox` (`C:/StrictDumps/h3cmp`). Warm sampling counts Strict's step 0 (5.5 s: it uploads all 21.7 GB of weights; ComfyUI's first call takes 11.5 s) like a later step.
+
+| Run | Per step | Warm sampling |
+|---|---:|---:|
+| ComfyUI, default attention | 3.22-3.25 s | 26.4 s |
+| Strict, dense | 2.93-3.04 s | ~23.8 s |
+| Strict, dense, `spectrum8_w1p2` (3 of 8 forecast) | 2.98-3.02 s | ~15.1 s |
+| Strict, `--routing 1` | 2.14-2.37 s | ~17.6 s |
+| Strict, `--routing 1`, `spectrum8_w1p2` | 2.17-2.23 s | ~11.1 s |
+
+`dump.py h3 --spectrum` applies the Spectrum Apply MiniMax H3 node (custom_nodes/comfyui-spectrum-minimax-h3) with its defaults; the installed v0.2.17 fails on this ComfyUI (2026-10-19) in its first forecast: `FinalLayer.forward() missing 3 required positional arguments: 'sigma', 'sample_sigmas', and 'shifts'`. With 5 actual calls of 8 like Strict's schedule it would take about 16.5 s.
+
 ## H3 weights pinned in place (2026-10-26 02:00, RTX 3080, 64 GB RAM)
 
 Strict branch `pinned-weights`: big matrices from files are laid out like their GPU rows table and locked in place (`cuMemHostRegister`) as their own spill, no second pinned copy. Same jobs as below (fasth3, 29 frames, 480x832, 8 steps): steps 1.8-2.0 s instead of 3.9-7.0 s (ComfyUI 1.83 s), first step 4.3 s instead of 8-10 s, the two videos sample in 16-18 s each (was 32-47 s), `generate.py h3 --count 2` 54.2 s end to end with a cached prompt (load 7 s, sampling 36.9 s, decode 8 s). H3 commits +26 GB (the weights once), the diagnostic errors against ComfyUI are bit identical to the old runtime. MossImage is unchanged (4.2 and 3.0 s sampling, 0.47 s decode warm). With 37 GB committed by other programs and a 4 GB page file the peak is 68 of 72 GB, a larger page file (D:) leaves more room.

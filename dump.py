@@ -39,6 +39,7 @@ arguments.add_argument("--lora-strength", type=float, default=1.0)
 arguments.add_argument("--vae", default=None)
 arguments.add_argument("--audio-vae", default="minimax_h3_audio_vae_fp32.safetensors")
 arguments.add_argument("--attention", choices=["int8", "sol"], default=None, help="h3 attention through comfy_kitchen's int8 or sparse Sol-Attn kernels")
+arguments.add_argument("--spectrum", action="store_true", help="h3 sampling through the Spectrum Apply MiniMax H3 node with its defaults")
 options, comfy_arguments = arguments.parse_known_args()
 DEFAULTS = {"moss": {"width": 576, "height": 1024, "dit": "moss-image-sft-dit-int8-convrot.safetensors", "te": "qwen3.5_9b_int8_convrot.safetensors",
 		"lora": [r"moss\dmd_turbo_lora.safetensors"], "vae": "flux2-vae.safetensors"},
@@ -248,6 +249,10 @@ def h3():
 		for module in diffusion.modules():
 			if isinstance(module, attention.ComfyAttention):
 				module.function = chosen
+	if options.spectrum:
+		sys.path.insert(0, os.path.join(folder_paths.base_path, "custom_nodes", "comfyui-spectrum-minimax-h3"))
+		from comfyui_spectrum_h3.nodes import SpectrumApplyMiniMaxH3
+		model = SpectrumApplyMiniMaxH3().apply(model, True, 0.5, 1, 0.1, 2.0, 0.75, 1, 1, 8, False)[0]
 	sigmas = BasicScheduler.execute(model, options.scheduler, options.steps, 1.0).result[0]
 	guider = BasicGuider.execute(model, conditioning).result[0]
 	sampler = KSamplerSelect.execute("euler").result[0]
