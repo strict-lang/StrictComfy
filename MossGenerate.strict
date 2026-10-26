@@ -5,7 +5,7 @@ Run(dumps Text, model Text, lora Text, vae Text, mode Text, adapter Text)
 	else
 		let data = Safetensors(dumps + "/generation.safetensors", 32)
 		let sampling = Configured(data, mode)
-		let latents = Latents(Loaded(model, lora, adapter), sampling, data, dumps, adapter)
+		let latents = Generations(model, lora, adapter, sampling, data, dumps)
 		GpuMemory.Released
 		Published(latents, sampling, Decoders(vae), data, dumps)
 Loaded(model Text, lora Text, adapter Text) Moss
@@ -23,6 +23,8 @@ Served(moss Moss, mode Text, adapter Text) None
 Latents(moss Moss, sampling MossSampling, data Safetensors, dumps Text, adapter Text) List(Numbers)
 	for GenerationCommand(logger).Count(data)
 		Generated(moss, sampling, GenerationCommand(logger).Job(data, dumps, index), adapter)
+Generations(model Text, lora Text, adapter Text, sampling MossSampling, data Safetensors, dumps Text) List(Numbers)
+	Latents(Loaded(model, lora, adapter), sampling, data, dumps, adapter)
 Configured(data Safetensors, mode Text) MossSampling
 	let width = data.Shape("noise").Last
 	let steps = data.Values("steps").First
