@@ -160,11 +160,23 @@ The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB c
 
 ## H3 videos with sound from a prompt file (RTX 4090)
 
-`H3Video.exe` has the options of `MossImage.exe` above: `prompt.txt` with `{a|b|}` choices, `--count` resident batches with distinct seeds, `--seed`, repeated `--lora path:strength`, `--lora_mode`, `--merge_only`, `--spectrum`, numbered outputs that are never overwritten and `--json_output`. It adds `--length` (frames at 24 fps, snapped up to 17k+5 like ComfyUI, default 124 = 5.2 s) and `--shift` (12, the audio follows with shift 3), and has no `--guidance` or `--jpg_quality`. Defaults: the turbo INT8 8-step model, 480x832, 8 steps, `H3Video.mp4`, `minimax_h3_video_vae_int8_convrot`, `minimax_h3_audio_vae_fp32` and the `qwen3vl_32b_minimax_h3_nvfp4_awq` text encoder under `--comfyui`.
+`H3Video.exe --quality <preset>` picks the model, steps, attention and Spectrum in one go; `--model`, `--steps`, `--routing`, `--spectrum` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w1p2`), its LoRAs come before the given ones. Sampling times for the default 124 frames on a 4090, warm:
+
+| `--quality` | Model, LoRA | Steps | Attention, Spectrum | Sampling |
+|---|---|---:|---|---:|
+| `best` (default) | turbo INT8 8-step | 8 | exact | 22 s |
+| `best20steps` | base FL2VA INT8, no turbo LoRA | 20 | exact | 54 s |
+| `fast` | turbo | 8 | `--routing 1` | 16 s |
+| `faster` | turbo | 8 | `--routing 1`, `spectrum8_w1p2` (5 of 8 steps evaluated) | 11 s |
+| `fastest6steps` | turbo | 6 | `--routing 1`, `spectrum6_w1p3` (3 of 6 evaluated; 2 smear the frames) | 7 s |
+| `fastest3steps` | base + TaoMate 3-step LoRA (strength 1, merged once) | 3 | `--routing 1` | 7 s |
+
+It has the options of `MossImage.exe` above: `prompt.txt` with `{a|b|}` choices, `--count` resident batches with distinct seeds, `--seed`, repeated `--lora path:strength`, `--lora_mode`, `--merge_only`, `--spectrum`, numbered outputs that are never overwritten and `--json_output`. It adds `--length` (frames at 24 fps, snapped up to 17k+5 like ComfyUI, default 124 = 5.2 s) and `--shift` (12, the audio follows with shift 3), and has no `--guidance` or `--jpg_quality`. Defaults: `--quality best`, 480x832, `H3Video.mp4`, `minimax_h3_video_vae_int8_convrot`, `minimax_h3_audio_vae_fp32` and the `qwen3vl_32b_minimax_h3_nvfp4_awq` text encoder under `--comfyui`.
 
 ```powershell
 cd C:\StrictDumps\videos
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --count 4
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality faster --count 4
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --spectrum spectrum8_w1p2
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --count 4
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --steps 3 --lora h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:0.8

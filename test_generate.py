@@ -539,6 +539,21 @@ class GenerationCommandTests(unittest.TestCase):
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--spectrum', 'spectrum8_w1p2', '--steps', '6'], 'h3')
 
+	def test_h3_quality_presets(self):
+		module = self.module()
+		best = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
+		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora), ('best', 8, 0, 'off', []))
+		fastest = module.arguments(['--quality', 'fastest3steps', '--lora', 'style.safetensors:0.5'], 'h3')
+		self.assertEqual((Path(fastest.model).name, fastest.steps, fastest.routing, fastest.lora),
+			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 3, 1,
+			['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1', 'style.safetensors:0.5']))
+		faster = module.arguments(['--quality', 'faster', '--steps', '10', '--routing', '0.5'], 'h3')
+		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 0.5))
+		self.assertEqual(Path(module.arguments(['--quality', 'best20steps'], 'h3').model).name,
+			'minimax_h3_fl2va_pruned_int8_convrot.safetensors')
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--quality', 'ultra'], 'h3')
+
 	def test_h3_noise_follows_comfyui_order(self):
 		import torch
 		module = self.module()

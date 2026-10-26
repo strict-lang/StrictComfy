@@ -30,6 +30,16 @@ FAMILIES = {
 			('audio_vae', 'vae', 'minimax_h3_audio_vae_fp32.safetensors', 'Audio VAE'),
 			('te', 'text_encoders', 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', 'Text encoder')]}}
 SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
+H3_TURBO, H3_BASE = FAMILIES['h3']['files'][0][2], 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
+# H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
+QUALITIES = {
+	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 22 s'),
+	'best20steps': (H3_BASE, 20, 0, '', [], 'the base model without the turbo LoRA, 20 steps, 54 s'),
+	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 16 s'),
+	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 11 s'),
+	'fastest6steps': (H3_TURBO, 6, 1, 'w1p3', [], '6 routed steps with Spectrum (3 evaluated), 7 s'),
+	'fastest3steps': (H3_BASE, 3, 1, '', ['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'],
+		'the base model with the TaoMate 3-step LoRA, routed, 7 s')}
 
 
 def lora_spec(text):
@@ -89,19 +99,26 @@ def arguments(argv=None, family='moss'):
 		allow_abbrev=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--help', action='help', help='show this help message and exit')
 	for name, folder, filename, description in files:
-		parser.add_argument('--' + name, default=argparse.SUPPRESS,
-			help=f'{description} (default: {default_comfy / "models" / folder / filename})')
+		chosen = 'the one of --quality' if family == 'h3' and name == 'model' else default_comfy / 'models' / folder / filename
+		parser.add_argument('--' + name, default=argparse.SUPPRESS, help=f'{description} (default: {chosen})')
+	if family == 'h3':
+		parser.add_argument('--quality', choices=QUALITIES, default='best', help='presets of --model, --steps, --routing, '
+			'--spectrum and --lora, which change them when given (sampling times for 124 frames on a 4090): ' +
+			'; '.join(name + ': ' + preset[-1] for name, preset in QUALITIES.items()))
+	preset = argparse.SUPPRESS if family == 'h3' else None
+	from_quality = ' (default: the one of --quality)'
 	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--steps', type=int, default=8,
-		help='Diffusion sampling steps' + ('; 8 automatically applies the DMD turbo LoRA' if family == 'moss' else ''))
+	parser.add_argument('--steps', type=int, default=8 if preset is None else preset,
+		help='Diffusion sampling steps' + ('; 8 automatically applies the DMD turbo LoRA' if family == 'moss' else from_quality))
 	parser.add_argument('--count', type=int, default=1, help='outputs per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
 	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged',
 		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: ' +
 		('floating adapters' if family == 'moss' else 'merged by Strict at every load, no cached model file'))
 	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
-	parser.add_argument('--spectrum', default='off',
-		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result')
+	parser.add_argument('--spectrum', default='off' if preset is None else preset,
+		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result' +
+		('' if preset is None else from_quality))
 	parser.add_argument('--output', type=Path, default=Path(settings['output']), help='numbered output base; never overwritten')
 	parser.add_argument('--json_output', action='store_true', help='write a per-output JSON settings sidecar')
 	parser.add_argument('--width', type=int, default=settings['width'], help='Width in pixels')
@@ -111,9 +128,9 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
 		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
 		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
-		parser.add_argument('--routing', type=float, default=0, help='Sparse attention like Sol-Attn above 0: key blocks whose '
+		parser.add_argument('--routing', type=float, default=preset, help='Sparse attention like Sol-Attn above 0: key blocks whose '
 			'pooled score stays below 2x this many standard deviations in the first 38 of 50 blocks (1.3x after) are pooled, '
-			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result')
+			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result' + from_quality)
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
@@ -123,6 +140,8 @@ def arguments(argv=None, family='moss'):
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
 	args.family = family
+	if family == 'h3':
+		quality(args)
 	for name, folder, filename, description in files:
 		if not hasattr(args, name):
 			setattr(args, name, str(args.comfyui / 'models' / folder / filename))
@@ -144,6 +163,16 @@ def arguments(argv=None, family='moss'):
 	if args.merge_only and args.lora_mode != 'merged':
 		parser.error('--merge_only requires --lora_mode merged')
 	return args
+
+
+def quality(args):
+	model, steps, routing, spectrum, loras = QUALITIES[args.quality][:5]
+	if not hasattr(args, 'model'):
+		args.model = str(args.comfyui / 'models' / 'diffusion_models' / model)
+	args.steps = getattr(args, 'steps', steps)
+	args.routing = getattr(args, 'routing', routing)
+	args.spectrum = getattr(args, 'spectrum', f'spectrum{args.steps}_{spectrum}' if spectrum else 'off')
+	args.lora = loras + args.lora
 
 
 def spectrum_config(args):
@@ -679,7 +708,8 @@ def main(argv=None):
 	for index, job in enumerate(plan):
 		print(f'{FAMILIES[args.family]["noun"]} {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
 	print('Input model: ' + str(model), flush=True)
-	print('LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
+	print(('Quality: ' + args.quality + f', steps {args.steps}, routing {args.routing:g}, ' if args.family == 'h3' else '') +
+		'LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
 	for path, strength in loras:
 		print(f'LoRA: {path}, strength {strength}', flush=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)

@@ -8,7 +8,7 @@ This file lists only what is still to be implemented: remove an item once it is 
 
 ## Moss (RTX 3080)
 - Resident backend on 10 GB cards: measured (Performance.md) that keeping the Moss weights on the GPU beats freeing them, ComfyUI streams its text encoder (dynamic VRAM loading). Revisit only if a card can not fit the weights next to ComfyUI's working set: the runtime can already evict device copies of host lists to pinned memory (strict_gpu_evicted), it would need a GpuMemory method to do that for all of them at a job boundary.
-- Node: negative conditioning for cfg above 1 (Strict guides against a zero prompt of the positive's length; another length needs its own rotation table), an H3 node like the Moss one.
+- Node: negative conditioning for cfg above 1 (Strict guides against a zero prompt of the positive's length; another length needs its own rotation table), an H3 node like the Moss one with the `--quality` presets of `generate.py` (`QUALITIES`).
 - Runtime LoRA speed (5.3 s per image against 3.25 s merged): the LoRA epilogue (base + delta / Gain) fused into the expand `Products` (about 0.38 s per image of memory traffic), occupancy of the rank-128 down projection (split-K or a 64x128 tile), the per-image re-uploads (56/31/28 MB x 42).
 - Strict's Flux 2 VAE decode 430-450 ms against ComfyUI's 270 ms (the node decodes in ComfyUI), the cold model load (about 3 s against ComfyUI's lazy 0.11 s).
 - Grouped Modulated/Rotated vectorization, the full-size Rotated index miscompile, gate/modulation precision alignment.
