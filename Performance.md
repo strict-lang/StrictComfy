@@ -3,6 +3,9 @@
 ## H3 weights pinned in place (2026-10-26 02:00, RTX 3080, 64 GB RAM)
 
 Strict branch `pinned-weights`: big matrices from files are laid out like their GPU rows table and locked in place (`cuMemHostRegister`) as their own spill, no second pinned copy. Same jobs as below (fasth3, 29 frames, 480x832, 8 steps): steps 1.8-2.0 s instead of 3.9-7.0 s (ComfyUI 1.83 s), first step 4.3 s instead of 8-10 s, the two videos sample in 16-18 s each (was 32-47 s), `generate.py h3 --count 2` 54.2 s end to end with a cached prompt (load 7 s, sampling 36.9 s, decode 8 s). H3 commits +26 GB (the weights once), the diagnostic errors against ComfyUI are bit identical to the old runtime. MossImage is unchanged (4.2 and 3.0 s sampling, 0.47 s decode warm). With 37 GB committed by other programs and a 4 GB page file the peak is 68 of 72 GB, a larger page file (D:) leaves more room.
+## H3 refiner rows and bf16 elementwise results (2026-10-26 03:00, RTX 4090)
+
+`Convrot.Rows` (46297ca) rotated the float refiner rows of the 768p checkpoint into 770 M f32 numbers (3.08 GB) that only lived on the GPU, so they could not be evicted and 3 GB less of the block weights stayed resident: steps 5.4-6.3 instead of 2.5-2.7 s (h3fox, `--routing 1`, quiet machine). `H3Refiner.quantized` now rotates the refiner input only when the checkpoint quantized the refiner (fastvideo), float rows stay the evictable file rows: 2.47-2.70 s, refined text error 0.00687 as before. Modulated, Activated, Gated and `Rope.Rotated` return `BFloat16s` like Moss: Gated 844 -> 637, Modulated 721 -> 559, `Qwen3Block.Scales` 483 -> 355, Rope 1034 -> 916 us per launch, the int8 GEMM 1880 -> 1767 us (more weights stay resident); steps 2.23-2.43 s, dense final errors against ComfyUI video 0.286, audio 0.113 (f32 0.236, 0.084; ComfyUI's comfy_kitchen INT8 attention 0.256, 0.164).
 
 ## H3Video on the RTX 3080 (2026-10-26 00:45, 10 GB, 64 GB RAM)
 

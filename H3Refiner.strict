@@ -1,13 +1,17 @@
 has condition Batch
 has refiner List(H3Block)
 has refinedNorm Numbers
+has quantized Boolean
 constant Tiny = H3Refiner.Loaded("tinyh3.safetensors")
 constant Tuned = H3Refiner.Loaded("tinyh3.safetensors", H3Lora.Half.loras)
 Loaded(path Text, loras = "") H3Refiner
 	Tiny.refiner.Length is 2
+	Tiny.quantized is false
 	let halves = H3.Weights(path, 16)
 	let refiners = H3.Blocks(H3.Weights(path, 32), "token_refiner.blocks.", loras)
-	H3Refiner(MossText.Dense(halves, "condition_proj"), refiners, halves.Values("token_refiner.final_norm.weight"))
+	let norm = halves.Values("token_refiner.final_norm.weight")
+	let marker = halves.Entry("token_refiner.blocks.0.attn.qkv_proj.comfy_quant")
+	H3Refiner(MossText.Dense(halves, "condition_proj"), refiners, norm, marker is not "")
 Refined(context Numbers) Numbers
 	Tiny.Refined(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
@@ -15,7 +19,7 @@ Refined(context Numbers) Numbers
 	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
 	mutable hidden = condition.Sums(context)
 	for refiner
-		hidden = value.Refined(hidden, unturned)
+		hidden = value.Refined(hidden, unturned, quantized)
 	H3Block.Normalized(hidden, refinedNorm)
 Texts(conditions List(Safetensors)) List(Numbers)
 	Tiny.Texts(List(Safetensors) + H3.Model)(0) is Tiny.Refined(H3.Model.Values("context"))

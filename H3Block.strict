@@ -37,9 +37,7 @@ Merged(rows Safetensors, name Text, loras Text, prefix Text) List(Numbers)
 	Tiny.Merged(Safetensors(Model.path, 16, "blocks.0."), "mlp.fc2", "", "blocks.0.") is Tiny.reduction
 	H3Lora.Block.attention is not Tiny.attention
 	MossImage(Logger).Error(H3Lora.Layered, H3Lora.Reference.Values("blocks.0")) < 0.02
-	if rows.Entry(name + ".comfy_quant") is ""
-		return Convrot.Rows(Projection(rows, name))
-	if loras is ""
+	if (rows.Entry(name + ".comfy_quant") is "") or (loras is "")
 		return Projection(rows, name)
 	let lora = H3Lora(loras).Stacked(prefix + name + ".")
 	if lora.rank is 0
@@ -60,16 +58,16 @@ Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers, routing 
 	let attended = Gated(input, Attended(normed, rotation, routing), modulation, starts, 2)
 	let fed = FedForward(Modulated(attended, feedNorm, modulation, starts, 3), H3Layout.Chunk)
 	Gated(attended, fed, modulation, starts, 5)
-Refined(input Numbers, rotation Numbers) Numbers
-	H3Block.Loaded(Model, "token_refiner.blocks.0.").Refined(Input, Rope.Turning).Length is 4352
-	let merged = Heads(Projected(0, attention, Normalized(input, attentionNorm)), rotation).Merged
-	let attended = MossText.Added(input, Projected(1, output, merged))
-	let expanded = Projected(2, expansion, Normalized(attended, feedNorm))
-	MossText.Added(attended, Projected(3, reduction, Activated(expanded, reduction.First.Length)))
-Projected(linear Number, rows List(Numbers), input Numbers) Numbers
+Refined(input Numbers, rotation Numbers, rotated Boolean) Numbers
+	H3Block.Loaded(Model, "token_refiner.blocks.0.").Refined(Input, Rope.Turning, false).Length is 4352
+	let merged = Heads(Projected(0, attention, Normalized(input, attentionNorm), rotated), rotation).Merged
+	let attended = MossText.Added(input, Projected(1, output, merged, rotated))
+	let expanded = Projected(2, expansion, Normalized(attended, feedNorm), rotated)
+	MossText.Added(attended, Projected(3, reduction, Activated(expanded, reduction.First.Length), rotated))
+Projected(linear Number, rows List(Numbers), input Numbers, rotated = true) Numbers
 	Tiny.Projected(0, Tiny.attention, Model.Values("reference.blocks.0.attn.input"))(0).IsNearlyEqual(-1.71875, 0.03)
 	Tiny.Projected(0, Tiny.attention, Model.Values("reference.blocks.0.attn.input"))(1000).IsNearlyEqual(-1.046875, 0.03)
-	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(Convrot(input).Rotated), input)
+	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(Convrot(input).Applied(rotated)), input)
 Attended(normed Numbers, rotation Numbers, routing = 0) Numbers
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
@@ -104,7 +102,7 @@ Fed(normed Numbers) Numbers
 	let expanded = Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let activated = Activated(expanded, reduction.First.Length)
 	Batch(reduction, Layer.Unbiased).Sums(Convrot(activated).Rotated)
-Activated(expanded Numbers, width Number) Numbers
+Activated(expanded Numbers, width Number) BFloat16s
 	Tiny.Activated((2, 1, 3, 0), 1)(0).IsNearlyEqual(1.761594)
 	Tiny.Activated((2, 1, 3, 0), 1)(1) is 0
 	for expanded.Length / 2
@@ -117,7 +115,7 @@ Normalized(input Numbers, weights Numbers) Numbers
 	let scales = Qwen3Block.Scales(input, width, Epsilon)
 	for input.Length
 		input(index) * scales((index / width).Floor) * weights(index % width)
-Modulated(input Numbers, weights Numbers, modulation Numbers, starts Numbers, part Number) Numbers
+Modulated(input Numbers, weights Numbers, modulation Numbers, starts Numbers, part Number) BFloat16s
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 0, 1), List(Number) + 0, 0)(1).IsNearlyEqual(4.525483)
 	Tiny.Modulated((3, 4), (1, 2), (9, 9, 0.5, 0, 0, 1), List(Number) + 1, 0)(0).IsNearlyEqual(1.348528)
 	let width = weights.Length
@@ -126,7 +124,7 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, starts Numbers, pa
 		let token = (index / width).Floor
 		let at = (starts(token) + part) * width + index % width
 		input(index) * scales(token) * weights(index % width) * (1 + modulation(at + width)) + modulation(at)
-Gated(input Numbers, update Numbers, modulation Numbers, starts Numbers, part Number) Numbers
+Gated(input Numbers, update Numbers, modulation Numbers, starts Numbers, part Number) BFloat16s
 	H3Block(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 0, 0, 2, 3), List(Number) + 0, 2) is (7, 14)
 	let width = attentionNorm.Length
 	for input.Length
