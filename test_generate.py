@@ -322,6 +322,23 @@ class GenerationCommandTests(unittest.TestCase):
 				self.assertEqual(module.conditioning(args, ['first', 'second'], encoder), paths[:2])
 				self.assertEqual(launch.call_count, 1)
 
+	def test_moss_prompts_encode_in_right_padded_batches(self):
+		import torch
+		class Clip:
+			class cond_stage_model:
+				clip = 'qwen'
+				qwen = type('Model', (), {'special_tokens': {'pad': 0}})
+			batches = []
+			def tokenize(self, prompt):
+				return {'qwen': [[(len(word), 1.0) for word in prompt.split()]]}
+			def encode_from_tokens(self, tokens):
+				self.batches.append(tokens['qwen'])
+				return torch.tensor([[[token for token, weight in part] for part in tokens['qwen']]], dtype=torch.float).reshape(1, -1, 1)
+		clip = Clip()
+		contexts = [context.flatten().tolist() for context in self.module().contexts(clip, ['a bb ccc', 'dddd', 'ee f'], 2)]
+		self.assertEqual(contexts, [[1, 2, 3], [4], [2, 1]])
+		self.assertEqual(clip.batches, [[[(1, 1.0), (2, 1.0), (3, 1.0)], [(4, 1.0), (0, 1.0), (0, 1.0)]], [[(2, 1.0), (1, 1.0)]]])
+
 	def test_wrong_checkpoint_is_rejected(self):
 		import torch
 		from safetensors.torch import save_file
