@@ -37,7 +37,9 @@ Merged(rows Safetensors, name Text, loras Text, prefix Text) List(Numbers)
 	Tiny.Merged(Safetensors(Model.path, 16, "blocks.0."), "mlp.fc2", "", "blocks.0.") is Tiny.reduction
 	H3Lora.Block.attention is not Tiny.attention
 	MossImage(Logger).Error(H3Lora.Layered, H3Lora.Reference.Values("blocks.0")) < 0.02
-	if (rows.Entry(name + ".comfy_quant") is "") or (loras is "")
+	if rows.Entry(name + ".comfy_quant") is ""
+		return Convrot.Rows(Projection(rows, name))
+	if loras is ""
 		return Projection(rows, name)
 	let lora = H3Lora(loras).Stacked(prefix + name + ".")
 	if lora.rank is 0
@@ -65,8 +67,9 @@ Refined(input Numbers, rotation Numbers) Numbers
 	let expanded = Projected(2, expansion, Normalized(attended, feedNorm))
 	MossText.Added(attended, Projected(3, reduction, Activated(expanded, reduction.First.Length)))
 Projected(linear Number, rows List(Numbers), input Numbers) Numbers
-	Tiny.Projected(0, ((1, 2), (3, 4)), (1, 1)) is (3, 7)
-	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(input), input)
+	Tiny.Projected(0, Tiny.attention, Model.Values("reference.blocks.0.attn.input"))(0).IsNearlyEqual(-1.71875, 0.03)
+	Tiny.Projected(0, Tiny.attention, Model.Values("reference.blocks.0.attn.input"))(1000).IsNearlyEqual(-1.046875, 0.03)
+	MossLora.Applied(deltas, linear, Batch(rows, Layer.Unbiased).Sums(Convrot(input).Rotated), input)
 Attended(normed Numbers, rotation Numbers, routing = 0) Numbers
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)

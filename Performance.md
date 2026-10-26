@@ -1,5 +1,9 @@
 # Moss performance
 
+## H3Video on the RTX 3080 (2026-10-26 00:45, 10 GB, 64 GB RAM)
+
+`generate.py h3 --model fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors --length 29 --count 2`, 480x832, 8 steps, cached prompt. This checkpoint quantizes the token refiner too (int8 Convrot), `H3Block.Refined` multiplied its rows without rotating the input: refined text error 1.249 against ComfyUI, the videos ignored the prompt. Refiner and block projections now always rotate their input, float rows are rotated once at load (`Convrot.Rows`): refined text error 0.016, final video error 0.21 (was 1.03), the videos follow the prompt. No OOM: Strict streams the 21.7 GB of weights. Steps take 4.3-5.9 s, ComfyUI 1.83 s (`dump.py h3`, sampling 14.9 s warm): only 8 GB of spilled rows are pinned, the rest is copied from pageable memory at every step (GPU ~7 % busy). With a 24 GB pinned cap the steps take 2.3 s at 100 % GPU and two videos 75 instead of 103-168 s end to end, but that needs the weights twice in host memory and hit the commit limit with the ComfyUI decoder running (see ../Strict/improvements.md).
+
 ## MossImage decodes after sampling (2026-10-25 22:00, RTX 3080)
 
 MossGenerate decoded each image right after sampling it while the 5.4 GB of Moss weights were still on the GPU: 9.6 of 10 GB in use, the decoder evicted and uploaded rows all the time (decode 4.6-10 s instead of 0.43 s). Now it samples every job first, lets the Moss weights go (`GpuMemory.Released`), then loads the VAE and decodes all latents: 0.47-0.49 s per decode. `--count 4 --spectrum spectrum8_w3p3`, warm: 15.6 s in total, sampling 3.2 s then 1.9 s per image. The resident ComfyUI backend (no VAE) is unchanged: 3.0 s per run warm.

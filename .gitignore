@@ -81,3 +81,4 @@ bld/
 prompt*.txt
 benchmark.py
 *.jpg
+*.nativecache
