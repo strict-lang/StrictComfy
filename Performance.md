@@ -1,5 +1,23 @@
 # Moss performance
 
+## H3 attention with 8 bit values, Sol-Attn's shape (2026-10-26 23:00, RTX 4090, Strict 2feba9ed)
+
+`strict_device_bytes_attention` replaces the routed and the 8 bit key path for H3: values quantized like the keys (8 bits, a scale per position), shares times value scales as 8 bits per row, both products on the 8 bit tensor cores, a block of 128 threads per 64 tokens (each query block routes with its own plan, before two shared the union of theirs), two tiles of 32 positions per step by cp.async, sums in 32 bits from the bits of 1.5 * 2^23 so no conversions. The 10 s fox clip like below:
+
+| Run | ComfyUI per call | Strict per step | Strict total (step 0) | Error video, audio |
+|---|---:|---:|---:|---|
+| turbo, default attention / Strict dense | 9.62-9.73 s | 6.89-7.04 s | 57.5 s (8.4 s) | Strict 0.467, 0.230 |
+| turbo, comfy_kitchen int8 attention | 5.24-5.29 s | | | ComfyUI 0.438, 0.181 |
+| turbo, SageAttention | 6.37-6.42 s | | | |
+| turbo, Sol-Attn / Strict `--routing 1` | 3.34-3.49 s | 3.62-3.71 s | 31.0 s (5.2 s) | ComfyUI 0.792, 0.632; Strict 0.891, 0.943 |
+| turbo, `--routing 1` with `spectrum8_w1p2` | (node broken) | | 20.4 s (5.2 s) | |
+| TaoMate 3 steps, default / Strict dense | 9.78-9.81 s | 6.95-7.06 s | 22.4 s (8.3 s) | |
+| TaoMate + Sol / Strict routed | 3.42-3.44 s | 3.67-3.71 s | 13.0 s (5.5 s) | ComfyUI 0.812, 0.532 |
+
+Attention per call (ncu): dense ~109 -> 85 ms (tensor pipe 48 % busy), routed 27.5 -> 15.0 ms against Sol-Attn's 14.7 ms. The routed audio error rose from 0.849 because a query block now attends only its own key blocks (23.5 % instead of the 30 % of the union). The steps there (dense / routed per step): 32 position tiles at 3 blocks per SM (168 registers with spills) 8.24-8.42 / 3.92-4.15 s; sums without conversions and no masks on whole tiles 7.94-8.13 / 3.85-3.94 s; the fold as two fmas and rounding by the same bias 7.81-7.99 s; 2 blocks per SM (238 registers, no spills) 7.43-7.57 s; two tiles per step (one fold and one barrier per 64 positions) 6.87-7.03 / 3.75-3.84 s; the planner loading 8 rows of pooled keys per warp at a time instead of one dependent load per iteration (13 % of the routed samples sat on it) routed kernel 16.6 -> 15.0 ms, steps 3.62-3.71 s.
+
+Biggest gaps now, routed against Sol-Attn (0.25 s per step): the int8 GEMMs (36.9 against 32.3 ms per block, ~0.22 s per step), elementwise (9.9 against 7.4 ms, ~0.12 s), quantize and Hadamard 5.5 ms and idle 5 ms that ComfyUI does not have; attention is even. Dense against comfy_kitchen (1.7 s per step): attention 85 against ~54 ms per call (`improvements-gpu.md` of Strict lists what is left: 3 blocks per SM, values transposed and scaled per number, the planner's reads of all pooled keys per block, the Hadamard). Spectrum skipping whole steps stays the biggest lever (20.4 against 31.0 s); TaoMate's 3 steps with routing 13.0 s.
+
 ## H3 10 s clips against ComfyUI (2026-10-26 21:00, RTX 4090, Strict 590febd3)
 
 The fox prompt at 243 frames (10.1 s, 480x832, seed 7, 28890 tokens, `C:/StrictDumps/h3fox10`, TaoMate `h3fox10tao`), ComfyUI `dump.py h3 --runs 1 --length 243` (`C:/StrictDumps/ab/comfy10.sh`, the first call uploads the model), Strict `C:/StrictDumps/ab/strict10.sh` (8 steps including step 0). Errors are the final latents against ComfyUI's default attention run (`h3x10-default`, `C:/StrictDumps/prof/latenterr.py`), TaoMate + Sol against TaoMate's default.
