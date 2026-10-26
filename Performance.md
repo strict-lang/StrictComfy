@@ -1,5 +1,16 @@
 # Moss performance
 
+## H3's first step without synchronous uploads (2026-10-26 14:40, RTX 4090, Strict ff023214)
+
+The first step took 4.6-5.1 s against 2.1 s for later ones, the GPU idled 3.2 of its 5.1 s (nsys, `C:/StrictDumps/prof/step0.sqlite`, `firststep.py`): each block's out_proj (43 MB) and adaln rows (3 MB) are below the 64 MB minimum of a pinned file image, their first upload went through the pinned bounce buffer with `cuMemcpyHtoD`, which waits for every launch before it (105 copies, 32 ms of waiting each, 3.58 s of host time). Pinning the images took only 193 ms. They now go up on the copy stream into their own allocation, only that copy is waited for (`strict_gpu_put_aside`). Alternating h3fox runs with `--routing 1`:
+
+| | First step | Later steps (mean) | Generation |
+|---|---:|---:|---:|
+| Before | 4641-4695 ms | 2055-2096 ms | 19.1-19.4 s |
+| After | 3228-3264 ms | 2071-2110 ms | 17.8-18.1 s |
+
+The latent is bit identical. Lowering the image minimum to 1 MB made the first step as fast, but pinned images are preferred eviction victims: H3 then streamed 221 instead of 119 MB per block and later steps got 70 ms slower (`uploadmix.py`). Left in the first step: 19.5 GB of image uploads on the compute stream (858 ms the kernels wait for), 333 driver allocations (321 ms).
+
 ## Exact text and audio, per block routing thresholds (2026-10-26 08:30, RTX 4090, Strict 436135cc)
 
 Like Sol-Attn, the routed attention keeps H3's text and audio exact in both directions (`Attention.exact` = `H3Layout.Leading`, the positions before the video), and the threshold follows Sol's per layer calibration: 2 x `--routing` in the first 38 of 50 blocks, 1.3 x after (`H3Layout.Routed`). Final errors against ComfyUI on `C:/StrictDumps/h3`, steps on h3fox:
