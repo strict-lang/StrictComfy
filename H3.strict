@@ -59,6 +59,14 @@ Packed(sound Numbers, layout H3Layout) Numbers
 	for sound.Length
 		let row = (index / channels).Floor
 		sound((index % channels * 2 + (row / layout.audio).Floor) * layout.audio + row % layout.audio)
+Leading(layout H3Layout) Number
+	Tiny.Leading(H3Layout.Tiny) is 9
+	Tiny.Leading(H3Layout(H3Layout.Tiny, keyframes = List(Number) + 0)) is 13
+	layout.Words + layout.Conditions + 2 * layout.audio
+Routed(routing Number, block Number) Number
+	Tiny.Routed(1, 0) is 2
+	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 1.3
+	routing * (block < blocks.Length * 0.76 then 2 else 1.3)
 Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers) Numbers
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
@@ -70,5 +78,5 @@ Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layou
 	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
 	mutable hidden = kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
 	for blocks
-		hidden = value.Output(hidden, curves, starts, rotation, layout.routing)
+		hidden = value.Output(hidden, curves, starts, rotation, Routed(layout.routing, index), Leading(layout))
 	final.Output(hidden, curves, layout, sigma)

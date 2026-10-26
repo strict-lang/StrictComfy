@@ -81,7 +81,7 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 	mutable state = first.Values("blocks.0.input")
 	mutable error = 0
 	for h3.blocks
-		state = value.Output(state, curves, starts, rotation, layout.routing)
+		state = value.Output(state, curves, starts, rotation, h3.Routed(layout.routing, index), h3.Leading(layout))
 		let name = "blocks." + index
 		if first.Entry(name) is not ""
 			error = MossImage(logger).Error(state, first.Values(name))

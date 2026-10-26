@@ -1,5 +1,16 @@
 # Moss performance
 
+## Exact text and audio, per block routing thresholds (2026-10-26 08:30, RTX 4090, Strict 436135cc)
+
+Like Sol-Attn, the routed attention keeps H3's text and audio exact in both directions (`Attention.exact` = `H3Layout.Leading`, the positions before the video), and the threshold follows Sol's per layer calibration: 2 x `--routing` in the first 38 of 50 blocks, 1.3 x after (`H3Layout.Routed`). Final errors against ComfyUI on `C:/StrictDumps/h3`, steps on h3fox:
+
+| Routing | Video, audio error | Steps 2-7 |
+|---|---|---:|
+| `--routing 1` before (tau 1 everywhere) | 0.569, 0.262 | 2.19-2.29 s |
+| tau 2 / 1.3 without exact text and audio | 0.800, 1.484 (audio broken) | ~2.03 s |
+| tau 1 with exact text and audio | 0.478, 0.236 | ~2.28 s |
+| `--routing 1` now (tau 2 / 1.3, exact text and audio) | 0.604, 0.284 | 2.02-2.15 s |
+
 ## H3 against plain ComfyUI, with and without Spectrum (2026-10-26 07:30, RTX 4090, Strict e43fa6a4)
 
 Same inputs (`C:/StrictDumps/h3fox`: the fox prompt, seed 7, 480x832, 124 frames, turbo INT8, 8 steps). ComfyUI is `dump.py h3 --runs 2` (default attention, the second run timed), Strict `H3Video.exe C:/StrictDumps/h3fox` (`C:/StrictDumps/h3cmp`). Warm sampling counts Strict's step 0 (5.5 s: it uploads all 21.7 GB of weights; ComfyUI's first call takes 11.5 s) like a later step.

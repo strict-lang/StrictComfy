@@ -112,8 +112,8 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
 		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
 		parser.add_argument('--routing', type=float, default=0, help='Sparse attention like Sol-Attn above 0: key blocks whose '
-			'pooled score stays below this many standard deviations are pooled (1 is ~0.85 s faster per step on a 4090); '
-			'changes the sampling result')
+			'pooled score stays below 2x this many standard deviations in the first 38 of 50 blocks (1.3x after) are pooled, '
+			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
