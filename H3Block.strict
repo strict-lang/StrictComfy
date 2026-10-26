@@ -121,9 +121,9 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, starts Numbers, pa
 	let width = weights.Length
 	let scales = Qwen3Block.Scales(input, width, Epsilon)
 	for input.Length
-		let token = (index / width).Floor
-		let at = (starts(token) + part) * width + index % width
-		input(index) * scales(token) * weights(index % width) * (1 + modulation(at + width)) + modulation(at)
+		let normed = input(index) * scales((index / width).Floor)
+		let at = (starts((index / width).Floor) + part) * width + index % width
+		normed * weights(index % width) * (1 + modulation(at + width)) + modulation(at)
 Gated(input Numbers, update Numbers, modulation Numbers, starts Numbers, part Number) BFloat16s
 	H3Block(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 0, 0, 2, 3), List(Number) + 0, 2) is (7, 14)
 	let width = attentionNorm.Length

@@ -36,7 +36,8 @@ Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation 
 		let token = (index / width).Floor
 		let within = index % head
 		let first = index - within + token * 2 * width + start
+		let scale = scales((first / head).Floor)
 		let paired = within < half then within + half else within < 2 * half then within - half else within
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * head + within)
 		let other = combined(first + paired) * weights(paired) * rotation((token * 2 + 1) * head + within)
-		(own + other) * scales((first / head).Floor)
+		(own + other) * scale
