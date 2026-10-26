@@ -9,10 +9,10 @@ Rotated Numbers
 	let quarter = Stage(Stage(Stage(values, 1), 4), 16)
 	for values.Length
 		Butterfly(quarter, index, 64)
-Rows(rows List(Numbers)) List(Numbers)
-	Convrot.Rows(List(Numbers) + Reference.values)(0) is Reference.Rotated
-	for rows
-		Convrot(value).Rotated
+Applied(rotated Boolean) Numbers
+	Reference.Applied(true) is Reference.Rotated
+	Reference.Applied(false) is Reference.values
+	rotated then Rotated else values
 Stage(input Numbers, step Number) Numbers
 	Reference.Stage((1, 0, 0, 0), 1) is (0.5, 0.5, 0.5, -0.5)
 	Reference.Stage((0, 0, 0, 1, 1, 0, 0, 0), 2) is (0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5)
