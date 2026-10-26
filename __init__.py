@@ -1,16 +1,25 @@
-"""ComfyUI nodes: Moss images sampled by Strict (MossGenerate.exe) from ComfyUI's model, LoRAs, conditioning and latent,
-decoded with ComfyUI's VAE."""
+"""ComfyUI nodes: Moss images (MossGenerate.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
+conditioning and latent (Moss also its model and LoRAs), decoded by ComfyUI."""
 from contextlib import closing
 from pathlib import Path
 import tempfile
 import torch
 from safetensors.torch import load, save_file
 import comfy.model_management
+import comfy.nested_tensor
 import comfy.utils
 import folder_paths
 from . import generate
 
-RESIDENT = generate.Resident()
+RESIDENT, RESIDENT_H3 = generate.Resident(), generate.Resident()
+
+
+def checkpoint(model):
+	"""The checkpoint file of a MODEL from Load Diffusion Model."""
+	init = model.cached_patcher_init
+	if init is None or init[0].__name__ != 'load_diffusion_model':
+		raise ValueError('Load the model with Load Diffusion Model (UNETLoader)')
+	return Path(init[1][0])
 
 
 class StrictMossSampler:
@@ -38,11 +47,8 @@ class StrictMossSampler:
 		'for the next run with the same model, LoRAs and Spectrum')
 
 	def sample(self, model, positive, latent_image, vae, seed, steps, cfg, spectrum, lora_mode, turbo):
-		init = model.cached_patcher_init
-		if init is None or init[0].__name__ != 'load_diffusion_model':
-			raise ValueError('Load the Moss model with Load Diffusion Model (UNETLoader)')
-		checkpoint = Path(init[1][0])
-		metadata = generate.validate_model(checkpoint)
+		checkpointed = checkpoint(model)
+		metadata = generate.validate_model(checkpointed)
 		if len(positive) != 1:
 			raise ValueError('positive must be a single conditioning')
 		batch, channels, height, width = latent_image['samples'].shape
@@ -58,7 +64,7 @@ class StrictMossSampler:
 		turbos = [] if turbo == 'off' else generate.selected_loras(args, Path(folder_paths.models_dir), metadata)
 		loras = [(path, strength) for path, strength in turbos if not generate.turbo_patched(model.patches, path)]
 		loras += [(patches, 1.0)] if patches else []
-		loaded = generate.cached_merge(args, checkpoint, loras if lora_mode == 'merged' else [])
+		loaded = generate.cached_merge(args, checkpointed, loras if lora_mode == 'merged' else [])
 		adapter = '' if lora_mode == 'merged' else generate.runtime_adapter(args, loaded, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
@@ -76,5 +82,59 @@ class StrictMossSampler:
 		return (vae.decode(torch.cat(latents)),)
 
 
-NODE_CLASS_MAPPINGS = {'StrictMossSampler': StrictMossSampler}
-NODE_DISPLAY_NAME_MAPPINGS = {'StrictMossSampler': 'Strict Moss Sampler'}
+class StrictH3Sampler:
+	@classmethod
+	def INPUT_TYPES(cls):
+		return {'required': {
+			'positive': ('CONDITIONING', {'tooltip': 'MiniMax H3 Image to Video (text to video, or with first and last frames)'}),
+			'latent': ('LATENT', {'tooltip': 'The video and audio latent of MiniMax H3 Image to Video or Empty MiniMax H3 AV '
+				'Latent: width, height, length and batch size'}),
+			'quality': (list(generate.QUALITIES), {'default': 'fast', 'tooltip': 'Model, steps, attention and Spectrum; sampling '
+				'times for 124 frames on a 4090: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.QUALITIES.items())}),
+			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True})},
+			'optional': {'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
+				'of the model of the quality, the LoRAs of the quality still apply'})}}
+	RETURN_TYPES = ('LATENT',)
+	FUNCTION = 'sample'
+	CATEGORY = 'sampling/strict'
+	DESCRIPTION = ('Samples H3 video and sound in Strict (StrictComfy H3Video.exe) instead of SamplerCustomAdvanced: decode '
+		'the latent with VAE Decode and VAE Decode Audio. The Strict process keeps the model loaded for the next run with '
+		'the same quality and model.')
+
+	def sample(self, positive, latent, quality, seed, model=None):
+		samples = latent['samples']
+		if not getattr(samples, 'is_nested', False) or len(samples.tensors) != 2:
+			raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video)')
+		if len(positive) != 1:
+			raise ValueError('positive must be a single conditioning')
+		video, audio = (tuple(tensor.shape) for tensor in samples.tensors)
+		args = generate.h3_arguments(quality, video, audio)
+		args.cache.mkdir(parents=True, exist_ok=True)
+		models = Path(folder_paths.models_dir)
+		preset = Path(args.model).name
+		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', preset))
+		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
+		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
+		loaded = generate.cached_merge(args, chosen, loras)
+		comfy.model_management.unload_all_models()
+		comfy.model_management.soft_empty_cache()
+		progress = comfy.utils.ProgressBar(video[0] * args.steps)
+		def stepped():
+			progress.update(1)
+			comfy.model_management.throw_exception_if_processing_interrupted()
+		pairs = []
+		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
+			folder = Path(temporary)
+			context = folder / 'context.safetensors'
+			save_file({name: value.detach().cpu().float().contiguous() for name, value in generate.h3_condition(positive).items()},
+				str(context))
+			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(video[0])]
+			with closing(RESIDENT_H3.generated(args, loaded, '', [context] * video[0], plan, folder, stepped=stepped)) as outputs:
+				for index, path, milliseconds in outputs:
+					pairs.append(generate.h3_latents(load(path.read_bytes())['latent'], video, audio))
+		joined = [torch.cat([pair[stream] for pair in pairs]) for stream in (0, 1)]
+		return ({'samples': comfy.nested_tensor.NestedTensor(joined)},)
+
+
+NODE_CLASS_MAPPINGS = {'StrictMossSampler': StrictMossSampler, 'StrictH3Sampler': StrictH3Sampler}
+NODE_DISPLAY_NAME_MAPPINGS = {'StrictMossSampler': 'Strict Moss Sampler', 'StrictH3Sampler': 'Strict H3 Sampler'}

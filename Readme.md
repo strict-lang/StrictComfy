@@ -158,6 +158,21 @@ Sources and pinned adapter revisions:
 
 The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB cap. A cold compiled module may add tens of seconds; warm it before comparing timings. This is a per-process setting, not a global driver change. RTX 3080 results use locked 1695 MHz graphics / 9506 MHz actual CUDA memory, with clock limits restored afterwards. Results and quality observations are in [Performance.md](Performance.md).
 
+## ComfyUI node: Strict H3 Sampler
+
+The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\ComfyUI\custom_nodes\StrictComfy`). It replaces the sampler group of an H3 workflow (RandomNoise, KSamplerSelect, BasicScheduler, BasicGuider, MiniMax H3 sigma shift, SamplerCustomAdvanced) and returns the same video and audio latent:
+
+| Node | Settings |
+|---|---|
+| Load CLIP | `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`, type `minimax` |
+| Load VAE, twice | `minimax_h3_video_vae_int8_convrot.safetensors` and `minimax_h3_audio_vae_fp32.safetensors` |
+| MiniMax H3 Image to Video | prompt, width, height, length (124 = 5.2 s), optional first and last frame |
+| **Strict H3 Sampler** (`sampling/strict`) | `positive` and `latent` of MiniMax H3 Image to Video, `quality` (`fast`), `seed`, optional `model` |
+| VAE Decode, VAE Decode Audio | the latent with the video and the audio VAE |
+| Video Combine (VideoHelperSuite) or Create Video + Save Video | the frames at 24 fps with the audio |
+
+`quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest3steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes 16 s for `fastest3steps` (7 s of sampling, the rest decoding and the mp4), the first run of a quality adds the model load (10-16 s, a LoRA merge once). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed.
+
 ## H3 videos with sound from a prompt file (RTX 4090)
 
 `H3Video.exe --quality <preset>` picks the model, steps, attention and Spectrum in one go; `--model`, `--steps`, `--routing`, `--spectrum` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w1p2`), its LoRAs come before the given ones. Sampling times for the default 124 frames on a 4090, warm:

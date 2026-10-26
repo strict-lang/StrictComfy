@@ -17,6 +17,9 @@ import os
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from generate import h3_condition, h3_latents
+
 COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
@@ -189,20 +192,6 @@ def moss():
 	with open(os.path.join(out, "times.json"), "w") as file:
 		json.dump(times, file, indent=1)
 	print(json.dumps(times))
-
-
-def h3_condition(conditioning):
-	"""Qwen3-VL states, token tags and keyframe latents with their frame indices of an H3 conditioning, as
-	conditioning.safetensors keeps them."""
-	tags = conditioning[0][1].get("minimax_token_tags")
-	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
-	condition = {"context": conditioning[0][0][0], "tags": tags.to(torch.float32).flatten()}
-	keyframes = conditioning[0][1].get("minimax_keyframes") or []
-	for index, keyframe in enumerate(keyframes):
-		condition[f"keyframe.{index}"] = keyframe["latent"][0]
-	if keyframes:
-		condition["keyframes"] = torch.tensor([float(keyframe["resolved_frame_index"]) for keyframe in keyframes])
-	return condition
 
 
 def image_tensor(path):
@@ -381,12 +370,10 @@ def encoded(frames, audio, path):
 
 def decoded_latent(vae, path, shapes, out, prefix):
 	"""decoded_av of a latent H3Video.strict wrote: its "latent" tensor holds the video numbers, then the audio numbers."""
-	import math
 	from safetensors.torch import load
 	with open(path, "rb") as file:
 		numbers = load(file.read())["latent"]
-	size = math.prod(shapes[0])
-	return decoded_av(vae, numbers[:size].reshape(*shapes[0])[None], numbers[size:].reshape(*shapes[1])[None], out, prefix)
+	return decoded_av(vae, *h3_latents(numbers, (1, *shapes[0]), (1, *shapes[1])), out, prefix)
 
 
 def h3decode():

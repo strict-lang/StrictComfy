@@ -333,7 +333,7 @@ def encoded(request, output):
 					first_frame=first, last_frame=last).result[0]
 			else:
 				conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
-			tensors = dump.h3_condition(conditioning)
+			tensors = h3_condition(conditioning)
 		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
 			str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
 
@@ -528,6 +528,38 @@ def h3_noise(args, seed):
 	return tuple(torch.randn(shape, generator=generator)[0] for shape in shapes)
 
 
+def h3_condition(conditioning):
+	"""Qwen3-VL states, token tags and keyframe latents with their frame indices of a ComfyUI H3 conditioning, as
+	conditioning.safetensors keeps them."""
+	import torch
+	tags = conditioning[0][1].get('minimax_token_tags')
+	tags = torch.ones(conditioning[0][0].shape[1]) if tags is None else tags
+	condition = {'context': conditioning[0][0][0], 'tags': tags.to(torch.float32).flatten()}
+	keyframes = conditioning[0][1].get('minimax_keyframes') or []
+	for index, keyframe in enumerate(keyframes):
+		condition[f'keyframe.{index}'] = keyframe['latent'][0]
+	if keyframes:
+		condition['keyframes'] = torch.tensor([float(keyframe['resolved_frame_index']) for keyframe in keyframes])
+	return condition
+
+
+def h3_arguments(quality, video, audio):
+	"""The --quality settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W] and audio [B, 32, 2, T]: its size
+	and frame count."""
+	frames = (video[2] - 2) // 5 * 17 + 5
+	if len(video) != 5 or video[1] != 24 or tuple(audio) != (video[0], 32, 2, round(frames / 24 * 40)):
+		raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video or Empty MiniMax H3 AV Latent)')
+	return arguments(['--quality', quality, '--width', str(video[4] * 16), '--height', str(video[3] * 16), '--length', str(frames)], 'h3')
+
+
+def h3_latents(numbers, video, audio):
+	"""The video and the audio latent of one job from the numbers H3Video.exe writes (the video, then the audio), shaped
+	like the ComfyUI latent of one batch entry."""
+	import math
+	size = math.prod(video[1:])
+	return numbers[:size].reshape(1, *video[1:]), numbers[size:].reshape(1, *audio[1:])
+
+
 def h3_rows(latents, seed):
 	"""ComfyUI's conditioning rows of H3 keyframe latents: 2x2 patches, 0.999 latent and 0.001 noise, the seeded noise
 	restarting for every keyframe."""
@@ -580,14 +612,17 @@ def started(args, command):
 		stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 
 
-def collected(args, worker, vae, plan, folder):
-	"""The outputs of plan from the backend's output lines, as soon as each generation is done."""
+def collected(args, worker, vae, plan, folder, stepped=None):
+	"""The outputs of plan from the backend's output lines, as soon as each generation is done, stepped called after
+	each step."""
 	mode = spectrum_config(args)[0]
 	completed = 0
 	for line in worker.stdout:
 		if line.startswith('evaluation '):
 			line = 'step ' + line[len('evaluation '):]
 		print(line, end='', flush=True)
+		if stepped and line.startswith('step '):
+			stepped()
 		match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
 		if match:
 			index = int(match[1])
@@ -626,11 +661,11 @@ def generated(args, model, vae, contexts, plan, folder, adapter=''):
 
 
 class Resident:
-	"""One MossGenerate.exe that keeps its model loaded between runs: each run writes its folder to the backend's input,
-	other settings (model, LoRAs, VAE, Spectrum) start a new one."""
+	"""One MossGenerate.exe or H3Video.exe that keeps its model loaded between runs: each run writes its folder to the
+	backend's input, other settings (model, LoRAs, VAE, Spectrum, steps, routing) start a new one."""
 	worker, command = None, None
 
-	def generated(self, args, model, vae, contexts, plan, folder, adapter=''):
+	def generated(self, args, model, vae, contexts, plan, folder, adapter='', stepped=None):
 		prepared(args, contexts, plan, folder)
 		command = backend(args, '-', model, vae, adapter)
 		if self.worker is None or self.worker.poll() is not None or self.command != command:
@@ -639,7 +674,7 @@ class Resident:
 		try:
 			self.worker.stdin.write(str(folder) + '\n')
 			self.worker.stdin.flush()
-			yield from collected(args, self.worker, vae, plan, folder)
+			yield from collected(args, self.worker, vae, plan, folder, stepped)
 		except BaseException:
 			self.close()
 			raise

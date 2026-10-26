@@ -554,6 +554,20 @@ class GenerationCommandTests(unittest.TestCase):
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--quality', 'ultra'], 'h3')
 
+	def test_h3_node_settings_and_latents_follow_comfyui_latent(self):
+		import torch
+		module = self.module()
+		video, audio = (1, 24, 37, 52, 30), (1, 32, 2, 207)
+		args = module.h3_arguments('fast', video, audio)
+		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing), (480, 832, 124, 8, 1))
+		self.assertEqual(tuple(module.h3_noise(args, 7)[1].shape), audio[1:])
+		with self.assertRaises(ValueError):
+			module.h3_arguments('fast', video, (1, 32, 2, 100))
+		numbers = torch.arange(24 * 37 * 52 * 30 + 32 * 2 * 207, dtype=torch.float32)
+		latent_video, latent_audio = module.h3_latents(numbers, video, audio)
+		self.assertEqual((tuple(latent_video.shape), tuple(latent_audio.shape)), (video, audio))
+		self.assertEqual(latent_audio.flatten()[0].item(), 24 * 37 * 52 * 30)
+
 	def test_h3_noise_follows_comfyui_order(self):
 		import torch
 		module = self.module()

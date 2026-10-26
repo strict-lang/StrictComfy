@@ -3,15 +3,24 @@ constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
 Run(arguments Texts) Number
-	if (arguments.Length is 0) or arguments(0).StartsWith("-")
+	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 		return GenerationCommand(logger).Run("h3", arguments)
 	if arguments.Length < 2
 		logger.Log("Use --help, or diagnostic arguments: dumps model name loras steps shift period warmup degree routing")
 		return 2
 	let loras = GenerationCommand(logger).Option(arguments, 3, "")
+	if arguments(0) is "-"
+		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
 	let conditions = Conditions(arguments(0))
 	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
-	Generations(Loaded(arguments(1), loras), conditions, texts, arguments)
+	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments)
+	0
+Served(h3 H3, refiner H3Refiner, arguments Texts) Number
+	mutable dumps = Process.InputLine
+	for as long as dumps is not ""
+		let conditions = Conditions(dumps)
+		Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
+		dumps = Process.InputLine
 	0
 Numbered(arguments Texts) Numbers
 	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0)
@@ -30,16 +39,19 @@ Conditions(dumps Text) List(Safetensors)
 		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
 	for GenerationCommand(logger).Count(data)
 		GenerationCommand(logger).Job(data, dumps, index)
-Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), arguments Texts) None
+Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) None
 	let numbers = Numbered(arguments)
 	let name = GenerationCommand(logger).Option(arguments, 2, "strict")
 	for conditions
 		let before = Process.Elapsed
-		let sampled = Generated(h3, value, Steps(arguments(0), value), texts(index), numbers, arguments(0))
+		let sampled = Generated(h3, value, Steps(dumps, value), texts(index), numbers, dumps)
 		let file = value.Entry("video") is "" then name else name + "-" + index
-		Safetensors(arguments(0) + "/" + file + "-latent.safetensors").Written("latent", sampled)
+		Safetensors(dumps + "/" + file + "-latent.safetensors").Written("latent", sampled)
+		if (arguments(0) is "-") and (index is conditions.Length - 1)
+			GpuMemory.Evicted
+		else
+			GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		GpuMemory.Released
 Steps(dumps Text, condition Safetensors) Safetensors
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
@@ -49,7 +61,8 @@ Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers
 	let shaped = Layout(video, steps.Shape(Stream(steps, "audio")), condition)
 	let layout = H3Layout(shaped, shift = numbers(1), routing = numbers(5))
 	let conditions = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
-	Checked(h3, dumps, text, layout)
+	if File(dumps + "/step0.safetensors").Exists
+		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
 	let count = numbers(0) is 0 then Count(steps) else numbers(0)
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3))
 	Sampled(h3, steps, text, layout, conditions, spectrum)
@@ -61,9 +74,6 @@ Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), video(2), video(3))
-Checked(h3 H3, dumps Text, text Numbers, layout H3Layout) None
-	if File(dumps + "/step0.safetensors").Exists
-		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
 Count(steps Safetensors) Number
 	H3Video(Logger).Count(Reference) is 1
 	steps.Entry("sigmas") is "" then 1 else steps.Values("sigmas").Length - 1
