@@ -1,5 +1,24 @@
 # Moss performance
 
+## H3 patching on the GPU and the fused SiLU gating of fc1 (2026-10-26 17:00, RTX 4090, Strict f38592f7)
+
+- `H3.Patched` and `Packed` ran on the CPU every step (their loops read layout members, `MlirGpuCheck` takes only calls on numbers into a kernel): a 5.5 MB download, 33 ms of CPU, an 11 MB upload and pinned buffer churn left the GPU idle ~70 ms at every step start. They read the members before their loops now (569c490): later steps 2077-2102 -> 1979-1993 ms, latent bit identical.
+- `Batch.Gated` (Strict f38592f7) fuses SiLU(gate) x up into the fc1 int8 GEMM (`strict_device_wholes_gated`), `H3Block.Fed` uses it instead of `Batch.Sums` plus `Activated`: the 28672 wide fc1 result never goes to memory. Alternating h3fox runs with `--routing 1`: steps 1978-1991 -> 1926-1933 ms, a generation of 8 steps 17.15 -> 16.73-16.81 s; final errors against ComfyUI on `C:/StrictDumps/h3` video 0.6054, audio 0.2732 (0.604, 0.284 before).
+- FedForward without its 4096 token chunks (Chunk 16384, before the fused gating): later steps 57 ms faster, the first step 260 ms slower (the 851 MB fc1 result of all tokens), parked.
+- Strict 3cde0941 fixes ff023214: `strict_gpu_put_aside` copied on the prefetch's copy stream, which a pending prefetch forks into a running capture ("the GPU launches of a graph failed" after the diagnostic block pass of `C:/StrictDumps/h3`).
+
+Warm sampling of 8 steps on the same inputs (ComfyUI `dump.py h3 --runs 2 [--attention ...]`, `C:/StrictDumps/h3attn-*`, 2026-10-25):
+
+| Run | Per step | 8 steps |
+|---|---:|---:|
+| ComfyUI, default attention | 3.22-3.24 s | 26.3 s |
+| ComfyUI, SageAttention | 2.36 s | 19.5 s |
+| ComfyUI, comfy_kitchen int8 attention | 2.06-2.08 s | 17.1 s |
+| ComfyUI, Sol-Attn | 1.56-1.60 s | 13.1 s |
+| Strict, dense (first step 4.1 s) | 2.79-2.85 s | 23.9 s |
+| Strict, `--routing 1` (first step 3.2 s) | 1.93 s | 16.8 s |
+| Strict, `--routing 1`, `spectrum8_w1p2` (3 of 8 steps forecast) | 1.89-1.96 s | 11.1 s |
+
 ## H3's first step without synchronous uploads (2026-10-26 14:40, RTX 4090, Strict ff023214)
 
 The first step took 4.6-5.1 s against 2.1 s for later ones, the GPU idled 3.2 of its 5.1 s (nsys, `C:/StrictDumps/prof/step0.sqlite`, `firststep.py`): each block's out_proj (43 MB) and adaln rows (3 MB) are below the 64 MB minimum of a pinned file image, their first upload went through the pinned bounce buffer with `cuMemcpyHtoD`, which waits for every launch before it (105 copies, 32 ms of waiting each, 3.58 s of host time). Pinning the images took only 193 ms. They now go up on the copy stream into their own allocation, only that copy is waited for (`strict_gpu_put_aside`). Alternating h3fox runs with `--routing 1`:
