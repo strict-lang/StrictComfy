@@ -1,5 +1,21 @@
 # Moss performance
 
+## H3 10 s clips against ComfyUI (2026-10-26 21:00, RTX 4090, Strict 590febd3)
+
+The fox prompt at 243 frames (10.1 s, 480x832, seed 7, 28890 tokens, `C:/StrictDumps/h3fox10`, TaoMate `h3fox10tao`), ComfyUI `dump.py h3 --runs 1 --length 243` (`C:/StrictDumps/ab/comfy10.sh`, the first call uploads the model), Strict `C:/StrictDumps/ab/strict10.sh` (8 steps including step 0). Errors are the final latents against ComfyUI's default attention run (`h3x10-default`, `C:/StrictDumps/prof/latenterr.py`), TaoMate + Sol against TaoMate's default.
+
+| Run | ComfyUI per call | Strict per step | Strict total (step 0) | Error video, audio |
+|---|---:|---:|---:|---|
+| turbo, default attention / Strict dense | 9.62-9.73 s | 7.95-8.07 s | 65.4 s (9.2 s) | Strict 0.455, 0.278 |
+| turbo, comfy_kitchen int8 attention | 5.24-5.29 s | | | ComfyUI 0.438, 0.181 |
+| turbo, SageAttention | 6.37-6.42 s | | | |
+| turbo, Sol-Attn / Strict `--routing 1` | 3.34-3.49 s | 4.24-4.43 s | 35.9 s (5.4 s) | ComfyUI 0.792, 0.632; Strict 0.904, 0.849 |
+| turbo, `--routing 1` with `spectrum8_w1p2` | (node broken) | | 23.3 s (5.5 s) | |
+| TaoMate 3 steps, default / Strict dense | 9.78-9.81 s | 7.94-7.99 s | 25.0 s (8.9 s) | |
+| TaoMate + Sol / Strict routed | 3.42-3.44 s | 4.33-4.39 s | 14.3 s (5.5 s) | ComfyUI 0.812, 0.532 |
+
+Routing fell back to dense attention above 256 key blocks (16384 positions) before 590febd3, the 10 s clip ran its routed steps in 7.99-8.11 s like dense. A routed 10 s step now (nsys, `C:/StrictDumps/prof/routedfix10.sqlite`, per block of 88.5 ms): attention 29.7 + pooling 1.4 ms (dense 101.7), int8 GEMM 22.2 + gated 14.7, elementwise 9.9, quantize and Hadamard 5.5, idle 5.0 ms. Uploading the weight images while loading (`strict_gpu_rows` from `strict_packed_rows`) was slower and reverted: 5 s first step 3.21-3.33 against 3.14-3.20 s, later steps 40 ms slower.
+
 ## H3 patching on the GPU and the fused SiLU gating of fc1 (2026-10-26 17:00, RTX 4090, Strict f38592f7)
 
 - `H3.Patched` and `Packed` ran on the CPU every step (their loops read layout members, `MlirGpuCheck` takes only calls on numbers into a kernel): a 5.5 MB download, 33 ms of CPU, an 11 MB upload and pinned buffer churn left the GPU idle ~70 ms at every step start. They read the members before their loops now (569c490): later steps 2077-2102 -> 1979-1993 ms, latent bit identical.
