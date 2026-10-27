@@ -45,14 +45,21 @@ def tiny_decoder():
 	return TINY.get(path)
 
 
+def shrunk(decoder, latent):
+	"""taeh3 of a latent frame scaled to at most 32 positions per side (512 pixels), a few hundred MB of GPU memory that
+	stay cached for the next frame: Windows pages instead of failing an allocation past H3Video's budget."""
+	scale = min(1, 32 / max(latent.shape[-2:]))
+	latent = torch.nn.functional.interpolate(latent.to(decoder[1].weight.device).float(),
+		size=[round(side * scale) for side in latent.shape[-2:]], mode='bilinear', antialias=True)
+	with torch.inference_mode():
+		return decoder(latent.half())
+
+
 def previewed(decoder, path, video, node):
 	"""Shows the denoised video H3Video.exe wrote for a step on the node (web/h3_preview.js)."""
-	with torch.inference_mode():
-		image = generate.h3_preview(load(path.read_bytes())['video'], video,
-			lambda latent: decoder(latent.to(decoder[1].weight.device, torch.float16)))
+	image = generate.h3_preview(load(path.read_bytes())['video'], video, lambda latent: shrunk(decoder, latent))
 	PromptServer.instance.send_sync('strict_h3_preview', {'node': node, 'image': base64.b64encode(image).decode()},
 		PromptServer.instance.client_id)
-	comfy.model_management.soft_empty_cache()
 
 
 class StrictMossSampler:
@@ -153,6 +160,8 @@ class StrictH3Sampler:
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		decoder = tiny_decoder()
+		if decoder:
+			shrunk(decoder, torch.zeros(1, *video[1:2], *video[3:]))
 		progress = comfy.utils.ProgressBar(video[0] * args.steps)
 		def stepped(line):
 			progress.update(1)
