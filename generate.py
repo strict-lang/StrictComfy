@@ -37,14 +37,11 @@ H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
 QUALITIES = {
 	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 22 s'),
-	'best20steps': (H3_BASE, 20, 0, '', [], 'the base model without the turbo LoRA, 20 steps, 54 s'),
 	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 16 s'),
 	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 11 s'),
-	'fastest6steps': (H3_TURBO, 6, 1, 'w1p3', [], '6 routed steps with Spectrum (3 evaluated), 7 s'),
+	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 9 s'),
 	'fastest3steps': (H3_BASE, 3, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, routed, 7 s'),
-	'crazy4steps': (H3_TURBO, 4, 1, '', [], 'experimental: 4 routed turbo steps, 9 s'),
-	'crazy2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'experimental: fastest3steps with 2 steps, 6 s'),
-	'crazy1step': (H3_BASE, 1, 1, '', [H3_TAOMATE], 'experimental: fastest3steps with 1 step, a soft draft, 4 s')}
+	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'fastest3steps with 2 steps, 6 s')}
 # Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),

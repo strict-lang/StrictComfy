@@ -563,11 +563,10 @@ class GenerationCommandTests(unittest.TestCase):
 			['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1', 'style.safetensors:0.5']))
 		faster = module.arguments(['--quality', 'faster', '--steps', '10', '--routing', '0.5'], 'h3')
 		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 0.5))
-		self.assertEqual(Path(module.arguments(['--quality', 'best20steps'], 'h3').model).name,
-			'minimax_h3_fl2va_pruned_int8_convrot.safetensors')
-		crazy = module.arguments(['--quality', 'crazy1step'], 'h3')
-		self.assertEqual((Path(crazy.model).name, crazy.steps, crazy.routing, crazy.spectrum, crazy.lora),
-			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 1, 1, 'off', fastest.lora[:1]))
+		self.assertEqual(list(module.QUALITIES), ['best', 'fast', 'faster', 'fastest4steps', 'fastest3steps', 'fastest2steps'])
+		fastest2 = module.arguments(['--quality', 'fastest2steps'], 'h3')
+		self.assertEqual((Path(fastest2.model).name, fastest2.steps, fastest2.routing, fastest2.spectrum, fastest2.lora),
+			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 2, 1, 'off', fastest.lora[:1]))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--quality', 'ultra'], 'h3')
 
