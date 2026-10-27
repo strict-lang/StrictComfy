@@ -52,7 +52,7 @@ Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text
 		else
 			GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-Steps(dumps Text, condition Safetensors) Safetensors
+Steps(dumps Text, condition Safetensors) Slow(Safetensors)
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
 Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers Numbers, dumps Text) Slow(Numbers)
@@ -66,15 +66,15 @@ Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers
 	let count = numbers(0) is 0 then Count(steps) else numbers(0)
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3))
 	Sampled(h3, steps, text, layout, conditions, spectrum)
-Stream(steps Safetensors, name Text) Text
+Stream(steps Safetensors, name Text) Slow(Text)
 	H3Video(Logger).Stream(Reference, "audio") is "audio"
 	steps.Entry(name + ".0") is "" then name else name + ".0"
-Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout
+Layout(video Numbers, audio Numbers, condition Safetensors) Slow(H3Layout)
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), video(2), video(3))
-Count(steps Safetensors) Number
+Count(steps Safetensors) Slow(Number)
 	H3Video(Logger).Count(Reference) is 1
 	steps.Entry("sigmas") is "" then 1 else steps.Values("sigmas").Length - 1
 Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Slow(Number)
@@ -110,11 +110,11 @@ Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numb
 		audio = Euler.Stepped(audio, state.output, layout.AudioSigmas(sigmas), index, video.Length)
 		logger.Log(Progress(steps, index, state, video, audio, before))
 	video + audio
-Progress(steps Safetensors, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Text
+Progress(steps Safetensors, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
 	H3Video(Logger).Progress(Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
 	let took = ((Process.Elapsed - before) * 1000).Round
 	"step " + step + " " + took + " ms, forecasts " + state.forecasts + Errors(steps, step + 1, state.steps, video, audio)
-Errors(steps Safetensors, step Number, count Number, video Numbers, audio Numbers) Text
+Errors(steps Safetensors, step Number, count Number, video Numbers, audio Numbers) Slow(Text)
 	H3Video(Logger).Errors(Reference, 1, 1, (1, 2), (3, 4)) is ""
 	if (steps.Entry("video." + step) is "") or (Count(steps) is not count)
 		return ""
