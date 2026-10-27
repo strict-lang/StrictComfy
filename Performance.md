@@ -1,5 +1,21 @@
 # Moss performance
 
+## H3 dense attention in comfy_kitchen's shape (2026-10-28 00:30, RTX 4090, Strict 1ce4fa84)
+
+`strict_device_dense_attention` (`--quality best`, attention without routing) now has the block shape of comfy_kitchen's `qk_int_sv_i8_attn_kernel` (ncu: 8 warps of 16 queries per block, 128 keys per step, one block per SM): values transposed and scaled per number by their quantize pass, 128 positions per step in 8 tile buffers of dynamic shared memory, unsigned 8 bit shares quantized by the largest share of each row and step, the row sums on the tensor cores, scores in key scale units with the row factor in the exponent. The 10 s fox clip (480x832, 243 frames, 28.9k tokens, 8 turbo steps), one attention call (ncu median of 40 calls) and the steps:
+
+| Strict | Per call | Steps (warm) | Generation | Step 1 error video |
+|---|---:|---:|---:|---:|
+| 2feba9ed `strict_device_bytes_attention`, 64 queries per block | 73.8-77.2 ms (single calls) | 6.89-7.04 s | 57.5 s | |
+| 128 queries per block, values transposed per number | 68.6-74.5 ms (single calls) | 6.53-6.59 s | 55.3 s | |
+| largest share per row from the softmax | 63.1 ms | 6.27-6.35 s | 52.9 s | 0.00355 |
+| 128 positions per step, unsigned shares | 62.0 ms | 6.22-6.26 s | 52.7 s | 0.00341 |
+| row sums on the tensor cores | 61.0 ms | 6.11-6.18 s | | 0.00329 |
+| row factor in the exponent (1ce4fa84) | 58.7 ms | 5.99-6.09 s | 50.9 s | 0.00381 |
+| ComfyUI comfy_kitchen int8 | 47.8 ms | 5.24-5.29 s | | |
+
+Step 1 error: the video latent after the first model evaluation against ComfyUI's default attention (`C:/StrictDumps/h3x10-default`, H3Video with those dumps prints it per step); the errors then about double per step through the sampler for every variant, the final latents land at 0.35-0.44 video, 0.13-0.26 audio (ComfyUI's own int8 attention 0.438, 0.181). Routed attention (`--routing 1`) is unchanged: step 0 video error 0.00665 against 0.00659 before. Tried and dropped: the row factor in the exponent with 64 positions per step (2 % slower then), 16 bit shares through `ex2.approx.f16x2` (two MUFU per pair on Ada, no gain). comfy_kitchen keeps its tensor pipe 68.7 % busy against Strict's 57 % at 211 against 240 instructions per warp-tile: its softmax between the products is 154 against 296 instructions, the 64 exponentials per lane of both warps of a sub-partition wait for the quarter rate MUFU at the same time (Strict `improvements-gpu.md` lists what is left).
+
 ## H3 with 1 to 4 model evaluations (2026-10-27 19:30, RTX 4090, Strict 228137c4)
 
 Candidates at 480x832, 73 frames, seed 2 (`C:/StrictDumps/crazy`, sheets there): turbo with 1 step is a blurry blob, with 2 steps soft and smeared (shift 5 smears more), 3 steps with `spectrum3_w1p2` (2 evaluated) blurry; base + TaoMate with 1 step is a coherent soft draft (a faint grid in the trees), with 2 steps (shift 12 or 5, or 3 steps with `spectrum3_w1p2`) close to its 3 steps; turbo with 4 steps and 8 steps with `spectrum8_w1p3` (4 evaluated) stay sharp. Hence `crazy4steps` (turbo, 4 routed steps), `crazy2steps` and `crazy1step` (TaoMate, routed). 124 frames, cold process: 10.2, 8.3 and 5.2 s per generation with the eviction (steps 3.5 + 3 x 1.8, 3.8 + 1.9 and 4.0 s). The 12 s clip through Strict H3 Sampler, warm (Readme): `fastest3steps` 33.8 s per prompt, `crazy4steps` 36.7 s with turbo's sharpness, `crazy2steps` 27.2 s, `crazy1step` 22.4 s against ComfyUI's 125.6 s.
