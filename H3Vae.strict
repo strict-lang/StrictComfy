@@ -13,7 +13,7 @@ constant Dropped = 3
 constant Padding = 3
 constant Ratio = 4
 constant Blended = 5
-Decoded(latent Numbers, shape Numbers) Numbers
+Decoded(latent Numbers, shape Numbers) Slow(Numbers)
 	Pixels.Length is 359424
 	Pixels(15000).IsNearlyEqual(0.770597, 0.01)
 	Pixels(359423).IsNearlyEqual(0.486039, 0.01)
@@ -26,7 +26,7 @@ Decoded(latent Numbers, shape Numbers) Numbers
 		frames = frames + Finished(canvas, shared, Padding, Tokens * Ratio - Padding)
 		shared = canvas
 	frames + Finished(shared, List(Number), Tokens * Ratio + Padding, Blended)
-Finished(canvas Numbers, previous Numbers, first Number, count Number) Numbers
+Finished(canvas Numbers, previous Numbers, first Number, count Number) Slow(Numbers)
 	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean
 	let raw = (Tokens + Shared) * Ratio
 	let plane = canvas.Length / 3 / raw
@@ -39,7 +39,7 @@ Finished(canvas Numbers, previous Numbers, first Number, count Number) Numbers
 		let before = older then previous((channel * raw + Tokens * Ratio + Padding + frame) * plane + pixel) else own
 		let mixed = before + (own - before) * (older then frame / Blended else 1)
 		(mixed * Deviation(channel) + Mean(channel)).Clamp
-Canvas(window Numbers, height Number, width Number) Numbers
+Canvas(window Numbers, height Number, width Number) Slow(Numbers)
 	Tiny.Canvas(H3Decoder.Window, 2, 2).Length is 86016
 	let ys = Starts(height * 16)
 	let xs = Starts(width * 16)
@@ -48,7 +48,7 @@ Canvas(window Numbers, height Number, width Number) Numbers
 	for 3 * (Tokens + Shared) * Ratio * plane
 		let y = (index % plane / (width * 16)).Floor
 		Weighted(tiles, ys, xs, (index / plane).Floor, y, index % (width * 16), (Length(height * 16), Length(width * 16)))
-Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Numbers
+Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Slow(Numbers)
 	Tiny.Tiles(H3Decoder.Window, (0), (0), (7, 2, 2)).Length is 86016
 	let tall = Length(shape(1) * 16) / 16
 	let wide = Length(shape(2) * 16) / 16
@@ -57,7 +57,7 @@ Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Numbers
 		let box = (0, shape(0), ys((index / xs.Length).Floor) / 16, tall, xs(index % xs.Length) / 16, wide)
 		tiles = tiles + decoder.Pixels(decoder.Cut(window, shape, box), shape(0), tall, wide)
 	tiles
-Weighted(tiles Numbers, ys Numbers, xs Numbers, plane Number, y Number, x Number, size Numbers) Number
+Weighted(tiles Numbers, ys Numbers, xs Numbers, plane Number, y Number, x Number, size Numbers) Slow(Number)
 	Tiny.Weighted((1, 2, 3, 4), (0), (0), 0, 1, 0, (2, 2)) is 3
 	let stride = 3 * (Tokens + Shared) * Ratio * size(0) * size(1)
 	let row = Owner(ys, y)
@@ -70,7 +70,7 @@ Weighted(tiles Numbers, ys Numbers, xs Numbers, plane Number, y Number, x Number
 		total = total + (weight > 0 then weight * share * Rowed(tiles, xs, first, stride, x, size(1)) else 0)
 		weight = weight * (1 - share)
 	total
-Rowed(tiles Numbers, xs Numbers, first Number, stride Number, x Number, wide Number) Number
+Rowed(tiles Numbers, xs Numbers, first Number, stride Number, x Number, wide Number) Slow(Number)
 	Tiny.Rowed((1, 2, 3, 4), (0, 1), 2, 1, 1, 2) is 4
 	let column = Owner(xs, x)
 	mutable total = 0
@@ -81,13 +81,13 @@ Rowed(tiles Numbers, xs Numbers, first Number, stride Number, x Number, wide Num
 		total = total + (weight > 0 then weight * share * tiles(first + at * stride + x - xs(at)) else 0)
 		weight = weight * (1 - share)
 	total
-Share(starts Numbers, at Number, position Number, size Number) Number
+Share(starts Numbers, at Number, position Number, size Number) Slow(Number)
 	Tiny.Share((0, 16), 1, 20, 32) is 0.25
 	Tiny.Share((0, 16), 1, 40, 32) is 1
 	Tiny.Share((0, 16), 0, 4, 32) is 1
 	let shared = at > 0 then starts(at - 1) + size - starts(at) else 0
 	at > 0 and position - starts(at) < shared then (position - starts(at)) / shared else 1
-Owner(starts Numbers, position Number) Number
+Owner(starts Numbers, position Number) Slow(Number)
 	Tiny.Owner((0, 16, 32), 20) is 1
 	Tiny.Owner((0, 16, 32), 40) is 2
 	mutable owner = 0
@@ -95,7 +95,7 @@ Owner(starts Numbers, position Number) Number
 		if value <= position
 			owner = index
 	owner
-Starts(size Number) Numbers
+Starts(size Number) Slow(Numbers)
 	Real.Starts(480) is (0, 112, 224)
 	Real.Starts(832) is (0, 192, 384, 576)
 	Tiny.Starts(64) is (0, 16, 32)
@@ -107,7 +107,7 @@ Starts(size Number) Numbers
 	for count
 		let extra = index < spare % (count - 1) then index else spare % (count - 1)
 		index * (tile - overlap) - 16 * (index * (spare / (count - 1)).Floor + extra)
-Length(size Number) Number
+Length(size Number) Slow(Number)
 	Tiny.Length(16) is 16
 	Tiny.Length(64) is 32
 	size <= tile then size else tile

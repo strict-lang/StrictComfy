@@ -1,7 +1,7 @@
 has values Numbers
 constant Model = Safetensors("tinymoss.safetensors")
 constant Reference = Convrot(Model.Values("reference.x"))
-Rotated Numbers
+Rotated Slow(Numbers)
 	Reference.Rotated(0).IsNearlyEqual(-0.953136)
 	Reference.Rotated(17).IsNearlyEqual(0.91226)
 	Reference.Rotated(255).IsNearlyEqual(-0.492392)
@@ -9,7 +9,7 @@ Rotated Numbers
 	let quarter = Stage(Stage(Stage(values, 1), 4), 16)
 	for values.Length
 		Butterfly(quarter, index, 64)
-Applied(rotated Boolean) Numbers
+Applied(rotated Boolean) Slow(Numbers)
 	Reference.Applied(true) is Reference.Rotated
 	Reference.Applied(false) is Reference.values
 	rotated then Rotated else values

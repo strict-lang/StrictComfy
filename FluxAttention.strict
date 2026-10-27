@@ -7,7 +7,7 @@ constant Budget = 16777216
 constant Combined = Middle.combined.Projected(Input)
 constant Queried = Middle.Queries(Combined.values, Middle.combined.biases)
 constant Input = FeatureMap(Model.Values("reference.mid.block_1"), 4, 16, Layer.Zeros(16))
-Loaded(model Safetensors, prefix Text, groups Number) FluxAttention
+Loaded(model Safetensors, prefix Text, groups Number) Slow(FluxAttention)
 	Middle.combined.weights.Length is 768
 	Middle.combined.biases.Length is 48
 	let block = Safetensors(model.path, 32, model.prefix + prefix)
@@ -15,7 +15,7 @@ Loaded(model Safetensors, prefix Text, groups Number) FluxAttention
 	let biases = block.Values("q.bias") + block.Values("k.bias") + block.Values("v.bias")
 	let output = FluxResnet.Convolved(block, "proj_out")
 	FluxAttention(FluxResnet.Norm(block, "norm", groups), Convolution(weights, biases), output)
-Output(map FeatureMap) FeatureMap
+Output(map FeatureMap) Slow(FeatureMap)
 	Middle.Output(Input).Completed(0).IsNearlyEqual(-0.70551, 0.0001)
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.39508, 0.0001)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(1.27711, 0.0001)
@@ -23,7 +23,7 @@ Output(map FeatureMap) FeatureMap
 	let mixed = combined.Projected(map.Applied(norm.Affine(map), false))
 	let attended = FeatureMap(Attended(mixed), map.width, size, Safetensors.Part(combined.biases, 2 * size, size, 1))
 	map.Plus(projection.Projected(attended))
-Attended(mixed FeatureMap) Numbers
+Attended(mixed FeatureMap) Slow(Numbers)
 	Middle.Attended(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
 	Middle.Attended(Combined)(17) is Middle.Chunk(Queried, Combined, 1, 1)(1)
 	let positions = mixed.values.Length / mixed.channels
@@ -33,7 +33,7 @@ Attended(mixed FeatureMap) Numbers
 	for (positions / rows).Ceiling
 		attended = attended + Chunk(queries, mixed, index * rows, (positions - index * rows).Clamp(1, rows))
 	attended
-Chunk(queries Numbers, mixed FeatureMap, first Number, count Number) Numbers
+Chunk(queries Numbers, mixed FeatureMap, first Number, count Number) Slow(Numbers)
 	Middle.Chunk(Queried, Combined, 0, 24).Length is 384
 	let size = mixed.channels / 3
 	let positions = mixed.values.Length / mixed.channels
@@ -42,7 +42,7 @@ Chunk(queries Numbers, mixed FeatureMap, first Number, count Number) Numbers
 	let shares = Softmax.Shares(queried.Multiplied, positions)
 	let strides = (0, 0, positions, 1, 2 * size, 0, 3 * size, 1)
 	Products(shares, mixed.values, (1, count, positions, size), strides).Multiplied
-Queries(values Numbers, biases Numbers) Numbers
+Queries(values Numbers, biases Numbers) Slow(Numbers)
 	Middle.Queries((1, 2, 3), (0.5, 0, 0))(0).IsNearlyEqual(1.5)
 	let size = biases.Length / 3
 	for values.Length / 3

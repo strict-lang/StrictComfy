@@ -56,7 +56,7 @@ Published(latents List(Numbers), sampling MossSampling, decoders List(FluxDecode
 		let path = dumps + "/strict-" + sampling.mode + suffix + Extension(data, decoders.Length)
 		Published(value, sampling.width, decoders, path, GenerationCommand(logger).Job(data, dumps, index))
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-Decoders(vae Text) List(FluxDecoder)
+Decoders(vae Text) Slow(List(FluxDecoder))
 	MossGenerate(Logger).Decoders("").Length is 0
 	MossGenerate(Logger).Decoders("tinyvae.safetensors").Length is 1
 	if vae is ""

@@ -12,7 +12,7 @@ constant Zeros = Query * 0 + Query * 0 + Query * 0
 constant Latent = Reference.Values("x")
 constant Lowered = Moss.Loaded("tinymoss.safetensors", "tinylora.safetensors")
 constant Words = MossLora.Lowered.TextEmbedded(Moss.Context, 3)
-Loaded(path Text, prefix Text, strength = 1) MossLora
+Loaded(path Text, prefix Text, strength = 1) Slow(MossLora)
 	Tiny.rank is 8
 	Tiny.columns is 256
 	Tiny.up.Length is 2048
@@ -27,7 +27,7 @@ Packed(values Numbers, scale Number) BFloat16s
 	MossLora.Packed((0.5, -1.25), 2) is (1, -2.5)
 	for values
 		value * scale
-Layer(path Text, prefix Text) List(MossLora)
+Layer(path Text, prefix Text) Slow(List(MossLora))
 	MossLora.Layer("tinylora.safetensors", "layers.1.").Length is 6
 	MossLora.Layer("tinylora.safetensors", "layers.1.")(5).up.Length is 2048
 	MossLora.Layer("", "layers.1.").Length is 0
@@ -48,12 +48,12 @@ Expanded(hidden Numbers, offset Number, stride Number) Numbers
 	Products(hidden, up, (1, tokens, rank, outputs), (offset, 0, stride, 1, 0, 0, 1, rank)).Multiplied
 Projected(input Numbers) Numbers
 	Expanded(DownProjected(input, rank), 0, rank)
-Delta(input Numbers) Numbers
+Delta(input Numbers) Slow(Numbers)
 	Tiny.Delta(MossBlock.Input).Length is 4864
 	MossImage(Logger).Error(Tiny.Delta(MossBlock.Input), Query) < 0.005
 	for Projected(input)
 		value / Gain
-Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Numbers
+Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Slow(Numbers)
 	MossLora.Applied(List(MossLora), 0, (1, 2), (3, 4)) is (1, 2)
 	MossImage(Logger).Error(MossLora.Applied(Layers, 0, Query, MossBlock.Input), Query * 2) < 0.005
 	MossLora.Applied(List(MossLora) + MossLora(Tiny, rank = 0), 0, (1, 2), (3, 4)) is (1, 2)
@@ -65,7 +65,7 @@ ScaledAdded(base Numbers, delta Numbers) BFloat16s
 	MossLora.ScaledAdded((1, 2), (64, -128)) is (2, 0)
 	for base.Length
 		base(index) + delta(index) / Gain
-Attended(loras List(MossLora), combined Numbers, normed Numbers) Numbers
+Attended(loras List(MossLora), combined Numbers, normed Numbers) Slow(Numbers)
 	MossLora.Attended(List(MossLora), (1, 2, 3), (4)) is (1, 2, 3)
 	MossImage(Logger).Error(Lowered.Output(Latent, 0.75, Words, MossBlock.Rotation), Reference.Values("output")) < 0.02
 	MossLora.Attended(Layers, Zeros, MossBlock.Input)(768 + 5).IsNearlyEqual(Query(256 + 5), 0.01)
@@ -85,14 +85,14 @@ CombinedAdded(combined Numbers, queries Numbers, keys Numbers, values Numbers, w
 		let at = (index / (3 * width)).Floor * width + column % width
 		let delta = column < width then queries(at) else (column < 2 * width then keys(at) else values(at))
 		combined(index) + delta / Gain
-Stacked(other MossLora) MossLora
+Stacked(other MossLora) Slow(MossLora)
 	MossLora(Tiny, rank = 0).Stacked(Tiny).up is Tiny.up
 	Tiny.Stacked(Tiny).rank is 16
 	MossImage(Logger).Error(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
 	if rank is 0
 		return other
 	MossLora(down + other.down, Widened(other), rank + other.rank, columns)
-Widened(other MossLora) Numbers
+Widened(other MossLora) Slow(Numbers)
 	MossLora(Tiny, up = (1, 2, 3, 4), rank = 2).Widened(MossLora(Tiny, up = (5, 6), rank = 1)) is (1, 2, 5, 3, 4, 6)
 	let width = rank + other.rank
 	for up.Length + other.up.Length

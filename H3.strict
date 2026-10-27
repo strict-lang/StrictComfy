@@ -10,7 +10,7 @@ constant Prompt = Model.Values("token_refiner")
 constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number))
 constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4)
 constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"))
-Loaded(path Text, loras = "") H3
+Loaded(path Text, loras = "") Slow(H3)
 	Tiny.blocks.Length is 2
 	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
@@ -22,17 +22,17 @@ Weights(path Text, bits Number) Safetensors
 	H3.Weights("tinyh3.safetensors", 16).prefix is ""
 	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
 	Safetensors(path, bits, prefix)
-Blocks(model Safetensors, prefix Text, loras Text) List(H3Block)
+Blocks(model Safetensors, prefix Text, loras Text) Slow(List(H3Block))
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
 	for Named(TensorFile.Header(model.path), model.prefix + prefix).Length
 		H3Block.Loaded(model, prefix + index + ".", loras)
-Named(header Text, prefix Text) Texts
+Named(header Text, prefix Text) Slow(Texts)
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2
 	for header.Split("\"" + prefix)
 		if value.Substring(0, value.IndexOf("\"")).EndsWith(".norm1.weight")
 			value
-Curves(times Numbers) Numbers
+Curves(times Numbers) Slow(Numbers)
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(2).IsNearlyEqual(0.818626, 0.001)
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(15).IsNearlyEqual(0.118705, 0.001)
 	let width = final.modulation.weights.First.Length
@@ -41,7 +41,7 @@ Curves(times Numbers) Numbers
 		let place = times((index / width).Floor).Clamp * (grid - 1)
 		let low = place.Floor.Clamp(0, grid - 2)
 		curve(low * width + index % width).Lerp(curve((low + 1) * width + index % width), place - low)
-Patched(latent Numbers, layout H3Layout) Numbers
+Patched(latent Numbers, layout H3Layout) Slow(Numbers)
 	Tiny.Patched((1, 2, 5, 6, 3, 4, 7, 8), H3Layout(List(Number), List(Number), 0, 1, 2, 4)) is (1, 2, 3, 4, 5, 6, 7, 8)
 	Tiny.videoPatches.Sums(Tiny.Patched(Model.Values("video"), H3Layout.Tiny))(1000).IsNearlyEqual(-0.514158, 0.01)
 	let patches = layout.Patches
@@ -54,7 +54,7 @@ Patched(latent Numbers, layout H3Layout) Numbers
 		let y = (row % patches / across).Floor * 2 + (column % 4 / 2).Floor
 		let plane = (column / 4).Floor * frames + (row / patches).Floor
 		latent((plane * 2 * patches + y * across) * 2 + row % patches % across * 2 + column % 2)
-Packed(sound Numbers, layout H3Layout) Numbers
+Packed(sound Numbers, layout H3Layout) Slow(Numbers)
 	Tiny.Packed((1, 3, 2, 4), H3Layout(List(Number), List(Number), 1, 0, 0, 0)) is (1, 2, 3, 4)
 	Tiny.audioPatches.Sums(Tiny.Packed(Model.Values("audio"), H3Layout.Tiny))(700).IsNearlyEqual(-0.413504, 0.01)
 	let audio = layout.audio
@@ -62,15 +62,15 @@ Packed(sound Numbers, layout H3Layout) Numbers
 	for sound.Length
 		let row = (index / channels).Floor
 		sound((index % channels * 2 + (row / audio).Floor) * audio + row % audio)
-Leading(layout H3Layout) Number
+Leading(layout H3Layout) Slow(Number)
 	Tiny.Leading(H3Layout.Tiny) is 9
 	Tiny.Leading(H3Layout(H3Layout.Tiny, keyframes = List(Number) + 0)) is 13
 	layout.Words + layout.Conditions + 2 * layout.audio
-Routed(routing Number, block Number) Number
+Routed(routing Number, block Number) Slow(Number)
 	Tiny.Routed(1, 0) is 2
 	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 1.3
 	routing * (block < blocks.Length * 0.76 then 2 else 1.3)
-Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers) Numbers
+Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers) Slow(Numbers)
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
 	Keyed(100).IsNearlyEqual(-3.046875, 0.05)
