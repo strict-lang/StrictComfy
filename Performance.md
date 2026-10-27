@@ -1,5 +1,10 @@
 # Moss performance
 
+## VAE decode at ComfyUI's speed (2026-10-27 09:00, RTX 3080, Strict 62ea2b42)
+`strict_device_convolutions` loaded each stage of 32 numbers into registers, normed, swished and converted it there for every tap and every 128 outputs; at 128 registers it spilled, with one block per SM it could not hide the loads (13.7-16.9 TFLOPS), the multiplications alone ran at 57-66 TFLOPS (scratchpad harness `kb/conv.py`: the kernel from the runtime PTX on torch buffers against `torch.conv2d`). Now strict_gpu_convolution writes the normed input and the weights as bfloat16 first and the convolution copies its stages asynchronously into shared memory (cp.async, the next stage while this one multiplies on the bfloat16 tensor cores): 50-58 TFLOPS, 90x160x512 3.69 -> 1.35 ms, 180x320x512 13.2 -> 4.7 ms, 720x1280x128 14.0 -> 5.1 ms.
+
+`MossImage --quality fastest`, 720x1280, same seeds: decode 455-471 -> 266-282 ms (ComfyUI 267 ms), sampling unchanged (1121-1133 ms), the images 60 dB PSNR against the previous decoder (at most 5 of 255 per pixel).
+
 ## MossImage --quality presets and the VAE decode (2026-10-27 06:00, RTX 3080, Strict 7363de6b)
 Warm per image of a resident batch (`MossImage.exe --quality <preset> --count n`), GPU and CPU otherwise idle, normal clocks unless noted:
 
