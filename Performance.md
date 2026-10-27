@@ -15,6 +15,19 @@ Warm per image of a resident batch (`MossImage.exe --quality <preset> --count n`
 The first decode of a process takes 0.74-0.76 s (0.51 s at 480p), the first sampling of a new build 70 s (the driver compiles the PTX into `artifacts/moss/cuda` once). StarCraft in the background (10-15 % GPU, 1 GB) made everything 17-25 % slower.
 
 The decode is GPU bound without gaps (nsys with `--cuda-graph-trace=node`, Strict launches its kernels in CUDA graphs, `scratchpad/decode5.sqlite`): per 720x1280 image 450 ms, 368 ms of it the 33 calls of `strict_device_convolutions`, 44 ms `strict_device_product_tiless` (the mid block attention), 21 ms FeatureMap partials (GroupNorm), the rest Softmax and adds. The 33 convolutions are 8.6 TFLOP (2 x 9 x in x out x pixels, 4 taps for the upsampling ones) and every one of them runs at 19-24 TFLOPS whatever its size (90x160x512 3.6 ms, 180x320x512 13 ms, 720x1280x128 13.4 ms), 35 % of the 59.5 TFLOPS of fp16 tensor cores with 32 bit sums. ComfyUI decodes the same image in 0.27 s. The kernel (`Compiler/NativeRuntimeConvolution.mlir`) is a 128 pixel x 128 output tile over stages of 32 channels of one tap, the next stage fetched into registers while the current one multiplies, one barrier per stage; every input number is loaded, normed and swished again for each of the 9 taps and each 128 outputs (36 times at 512 channels), the upsampling convolutions without norm and swish are only slightly faster (22-24 TFLOPS), so the short stages and the single prefetch are the limit, not the swish. Next: deeper stages (64 channels, asynchronous copies 3-4 stages ahead like CUTLASS) shared with `strict_device_product_tiles`, the normed input tile with its halo kept in shared memory for all 9 taps.
+## Strict H3 Sampler in ComfyUI at 294 frames (2026-10-27 03:30, RTX 4090, Strict 536e0b15)
+
+The user's clips (480x832, 12.25 s, 294 frames, 35.4k tokens) in a ComfyUI server with the user's flags (`--disable-dynamic-vram --disable-pinned-memory`), text to video, `fast` (turbo, 8 routed steps), the whole workflow down to the mp4:
+
+| Run | Per step | Generation | Warm prompt |
+|---|---:|---:|---:|
+| before (routing off above 512 key blocks) | 9.3-9.5 s | 77.5-78.0 s | 108.6-111.2 s |
+| with the preview (full size taeh3 decode) | 10.05-10.1 s | 81.5 s | 111.2 s |
+| routing up to 1024 key blocks (Strict 536e0b15) | 5.37-5.57 s, spikes 7-24 s | 46.0-50.8 s | 76.7-78.0 s |
+| shrunk preview decode, reserved before the job | 4.97-5.32 s | 42.3-42.7 s | 69.9-70.6 s |
+| H3Video alone, no preview decode | 4.63-4.86 s | 39.9-40.1 s | |
+
+Warm prompt now: MiniMax H3 Image to Video 4.6 s (the text encoder back on the GPU and encoding), Strict H3 Sampler about 52 s (ComfyUI's `unload_all_models` 7.9-8.6 s of it: the 351 NVFP4 tensors of the 15 GB text encoder copied to the CPU one by one, pinned memory makes no difference, dynamic VRAM makes it 0.3 s but the warm VAE decode 46 s), VAE Decode 9-12 s, Video Combine 3.7-4.5 s. H3Video starts step 0 within 0.05 s of a warm job, step 0 is ~0.9 s longer (the weights evicted after the last run upload again). Memory while sampling: VRAM 22.8-23.3 GB (20 GB int8 weights), H3Video 25 GB resident (47 GB committed, the GPU allocations count on Windows), ComfyUI 18-21 GB; 46 GB of the 128 GB go to Hyper-V machines.
 
 ## H3 attention with 8 bit values, Sol-Attn's shape (2026-10-26 23:00, RTX 4090, Strict 2feba9ed)
 

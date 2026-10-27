@@ -121,7 +121,7 @@ def arguments(argv=None, family='moss'):
 		help='Diffusion sampling steps' + ('; 8 or fewer apply the DMD turbo LoRA' if family == 'moss' else '') + from_quality)
 	parser.add_argument('--count', type=int, default=1, help='outputs per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
-	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged',
+	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged' if family == 'moss' else 'runtime',
 		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: ' +
 		('floating adapters' if family == 'moss' else 'merged by Strict at every load, no cached model file'))
 	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
@@ -522,6 +522,15 @@ def turbo_patched(patches, turbo):
 		torch.equal(entry[1].weights[1].float().cpu(), down) for entry in patches.get(key + 'weight', []))
 
 
+def lora_model(args, model, loras):
+	"""The checkpoint the backend loads and its LoRA argument: a cached merge of the LoRAs, or the checkpoint (converted
+	once when Strict can not load it) with the LoRAs H3Video.exe merges at load or MossGenerate.exe's floating adapter."""
+	if args.lora_mode == 'merged':
+		return cached_merge(args, model, loras), ''
+	loaded = cached_merge(args, model, [])
+	return loaded, runtime_spec(loras) if args.family == 'h3' else runtime_adapter(args, loaded, loras)
+
+
 def runtime_spec(loras):
 	"""The path=strength;... argument H3Video.exe merges at load."""
 	active = [(str(path), strength) for path, strength in loras if strength != 0]
@@ -756,7 +765,7 @@ def main(argv=None):
 	loras = selected_loras(args, models, metadata)
 	args.cache = args.cache.resolve()
 	args.cache.mkdir(parents=True, exist_ok=True)
-	loaded = cached_merge(args, model, loras if args.lora_mode == 'merged' else [])
+	loaded, adapter = lora_model(args, model, loras)
 	if args.merge_only:
 		print('Merged model: ' + str(loaded), flush=True)
 		return 0
@@ -778,7 +787,6 @@ def main(argv=None):
 	for path, strength in loras:
 		print(f'LoRA: {path}, strength {strength}', flush=True)
 	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	adapter = '' if args.lora_mode == 'merged' else runtime_spec(loras) if args.family == 'h3' else runtime_adapter(args, loaded, loras)
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
