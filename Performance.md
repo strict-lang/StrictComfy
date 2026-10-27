@@ -1,5 +1,19 @@
 # Moss performance
 
+## Strict H3 Sampler in ComfyUI at 294 frames (2026-10-27 03:30, RTX 4090, Strict 536e0b15)
+
+The user's clips (480x832, 12.25 s, 294 frames, 35.4k tokens) in a ComfyUI server with the user's flags (`--disable-dynamic-vram --disable-pinned-memory`), text to video, `fast` (turbo, 8 routed steps), the whole workflow down to the mp4:
+
+| Run | Per step | Generation | Warm prompt |
+|---|---:|---:|---:|
+| before (routing off above 512 key blocks) | 9.3-9.5 s | 77.5-78.0 s | 108.6-111.2 s |
+| with the preview (full size taeh3 decode) | 10.05-10.1 s | 81.5 s | 111.2 s |
+| routing up to 1024 key blocks (Strict 536e0b15) | 5.37-5.57 s, spikes 7-24 s | 46.0-50.8 s | 76.7-78.0 s |
+| shrunk preview decode, reserved before the job | 4.97-5.32 s | 42.3-42.7 s | 69.9-70.6 s |
+| H3Video alone, no preview decode | 4.63-4.86 s | 39.9-40.1 s | |
+
+Warm prompt now: MiniMax H3 Image to Video 4.6 s (the text encoder back on the GPU and encoding), Strict H3 Sampler about 52 s (ComfyUI's `unload_all_models` 7.9-8.6 s of it: the 351 NVFP4 tensors of the 15 GB text encoder copied to the CPU one by one, pinned memory makes no difference, dynamic VRAM makes it 0.3 s but the warm VAE decode 46 s), VAE Decode 9-12 s, Video Combine 3.7-4.5 s. H3Video starts step 0 within 0.05 s of a warm job, step 0 is ~0.9 s longer (the weights evicted after the last run upload again). Memory while sampling: VRAM 22.8-23.3 GB (20 GB int8 weights), H3Video 25 GB resident (47 GB committed, the GPU allocations count on Windows), ComfyUI 18-21 GB; 46 GB of the 128 GB go to Hyper-V machines.
+
 ## H3 attention with 8 bit values, Sol-Attn's shape (2026-10-26 23:00, RTX 4090, Strict 2feba9ed)
 
 `strict_device_bytes_attention` replaces the routed and the 8 bit key path for H3: values quantized like the keys (8 bits, a scale per position), shares times value scales as 8 bits per row, both products on the 8 bit tensor cores, a block of 128 threads per 64 tokens (each query block routes with its own plan, before two shared the union of theirs), two tiles of 32 positions per step by cp.async, sums in 32 bits from the bits of 1.5 * 2^23 so no conversions. The 10 s fox clip like below:
