@@ -5,7 +5,7 @@ Run(dumps Text, model Text, lora Text, vae Text, mode Text, adapter Text)
 	else
 		let data = Safetensors(dumps + "/generation.safetensors", 32)
 		let sampling = Configured(data, mode)
-		let latents = Generations(model, lora, adapter, sampling, data, dumps)
+		let latents = Latents(Loaded(model, lora, adapter), sampling, data, dumps, adapter)
 		GpuMemory.Released
 		Published(latents, sampling, Decoders(vae), data, dumps)
 Loaded(model Text, lora Text, adapter Text) Moss
@@ -23,8 +23,6 @@ Served(moss Moss, mode Text, adapter Text) None
 Latents(moss Moss, sampling MossSampling, data Safetensors, dumps Text, adapter Text) List(Numbers)
 	for GenerationCommand(logger).Count(data)
 		Generated(moss, sampling, GenerationCommand(logger).Job(data, dumps, index), adapter)
-Generations(model Text, lora Text, adapter Text, sampling MossSampling, data Safetensors, dumps Text) List(Numbers)
-	Latents(Loaded(model, lora, adapter), sampling, data, dumps, adapter)
 Configured(data Safetensors, mode Text) MossSampling
 	let width = data.Shape("noise").Last
 	let steps = data.Values("steps").First
@@ -58,7 +56,7 @@ Published(latents List(Numbers), sampling MossSampling, decoders List(FluxDecode
 		let path = dumps + "/strict-" + sampling.mode + suffix + Extension(data, decoders.Length)
 		Published(value, sampling.width, decoders, path, GenerationCommand(logger).Job(data, dumps, index))
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-Decoders(vae Text) List(FluxDecoder)
+Decoders(vae Text) Slow(List(FluxDecoder))
 	MossGenerate(Logger).Decoders("").Length is 0
 	MossGenerate(Logger).Decoders("tinyvae.safetensors").Length is 1
 	if vae is ""

@@ -13,7 +13,7 @@ constant Window = Tiny.Cut(Tiny.Denormalized(Model.Values("reference.latent")), 
 constant Embedding = Tiny.Embedded(Window)
 constant Turning = Tiny.Rotations(7, 2, 2)
 constant Circle = 6.283185307179586
-Loaded(model Safetensors) H3Decoder
+Loaded(model Safetensors) Slow(H3Decoder)
 	Tiny.blocks.Length is 2
 	Tiny.post.weights.Length is 24
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
@@ -25,21 +25,21 @@ Loaded(model Safetensors) H3Decoder
 	let projected = MossText.Dense(decoder, "proj_out")
 	let centers = model.Values("latents_mean")
 	H3Decoder(mixed, embedded, suffix, Blocks(model), weights, biases, projected, centers, model.Values("latents_std"))
-Blocks(model Safetensors) List(H3DecoderBlock)
+Blocks(model Safetensors) Slow(List(H3DecoderBlock))
 	Tiny.Blocks(Model).Length is 2
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length
 		H3DecoderBlock.Loaded(model, "decoder.transformer_blocks." + index + ".")
-Split(values Numbers, width Number) List(Numbers)
+Split(values Numbers, width Number) Slow(List(Numbers))
 	Tiny.Split((1, 2, 3, 4), 2) is ((1, 2), (3, 4))
 	for values.Length / width
 		Safetensors.Part(values, index * width, width, 1)
-Denormalized(latent Numbers) Numbers
+Denormalized(latent Numbers) Slow(Numbers)
 	Window(0).IsNearlyEqual(0.604655)
 	Window(671).IsNearlyEqual(3.93821)
 	let size = latent.Length / means.Length
 	for latent.Length
 		latent(index) * deviations((index / size).Floor) + means((index / size).Floor)
-Cut(latent Numbers, shape Numbers, box Numbers) Numbers
+Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
 	Window.Length is 672
 	Window(27).IsNearlyEqual(3.585491)
 	let area = box(3) * box(5)
@@ -49,19 +49,19 @@ Cut(latent Numbers, shape Numbers, box Numbers) Numbers
 		let frame = (index / area).Floor % box(1)
 		let channel = (index / area / box(1)).Floor
 		latent(((channel * shape(0) + box(0) + frame) * shape(1) + box(2) + y) * shape(2) + box(4) + x)
-Embedded(tile Numbers) Numbers
+Embedded(tile Numbers) Slow(Numbers)
 	Embedding.Length is 8448
 	embedder.Sums(post.Sums(Moss.Transposed(tile, means.Length))) + registers + Layer.Zeros(registers.Length / 4)
-Rotations(frames Number, height Number, width Number) Numbers
+Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	Turning.Length is 4224
 	Turning(3649) is 0
 	H3DecoderBlock.Decoding.Table(Coordinates(frames, height, width) + Layer.Zeros(15), Frequencies, Circle)
-Frequencies Numbers
+Frequencies Slow(Numbers)
 	Tiny.Frequencies(1).IsNearlyEqual(0.5623413)
 	Tiny.Frequencies.Length is 8
 	for H3DecoderBlock.Decoding.half / 3
 		100 ^ (0 - index / (H3DecoderBlock.Decoding.half / 3))
-Coordinates(frames Number, height Number, width Number) Numbers
+Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 	Tiny.Coordinates(7, 2, 2)(0).IsNearlyEqual(-0.857143)
 	Tiny.Coordinates(7, 2, 2)(4) is -0.5
 	Tiny.Coordinates(7, 2, 2)(5) is 0.5
@@ -72,7 +72,7 @@ Coordinates(frames Number, height Number, width Number) Numbers
 		let time = (token / (height * width)).Floor
 		let at = axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)
 		2 * (at + 0.5) / size - 1
-Pixels(tile Numbers, frames Number, height Number, width Number) Numbers
+Pixels(tile Numbers, frames Number, height Number, width Number) Slow(Numbers)
 	Tiny.Pixels(Window, 7, 2, 2)(1000).IsNearlyEqual(1.640707, 0.01)
 	Tiny.Pixels(Window, 7, 2, 2)(86015).IsNearlyEqual(0.326644, 0.01)
 	let rotation = Rotations(frames, height, width)
@@ -81,29 +81,29 @@ Pixels(tile Numbers, frames Number, height Number, width Number) Numbers
 		state = value.Output(state, rotation)
 	let count = frames * height * width * normWeights.Length
 	Unpatched(projection.Sums(LayerNormed(Safetensors.Part(state, 0, count, 1))), frames, height, width)
-LayerNormed(state Numbers) Numbers
+LayerNormed(state Numbers) Slow(Numbers)
 	Tiny.LayerNormed(Layer.Zeros(256) + Tiny.normWeights).Length is 512
 	let width = normWeights.Length
 	let centered = Centered(state, width)
 	let scales = Qwen3Block.Scales(centered, width, H3Block.Epsilon)
 	for state.Length
 		centered(index) * scales((index / width).Floor) * normWeights(index % width) + normBiases(index % width)
-Centered(values Numbers, width Number) Numbers
+Centered(values Numbers, width Number) Slow(Numbers)
 	Tiny.Centered((1, 3, 2, 2), 2) is (-1, 1, 0, 0)
 	let centers = Means(values, width)
 	for values.Length
 		values(index) - centers((index / width).Floor)
-Means(values Numbers, width Number) Numbers
+Means(values Numbers, width Number) Slow(Numbers)
 	Tiny.Means((1, 3, 2, 4), 2) is (2, 3)
 	for values.Length / width
 		Mean(values, index * width, width)
-Mean(values Numbers, first Number, size Number) Number
+Mean(values Numbers, first Number, size Number) Slow(Number)
 	Tiny.Mean((1, 3, 2, 4), 1, 3) is 3
 	mutable sum = 0
 	for size
 		sum = sum + values(first + index)
 	sum / size
-Unpatched(rows Numbers, frames Number, height Number, width Number) Numbers
+Unpatched(rows Numbers, frames Number, height Number, width Number) Slow(Numbers)
 	Tiny.Pixels(Window, 7, 2, 2).Length is 86016
 	let wide = width * 16
 	let high = height * 16

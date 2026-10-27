@@ -10,7 +10,7 @@ Run(dumps Text, model Text)
 	let image = Decoded(decoder, latent, width, steps.Values("image"), "decoded again")
 	let shape = steps.Shape("image")
 	ImageSaver(dumps + "/strict.png").Save(Image(Size(shape(2), shape(1)), Colors(image)))
-Decoded(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, label Text) Numbers
+Decoded(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, label Text) Slow(Numbers)
 	FluxImage(Logger).Decoded(FluxDecoder.Tiny, FluxDecoder.Latent, 2, Expected, "decoded").Length is 288
 	let before = Process.Elapsed
 	let image = decoder.Decoded(latent, width)

@@ -13,7 +13,7 @@ constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prom
 constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 1)
 constant First = H3Spectrum.Started.anchors.First
 constant Stepping = H3Spectrum(8, SpectralFit.Line, output = (2, 4))
-IsActual(step Number) Boolean
+IsActual(step Number) Slow(Boolean)
 	Tiny.IsActual(0)
 	Tiny.IsActual(1)
 	Started.IsActual(1) is false
@@ -34,7 +34,7 @@ Coord(sigma Number, layout H3Layout) Number
 	Tiny.Coord(1, H3Layout.Tiny) is -1
 	Tiny.Coord(0, H3Layout.Tiny) is 1
 	1 - 2 * layout.Unshifted(sigma)
-Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, step Number) H3Spectrum
+Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, step Number) Slow(H3Spectrum)
 	MossImage(Logger).Error(Started.output, H3.Forward) < 0.005
 	Started.coords.Length is 1
 	Held.forecasts is 1
@@ -53,13 +53,13 @@ Stepped(video Numbers, sigmas Numbers, step Number, job Safetensors) Numbers
 		let path = job.path.Replace(".safetensors", "-step" + step + ".safetensors")
 		Safetensors(path).Written("video", Euler.Stepped(stepped, output, (sigmas(step + 1), 0), 0))
 	stepped
-Remembered(coord Number, anchor Numbers) H3Spectrum
+Remembered(coord Number, anchor Numbers) Slow(H3Spectrum)
 	Started.Remembered(0.8, First).anchors.Length is 2
 	Started.Remembered(0.8, First).Remembered(0.9, First).coords is (0.8, 0.9)
 	let kept = anchors.Length.Clamp(0, fit.degree)
 	let start = anchors.Length - kept
 	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
-Predicted(coord Number) Numbers
+Predicted(coord Number) Slow(Numbers)
 	Started.Predicted(0).Length is 960
 	MossImage(Logger).Error(Started.Remembered(0.8, First * 3).Predicted(1), First * 5) < 0.000001
 	if anchors.Length < fit.degree + 1

@@ -41,6 +41,14 @@ QUALITIES = {
 	'fastest6steps': (H3_TURBO, 6, 1, 'w1p3', [], '6 routed steps with Spectrum (3 evaluated), 7 s'),
 	'fastest3steps': (H3_BASE, 3, 1, '', ['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'],
 		'the base model with the TaoMate 3-step LoRA, routed, 7 s')}
+# Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
+MOSS_QUALITIES = {
+	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
+	'best25steps': (25, 4, '', 'without the turbo LoRA, 25 steps with cfg 4, 18 s'),
+	'best50steps': (50, 4, '', 'without the turbo LoRA, 50 steps with cfg 4, 37 s'),
+	'fast': (8, 1, 'w3p3', 'best with Spectrum (5 of 8 steps evaluated), 2.0 s'),
+	'faster': (8, 1, 'w2p3', 'best with Spectrum (4 of 8 steps evaluated), 1.6 s'),
+	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated), 1.2 s')}
 
 
 def lora_spec(text):
@@ -102,24 +110,24 @@ def arguments(argv=None, family='moss'):
 	for name, folder, filename, description in files:
 		chosen = 'the one of --quality' if family == 'h3' and name == 'model' else default_comfy / 'models' / folder / filename
 		parser.add_argument('--' + name, default=argparse.SUPPRESS, help=f'{description} (default: {chosen})')
-	if family == 'h3':
-		parser.add_argument('--quality', choices=QUALITIES, default='best', help='presets of --model, --steps, --routing, '
-			'--spectrum and --lora, which change them when given (sampling times for 124 frames on a 4090): ' +
-			'; '.join(name + ': ' + preset[-1] for name, preset in QUALITIES.items()))
-	preset = argparse.SUPPRESS if family == 'h3' else None
+	presets = QUALITIES if family == 'h3' else MOSS_QUALITIES
+	changed = '--model, --steps, --routing, --spectrum and --lora' if family == 'h3' else '--steps, --guidance and --spectrum'
+	timed = '124 frames on a 4090' if family == 'h3' else '720x1280 on a 3080'
+	parser.add_argument('--quality', choices=presets, default='best', help=f'presets of {changed}, which change them when given '
+		f'(sampling times for {timed}): ' + '; '.join(name + ': ' + preset[-1] for name, preset in presets.items()))
 	from_quality = ' (default: the one of --quality)'
 	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--steps', type=int, default=8 if preset is None else preset,
-		help='Diffusion sampling steps' + ('; 8 automatically applies the DMD turbo LoRA' if family == 'moss' else from_quality))
+	parser.add_argument('--steps', type=int, default=argparse.SUPPRESS,
+		help='Diffusion sampling steps' + ('; 8 or fewer apply the DMD turbo LoRA' if family == 'moss' else '') + from_quality)
 	parser.add_argument('--count', type=int, default=1, help='outputs per loaded model; fresh seed/prompt choices each time')
 	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
 	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged' if family == 'moss' else 'runtime',
 		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: ' +
 		('floating adapters' if family == 'moss' else 'merged by Strict at every load, no cached model file'))
 	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
-	parser.add_argument('--spectrum', default='off' if preset is None else preset,
+	parser.add_argument('--spectrum', default=argparse.SUPPRESS,
 		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result' +
-		('' if preset is None else from_quality))
+		from_quality)
 	parser.add_argument('--output', type=Path, default=Path(settings['output']), help='numbered output base; never overwritten')
 	parser.add_argument('--json_output', action='store_true', help='write a per-output JSON settings sidecar')
 	parser.add_argument('--width', type=int, default=settings['width'], help='Width in pixels')
@@ -129,20 +137,19 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
 		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
 		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
-		parser.add_argument('--routing', type=float, default=preset, help='Sparse attention like Sol-Attn above 0: key blocks whose '
+		parser.add_argument('--routing', type=float, default=argparse.SUPPRESS, help='Sparse attention like Sol-Attn above 0: key blocks whose '
 			'pooled score stays below 2x this many standard deviations in the first 38 of 50 blocks (1.3x after) are pooled, '
 			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result' + from_quality)
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
-		parser.add_argument('--guidance', type=float, default=1, help='Classifier-free guidance (CFG) scale')
+		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS, help='Classifier-free guidance (CFG) scale' + from_quality)
 		parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
 	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
 	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family, help='Prompt, merged-model, runtime-adapter and CUDA caches')
 	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
 	args.family = family
-	if family == 'h3':
-		quality(args)
+	quality(args)
 	for name, folder, filename, description in files:
 		if not hasattr(args, name):
 			setattr(args, name, str(args.comfyui / 'models' / folder / filename))
@@ -167,13 +174,17 @@ def arguments(argv=None, family='moss'):
 
 
 def quality(args):
-	model, steps, routing, spectrum, loras = QUALITIES[args.quality][:5]
-	if not hasattr(args, 'model'):
-		args.model = str(args.comfyui / 'models' / 'diffusion_models' / model)
+	if args.family == 'h3':
+		model, steps, routing, spectrum, loras = QUALITIES[args.quality][:5]
+		if not hasattr(args, 'model'):
+			args.model = str(args.comfyui / 'models' / 'diffusion_models' / model)
+		args.routing = getattr(args, 'routing', routing)
+		args.lora = loras + args.lora
+	else:
+		steps, guidance, spectrum = MOSS_QUALITIES[args.quality][:3]
+		args.guidance = getattr(args, 'guidance', guidance)
 	args.steps = getattr(args, 'steps', steps)
-	args.routing = getattr(args, 'routing', routing)
 	args.spectrum = getattr(args, 'spectrum', f'spectrum{args.steps}_{spectrum}' if spectrum else 'off')
-	args.lora = loras + args.lora
 
 
 def spectrum_config(args):
@@ -216,7 +227,7 @@ def selected_loras(args, models, metadata=None):
 	has_turbo = any(Path(str(path).replace('\\', '/')).name == 'dmd_turbo_lora.safetensors' and strength != 0
 		for path, strength in baked_loras(metadata))
 	explicit_turbo = any(path.name == 'dmd_turbo_lora.safetensors' for path, strength in selected)
-	if args.family == 'moss' and args.steps == 8 and not has_turbo and not explicit_turbo:
+	if args.family == 'moss' and args.steps <= 8 and not has_turbo and not explicit_turbo:
 		turbo = located('moss/dmd_turbo_lora.safetensors', models / 'loras')
 		selected.insert(0, (turbo, 1.0))
 	return selected
@@ -770,7 +781,8 @@ def main(argv=None):
 	for index, job in enumerate(plan):
 		print(f'{FAMILIES[args.family]["noun"]} {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
 	print('Input model: ' + str(model), flush=True)
-	print(('Quality: ' + args.quality + f', steps {args.steps}, routing {args.routing:g}, ' if args.family == 'h3' else '') +
+	print('Quality: ' + args.quality + f', steps {args.steps}, ' + (f'routing {args.routing:g}, ' if args.family == 'h3' else
+		f'guidance {args.guidance:g}, ') +
 		'LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
 	for path, strength in loras:
 		print(f'LoRA: {path}, strength {strength}', flush=True)

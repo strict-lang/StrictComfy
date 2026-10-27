@@ -8,7 +8,7 @@ constant Up = H3Conv.Loaded(Model, "decoder.ups.0.0", 1)
 constant Entered = Moss.Transposed(Model.Values("reference.dec_in_proj"), 64)
 constant Raised = Moss.Transposed(Model.Values("reference.conv_pre"), 128)
 constant Pair = H3Conv((1, 2), List(Number) + 0, 2, 1)
-Loaded(model Safetensors, name Text, spacing Number) H3Conv
+Loaded(model Safetensors, name Text, spacing Number) Slow(H3Conv)
 	Pre.kernel is 7
 	Up.biases.Length is 64
 	H3Conv.Loaded(Model, "decoder.conv_post", 1).biases is (0)
@@ -16,7 +16,7 @@ Loaded(model Safetensors, name Text, spacing Number) H3Conv
 	let biased = model.Entry(name + ".bias") is not ""
 	let offsets = biased then model.Values(name + ".bias") else Layer.Zeros(shape(0))
 	H3Conv(model.Values(name + ".weight"), offsets, shape(2), spacing)
-Output(signal Numbers) Numbers
+Output(signal Numbers) Slow(Numbers)
 	Pre.Output(Entered).Length is 512
 	Pre.Output(Entered)(133).IsNearlyEqual(Model.Values("reference.conv_pre")(21), 0.01)
 	let inputs = weights.Length / biases.Length / kernel
@@ -36,7 +36,7 @@ Biased(values Numbers) Numbers
 	H3Conv(List(Number), (1, 2), 1, 1).Biased((0, 0, 1, 1)) is (1, 2, 2, 3)
 	for values
 		value + biases(index % biases.Length)
-Upsampled(signal Numbers, stride Number) Numbers
+Upsampled(signal Numbers, stride Number) Slow(Numbers)
 	Pair.Upsampled((3, 4), 2) is (3, 6, 4, 8)
 	Up.Upsampled(Raised, 5).Length is 1280
 	Up.Upsampled(Raised, 5)(451).IsNearlyEqual(Model.Values("reference.ups.0")(67), 0.01)
