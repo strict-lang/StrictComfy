@@ -198,6 +198,36 @@ The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\
 | `faster` | turbo | 8 | `--routing 1`, `spectrum8_w1p2` (5 of 8 steps evaluated) | 11 s |
 | `fastest6steps` | turbo | 6 | `--routing 1`, `spectrum6_w1p3` (3 of 6 evaluated; 2 smear the frames) | 7 s |
 | `fastest3steps` | base + TaoMate 3-step LoRA (strength 1) | 3 | `--routing 1` | 7 s |
+| `crazy4steps` (experimental) | turbo | 4 | `--routing 1` | 9 s |
+| `crazy2steps` (experimental) | base + TaoMate 3-step LoRA | 2 | `--routing 1` | 6 s |
+| `crazy1step` (experimental, a soft draft) | base + TaoMate 3-step LoRA | 1 | `--routing 1` | 4 s |
+
+One setting picks the speed and the quality, where ComfyUI needs a model, a LoRA or an attention node for each and a new round of tests per combination. A 12 s clip (480x832, 294 frames, the same prompt and seed) in ComfyUI with the user's flags on the 4090, warm, the whole prompt including ComfyUI's VAE Decode (9-10 s) and Video Combine (4 s):
+
+| Sampler | Model evaluations | Sampler node | Whole prompt | Frames against ComfyUI's |
+|---|---:|---:|---:|---|
+| ComfyUI SamplerCustomAdvanced, turbo, 8 steps | 8 | 110.8 s | 125.6 s | |
+| `best` | 8 | 84.0 s | 97.4 s | the same video |
+| `fast` (the node's default) | 8 | 44.8 s | 58.9 s | as sharp, slightly different framing and motion |
+| `faster` | 5 | 28.6 s | 42.2 s | as sharp |
+| `crazy4steps` | 4 | 22.9 s | 36.7 s | as sharp |
+| `fastest6steps` | 3 | 18.2 s | 32.8 s | softer, an artifact in the last second |
+| `fastest3steps` (TaoMate) | 3 | 18.5 s | 33.8 s | TaoMate's look: another scene, soft fur, smearing |
+| `crazy2steps` (TaoMate) | 2 | 13.1 s | 27.2 s | like `fastest3steps` |
+| `crazy1step` (TaoMate) | 1 | 7.5 s | 22.4 s | a blurry draft |
+
+ComfyUI's own speed-ups on the 10 s clip (243 frames, Performance.md), per step, with the relative difference of the final video and audio latent from ComfyUI's default attention (not a quality score: routed attention changes framing and motion while the frames stay sharp):
+
+| ComfyUI | Per step | Steps | Difference | Strict |
+|---|---:|---:|---|---|
+| default attention, turbo | 9.62-9.73 s | 8 | | `best` 6.89-7.04 s (0.467, 0.230) |
+| SageAttention | 6.37-6.42 s | 8 | 0.279, 0.141 at 5 s | |
+| comfy_kitchen int8 attention | 5.24-5.29 s | 8 | 0.438, 0.181 | |
+| Sol-Attn | 3.34-3.49 s | 8 | 0.792, 0.632 | `fast` 3.62-3.71 s (0.891, 0.943) |
+| Spectrum Apply MiniMax H3 | failed on this ComfyUI (v0.2.17) | | | `faster`: 20.4 s for 8 steps |
+| TaoMate 3-step LoRA | 9.78-9.81 s | 3 | | dense 22.4 s for 3 steps |
+| TaoMate + Sol-Attn | 3.42-3.44 s | 3 | 0.812, 0.532 | `fastest3steps` 13.0 s for 3 steps |
+| H3Fast and other 8-step checkpoints | as turbo | 8 | | any preset with `--model` (the node's `model` input) |
 
 It has the options of `MossImage.exe` above: `prompt.txt` with `{a|b|}` choices, `--count` resident batches with distinct seeds, `--seed`, repeated `--lora path:strength`, `--lora_mode`, `--merge_only`, `--spectrum`, numbered outputs that are never overwritten and `--json_output`. It adds `--length` (frames at 24 fps, snapped up to 17k+5 like ComfyUI, default 124 = 5.2 s) and `--shift` (12, the audio follows with shift 3), and has no `--guidance` or `--jpg_quality`. Defaults: `--quality best`, 480x832, `H3Video.mp4`, `minimax_h3_video_vae_int8_convrot`, `minimax_h3_audio_vae_fp32` and the `qwen3vl_32b_minimax_h3_nvfp4_awq` text encoder under `--comfyui`.
 

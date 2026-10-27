@@ -565,6 +565,9 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 0.5))
 		self.assertEqual(Path(module.arguments(['--quality', 'best20steps'], 'h3').model).name,
 			'minimax_h3_fl2va_pruned_int8_convrot.safetensors')
+		crazy = module.arguments(['--quality', 'crazy1step'], 'h3')
+		self.assertEqual((Path(crazy.model).name, crazy.steps, crazy.routing, crazy.spectrum, crazy.lora),
+			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 1, 1, 'off', fastest.lora[:1]))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--quality', 'ultra'], 'h3')
 

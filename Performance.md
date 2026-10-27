@@ -1,5 +1,9 @@
 # Moss performance
 
+## H3 with 1 to 4 model evaluations (2026-10-27 19:30, RTX 4090, Strict 228137c4)
+
+Candidates at 480x832, 73 frames, seed 2 (`C:/StrictDumps/crazy`, sheets there): turbo with 1 step is a blurry blob, with 2 steps soft and smeared (shift 5 smears more), 3 steps with `spectrum3_w1p2` (2 evaluated) blurry; base + TaoMate with 1 step is a coherent soft draft (a faint grid in the trees), with 2 steps (shift 12 or 5, or 3 steps with `spectrum3_w1p2`) close to its 3 steps; turbo with 4 steps and 8 steps with `spectrum8_w1p3` (4 evaluated) stay sharp. Hence `crazy4steps` (turbo, 4 routed steps), `crazy2steps` and `crazy1step` (TaoMate, routed). 124 frames, cold process: 10.2, 8.3 and 5.2 s per generation with the eviction (steps 3.5 + 3 x 1.8, 3.8 + 1.9 and 4.0 s). The 12 s clip through Strict H3 Sampler, warm (Readme): `fastest3steps` 33.8 s per prompt, `crazy4steps` 36.7 s with turbo's sharpness, `crazy2steps` 27.2 s, `crazy1step` 22.4 s against ComfyUI's 125.6 s.
+
 ## Strict H3 Sampler against ComfyUI's sampling, 12 s clips (2026-10-27 18:30, RTX 4090, Strict 228137c4)
 
 Text to video in a ComfyUI server with the user's flags, 480x832, 294 frames (35.4k tokens), the turbo int8 checkpoint, 8 steps; ComfyUI: RandomNoise, KSamplerSelect euler, BasicScheduler simple, BasicGuider, SamplerCustomAdvanced with its default attention. Warm prompts (only the seed changes, so ComfyUI keeps the encoded prompt and its loaded model), the same VAE Decode (9-10 s), VAE Decode Audio and Video Combine (4 s) after both:
