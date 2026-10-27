@@ -2,6 +2,7 @@
 Strict samples (and decodes Moss images)."""
 import argparse
 import hashlib
+import io
 import json
 import math
 import os
@@ -560,6 +561,23 @@ def h3_latents(numbers, video, audio):
 	return numbers[:size].reshape(1, *video[1:]), numbers[size:].reshape(1, *audio[1:])
 
 
+def h3_preview(numbers, video, decoder):
+	"""An animated WebP of every other frame of the denoised video H3Video.exe writes for a step (numbers, video the
+	ComfyUI latent shape), decoder turning one latent frame into an image, at most 512 pixels, playing in real time."""
+	import torch
+	from PIL import Image
+	frames = []
+	for latent in numbers.reshape(video[1:])[:, ::2].movedim(1, 0):
+		image = decoder(latent[None]).float()
+		image = torch.nn.functional.interpolate(image, scale_factor=min(1, 512 / max(image.shape[-2:])), mode='bilinear',
+			antialias=True)
+		frames.append(Image.fromarray(image[0].clamp(0, 1).mul(255).byte().movedim(0, -1).cpu().numpy()))
+	buffer = io.BytesIO()
+	frames[0].save(buffer, 'WEBP', save_all=True, append_images=frames[1:], duration=round(2 * 17 / 5 / 24 * 1000), loop=0,
+		quality=80, method=0)
+	return buffer.getvalue()
+
+
 def h3_rows(latents, seed):
 	"""ComfyUI's conditioning rows of H3 keyframe latents: 2x2 patches, 0.999 latent and 0.001 noise, the seeded noise
 	restarting for every keyframe."""
@@ -613,8 +631,8 @@ def started(args, command):
 
 
 def collected(args, worker, vae, plan, folder, stepped=None):
-	"""The outputs of plan from the backend's output lines, as soon as each generation is done, stepped called after
-	each step."""
+	"""The outputs of plan from the backend's output lines, as soon as each generation is done, stepped called with
+	the line of each step."""
 	mode = spectrum_config(args)[0]
 	completed = 0
 	for line in worker.stdout:
@@ -622,7 +640,7 @@ def collected(args, worker, vae, plan, folder, stepped=None):
 			line = 'step ' + line[len('evaluation '):]
 		print(line, end='', flush=True)
 		if stepped and line.startswith('step '):
-			stepped()
+			stepped(line)
 		match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
 		if match:
 			index = int(match[1])

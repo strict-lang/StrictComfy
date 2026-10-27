@@ -1,5 +1,6 @@
 """ComfyUI nodes: Moss images (MossGenerate.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
 conditioning and latent (Moss also its model and LoRAs), decoded by ComfyUI."""
+import base64
 from contextlib import closing
 from pathlib import Path
 import tempfile
@@ -7,11 +8,15 @@ import torch
 from safetensors.torch import load, save_file
 import comfy.model_management
 import comfy.nested_tensor
+from comfy.taesd.taesd import Block, Clamp, conv
 import comfy.utils
 import folder_paths
+from server import PromptServer
 from . import generate
 
 RESIDENT, RESIDENT_H3 = generate.Resident(), generate.Resident()
+TINY = {}
+WEB_DIRECTORY = './web'
 
 
 def checkpoint(model):
@@ -20,6 +25,34 @@ def checkpoint(model):
 	if init is None or init[0].__name__ != 'load_diffusion_model':
 		raise ValueError('Load the model with Load Diffusion Model (UNETLoader)')
 	return Path(init[1][0])
+
+
+def tiny_decoder():
+	"""models/vae_approx/taeh3.safetensors on the GPU, a TAESD decoder of single frames: its keys are positional modules,
+	the gaps are the input Clamp, the ReLU after the first conv and upsamples. None without the file."""
+	path = folder_paths.get_full_path('vae_approx', 'taeh3.safetensors')
+	if path and path not in TINY:
+		weights = comfy.utils.load_torch_file(path, safe_load=True)
+		layers = []
+		for index in range(1 + max(int(key.split('.')[0]) for key in weights)):
+			block, plain = weights.get(f'{index}.conv.0.weight'), weights.get(f'{index}.weight')
+			layers.append(Block(block.shape[1], block.shape[0]) if block is not None else
+				conv(plain.shape[1], plain.shape[0], bias=f'{index}.bias' in weights) if plain is not None else
+				Clamp() if index == 0 else torch.nn.ReLU() if index == 2 else torch.nn.Upsample(scale_factor=2))
+		decoder = torch.nn.Sequential(*layers)
+		decoder.load_state_dict(weights)
+		TINY[path] = decoder.eval().to(comfy.model_management.get_torch_device(), torch.float16)
+	return TINY.get(path)
+
+
+def previewed(decoder, path, video, node):
+	"""Shows the denoised video H3Video.exe wrote for a step on the node (web/h3_preview.js)."""
+	with torch.inference_mode():
+		image = generate.h3_preview(load(path.read_bytes())['video'], video,
+			lambda latent: decoder(latent.to(decoder[1].weight.device, torch.float16)))
+	PromptServer.instance.send_sync('strict_h3_preview', {'node': node, 'image': base64.b64encode(image).decode()},
+		PromptServer.instance.client_id)
+	comfy.model_management.soft_empty_cache()
 
 
 class StrictMossSampler:
@@ -93,7 +126,8 @@ class StrictH3Sampler:
 				'times for 124 frames on a 4090: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.QUALITIES.items())}),
 			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True})},
 			'optional': {'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
-				'of the model of the quality, the LoRAs of the quality still apply'})}}
+				'of the model of the quality, the LoRAs of the quality still apply'})},
+			'hidden': {'unique_id': 'UNIQUE_ID'}}
 	RETURN_TYPES = ('LATENT',)
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
@@ -101,7 +135,7 @@ class StrictH3Sampler:
 		'the latent with VAE Decode and VAE Decode Audio. The Strict process keeps the model loaded for the next run with '
 		'the same quality and model.')
 
-	def sample(self, positive, latent, quality, seed, model=None):
+	def sample(self, positive, latent, quality, seed, model=None, unique_id=None):
 		samples = latent['samples']
 		if not getattr(samples, 'is_nested', False) or len(samples.tensors) != 2:
 			raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video)')
@@ -118,16 +152,20 @@ class StrictH3Sampler:
 		loaded = generate.cached_merge(args, chosen, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
+		decoder = tiny_decoder()
 		progress = comfy.utils.ProgressBar(video[0] * args.steps)
-		def stepped():
+		def stepped(line):
 			progress.update(1)
+			preview = folder / f'generation-{len(pairs)}-step{line.split()[1]}.safetensors'
+			if decoder and preview.exists():
+				previewed(decoder, preview, video, unique_id)
 			comfy.model_management.throw_exception_if_processing_interrupted()
 		pairs = []
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 			folder = Path(temporary)
 			context = folder / 'context.safetensors'
-			save_file({name: value.detach().cpu().float().contiguous() for name, value in generate.h3_condition(positive).items()},
-				str(context))
+			condition = {name: value.detach().cpu().float().contiguous() for name, value in generate.h3_condition(positive).items()}
+			save_file(condition | ({'preview': torch.ones(1)} if decoder else {}), str(context))
 			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(video[0])]
 			with closing(RESIDENT_H3.generated(args, loaded, '', [context] * video[0], plan, folder, stepped=stepped)) as outputs:
 				for index, path, milliseconds in outputs:

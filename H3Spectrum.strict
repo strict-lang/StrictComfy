@@ -12,6 +12,7 @@ constant Audio = H3.Model.Values("audio")
 constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 0)
 constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 1)
 constant First = H3Spectrum.Started.anchors.First
+constant Stepping = H3Spectrum(8, SpectralFit.Line, output = (2, 4))
 IsActual(step Number) Boolean
 	Tiny.IsActual(0)
 	Tiny.IsActual(1)
@@ -43,6 +44,15 @@ Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layou
 		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
 	let actual = h3.Output(latent, sound, sigma, text, layout, conditions)
 	H3Spectrum(Remembers(step) then Remembered(Coord(sigma, layout), actual) else value, output = actual)
+Stepped(video Numbers, sigmas Numbers, step Number, job Safetensors) Numbers
+	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is 2
+	Stepping.Stepped((1, 2), Euler(8, 5).Sigmas, 6, Safetensors("h3preview.safetensors"))(1).IsNearlyEqual(2 - 5 / 24 * 4)
+	Safetensors("h3preview-step6.safetensors").Values("video")(1).IsNearlyEqual(-0.5)
+	let stepped = Euler.Stepped(video, output, sigmas, step)
+	if job.Entry("preview") is not ""
+		let path = job.path.Replace(".safetensors", "-step" + step + ".safetensors")
+		Safetensors(path).Written("video", Euler.Stepped(stepped, output, (sigmas(step + 1), 0), 0))
+	stepped
 Remembered(coord Number, anchor Numbers) H3Spectrum
 	Started.Remembered(0.8, First).anchors.Length is 2
 	Started.Remembered(0.8, First).Remembered(0.9, First).coords is (0.8, 0.9)

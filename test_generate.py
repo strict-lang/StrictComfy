@@ -568,6 +568,14 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual((tuple(latent_video.shape), tuple(latent_audio.shape)), (video, audio))
 		self.assertEqual(latent_audio.flatten()[0].item(), 24 * 37 * 52 * 30)
 
+	def test_h3_preview_is_every_other_frame_at_512_pixels(self):
+		import torch
+		from PIL import Image
+		module = self.module()
+		decoder = lambda latent: torch.nn.functional.interpolate(latent[:, :3], scale_factor=256)
+		preview = Image.open(io.BytesIO(module.h3_preview(torch.rand(24 * 5 * 4 * 2), (1, 24, 5, 4, 2), decoder)))
+		self.assertEqual((preview.n_frames, preview.size), (3, (256, 512)))
+
 	def test_h3_noise_follows_comfyui_order(self):
 		import torch
 		module = self.module()

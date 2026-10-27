@@ -106,7 +106,7 @@ Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numb
 	for spectrum.steps
 		let before = Process.Elapsed
 		state = state.Advanced(h3, video, audio, sigmas(index), text, layout, conditions, index)
-		video = Euler.Stepped(video, state.output, sigmas, index)
+		video = state.Stepped(video, sigmas, index, steps)
 		audio = Euler.Stepped(audio, state.output, layout.AudioSigmas(sigmas), index, video.Length)
 		logger.Log(Progress(steps, index, state, video, audio, before))
 	video + audio
