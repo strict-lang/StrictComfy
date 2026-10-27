@@ -663,8 +663,8 @@ class GenerationCommandTests(unittest.TestCase):
 			folder = Path(temporary)
 			args = module.arguments(['--comfyui', str(folder)], 'h3')
 			paths = [folder / f'strict-{index}-latent.safetensors' for index in range(2)]
-			events = []
-			sampled = threading.Event()
+			events, finished = [], []
+			sampled, written = threading.Event(), threading.Event()
 			def printed():
 				sampled.wait(2)
 				events.append('printed')
@@ -673,21 +673,55 @@ class GenerationCommandTests(unittest.TestCase):
 			process.stdout = printed()
 			process.wait.return_value = 0
 			process.poll.return_value = None
-			process.stdin.write.side_effect = lambda text: events.append(json.loads(text))
+			process.stdin.write.side_effect = lambda text: events.append(json.loads(text)) or written.set()
 			def latents():
 				events.append('sampling')
 				sampled.set()
 				yield from [(index, path, 20 + index) for index, path in enumerate(paths)]
+				finished.append(written.wait(2))
 			def launch(command, **kwargs):
 				events.append('worker')
 				return process
 			with patch.object(module.subprocess, 'Popen', side_effect=launch), redirect_stdout(io.StringIO()):
-				videos = module.decoded(args, latents(), folder)
+				videos = module.decoded(args, latents(), folder, len(paths))
 			self.assertEqual(events[:2], ['worker', 'sampling'])
+			self.assertEqual(finished, [True])
 			jobs = next(event for event in events if isinstance(event, list))
 			self.assertEqual([job['latent'] for job in jobs], [str(path) for path in paths])
 			self.assertEqual(jobs[1]['prefix'], 'strict-1-')
 			self.assertEqual(videos, [(0, folder / 'strict-0-video.mp4', 20), (1, folder / 'strict-1-video.mp4', 21)])
+
+	def test_h3_decode_worker_encodes_while_the_next_latent_decodes(self):
+		from types import ModuleType
+		from unittest.mock import MagicMock, patch
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		second, overlapped, events = threading.Event(), [], []
+		def decoded(vae, path, shapes, out, prefix):
+			events.append('decode ' + prefix)
+			second.set() if prefix == 'strict-1-' else None
+			return prefix, 0, 0
+		def encoded(frames, out, prefix):
+			overlapped.append(second.wait(2)) if prefix == 'strict-0-' else None
+			events.append('encode ' + prefix)
+		dump = ModuleType('dump')
+		dump.comfy, dump.audio_decoder, dump.decoded_latent, dump.encoded_av = MagicMock(), MagicMock(), decoded, encoded
+		audio = ModuleType('comfy_extras.nodes_audio')
+		with tempfile.TemporaryDirectory() as folder:
+			save_file({'video': torch.zeros(1), 'audio': torch.zeros(1)}, str(Path(folder) / 'generation.safetensors'))
+			jobs = [{'latent': 'x', 'generation': str(Path(folder) / 'generation.safetensors'), 'prefix': f'strict-{index}-'}
+				for index in range(2)]
+			stdin, before_jobs = MagicMock(), []
+			stdin.read.side_effect = lambda: before_jobs.extend(call.args[0] for call in imported.call_args_list) or json.dumps(jobs)
+			modules = {'dump': dump, 'comfy_extras': ModuleType('comfy_extras'), 'comfy_extras.nodes_audio': audio}
+			with patch.dict(sys.modules, modules), patch.object(sys, 'stdin', stdin), patch.object(sys, 'argv', ['generate.py']), \
+				patch.object(module.os, 'environ', {}), patch('builtins.__import__', wraps=__import__) as imported, \
+				redirect_stdout(io.StringIO()):
+				module.decoding({'comfyui': folder, 'vae': 'v', 'audio_vae': 'a', 'folder': folder})
+		self.assertEqual(overlapped, [True])
+		self.assertEqual(sorted(events), ['decode strict-0-', 'decode strict-1-', 'encode strict-0-', 'encode strict-1-'])
+		self.assertIn('comfy_extras.nodes_audio', before_jobs)
 
 	def test_h3_runtime_loras_become_one_backend_argument(self):
 		self.assertEqual(self.module().runtime_spec([(Path('a.safetensors'), 1.0), (Path('b c.safetensors'), 0.5)]),

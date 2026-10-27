@@ -3,6 +3,7 @@ Strict samples (and decodes Moss images)."""
 import argparse
 import hashlib
 import io
+import itertools
 import json
 import math
 import os
@@ -351,19 +352,27 @@ def encoded(request, output):
 
 
 def decoding(request):
-	"""Worker: imports ComfyUI ("decoder started") and loads its video and audio VAEs while the backend samples, then
-	decodes every H3 latent of the jobs on stdin into <prefix>video.mp4."""
+	"""Worker: imports ComfyUI ("decoder started", nodes_audio sets up its database in about 3 s) and loads its video and
+	audio VAEs while the backend samples, then decodes every H3 latent of the jobs on stdin into <prefix>video.mp4, each
+	video encoded while the next latent decodes."""
 	os.environ['COMFYUI'] = request['comfyui']
 	sys.argv = ['dump.py', 'h3', '--audio-vae', request['audio_vae']]
 	import dump
+	import comfy_extras.nodes_audio
 	print('decoder started', flush=True)
+	from concurrent.futures import ThreadPoolExecutor
 	from safetensors import safe_open
 	vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
 	dump.audio_decoder()
-	for job in json.loads(sys.stdin.read()):
-		with safe_open(job['generation'], framework='pt') as file:
-			shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
-		dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])
+	with ThreadPoolExecutor(1) as encoder:
+		encodes = []
+		for job in json.loads(sys.stdin.read()):
+			with safe_open(job['generation'], framework='pt') as file:
+				shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
+			frames = dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])[0]
+			encodes.append(encoder.submit(dump.encoded_av, frames, request['folder'], job['prefix']))
+		for encode in encodes:
+			encode.result()
 
 
 def framing(args):
@@ -723,9 +732,10 @@ class Resident:
 			self.worker = None
 
 
-def decoded(args, latents, folder):
-	"""Decodes the latents H3Video.exe writes in one ComfyUI worker: it imports ComfyUI and loads the VAEs (about 20 s)
-	while the backend loads and samples, and gets the jobs once the backend gave the GPU back."""
+def decoded(args, latents, folder, count):
+	"""Decodes the count latents H3Video.exe writes in one ComfyUI worker: it imports ComfyUI and loads the VAEs (about
+	20 s) while the backend loads and samples, and gets the jobs once the backend gave the GPU back with its last latent,
+	before the backend exits."""
 	request = {'comfyui': str(args.comfyui.resolve()), 'vae': str(args.vae), 'audio_vae': str(args.audio_vae), 'folder': str(folder)}
 	(folder / 'decode.json').write_text(json.dumps(request), encoding='utf-8')
 	command = [sys.executable, str(ROOT / 'generate.py'), '_decode', str(folder / 'decode.json')]
@@ -737,12 +747,15 @@ def decoded(args, latents, folder):
 	forwarding = threading.Thread(target=forwarded, daemon=True)
 	forwarding.start()
 	try:
-		latents = list(latents)
+		remaining = iter(latents)
+		latents = list(itertools.islice(remaining, count))
 		if worker.poll() is not None:
 			raise subprocess.CalledProcessError(worker.returncode, command)
 		worker.stdin.write(json.dumps([{'latent': str(path), 'generation': str(folder / f'generation-{index}.safetensors'),
 			'prefix': f'strict-{index}-'} for index, path, milliseconds in latents]))
 		worker.stdin.close()
+		if next(remaining, None) is not None:
+			raise RuntimeError('More latents than generations from the native backend')
 		code = worker.wait()
 	except BaseException:
 		worker.kill()
@@ -790,7 +803,7 @@ def main(argv=None):
 	from contextlib import closing
 	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
-			outputs = decoded(args, images, Path(temporary)) if args.family == 'h3' else images
+			outputs = decoded(args, images, Path(temporary), len(plan)) if args.family == 'h3' else images
 			for index, image, generation_ms in outputs:
 				output, handle = reserve_output(args.output.resolve())
 				try:

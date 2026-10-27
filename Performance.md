@@ -1,5 +1,22 @@
 # Moss performance
 
+## H3Video --count 5 at 480x288, 73 frames (2026-10-27 17:00, RTX 4090, Strict e645302b)
+
+`H3Video.exe --count 5 --width 480 --height 288 --length 73` (best: 8 dense turbo steps, 2970 tokens), warm caches, GPU otherwise idle:
+
+| Part | Before | Now |
+|---|---:|---:|
+| start, prompt cache | 3.3 s | 3.4 s |
+| text encoder worker for 2 new prompts (import 6 s, 15 GB load 13 s, encodes) | 31-40 s | 35 s, 0 with cached prompts |
+| H3Video load | 10.0-10.3 s | 10.3 s |
+| sampling, first video (step 0 2.9 s: weights upload, graphs) | 6.8-7.1 s | 6.8 s |
+| sampling, each further video (8 steps of 0.42-0.58 s) | 3.4-4.8 s | 3.7-3.9 s, the last 5.2 s with the eviction |
+| last latent to the first decode (H3Video exit 4.1 s, ComfyUI database setup 3 s) | 5.3-6.4 s | 0 s |
+| decode and mp4 of 5 videos | 15.3-15.6 s | 13.6 s |
+| copy to the output folder | 1.7 s | 1.75 s |
+
+Per video in the decode worker (warm, `decode_profile.py`): ComfyUI's video VAE 1.14-1.31 s, audio VAE 0.32-0.69 s, mp4 (libx264 medium) 0.59-0.85 s, the three PNGs 0.07-0.20 s; the first video adds about 4 s (staging, first kernels). The mp4 now encodes on a thread while the next latent decodes (5 warm videos 13 -> 10 s, ffmpeg threads make no difference), the worker imports `comfy_extras.nodes_audio` (ComfyUI's database setup) before the jobs come, H3Video evicts its GPU copies before its last generation line also from the command and the jobs go to the worker then, before H3Video exits. Strict's own decoders (`H3Frames.exe` on the same latent, 55.15 dB against ComfyUI's frames): video 27.8 s, audio 7.3 s against ComfyUI's 1.3 and 0.35 s; the GPU is busy 1.32 s of it (nsys), the rest is the tile blend on the CPU and 8.5 GB of uploads. The H3 video VAE has no convolutions, so `strict_device_convolutions` (Strict 62ea2b42) does not change it.
+
 ## VAE decode at ComfyUI's speed (2026-10-27 09:00, RTX 3080, Strict 62ea2b42)
 `strict_device_convolutions` loaded each stage of 32 numbers into registers, normed, swished and converted it there for every tap and every 128 outputs; at 128 registers it spilled, with one block per SM it could not hide the loads (13.7-16.9 TFLOPS), the multiplications alone ran at 57-66 TFLOPS (scratchpad harness `kb/conv.py`: the kernel from the runtime PTX on torch buffers against `torch.conv2d`). Now strict_gpu_convolution writes the normed input and the weights as bfloat16 first and the convolution copies its stages asynchronously into shared memory (cp.async, the next stage while this one multiplies on the bfloat16 tensor cores): 50-58 TFLOPS, 90x160x512 3.69 -> 1.35 ms, 180x320x512 13.2 -> 4.7 ms, 720x1280x128 14.0 -> 5.1 ms.
 

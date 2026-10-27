@@ -313,6 +313,7 @@ def h3():
 	del model, diffusion, guider
 	comfy.model_management.unload_all_models()
 	frames, decode_s, audio_s = decoded_av(vae, video, audio, out, "")
+	encoded_av(frames, out, "")
 	steps["frames"] = frames
 	saved(steps, os.path.join(out, "steps.safetensors"))
 	times = {"gpu": torch.cuda.get_device_name(), "width": options.width, "height": options.height, "length": options.length, "steps": options.steps,
@@ -333,7 +334,8 @@ def audio_decoder():
 
 def decoded_av(vae, video, audio, out, prefix):
 	"""Decodes an H3 video latent [1, 24, T, H, W] and audio latent [1, 32, 2, T] with ComfyUI's VAEs: the frames as uint8
-	(the first, middle and last also as prefix + frame-*.png), prefix + audio.wav, the seconds both decodes took."""
+	(the first, middle and last also as prefix + frame-*.png), prefix + audio.wav, the seconds both decodes took;
+	encoded_av makes the video of them."""
 	import wave
 	from PIL import Image
 	from comfy_extras.nodes_audio import vae_decode_audio
@@ -352,8 +354,12 @@ def decoded_av(vae, video, audio, out, prefix):
 		file.setframerate(sound["sample_rate"])
 		file.writeframes(waveform.tobytes())
 	audio_s = time.perf_counter() - heard
-	encoded(frames, os.path.join(out, prefix + "audio.wav"), os.path.join(out, prefix + "video.mp4"))
 	return frames, decoded - decoding, audio_s
+
+
+def encoded_av(frames, out, prefix):
+	"""prefix + video.mp4 of the frames and prefix + audio.wav of decoded_av."""
+	encoded(frames, os.path.join(out, prefix + "audio.wav"), os.path.join(out, prefix + "video.mp4"))
 
 
 def encoded(frames, audio, path):
@@ -365,7 +371,7 @@ def encoded(frames, audio, path):
 		"-r", "24", "-i", "-", "-i", audio, "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p",
 		"-c:a", "aac", "-b:a", "192k", "-shortest", path]
 	subprocess.run(command, input=frames.contiguous().numpy().tobytes(), check=True)
-	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB")
+	print("wrote", path, f"{os.path.getsize(path) / 1e6:.1f} MB", flush=True)
 
 
 def decoded_latent(vae, path, shapes, out, prefix):
@@ -393,13 +399,14 @@ def h3decode():
 		if os.path.exists(movie) and os.path.getmtime(movie) > os.path.getmtime(path):
 			continue
 		frames, decode_s, audio_s = decoded_latent(vae, path, shapes, out, prefix)
+		encoded_av(frames, out, prefix)
 		compared = ""
 		if "frames" in steps:
 			error = (frames.float() - steps["frames"].float()).pow(2).mean().item()
 			compared = f", PSNR {10 * numpy.log10(255 ** 2 / error):.2f} dB against ComfyUI's frames"
 		print(f"{prefix}: decoded in {decode_s:.1f} s, audio in {audio_s:.1f} s{compared}")
 	if "frames" in steps and not os.path.exists(os.path.join(out, "video.mp4")):
-		encoded(steps["frames"], os.path.join(out, "audio.wav"), os.path.join(out, "video.mp4"))
+		encoded_av(steps["frames"], out, "")
 
 
 class TinyWeights(dict):
