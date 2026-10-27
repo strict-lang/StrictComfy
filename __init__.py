@@ -72,21 +72,25 @@ class StrictMossSampler:
 			'latent_image': ('LATENT', {'tooltip': 'Empty Flux 2 Latent: width, height and batch size'}),
 			'vae': ('VAE',),
 			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True}),
-			'steps': ('INT', {'default': 8, 'min': 1, 'max': 200, 'tooltip': '8 with the DMD turbo LoRA and cfg 1, '
-				'without it (turbo off and no turbo LoraLoader) 25-50 steps with cfg 4'}),
+			'steps': ('INT', {'default': 8, 'min': 1, 'max': 200, 'tooltip': 'quality custom only: 8 or fewer add the DMD turbo LoRA, '
+				'use cfg 1 then, without it (turbo off and no turbo LoraLoader) 25-50 steps with cfg 4'}),
 			'cfg': ('FLOAT', {'default': 1.0, 'min': 0.0, 'max': 30.0, 'step': 0.1, 'round': 0.01,
-				'tooltip': 'Above 1 guides away from an empty (zero) prompt, every step then runs the model twice'}),
-			'spectrum': ('STRING', {'default': 'off', 'tooltip': 'off or spectrum<steps>_w<warmup>p<period>, like spectrum8_w3p3: forecasts steps'}),
+				'tooltip': 'quality custom only: above 1 guides away from an empty (zero) prompt, every step then runs the model twice'}),
+			'spectrum': ('STRING', {'default': 'off', 'tooltip': 'quality custom only: off or spectrum<steps>_w<warmup>p<period>, '
+				'like spectrum8_w3p3: forecasts steps'}),
 			'lora_mode': (['merged', 'runtime'], {'tooltip': 'merged: cached int8 merge of the LoRAs (fast), runtime: floating adapters'}),
-			'turbo': (['auto', 'off'], {'tooltip': 'auto: adds loras/moss/dmd_turbo_lora.safetensors at 8 steps unless a LoraLoader or '
-				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'})}}
+			'turbo': (['auto', 'off'], {'tooltip': 'auto: adds loras/moss/dmd_turbo_lora.safetensors at 8 steps or fewer unless a LoraLoader or '
+				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'}),
+			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum (sampling '
+				'times for 720x1280 on a 3080): ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
+				'; custom: the steps, cfg and spectrum above'})}}
 	RETURN_TYPES = ('IMAGE',)
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
 	DESCRIPTION = ('Euler sampling of Moss in Strict (StrictComfy MossGenerate.exe), the Strict process keeps the model loaded '
 		'for the next run with the same model, LoRAs and Spectrum')
 
-	def sample(self, model, positive, latent_image, vae, seed, steps, cfg, spectrum, lora_mode, turbo):
+	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo):
 		checkpointed = checkpoint(model)
 		metadata = generate.validate_model(checkpointed)
 		if len(positive) != 1:
@@ -95,8 +99,8 @@ class StrictMossSampler:
 		if channels != 128:
 			raise ValueError('latent_image must be a Flux 2 latent with 128 channels (Empty Flux 2 Latent)')
 		try:
-			args = generate.arguments(['--steps', str(steps), '--guidance', repr(cfg), '--spectrum', spectrum,
-				'--lora_mode', lora_mode, '--width', str(width * 16), '--height', str(height * 16)])
+			chosen = ['--steps', str(steps), '--guidance', repr(cfg), '--spectrum', spectrum] if quality == 'custom' else ['--quality', quality]
+			args = generate.arguments(chosen + ['--lora_mode', lora_mode, '--width', str(width * 16), '--height', str(height * 16)])
 		except SystemExit:
 			raise ValueError('Invalid StrictMossSampler settings, see the console') from None
 		args.cache.mkdir(parents=True, exist_ok=True)

@@ -37,7 +37,8 @@ Workflow, everything except the sampler is a standard ComfyUI node:
 
 What the node does: it reads the checkpoint path from the MODEL, turns the LoRA patches of the LoraLoader nodes into one adapter (cached by content in `artifacts/moss`), merges it into a cached int8 checkpoint (`merged`, first time about 15 s, then reused; the 3 most recently used merges stay in the cache, 5.4 GB each) or applies it as floating adapters (`runtime`, slower per image), unloads ComfyUI's models from the GPU and sends the run to a resident `MossGenerate.exe`, which keeps the model loaded until the model, LoRAs or Spectrum change (or ComfyUI exits), then decodes the latents with the connected VAE. Image `i` of a batch uses seed `seed + i` with the same noise as a ComfyUI sampler at batch size 1.
 
-- 8 steps need the DMD turbo LoRA and `cfg` 1: `turbo` `auto` adds `loras/moss/dmd_turbo_lora.safetensors` at 8 steps unless a LoraLoader or the checkpoint's merge metadata already has it. Use `off` for checkpoints with a turbo LoRA baked in by someone else, and 25-50 steps with `cfg` 4 without turbo (turbo at 25 or 50 steps gives broken images).
+- `quality` picks steps, `cfg` and `spectrum` like `MossImage.exe --quality` below, `custom` uses the `steps`, `cfg` and `spectrum` inputs instead (workflows saved before `quality` existed load with `best`, set `custom` to keep their steps).
+- 8 steps or fewer need the DMD turbo LoRA and `cfg` 1: `turbo` `auto` adds `loras/moss/dmd_turbo_lora.safetensors` at 8 steps or fewer unless a LoraLoader or the checkpoint's merge metadata already has it. Use `off` for checkpoints with a turbo LoRA baked in by someone else, and 25-50 steps with `cfg` 4 without turbo (turbo at 25 or 50 steps gives broken images).
 - `cfg` above 1 guides away from a zero prompt (Strict's CFG), there is no negative input; every step then runs the model twice.
 - `spectrum`: `off` or `spectrum<steps>_w<warmup>p<period>`, `spectrum8_w3p3` forecasts 3 of 8 steps.
 - Only plain LoRA up/down patches are used, other MODEL patches (LoKR, model sampling, attention patches) are rejected or ignored; the latent input only gives the size (no img2img).
@@ -53,6 +54,17 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --count 10
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.safetensors:0.5 --lora moss/cndamiph_Candid_Amateur_iPhone_MOSS_v1.safetensors:0.31 --spectrum spectrum8_w3p3
 ```
 
+`--quality <preset>` picks steps, guidance and Spectrum in one go, `--steps`, `--guidance` and `--spectrum` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w2p3`). Sampling per image at 720x1280 on the RTX 3080, warm:
+
+| `--quality` | Steps | Guidance, Spectrum | Sampling |
+|---|---:|---|---:|
+| `best` (default) | 8, DMD turbo LoRA | cfg 1 | 3.2 s |
+| `best25steps` | 25, no turbo LoRA | cfg 4 (two model runs per step) | 18 s |
+| `best50steps` | 50, no turbo LoRA | cfg 4 | 37 s |
+| `fast` | 8, turbo | `spectrum8_w3p3` (5 of 8 steps evaluated) | 2.0 s |
+| `faster` | 8, turbo | `spectrum8_w2p3` (4 of 8 evaluated) | 1.6 s |
+| `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 1.2 s |
+
 `--help` lists every option with its default (`-h` is not supported):
 
 | Option | Default |
@@ -62,12 +74,13 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.saf
 | `--count` | 1; images per loaded model, each with its own seed and prompt choices |
 | `--seed` | random; reproduces a whole batch |
 | `--width`, `--height` | 720, 1280 (multiples of 16) |
-| `--steps` | 8; 8 steps add `moss/dmd_turbo_lora.safetensors` at strength 1 unless a DMD entry is given (`:0` disables it) |
+| `--quality` | `best`, see the table above |
+| `--steps` | 8 (from `--quality`); 8 steps or fewer add `moss/dmd_turbo_lora.safetensors` at strength 1 unless a DMD entry is given (`:0` disables it) |
 | `--lora` | repeat as `path[:strength]`, relative paths resolve under ComfyUI's `models/loras` |
 | `--lora_mode` | `merged`: cached stochastic int8 merge of the whole stack (fast, approximate); `runtime`: floating adapters |
 | `--merge_only` | prepare and print the merged checkpoint, then exit; it can be passed as `--model` later (its baked LoRAs are recorded) |
-| `--spectrum` | `off`; `spectrum8_w3p3` forecasts three of eight steps (changes the result) |
-| `--guidance` | 1 (CFG scale against a zero prompt) |
+| `--spectrum` | `off` (from `--quality`); `spectrum8_w3p3` forecasts three of eight steps (changes the result) |
+| `--guidance` | 1 (from `--quality`; CFG scale against a zero prompt) |
 | `--jpg_quality` | 85 |
 | `--json_output` | off; writes a `.json` sidecar with prompt, seed, LoRAs and timings per image |
 | `--model`, `--vae`, `--te` | `moss-image-sft-dit-int8-convrot.safetensors`, `flux2-vae.safetensors`, `qwen3.5_9b_int8_convrot.safetensors` in ComfyUI's model folders |

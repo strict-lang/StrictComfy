@@ -33,7 +33,7 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertIn('--lora', result.stdout)
 		self.assertIn('--jpg_quality', result.stdout)
 		self.assertNotIn('-h,', result.stdout)
-		self.assertNotIn('--quality', result.stdout)
+		self.assertIn('--quality', result.stdout)
 
 	def test_defaults(self):
 		args = self.module().arguments(['--model', 'moss.safetensors'])
@@ -350,7 +350,7 @@ class GenerationCommandTests(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, 'int8 Convrot'):
 				module.validate_model(path)
 
-	def test_turbo_selected_only_for_eight_steps_without_duplication(self):
+	def test_turbo_selected_up_to_eight_steps_without_duplication(self):
 		module = self.module()
 		self.assertTrue(hasattr(module, 'selected_loras'), 'Automatic runtime turbo selection is missing')
 		with tempfile.TemporaryDirectory() as temporary:
@@ -359,6 +359,8 @@ class GenerationCommandTests(unittest.TestCase):
 			path.parent.mkdir(parents=True)
 			path.touch()
 			args = module.arguments(['--steps', '8'])
+			self.assertEqual(module.selected_loras(args, models), [(path.resolve(), 1)])
+			args.steps = 4
 			self.assertEqual(module.selected_loras(args, models), [(path.resolve(), 1)])
 			for steps in (25, 50):
 				args.steps = steps
@@ -538,6 +540,18 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual(module.spectrum_config(module.arguments(['--spectrum', 'spectrum8_w1p2'], 'h3')), ('on', 1, 2))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--spectrum', 'spectrum8_w1p2', '--steps', '6'], 'h3')
+
+	def test_moss_quality_presets(self):
+		module = self.module()
+		presets = {name: module.arguments(['--quality', name]) for name in ('best25steps', 'best50steps', 'fast', 'faster', 'fastest')}
+		presets['best'] = module.arguments([])
+		self.assertEqual({name: (args.quality, args.steps, args.guidance, args.spectrum) for name, args in presets.items()}, {
+			'best': ('best', 8, 1, 'off'), 'best25steps': ('best25steps', 25, 4, 'off'), 'best50steps': ('best50steps', 50, 4, 'off'),
+			'fast': ('fast', 8, 1, 'spectrum8_w3p3'), 'faster': ('faster', 8, 1, 'spectrum8_w2p3'), 'fastest': ('fastest', 4, 1, 'spectrum4_w2p2')})
+		changed = module.arguments(['--quality', 'faster', '--steps', '10', '--guidance', '2'])
+		self.assertEqual((changed.steps, changed.guidance, changed.spectrum), (10, 2, 'spectrum10_w2p3'))
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--quality', 'fastest6steps'])
 
 	def test_h3_quality_presets(self):
 		module = self.module()
