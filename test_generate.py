@@ -598,6 +598,17 @@ class GenerationCommandTests(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, 'int8 Convrot'):
 				module.validate_model(path)
 
+	def test_h3_loras_apply_at_load_without_a_merge(self):
+		import torch
+		from safetensors.torch import save_file
+		module = self.module()
+		quant = json.dumps({'convrot': True, 'convrot_groupsize': 256, 'format': 'int8_tensorwise'})
+		with tempfile.TemporaryDirectory() as folder:
+			path = Path(folder) / 'h3.safetensors'
+			save_file({'blocks.0.attn.qkv_proj.comfy_quant': torch.tensor(list(quant.encode()), dtype=torch.uint8)}, str(path))
+			args = module.arguments(['--cache', folder], 'h3')
+			self.assertEqual(module.lora_model(args, path, [(Path('a.safetensors'), 0.5)]), (path, 'a.safetensors=0.5'))
+
 	def test_h3_batch_launches_backend_once_with_distinct_inputs(self):
 		from unittest.mock import MagicMock, patch
 		import torch

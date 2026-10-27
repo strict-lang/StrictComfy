@@ -104,8 +104,7 @@ class StrictMossSampler:
 		turbos = [] if turbo == 'off' else generate.selected_loras(args, Path(folder_paths.models_dir), metadata)
 		loras = [(path, strength) for path, strength in turbos if not generate.turbo_patched(model.patches, path)]
 		loras += [(patches, 1.0)] if patches else []
-		loaded = generate.cached_merge(args, checkpointed, loras if lora_mode == 'merged' else [])
-		adapter = '' if lora_mode == 'merged' else generate.runtime_adapter(args, loaded, loras)
+		loaded, adapter = generate.lora_model(args, checkpointed, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		progress = comfy.utils.ProgressBar(batch)
@@ -156,7 +155,7 @@ class StrictH3Sampler:
 		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', preset))
 		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
 		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
-		loaded = generate.cached_merge(args, chosen, loras)
+		loaded, adapter = generate.lora_model(args, chosen, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		decoder = tiny_decoder()
@@ -176,7 +175,7 @@ class StrictH3Sampler:
 			condition = {name: value.detach().cpu().float().contiguous() for name, value in generate.h3_condition(positive).items()}
 			save_file(condition | ({'preview': torch.ones(1)} if decoder else {}), str(context))
 			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(video[0])]
-			with closing(RESIDENT_H3.generated(args, loaded, '', [context] * video[0], plan, folder, stepped=stepped)) as outputs:
+			with closing(RESIDENT_H3.generated(args, loaded, '', [context] * video[0], plan, folder, adapter, stepped)) as outputs:
 				for index, path, milliseconds in outputs:
 					pairs.append(generate.h3_latents(load(path.read_bytes())['latent'], video, audio))
 		joined = [torch.cat([pair[stream] for pair in pairs]) for stream in (0, 1)]
