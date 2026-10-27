@@ -1,5 +1,21 @@
 # Moss performance
 
+## MossImage --quality presets and the VAE decode (2026-10-27 06:00, RTX 3080, Strict 7363de6b)
+Warm per image of a resident batch (`MossImage.exe --quality <preset> --count n`), GPU and CPU otherwise idle, normal clocks unless noted:
+
+| Size, preset | Sampling | Decode | Save (JPEG 85) |
+|---|---:|---:|---:|
+| 720x1280 `best` (8 turbo steps) | 3.18 s | 0.43-0.47 s | 17-20 ms |
+| 720x1280 `fast` (`spectrum8_w3p3`) | 2.01 s | | |
+| 720x1280 `faster` (`spectrum8_w2p3`) | 1.63 s | | |
+| 720x1280 `fastest` (4 steps, `spectrum4_w2p2`) | 1.10 s, 1.08 s overclocked | 0.45-0.46 s | 15-20 ms |
+| 720x1280 `best25steps` / `best50steps` (cfg 4) | 18.3 / 37.2 s | | |
+| 480p `fastest` | 0.46 s | 0.22-0.25 s | 5-11 ms |
+
+The first decode of a process takes 0.74-0.76 s (0.51 s at 480p), the first sampling of a new build 70 s (the driver compiles the PTX into `artifacts/moss/cuda` once). StarCraft in the background (10-15 % GPU, 1 GB) made everything 17-25 % slower.
+
+The decode is GPU bound without gaps (nsys with `--cuda-graph-trace=node`, Strict launches its kernels in CUDA graphs, `scratchpad/decode5.sqlite`): per 720x1280 image 450 ms, 368 ms of it the 33 calls of `strict_device_convolutions`, 44 ms `strict_device_product_tiless` (the mid block attention), 21 ms FeatureMap partials (GroupNorm), the rest Softmax and adds. The 33 convolutions are 8.6 TFLOP (2 x 9 x in x out x pixels, 4 taps for the upsampling ones) and every one of them runs at 19-24 TFLOPS whatever its size (90x160x512 3.6 ms, 180x320x512 13 ms, 720x1280x128 13.4 ms), 35 % of the 59.5 TFLOPS of fp16 tensor cores with 32 bit sums. ComfyUI decodes the same image in 0.27 s. The kernel (`Compiler/NativeRuntimeConvolution.mlir`) is a 128 pixel x 128 output tile over stages of 32 channels of one tap, the next stage fetched into registers while the current one multiplies, one barrier per stage; every input number is loaded, normed and swished again for each of the 9 taps and each 128 outputs (36 times at 512 channels), the upsampling convolutions without norm and swish are only slightly faster (22-24 TFLOPS), so the short stages and the single prefetch are the limit, not the swish. Next: deeper stages (64 channels, asynchronous copies 3-4 stages ahead like CUTLASS) shared with `strict_device_product_tiles`, the normed input tile with its halo kept in shared memory for all 9 taps.
+
 ## H3 attention with 8 bit values, Sol-Attn's shape (2026-10-26 23:00, RTX 4090, Strict 2feba9ed)
 
 `strict_device_bytes_attention` replaces the routed and the 8 bit key path for H3: values quantized like the keys (8 bits, a scale per position), shares times value scales as 8 bits per row, both products on the 8 bit tensor cores, a block of 128 threads per 64 tokens (each query block routes with its own plan, before two shared the union of theirs), two tiles of 32 positions per step by cp.async, sums in 32 bits from the bits of 1.5 * 2^23 so no conversions. The 10 s fox clip like below:
