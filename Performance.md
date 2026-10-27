@@ -1,5 +1,19 @@
 # Moss performance
 
+## Strict H3 Sampler against ComfyUI's sampling, 12 s clips (2026-10-27 18:30, RTX 4090, Strict 228137c4)
+
+Text to video in a ComfyUI server with the user's flags, 480x832, 294 frames (35.4k tokens), the turbo int8 checkpoint, 8 steps; ComfyUI: RandomNoise, KSamplerSelect euler, BasicScheduler simple, BasicGuider, SamplerCustomAdvanced with its default attention. Warm prompts (only the seed changes, so ComfyUI keeps the encoded prompt and its loaded model), the same VAE Decode (9-10 s), VAE Decode Audio and Video Combine (4 s) after both:
+
+| Sampler | Per step | Sampler node | Whole prompt | Faster |
+|---|---:|---:|---:|---:|
+| ComfyUI SamplerCustomAdvanced | 13.60-13.67 s | 110.8 s | 125.6 s | 1x |
+| Strict `best` (dense, the same video) | 10.0-10.15 s | 84.0 s | 97.4 s | 1.29x |
+| Strict `fast` (routed) | 5.14-5.29 s | 44.8 s | 58.9 s | 2.13x |
+| Strict `faster` (`spectrum8_w1p2`, 3 of 8 steps forecast) | 5.1-5.2 s, forecasts 0.1-0.25 s | 28.6 s | 42.2 s | 2.98x |
+| Strict `fastest6steps` | 5.1-5.2 s, forecasts 0.2 s | 18.2 s | 32.8 s | 3.83x |
+
+Cold prompts (the text encoder and the model loaded first): ComfyUI 157.8 s, `fast` 126.6 s. The node adds 1.6-2.2 s to H3Video's generation (the VAEs unloaded, the job written, the weights evicted after the run uploaded again in step 0). A routed step alone (nsys, 92 % busy) per block: int8 GEMMs 44.6 ms (about 516 TOPS, 78 % of the 4090's dense int8), attention 22.6 ms, elementwise 13.9 ms, Hadamard and quantize 9.3 ms, and 15 GB of weights streamed per step behind the compute. The preview decodes 44 frames in 0.39-0.43 s of GPU with taeh3 in channels last (0.49-0.51 s before) on its own thread, a preview that comes while the last still decodes is dropped, so forecast steps no longer wait for it (`faster` 30.3 -> 28.6 s, `fastest6steps` 19.6 -> 18.2 s).
+
 ## H3Video --count 5 at 480x288, 73 frames (2026-10-27 17:00, RTX 4090, Strict e645302b)
 
 `H3Video.exe --count 5 --width 480 --height 288 --length 73` (best: 8 dense turbo steps, 2970 tokens), warm caches, GPU otherwise idle:

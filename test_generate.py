@@ -590,6 +590,19 @@ class GenerationCommandTests(unittest.TestCase):
 		preview = Image.open(io.BytesIO(module.h3_preview(torch.rand(24 * 5 * 4 * 2), (1, 24, 5, 4, 2), decoder)))
 		self.assertEqual((preview.n_frames, preview.size), (3, (256, 512)))
 
+	def test_skipping_drops_work_while_the_last_still_runs(self):
+		from concurrent.futures import ThreadPoolExecutor
+		module = self.module()
+		released, ran = threading.Event(), []
+		with ThreadPoolExecutor(1) as executor:
+			submit = module.skipping(executor)
+			submit(lambda: released.wait(2) and ran.append(1))
+			submit(ran.append, 2)
+			released.set()
+			executor.submit(lambda: None).result()
+			submit(ran.append, 3)
+		self.assertEqual(ran, [1, 3])
+
 	def test_h3_noise_follows_comfyui_order(self):
 		import torch
 		module = self.module()

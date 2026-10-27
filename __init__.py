@@ -1,6 +1,7 @@
 """ComfyUI nodes: Moss images (MossGenerate.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
 conditioning and latent (Moss also its model and LoRAs), decoded by ComfyUI."""
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 import tempfile
@@ -15,7 +16,7 @@ from server import PromptServer
 from . import generate
 
 RESIDENT, RESIDENT_H3 = generate.Resident(), generate.Resident()
-TINY = {}
+TINY, PREVIEWS = {}, ThreadPoolExecutor(1)
 WEB_DIRECTORY = './web'
 
 
@@ -41,7 +42,7 @@ def tiny_decoder():
 				Clamp() if index == 0 else torch.nn.ReLU() if index == 2 else torch.nn.Upsample(scale_factor=2))
 		decoder = torch.nn.Sequential(*layers)
 		decoder.load_state_dict(weights)
-		TINY[path] = decoder.eval().to(comfy.model_management.get_torch_device(), torch.float16)
+		TINY[path] = decoder.eval().to(comfy.model_management.get_torch_device(), torch.float16).to(memory_format=torch.channels_last)
 	return TINY.get(path)
 
 
@@ -52,12 +53,12 @@ def shrunk(decoder, latent):
 	latent = torch.nn.functional.interpolate(latent.to(decoder[1].weight.device).float(),
 		size=[round(side * scale) for side in latent.shape[-2:]], mode='bilinear', antialias=True)
 	with torch.inference_mode():
-		return decoder(latent.half())
+		return decoder(latent.half().contiguous(memory_format=torch.channels_last))
 
 
-def previewed(decoder, path, video, node):
+def previewed(decoder, numbers, video, node):
 	"""Shows the denoised video H3Video.exe wrote for a step on the node (web/h3_preview.js)."""
-	image = generate.h3_preview(load(path.read_bytes())['video'], video, lambda latent: shrunk(decoder, latent))
+	image = generate.h3_preview(numbers, video, lambda latent: shrunk(decoder, latent))
 	PromptServer.instance.send_sync('strict_h3_preview', {'node': node, 'image': base64.b64encode(image).decode()},
 		PromptServer.instance.client_id)
 
@@ -165,12 +166,12 @@ class StrictH3Sampler:
 		decoder = tiny_decoder()
 		if decoder:
 			shrunk(decoder, torch.zeros(1, *video[1:2], *video[3:]))
-		progress = comfy.utils.ProgressBar(video[0] * args.steps)
+		progress, preview = comfy.utils.ProgressBar(video[0] * args.steps), generate.skipping(PREVIEWS)
 		def stepped(line):
 			progress.update(1)
-			preview = folder / f'generation-{len(pairs)}-step{line.split()[1]}.safetensors'
-			if decoder and preview.exists():
-				previewed(decoder, preview, video, unique_id)
+			path = folder / f'generation-{len(pairs)}-step{line.split()[1]}.safetensors'
+			if decoder and path.exists():
+				preview(previewed, decoder, load(path.read_bytes())['video'], video, unique_id)
 			comfy.model_management.throw_exception_if_processing_interrupted()
 		pairs = []
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:

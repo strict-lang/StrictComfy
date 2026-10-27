@@ -590,6 +590,16 @@ def h3_latents(numbers, video, audio):
 	return numbers[:size].reshape(1, *video[1:]), numbers[size:].reshape(1, *audio[1:])
 
 
+def skipping(executor):
+	"""A submit to executor that drops work while the last submitted still runs (previews of forecast steps that come
+	faster than they decode)."""
+	running = [None]
+	def submit(function, *arguments):
+		if running[0] is None or running[0].done():
+			running[0] = executor.submit(function, *arguments)
+	return submit
+
+
 def h3_preview(numbers, video, decoder):
 	"""An animated WebP of every other frame of the denoised video H3Video.exe writes for a step (numbers, video the
 	ComfyUI latent shape), decoder turning one latent frame into an image, at most 512 pixels, playing in real time."""
