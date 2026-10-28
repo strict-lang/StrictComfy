@@ -47,3 +47,15 @@ Extent(starts Numbers, at Number, size Number) Number
 	Tiny.Extent((0, 16), 1, 2) is 1
 	Tiny.Extent((0, 16), 0, 2) is 0
 	at > 0 then (starts(at - 1) + size * 16 - starts(at)) / 16 else 0
+Frame(path Text, size Numbers) Slow(Numbers)
+	Tiny.Frame("tinyframe.png", (2, 4)).Length is 24
+	Tiny.Frame("tinyframe.png", (2, 4))(23).IsNearlyEqual(45 / 255)
+	Tiny.Frame("tinyframe.png", (4, 4)) is Error
+	let image = ImageLoader(path).Loaded
+	if (image.Size.Width is not size(1)) or (image.Size.Height is not size(0))
+		return Error("ImageMustHaveTheVideoSize: " + path)
+	let pixels = size(0) * size(1)
+	for 3 * pixels
+		let color = image.Colors(index % pixels)
+		let channel = (index / pixels).Floor
+		channel is 0 then color.Red else channel is 1 then color.Green else color.Blue

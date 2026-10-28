@@ -69,8 +69,9 @@ Steps(dumps Text, condition Safetensors) Slow(Safetensors)
 Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Slow(Numbers)
 	Tiny.Generated(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
 	let shaped = Layout(job.VideoShape, job.AudioShape, condition)
-	let layout = H3Layout(shaped, shift = numbers(1), routing = numbers(5))
-	let rows = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
+	let keyframes = job.Keyframes(shaped.keyframes)
+	let layout = H3Layout(shaped, keyframes = keyframes, shift = numbers(1), routing = numbers(5))
+	let rows = job.Rows(condition)
 	if File(dumps + "/step0.safetensors").Exists
 		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
 	let count = numbers(0) is 0 then job.Count else numbers(0)

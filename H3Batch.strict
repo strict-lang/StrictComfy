@@ -1,5 +1,6 @@
 has logger
 has options H3Options
+has pictured List(Numbers) = List(Numbers)
 constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 Run Number
@@ -12,7 +13,7 @@ Run Number
 	let seeds = batch.Seeds(options.seed, options.count)
 	let prompts = batch.Prompts(Text.Combine(File(options.prompt).ReadLines, "\n").Trim, seeds)
 	let unique = prompts.Unique
-	let made = Videos(seeds, prompts, unique, Conditions(unique))
+	let made = H3Batch(logger, options, Pictured).Videos(seeds, prompts, unique, Conditions(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " videos")
 	made
 Conditions(prompts Texts) Slow(List(Safetensors))
@@ -39,9 +40,10 @@ Missing(paths Texts) Boolean
 			return true
 	false
 Encoded(prompts Texts, paths Texts) Slow(Number)
+	let encoder = H3Encoder(logger, options.files)
 	Directory.Create(Root + "/artifacts")
 	Directory.Create(Folder)
-	H3Encoder(logger, options.files).Encoded(prompts, paths)
+	encoder.Encoded(prompts, paths)
 Videos(seeds Numbers, prompts Texts, unique Texts, conditions List(Safetensors)) Slow(Number)
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let texts = H3Refiner.Loaded(options.Checkpoint, options.Loras).Texts(conditions)
@@ -62,7 +64,8 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number) Slow(Numbers)
 	let audio = noise.Slice(count, noise.Length - count)
 	let shape = (24, shapes(0), shapes(1), shapes(2))
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
-	H3Video(logger).Generated(h3, condition, job, text, options.Numbers, "")
+	let keyed = H3Job(job, rows = job.Keyed(pictured, (24, 1, shapes(1), shapes(2)), seed), keyframes = Indices)
+	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Reserved(count Number) Slow(Texts)
 	for count
 		let path = PromptBatch(logger, "Video").Reserved(options.output)
@@ -95,3 +98,19 @@ Folder Text
 Root Text
 	Sample.Root.Length > 0
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+Indices Numbers
+	Sample.Indices.Length is 0
+	H3Batch(Logger, H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
+	let last = (options.Shapes(0) - 2) / 5 * 17 + 4
+	let first = options.files.image is "" then List(Number) else List(Number) + 0
+	options.files.lastImage is "" then first else first + last
+Pictured Slow(List(Numbers))
+	Sample.Pictured.Length is 0
+	let images = options.files.Images
+	if images.Length is 0
+		return List(Numbers)
+	let size = (options.height, options.width)
+	logger.Log("Encoding " + images.Length + " keyframe images")
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.Decoder, 32)), H3Tiles.Real)
+	for images
+		picture.Encoded(picture.Frame(value, size), size)

@@ -3,8 +3,13 @@ has video Numbers = List(Number)
 has audio Numbers = List(Number)
 has shape Numbers = List(Number)
 has seed = -1
+has rows Numbers = List(Number)
+has keyframes Numbers = List(Number)
 constant Reference = H3Job(Safetensors("tinyh3.safetensors", 32, "reference."))
 constant Noisy = H3Job(Safetensors(""), Layer.Zeros(32), Layer.Zeros(64), (2, 4, 2, 2), 3)
+constant Keyframe = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
+constant Twice = (Keyframe.Values("keyframe"), Keyframe.Values("keyframe"))
+constant Patches = Reference.Patched(Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
 Video Numbers
 	Reference.Video.Length is 768
 	Noisy.Video.Length is 32
@@ -50,3 +55,33 @@ Preview(step Number) Text
 	if video.Length > 0
 		return ""
 	file.Entry("preview") is "" then "" else file.path.Replace(".safetensors", "-step" + step + ".safetensors")
+Patched(latent Numbers, size Numbers, noise Numbers) Numbers
+	Reference.Patched((0, 1, 2, 3, 4, 5, 6, 7), (1, 1, 2, 4), Layer.Zeros(8))(4).IsNearlyEqual(1.998)
+	Patches(0).IsNearlyEqual(Keyframe.Values("rows")(0), 0.0001)
+	Patches(383).IsNearlyEqual(Keyframe.Values("rows")(383), 0.0001)
+	let columns = 4 * size(0)
+	let half = size(3) / 2
+	for latent.Length
+		let row = (index / columns).Floor
+		let column = index % columns
+		let y = 2 * ((row / half).Floor % (size(2) / 2)) + (column % 4 / 2).Floor
+		let x = 2 * (row % half) + column % 2
+		let plane = ((column / 4).Floor * size(1) + (row / (size(2) / 2 * half)).Floor) * size(2)
+		0.999 * latent((plane + y) * size(3) + x) + 0.001 * noise(index)
+Rows(condition Safetensors) Numbers
+	H3Job(Noisy, rows = (1, 2)).Rows(Keyframe) is (1, 2)
+	Noisy.Rows(Keyframe).Length is 384
+	if rows.Length > 0
+		return rows
+	condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
+Keyframes(given Numbers) Numbers
+	H3Job(Noisy, keyframes = (0, 123)).Keyframes(List(Number) + 5) is (0, 123)
+	Noisy.Keyframes(List(Number) + 5) is (5)
+	keyframes.Length > 0 then keyframes else given
+Keyed(latents List(Numbers), size Numbers, base Number) Slow(Numbers)
+	Reference.Keyed(List(Numbers) + Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), 0)(5) is Patches(5)
+	Reference.Keyed(Twice, Keyframe.Shape("keyframe"), 0)(389) is Patches(5)
+	mutable joined = List(Number)
+	for latents
+		joined = joined + Patched(value, size, MersenneTwister.Seeded(base).Normals(value.Length))
+	joined
