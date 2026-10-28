@@ -50,9 +50,8 @@ Chosen(text Text, draw Number) Text
 	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
-	let tokens = Gpt2Tokens.Folder(options.Folder + "/../comfy/text_encoders/qwen35_tokenizer")
-	let path = options.Located("qwen3.5_9b_int8_convrot.safetensors", "text_encoders")
-	let file = Safetensors(path, 32, "model.language_model.")
+	let tokens = Gpt2Tokens.Folder(options.files.Tokenizer)
+	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	let encoder = QwenSafetensors(file, 64).Loaded(10000000)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	for prompts
@@ -61,8 +60,8 @@ Contexts(prompts Texts) Slow(List(Numbers))
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
 Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
 	let before = Process.Elapsed
-	let moss = Moss.Loaded(options.Checkpoint, options.Loras)
-	let decoder = FluxDecoder.Loaded(options.Located("flux2-vae.safetensors", "vae"), 32)
+	let moss = Moss.Loaded(options.files.Checkpoint, options.Loras)
+	let decoder = FluxDecoder.Loaded(options.files.Decoder, 32)
 	logger.Log("Moss and VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	let sampling = options.Sampling(logger)
 	for seeds
@@ -93,7 +92,7 @@ Described(seed Number, prompt Text) Text
 	let sampling = options.Sampling(Logger)
 	let settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
 	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
-	described + ", \"model\": " + options.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
+	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
 Reserved(base Text) Text
 	Sample.Reserved("MossBatchTest.jpg") is "MossBatchTest0001.jpg"
 	Sample.Reserved("artifacts/MossBatchTest.png") is "artifacts/MossBatchTest0001.png"

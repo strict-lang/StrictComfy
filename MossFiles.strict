@@ -1,0 +1,38 @@
+has model = ""
+has vae = ""
+has textEncoder = ""
+has models = ""
+constant Help = ("Moss int8 Convrot model file, a name in models/diffusion_models or a path, empty for moss-image-sft-dit-int8-convrot.safetensors", "Flux 2 VAE file, a name in models/vae or a path, empty for flux2-vae.safetensors", "Qwen3.5 9B text encoder file, a name in models/text_encoders or a path, empty for qwen3.5_9b_int8_convrot.safetensors; its tokenizer folder qwen35_tokenizer is used from next to it, else from ComfyUI", "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
+constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
+Folder Text
+	Local.Folder is "."
+	if models is not ""
+		return models
+	for ("D:/ComfyUI_windows_portable/ComfyUI/models", "C:/ComfyUI_windows_portable/ComfyUI/models")
+		if Directory.Exists(value)
+			return value
+	Error("ModelsFolderNotFound")
+Located(name Text, folder Text) Text
+	Local.Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
+	Local.Located("x.y", "loras") is Error("FileNotFound:x.y")
+	if File(name).Exists
+		return name
+	let inside = Folder + "/" + folder + "/" + name
+	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
+Checkpoint Text
+	Local.Checkpoint is "tinymoss.safetensors"
+	Located(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")
+Decoder Text
+	Local.Decoder is "tinyvae.safetensors"
+	Located(vae is "" then "flux2-vae.safetensors" else vae, "vae")
+Encoder Text
+	Local.Encoder is Error("FileNotFound:qwen3.5_9b_int8_convrot.safetensors")
+	Located(textEncoder is "" then "qwen3.5_9b_int8_convrot.safetensors" else textEncoder, "text_encoders")
+Tokenizer Text
+	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Tokenizer is Error("TokenizerNotFound")
+	let beside = Path(Encoder).PathOnly.text
+	let next = (beside is "" then "." else beside) + "/qwen35_tokenizer"
+	if Directory.Exists(next)
+		return next
+	let installed = Folder + "/../comfy/text_encoders/qwen35_tokenizer"
+	Directory.Exists(installed) then installed else Error("TokenizerNotFound")

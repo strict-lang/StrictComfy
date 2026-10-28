@@ -1,7 +1,9 @@
+has files MossFiles
 has prompt = "prompt.txt"
 has quality = MossQuality.Best
 has steps = 0
 has guidance = 0
+has spectrum = ""
 has skip = "off"
 has lora Texts = List(Text)
 has count = 1
@@ -10,24 +12,35 @@ has width = 720
 has height = 1280
 has output = "MossImage.jpg"
 has JsonOutput = false
-has model = ""
-has models = ""
-constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA, 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own seed and prompt choices", "seed of the first image, the others follow from it, -1 for a random one", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten", "write the settings of every image next to it as .json", "Moss int8 Convrot model in models/diffusion_models or anywhere", "ComfyUI models folder, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
+constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA, 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own seed and prompt choices", "seed of the first image, the others follow from it, -1 for a random one", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten", "write the settings of every image next to it as .json")
 Sampling(logger Logger) MossSampling
 	MossOptions.Parsed(List(Text)).Sampling(Logger).steps is 8
 	MossOptions.Parsed(List(Text)).Sampling(Logger).mode is "off"
 	MossOptions.Parsed(("--quality", "fastest", "--width", "480")).Sampling(Logger).width is 30
 	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger).period is 3
 	MossOptions.Parsed(("--steps", "6", "--guidance", "3")).Sampling(Logger).guidance is 3
+	MossOptions.Parsed(("--spectrum", "spectrum8_w3p4")).Sampling(Logger).period is 4
 	let preset = MossSampling.Presets(quality)
-	let mode = preset(2) > 0 then "on" else "off"
+	let spectral = Spectral(preset)
+	let mode = spectral(0) > 0 then "on" else "off"
 	let used = guidance > 0 then guidance else preset(1)
-	let warmup = preset(2) > 0 then preset(2) else 5
-	MossSampling(logger, width / 16, Evaluated, used, mode, warmup, preset(3), Span)
+	MossSampling(logger, width / 16, Evaluated, used, mode, spectral(0) > 0 then spectral(0) else 5, spectral(1), Span)
 Evaluated Number
 	MossOptions.Parsed(("--quality", "best25steps")).Evaluated is 25
 	MossOptions.Parsed(("--steps", "12")).Evaluated is 12
 	steps > 0 then steps else MossSampling.Presets(quality)(0)
+Spectral(preset Numbers) Numbers
+	MossOptions.Parsed(List(Text)).Spectral((8, 1, 3, 3)) is (3, 3)
+	MossOptions.Parsed(("--spectrum", "off", "--quality", "fast")).Spectral((8, 1, 3, 3)) is (0, 2)
+	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3", "--steps", "6")).Spectral((8, 1, 0, 2)) is Error("InvalidSpectrum")
+	if spectrum is ""
+		return (preset(2), preset(3))
+	if spectrum is "off"
+		return (0, 2)
+	let parts = spectrum.Split("_w")
+	let rates = parts.Last.Split("p")
+	let valid = (parts.First is "spectrum" + Evaluated) and (parts.Length is 2) and (rates.Length is 2)
+	valid then (rates.First to Number, rates.Last to Number) else Error("InvalidSpectrum")
 Span MossSpan
 	MossOptions.Parsed(List(Text)).Span is MossSpan.Off
 	MossOptions.Parsed(("--skip", "6:36")).Span.last is 36
@@ -39,30 +52,12 @@ Span MossSpan
 	let last = parts.Last to Number
 	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= 41)
 	valid then MossSpan(first, last) else Error("InvalidSkip")
-Folder Text
-	MossOptions.Parsed(("--models", ".")).Folder is "."
-	if models is not ""
-		return models
-	for ("D:/ComfyUI_windows_portable/ComfyUI/models", "C:/ComfyUI_windows_portable/ComfyUI/models")
-		if Directory.Exists(value)
-			return value
-	Error("ModelsFolderNotFound")
-Located(name Text, folder Text) Text
-	MossOptions.Parsed(List(Text)).Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
-	MossOptions.Parsed(("--models", ".")).Located("x.y", "loras") is Error("FileNotFound:x.y")
-	if File(name).Exists
-		return name
-	let inside = Folder + "/" + folder + "/" + name
-	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
-Checkpoint Text
-	MossOptions.Parsed(("--model", "tinymoss.safetensors")).Checkpoint is "tinymoss.safetensors"
-	Located(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")
 Loras Text
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
 	MossOptions.Parsed(("--models", ".")).Loras is Error("FileNotFound:moss/dmd_turbo_lora.safetensors")
 	let specs = Specs
 	let turbo = (Evaluated <= 8) and (Text.Combine(specs, ";").IndexOf("dmd_turbo_lora.safetensors") < 0)
-	let added = turbo then List(Text) + (Located("moss/dmd_turbo_lora.safetensors", "loras") + "=1") else List(Text)
+	let added = turbo then List(Text) + (files.Located("moss/dmd_turbo_lora.safetensors", "loras") + "=1") else List(Text)
 	Text.Combine(added + specs, ";")
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
@@ -74,7 +69,7 @@ Spec(text Text) Text
 	let at = text.LastIndexOf(":")
 	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
-	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
+	files.Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
 Problem Text
 	MossOptions.Parsed(List(Text)).Problem is ""
 	MossOptions.Parsed(("--width", "500")).Problem is "--width and --height must be positive multiples of 16"

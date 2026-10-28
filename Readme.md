@@ -12,7 +12,7 @@ From this folder, with `../Strict/strict.exe`:
 ../Strict/strict.exe build H3Video.strict
 ```
 
-`MossGenerate.exe` is the Moss backend (used by the ComfyUI node and `MossImage.exe`), `H3Video.exe` is the H3 command and backend. Keep the built `.exe` and `.ptx` files next to `generate.py`, `merge.py` and `dump.py`. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
+`MossImage.exe` makes Moss images on its own (no Python), `MossGenerate.exe` is the Moss backend of the ComfyUI node, `H3Video.exe` is the H3 command and backend. Keep the built `.exe` and `.ptx` files next to `generate.py`, `merge.py` and `dump.py`. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
 
 ## ComfyUI node: Strict Moss Sampler
 
@@ -47,14 +47,15 @@ What the node does: it reads the checkpoint path from the MODEL, turns the LoRA 
 
 ## Command line: MossImage.exe
 
-From any folder with a UTF-8 `prompt.txt` (ComfyUI need not be running, its Python and code are used to encode):
+From any folder with a UTF-8 `prompt.txt`, without ComfyUI or Python (only the model files):
 
 ```powershell
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --count 10
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.safetensors:0.5 --lora moss/cndamiph_Candid_Amateur_iPhone_MOSS_v1.safetensors:0.31 --spectrum spectrum8_w3p3
+C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --vae flux2-vae.safetensors --text_encoder qwen3.5_9b_int8_convrot.safetensors
 ```
 
-`--quality <preset>` picks steps, guidance and Spectrum in one go, `--steps`, `--guidance` and `--spectrum` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w2p3`). Sampling per image at 720x1280 on the RTX 3080, warm:
+`--quality <preset>` picks steps, guidance and Spectrum in one go, `--steps`, `--guidance` and `--spectrum` change a preset. Sampling per image at 720x1280 on the RTX 3080, warm:
 
 | `--quality` | Steps | Guidance, Spectrum | Sampling |
 |---|---:|---|---:|
@@ -63,33 +64,27 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.saf
 | `best50steps` | 50, no turbo LoRA | cfg 2 | 37 s |
 | `fast` | 8, turbo | `spectrum8_w3p3` (5 of 8 steps evaluated) | 2.0 s |
 | `faster` | 8, turbo | `spectrum8_w2p3` (4 of 8 evaluated) | 1.6 s |
-| `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 1.2 s |
+| `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 0.93 s |
 | `fastest2steps` | 2, turbo | off (softer, about half the images usable; 3 steps are no faster than fastest) | 0.77 s (480x848: 0.32 s) |
 
-`--help` lists every option with its default (`-h` is not supported):
+`--help` lists every option with its default and description (the options are the members of `MossFiles` and `MossOptions`, parsed by Strict's generated `Parsed`):
 
 | Option | Default |
 |---|---|
+| `--model`, `--vae`, `--text_encoder` | `moss-image-sft-dit-int8-convrot.safetensors`, `flux2-vae.safetensors`, `qwen3.5_9b_int8_convrot.safetensors`: a path, or a name in the models folder; the tokenizer folder `qwen35_tokenizer` is used from next to the text encoder, else from ComfyUI's `comfy/text_encoders` |
+| `--models` | `D:/ComfyUI_windows_portable/ComfyUI/models` (or C:), for files and LoRAs given by name |
 | `--prompt` | `prompt.txt`; `{a woman\|a man\|}` picks one alternative per image (the empty one too), nesting works |
-| `--output` | `MossImage.jpg` numbered `MossImage0001.jpg`, ...; never overwrites; `.jpg`, `.jpeg` or `.png` |
-| `--count` | 1; images per loaded model, each with its own seed and prompt choices |
-| `--seed` | random; reproduces a whole batch |
-| `--width`, `--height` | 720, 1280 (multiples of 16) |
 | `--quality` | `best`, see the table above |
-| `--steps` | 8 (from `--quality`); 8 steps or fewer add `moss/dmd_turbo_lora.safetensors` at strength 1 unless a DMD entry is given (`:0` disables it) |
-| `--lora` | repeat as `path[:strength]`, relative paths resolve under ComfyUI's `models/loras` |
-| `--lora_mode` | `merged`: cached stochastic int8 merge of the whole stack (fast, approximate); `runtime`: floating adapters |
-| `--merge_only` | prepare and print the merged checkpoint, then exit; it can be passed as `--model` later (its baked LoRAs are recorded) |
-| `--spectrum` | `off` (from `--quality`); `spectrum8_w3p3` forecasts three of eight steps (changes the result) |
-| `--guidance` | 1 (from `--quality`; CFG scale against a zero prompt) |
-| `--skip` | `off`; `first:last` layers (of 42) every other evaluated step from step 2 on (never the last) reuses from the last full evaluation (MossSpan): `--quality best25steps --skip 6:36` samples in 12.3 instead of 17.9 s with slightly different colors; with 8 turbo steps Spectrum (`fast`, `faster`) is the better trade |
-| `--jpg_quality` | 85 |
-| `--json_output` | off; writes a `.json` sidecar with prompt, seed, LoRAs and timings per image |
-| `--model`, `--vae`, `--te` | `moss-image-sft-dit-int8-convrot.safetensors`, `flux2-vae.safetensors`, `qwen3.5_9b_int8_convrot.safetensors` in ComfyUI's model folders |
-| `--comfyui`, `--python` | `D:/ComfyUI_windows_portable/ComfyUI` (or C:, or `COMFYUI`) and its `python_embeded` |
-| `--cache` | `artifacts/moss`: prompt conditioning, merged models, adapters, CUDA cache (a merged stack is a full checkpoint) |
+| `--steps`, `--guidance`, `--spectrum` | from `--quality`; 8 steps or fewer add `moss/dmd_turbo_lora.safetensors` unless a DMD entry is given (`:0` disables it); `spectrum8_w3p3` forecasts three of eight steps |
+| `--skip` | `off`; `first:last` layers (of 41) every other evaluated step from step 2 on (never the last) reuses from the last full evaluation (MossSpan): `--quality best25steps --skip 6:36` samples in 12.3 instead of 17.9 s with slightly different colors |
+| `--lora` | repeat as `path[:strength]`, merged into the int8 weights at load (stochastic rounding like ComfyUI) |
+| `--count` | 1; images per run, each with its own seed and prompt choices |
+| `--seed` | -1 (random); the first image's seed, the others follow from it |
+| `--width`, `--height` | 720, 1280 (multiples of 16) |
+| `--output` | `MossImage.jpg` numbered `MossImage0001.jpg`, ...; never overwrites; `.jpg` (quality 85) or `.png` |
+| `--json_output` | off; writes a `.json` sidecar with seed, prompt, steps, guidance, Spectrum, model and LoRAs per image |
 
-Uncached prompts are encoded in one ComfyUI text encoder worker that exits before Strict starts. Strict samples, decodes with its own Flux 2 VAE port and writes the JPEG. `MossImage.exe dumps model lora vae` is the diagnostic mode comparing every layer and step against a `dump.py moss` folder.
+Strict does everything in one process: it encodes every distinct prompt with its Qwen3.5 encoder (then frees it), merges the LoRAs, makes the noise like `torch.randn` of the seed, samples, decodes with its Flux 2 VAE port and writes the image. Loading takes about 3 s for the encoder and 3 s for Moss plus the LoRA merge (on the CPU for now, about 14 s with the turbo LoRA). `MossImage.exe dumps model lora vae` is the diagnostic mode comparing every layer and step against a `dump.py moss` folder.
 
 Supported LoRAs: kohya `lora_down`/`lora_up` and PEFT `lora_A`/`lora_B` with optional `alpha`, names `diffusion_model.<module>`, `<module>` or `lora_unet_<module>`, fused `qkv` split into q/k/v (the ComfyUI node follows ComfyUI instead, which skips fused qkv on this model). Merged mode also changes matching floating weights, runtime mode only the layer projections; unsupported formats report an error.
 
