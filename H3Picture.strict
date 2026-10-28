@@ -47,15 +47,28 @@ Extent(starts Numbers, at Number, size Number) Number
 	Tiny.Extent((0, 16), 1, 2) is 1
 	Tiny.Extent((0, 16), 0, 2) is 0
 	at > 0 then (starts(at - 1) + size * 16 - starts(at)) / 16 else 0
-Frame(path Text, size Numbers) Slow(Numbers)
-	Tiny.Frame("tinyframe.png", (2, 4)).Length is 24
-	Tiny.Frame("tinyframe.png", (2, 4))(23).IsNearlyEqual(45 / 255)
-	Tiny.Frame("tinyframe.png", (4, 4)) is Error
+Frame(path Text, size Numbers, cropped Boolean) Slow(Numbers)
+	Tiny.Frame("tinyframe.png", (2, 4), false)(23).IsNearlyEqual(45 / 255)
+	Tiny.Frame("tinyframe.png", (1, 2), false)(3).IsNearlyEqual(94 / 255)
+	Tiny.Frame("tinyframe.png", (3, 3), true)(4).IsNearlyEqual(35 / 255)
+	Tiny.Frame("tinyframe.png", (3, 3), true)(17).IsNearlyEqual(137 / 255)
 	let image = ImageLoader(path).Loaded
-	if (image.Size.Width is not size(1)) or (image.Size.Height is not size(0))
-		return Error("ImageMustHaveTheVideoSize: " + path)
-	let pixels = size(0) * size(1)
+	let original = (image.Size.Height, image.Size.Width)
+	let box = cropped then Cropped(original, size) else (0, original(0), 0, original(1))
+	for Lanczos.Resized(Bytes(image.Colors, original(1), box), (box(1), box(3)), size)
+		value / 255
+Cropped(original Numbers, size Numbers) Numbers
+	Tiny.Cropped((2, 4), (2, 2)) is (0, 2, 1, 2)
+	Tiny.Cropped((4, 2), (2, 2)) is (1, 2, 0, 2)
+	let wider = original(1) / original(0) / (size(1) / size(0))
+	let left = wider > 1 then ((original(1) - original(1) / wider) / 2).Round else 0
+	let top = wider < 1 then ((original(0) - original(0) * wider) / 2).Round else 0
+	(top, original(0) - 2 * top, left, original(1) - 2 * left)
+Bytes(colors List(ColorValue), width Number, box Numbers) Numbers
+	Tiny.Bytes((ColorValue(1, 0, 0.5), ColorValue(0, 1, 0)), 2, (0, 1, 1, 1)) is (0, 255, 0)
+	let pixels = box(1) * box(3)
 	for 3 * pixels
-		let color = image.Colors(index % pixels)
+		let pixel = index % pixels
 		let channel = (index / pixels).Floor
-		channel is 0 then color.Red else channel is 1 then color.Green else color.Blue
+		let color = colors((box(0) + (pixel / box(3)).Floor) * width + box(2) + pixel % box(3))
+		((channel is 0 then color.Red else channel is 1 then color.Green else color.Blue) * 255).Round

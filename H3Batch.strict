@@ -112,5 +112,6 @@ Pictured Slow(List(Numbers))
 	let size = (options.height, options.width)
 	logger.Log("Encoding " + images.Length + " keyframe images")
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.Decoder, 32)), H3Tiles.Real)
-	for images
-		picture.Encoded(picture.Frame(value, size), size)
+	for (options.files.image, options.files.lastImage)
+		if value is not ""
+			picture.Encoded(picture.Frame(value, size, index is 1), size)

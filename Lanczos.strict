@@ -1,0 +1,67 @@
+constant Row = (0, 50, 100, 150, 200, 250, 30, 60)
+constant Grid = (10, 200, 30, 250, 0, 128, 64, 32, 16, 90, 180, 255)
+Resized(pixels Numbers, source Numbers, target Numbers) Numbers
+	Lanczos.Resized(Row, (1, 8), (1, 5)) is (15, 91, 191, 189, 34)
+	Lanczos.Resized(Row, (1, 8), (1, 11)) is (0, 24, 69, 102, 140, 168, 225, 255, 93, 18, 68)
+	Lanczos.Resized(Grid, (4, 3), (3, 2)) is (115, 102, 104, 27, 90, 179)
+	Lanczos.Resized((1, 2, 3, 4), (2, 2), (2, 2)) is (1, 2, 3, 4)
+	Lanczos.Resized(Grid, (4, 3), (4, 2)) is (88, 103, 154, 66, 54, 19, 116, 236)
+	let horizontal = Table(source(1), target(1))
+	let wide = source(1) is target(1) then pixels else Pass(pixels, horizontal, (source(1), target(1), 1))
+	source(0) is target(0) then wide else Pass(wide, Table(source(0), target(0)), (source(0), target(0), target(1)))
+Pass(values Numbers, table List(Numbers), shape Numbers) Numbers
+	Lanczos.Pass((1, 2), List(Numbers) + (0, 2, 2097152, 2097152), (2, 1, 1)) is (2)
+	Lanczos.Pass((1, 2, 3, 4), List(Numbers) + (0, 1, 4194304), (2, 1, 1)) is (1, 3)
+	for values.Length / shape(0) * shape(1)
+		let inner = index % shape(2)
+		let position = (index / shape(2)).Floor % shape(1)
+		let line = (index / shape(2) / shape(1)).Floor
+		Summed(values, table(position), (line * shape(0) + table(position)(0)) * shape(2) + inner, shape(2))
+Summed(values Numbers, weights Numbers, start Number, step Number) Number
+	Lanczos.Summed((1, 9, 3), (1, 1, 4194304), 1, 1) is 9
+	Lanczos.Summed((300, 0), (0, 1, 4194304), 0, 1) is 255
+	mutable sum = 2097152
+	for weights(1)
+		sum = sum + values(start + index * step) * weights(index + 2)
+	(sum / 4194304).Floor.Clamp(0, 255)
+Table(source Number, target Number) List(Numbers)
+	Lanczos.Table(1, 1) is List(Numbers) + (0, 1, 4194304)
+	let scale = source / target
+	let stretch = scale < 1 then 1 else scale
+	for target
+		let center = (index + 0.5) * scale
+		let first = (center - 3 * stretch + 0.5).Floor.Clamp(0, source)
+		let last = (center + 3 * stretch + 0.5).Floor.Clamp(0, source)
+		(first, last - first) + Fixed(Raw((first, last - first), center, stretch))
+Raw(span Numbers, center Number, stretch Number) Numbers
+	Lanczos.Raw((0, 1), 0.5, 1) is (1)
+	for span(1)
+		Kernel((index + span(0) - center + 0.5) / stretch)
+Kernel(position Number) Number
+	Lanczos.Kernel(0) is 1
+	Lanczos.Kernel(3) is 0
+	Lanczos.Kernel(1.5).IsNearlyEqual(-0.1350949)
+	(position >= -3) and (position < 3) then Sinc(position) * Sinc(position / 3) else 0
+Sinc(position Number) Number
+	Lanczos.Sinc(0) is 1
+	Lanczos.Sinc(0.5).IsNearlyEqual(2 / Number.Pi)
+	position is 0 then 1 else Sine(position * Number.Pi) / (position * Number.Pi)
+Sine(radians Number) Number
+	Lanczos.Sine(Number.Pi / 6).IsNearlyEqual(0.5)
+	Lanczos.Sine(3) is 0.1411200080598672
+	Lanczos.Sine(-7.5) is -0.9379999767747389
+	let turns = (radians / Number.Pi + 0.5).Floor
+	let reduced = radians - turns * Number.Pi
+	mutable term = reduced
+	mutable sum = reduced
+	for 12
+		term = 0 - term * reduced * reduced / ((2 * index + 2) * (2 * index + 3))
+		sum = sum + term
+	turns % 2 is 0 then sum else 0 - sum
+Fixed(raw Numbers) Numbers
+	Lanczos.Fixed((1, 3)) is (1048576, 3145728)
+	Lanczos.Fixed((-1, 3)) is (-2097152, 6291456)
+	let total = raw.Sum
+	for raw
+		let share = value / total * 4194304
+		share < 0 then 0 - (0.5 - share).Floor else (share + 0.5).Floor
