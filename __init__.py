@@ -28,6 +28,13 @@ def checkpoint(model):
 	return Path(init[1][0])
 
 
+def released(model, prompt, node):
+	"""Moves the weights of model to the meta device when only Strict samplers read it (generate.releasable): Strict loads
+	the checkpoint itself, names and shapes stay for LoRA loaders that run again (19 GB less for an H3 checkpoint)."""
+	if model is not None and prompt and generate.releasable(prompt, str(node)):
+		model.model.to('meta')
+
+
 def tiny_decoder():
 	"""models/vae_approx/taeh3.safetensors on the GPU, a TAESD decoder of single frames: its keys are positional modules,
 	the gaps are the input Clamp, the ReLU after the first conv and upsamples. None without the file."""
@@ -46,19 +53,16 @@ def tiny_decoder():
 	return TINY.get(path)
 
 
-def shrunk(decoder, latent):
-	"""taeh3 of a latent frame scaled to at most 32 positions per side (512 pixels), a few hundred MB of GPU memory that
-	stay cached for the next frame: Windows pages instead of failing an allocation past H3Video's budget."""
-	scale = min(1, 32 / max(latent.shape[-2:]))
-	latent = torch.nn.functional.interpolate(latent.to(decoder[1].weight.device).float(),
-		size=[round(side * scale) for side in latent.shape[-2:]], mode='bilinear', antialias=True)
+def decoded(decoder, latents):
+	"""taeh3 of latent frames at their own size (generate.preview_batch of them, 0.6 GB of GPU memory at 480x832 that
+	stays cached for the next batch: Windows pages instead of failing an allocation past H3Video's budget)."""
 	with torch.inference_mode():
-		return decoder(latent.half().contiguous(memory_format=torch.channels_last))
+		return decoder(latents.to(decoder[1].weight.device).half().contiguous(memory_format=torch.channels_last))
 
 
 def previewed(decoder, numbers, video, node):
 	"""Shows the denoised video H3Video.exe wrote for a step on the node (web/h3_preview.js)."""
-	image = generate.h3_preview(numbers, video, lambda latent: shrunk(decoder, latent))
+	image = generate.h3_preview(numbers, video, lambda latents: decoded(decoder, latents))
 	PromptServer.instance.send_sync('strict_h3_preview', {'node': node, 'image': base64.b64encode(image).decode()},
 		PromptServer.instance.client_id)
 
@@ -84,14 +88,15 @@ class StrictMossSampler:
 				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'}),
 			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum (sampling '
 				'times for 720x1280 on a 3080): ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
-				'; custom: the steps, cfg and spectrum above'})}}
+				'; custom: the steps, cfg and spectrum above'})},
+			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
 	RETURN_TYPES = ('IMAGE',)
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
 	DESCRIPTION = ('Euler sampling of Moss in Strict (StrictComfy MossGenerate.exe), the Strict process keeps the model loaded '
 		'for the next run with the same model, LoRAs and Spectrum')
 
-	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo):
+	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo, unique_id=None, prompt=None):
 		checkpointed = checkpoint(model)
 		metadata = generate.validate_model(checkpointed)
 		if len(positive) != 1:
@@ -109,6 +114,7 @@ class StrictMossSampler:
 		turbos = [] if turbo == 'off' else generate.selected_loras(args, Path(folder_paths.models_dir), metadata)
 		loras = [(path, strength) for path, strength in turbos if not generate.turbo_patched(model.patches, path)]
 		loras += [(patches, 1.0)] if patches else []
+		released(model, prompt, unique_id)
 		loaded, adapter = generate.lora_model(args, checkpointed, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
@@ -142,7 +148,7 @@ class StrictH3Sampler:
 				', '.join(f'{name} {faster} %' for name, faster in generate.SKIPS.items())})},
 			'optional': {'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
 				'of the model of the quality, the LoRAs of the quality still apply'})},
-			'hidden': {'unique_id': 'UNIQUE_ID'}}
+			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
 	RETURN_TYPES = ('LATENT',)
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
@@ -150,7 +156,7 @@ class StrictH3Sampler:
 		'the latent with VAE Decode and VAE Decode Audio. The Strict process keeps the model loaded for the next run with '
 		'the same quality and model.')
 
-	def sample(self, positive, latent, quality, seed, skip='5:45', model=None, unique_id=None):
+	def sample(self, positive, latent, quality, seed, skip='5:45', model=None, unique_id=None, prompt=None):
 		samples = latent['samples']
 		if not getattr(samples, 'is_nested', False) or len(samples.tensors) != 2:
 			raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video)')
@@ -164,12 +170,13 @@ class StrictH3Sampler:
 		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', preset))
 		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
 		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
+		released(model, prompt, unique_id)
 		loaded, adapter = generate.lora_model(args, chosen, loras)
 		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		decoder = tiny_decoder()
 		if decoder:
-			shrunk(decoder, torch.zeros(1, *video[1:2], *video[3:]))
+			decoded(decoder, torch.zeros(generate.preview_batch(video), *video[1:2], *video[3:]))
 		progress, preview = comfy.utils.ProgressBar(video[0] * args.steps), generate.skipping(PREVIEWS)
 		def stepped(line):
 			progress.update(1)

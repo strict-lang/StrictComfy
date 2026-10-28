@@ -40,6 +40,11 @@ Milestone: 5 s 480×832 i2v from dumped conditioning on the 4090, step time agai
 - Fusions: RMSNorm + modulation + Hadamard + int8 quantization in one kernel, gated residual in the GEMM epilogue, CUDA graphs per block.
 - Later: block-sparse attention (FastH3 gate), 0.2–0.3 MP preview paths, F8_E4M3 safetensors if a model needs it.
 
+## Standalone H3Video (idea, 2026-10-28)
+ComfyUI's own work dominates short runs: the user's i2v workflow at 0.2 MP with `fastest2steps` takes 23 s, 3.7 s of it sampling. ComfyUI's parts: the 15 GB text encoder moved to the GPU and the prompt encoded (5.3 s, every run with a random prompt), `unload_all_models` moving the text encoder back (8 s inside the Strict node), the video VAE decode 3.6 s, audio 0.5 s, the mp4 1.5 s. Keeping the text encoder in VRAM keeps H3's steps as fast, but the first step after a weight upload took 22 instead of 4 s.
+- Goal: `H3Video.exe` runs a ComfyUI workflow on its own (UI or API json: UNETLoader, LoRA loaders, CLIPLoader, MiniMax H3 Image to Video, Strict H3 Sampler or KSampler / SamplerCustomAdvanced, VAE Decode, VAE Decode Audio, Video Combine with NVENC) and replaces the slow parts with Strict code, the ComfyUI node stays; until then the command line keeps using a ComfyUI python worker for what Strict does not have yet.
+- Order by overhead: the video VAE decode (Strict `H3Decoder` exists, 116-136 s against ComfyUI's 7.2 s, the blend on the CPU), the text encoder (Phase 4, NVFP4 Qwen3-VL 32B), the audio decoder (`H3Audio` exists), the mp4 through ffmpeg (NVENC h265 like the user's Video Combine).
+
 ## Phase 4: Text encoders
 - Moss: Qwen3.5 9B from int8 convrot safetensors (`qwen3.5_9b_int8_convrot.safetensors`) on the existing qwen35 path, final-norm output, chat template; tokenizer from ComfyUI's Qwen tokenizer files (token ids are in the dumps' `conditioning.safetensors`). Only the language model layers on the GPU, freed before the DiT.
 - H3: Qwen3-VL 32B truncated to 50 layers, NVFP4 (E2M1 high nibble first, FP8 block scales in the 128×4 tiled layout, `weight_scale_2`, `pre_quant_scale` on o/down), M-RoPE, vision tower (27 blocks, patch 16, merge 2) with DeepStack into layers 0–2.
