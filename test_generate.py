@@ -453,7 +453,7 @@ class GenerationCommandTests(unittest.TestCase):
 		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--model', name],
 			cwd=tempfile.gettempdir(), capture_output=True, text=True)
 		self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-		self.assertIn('File not found: ' + name, result.stderr)
+		self.assertIn('FileNotFound:' + name.replace(' ', '_'), result.stdout)
 
 	def test_prompt_choices_and_empty_alternative(self):
 		expand = self.module().expand_prompt
