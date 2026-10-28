@@ -43,6 +43,8 @@ Routed attention (`--quality fast` and the presets after it): `strict_device_qua
 
 The elementwise kernels, rope and the Hadamard already run at 0.7-0.95 TB/s, they only get faster with fewer bytes (16 bit inputs instead of 32) or fused; the GEMMs are 8 % behind, the routed attention 7 %.
 
+The idle GPU time sat at the step boundaries (about 100 ms per step): H3.Output built the rope table on the host in every step and uploaded its 89 MB, the GPU waited 20, 56, 37 and 12 ms around it. Built once per generation (StrictComfy fd329cf) the idle time drops to about 25 ms per step and routed steps from 3.69-3.72 to 3.58-3.62 s (alternating runs). The GEMMs run at 91-92 % of the int8 tensor peak (ncu, 2.56-2.62 GHz), ComfyUI's GEMM was captured at other clocks, so at most about 8 % is left there.
+
 ## H3 dense attention in comfy_kitchen's shape (2026-10-28 00:30, RTX 4090, Strict 1ce4fa84)
 
 `strict_device_dense_attention` (`--quality best`, attention without routing) now has the block shape of comfy_kitchen's `qk_int_sv_i8_attn_kernel` (ncu: 8 warps of 16 queries per block, 128 keys per step, one block per SM): values transposed and scaled per number by their quantize pass, 128 positions per step in 8 tile buffers of dynamic shared memory, unsigned 8 bit shares quantized by the largest share of each row and step, the row sums on the tensor cores, scores in key scale units with the row factor in the exponent. The 10 s fox clip (480x832, 243 frames, 28.9k tokens, 8 turbo steps), one attention call (ncu median of 40 calls) and the steps:
