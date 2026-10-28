@@ -75,7 +75,7 @@ Latents(count Number) Texts
 Decoded(latents Texts, outputs Texts) Slow(Number)
 	let before = Process.Elapsed
 	let decoder = H3Decoder.Loaded(Safetensors(options.files.Decoder, 32))
-	let vae = H3Vae(decoder, H3Vae.Real.tile, H3Vae.Real.overlap)
+	let vae = H3Vae(decoder, H3Tiles.Real)
 	let sound = H3Audio.Loaded(Safetensors(options.files.Sound, 32))
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	for latents

@@ -1,0 +1,121 @@
+has entry Convolution
+has blocks List(FluxResnet)
+has downsamples List(Convolution)
+has normOut GroupNorm
+has exit Convolution
+has moments Convolution
+has Means Numbers
+has Deviations Numbers
+constant Model = Safetensors("tinyh3encoder.safetensors", 32)
+constant Tiny = H3VaeEncoder.Loaded(Model)
+constant Tile = Tiny.Pixels(Model.Values("reference.image"), (48, 64), (0, 32, 0, 32), H3Vae.Mean + H3Vae.Deviation)
+constant Entry = Model.Values("reference.entry")
+constant Moment = Model.Values("reference.moments")
+Loaded(model Safetensors) Slow(H3VaeEncoder)
+	Tiny.blocks.Length is 5
+	Tiny.downsamples(3).biases.Length is 64
+	Tiny.downsamples(4).biases.Length is 0
+	let names = Names(model)
+	let normed = FluxResnet.Norm(model, "encoder.norm_out", 32)
+	let projected = Convolved(model, "quant_conv")
+	let mean = model.Values("latents_mean")
+	let entered = Convolved(model, "encoder.conv_in")
+	let exited = Convolved(model, "encoder.conv_out")
+	let deviation = model.Values("latents_std")
+	H3VaeEncoder(entered, Blocks(model, names), Downsamples(model, names), normed, exited, projected, mean, deviation)
+Names(model Safetensors) Slow(Texts)
+	Tiny.Names(Model) is ("0.block.0", "1.block.0", "2.block.0", "3.block.0", "4.block.0")
+	for H3.Named(TensorFile.Header(model.path), "encoder.down.")
+		value.Substring(0, value.IndexOf(".norm1"))
+Blocks(model Safetensors, names Texts) Slow(List(FluxResnet))
+	Tiny.blocks(1).shortcut.biases.Length is 64
+	Tiny.blocks(2).shortcut.biases.Length is 0
+	for names
+		let prefix = "encoder.down." + value + "."
+		let none = Convolution(List(Number), List(Number))
+		let present = model.Entry(prefix + "nin_shortcut.weight") is not ""
+		let shortcut = present then Convolved(model, prefix + "nin_shortcut") else none
+		let first = Convolved(model, prefix + "conv1")
+		let norm = FluxResnet.Norm(model, prefix + "norm2", 32)
+		FluxResnet(FluxResnet.Norm(model, prefix + "norm1", 32), first, norm, Convolved(model, prefix + "conv2"), shortcut)
+Downsamples(model Safetensors, names Texts) Slow(List(Convolution))
+	Tiny.downsamples(0).weights.Length is 9216
+	for names
+		let level = value.Substring(0, value.IndexOf("."))
+		let following = index + 1 < names.Length then names(index + 1) else ""
+		let name = "encoder.down." + level + ".downsample.conv"
+		let present = following.StartsWith(level + ".") is false and model.Entry(name + ".weight") is not ""
+		present then Convolved(model, name) else Convolution(List(Number), List(Number))
+Convolved(model Safetensors, name Text) Slow(Convolution)
+	Tiny.entry.weights.Length is 864
+	Tiny.moments.weights(49) is Model.Values("quant_conv.weight")(49)
+	let shape = model.Shape(name + ".weight")
+	let taps = Last(model.Values(name + ".weight"), shape)
+	Convolution(shape(3) is 3 then Convolution.Rearranged(taps, shape(1), 3) else taps, model.Values(name + ".bias"))
+Last(values Numbers, shape Numbers) Numbers
+	Tiny.Last((1, 2, 3, 4), (1, 1, 2, 1, 2)) is (3, 4)
+	let plane = shape(3) * shape(4)
+	for shape(0) * shape(1) * plane
+		values(((index / plane).Floor * shape(2) + shape(2) - 1) * plane + index % plane)
+Pixels(image Numbers, size Numbers, box Numbers, colors Numbers) FeatureMap
+	Tile.values.Length is 3072
+	Tile.values(4).IsNearlyEqual((Model.Values("reference.image")(3073) - 0.456) / 0.224, 0.0001)
+	FeatureMap(Normalized(image, size, box, colors), box(3), 3, (0, 0, 0))
+Normalized(image Numbers, size Numbers, box Numbers, colors Numbers) Numbers
+	Tiny.Normalized((0, 0.485, 0, 1, 0, 2), (1, 2), (0, 1, 1, 1), (0.485, 0, 0, 1, 1, 2)) is (0, 1, 1)
+	for box(1) * box(3) * 3
+		let channel = index % 3
+		let pixel = (index / 3).Floor
+		let row = box(0) + (pixel / box(3)).Floor
+		let column = box(2) + pixel % box(3)
+		(image((channel * size(0) + row) * size(1) + column) - colors(channel)) / colors(channel + 3)
+Moments(tile FeatureMap) Slow(FeatureMap)
+	Tiny.Moments(Tile).Completed(0).IsNearlyEqual(Moment(0), 0.01)
+	Tiny.Moments(Tile).Completed(100).IsNearlyEqual(Moment(18), 0.01)
+	Tiny.Moments(Tile).Completed(191).IsNearlyEqual(Moment(191), 0.01)
+	mutable state = Reflected(entry, tile, tile.Identity, false)
+	for blocks
+		state = Block(value, state)
+		state = downsamples(index).biases.Length is 0 then state else Downsampled(downsamples(index), state)
+	moments.Projected(Reflected(exit, state, normOut.Affine(state), true))
+Block(block FluxResnet, map FeatureMap) Slow(FeatureMap)
+	Tiny.Block(Tiny.blocks.First, Tile).values.Length is 3072
+	let hidden = Reflected(block.first, map, block.firstNorm.Affine(map), true)
+	let output = Reflected(block.second, hidden, block.secondNorm.Affine(hidden), true)
+	(block.shortcut.biases.Length is 0 then map else block.shortcut.Projected(map)).Plus(output)
+Downsampled(convolution Convolution, map FeatureMap) Slow(FeatureMap)
+	Tiny.Downsampled(Tiny.downsamples.First, Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, false)).width is 16
+	let full = convolution.Applied(Padded(map, (1, 1, 1, 1)), map.Identity, false)
+	Strided(full, (2, 2), (map.Height / 2, map.width / 2))
+Reflected(convolution Convolution, map FeatureMap, affine Numbers, swish Boolean) Slow(FeatureMap)
+	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, false).Completed(0).IsNearlyEqual(Entry(0), 0.0001)
+	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, false).Completed(31749).IsNearlyEqual(Entry(6112), 0.0001)
+	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, false).Completed(32767).IsNearlyEqual(Entry(32767), 0.0001)
+	let full = convolution.Applied(Padded(map, (1, 1, 1, 1)), affine, swish)
+	Strided(full, (1, 1), (map.Height, map.width))
+Padded(map FeatureMap, sides Numbers) FeatureMap
+	Tiny.Padded(FeatureMap((1, 2), 2, 1, List(Number) + 3), (0, 0, 1, 0)).values is (2, 1, 2)
+	let size = (map.Height, map.width, map.channels)
+	FeatureMap(Mirrors(map.values, size, sides), map.width + sides(2) + sides(3), map.channels, map.offsets)
+Strided(map FeatureMap, sampling Numbers, size Numbers) FeatureMap
+	Tiny.Strided(FeatureMap((1, 2, 3, 4), 2, 1, List(Number) + 3), (1, 1), (1, 1)).values is (4)
+	let shape = (map.width, map.channels, size(0), size(1))
+	FeatureMap(Picked(map.values, shape, sampling), size(1), map.channels, map.offsets)
+Mirrors(values Numbers, shape Numbers, sides Numbers) Numbers
+	Tiny.Mirrors((1, 2, 3), (1, 3, 1), (0, 0, 1, 1)) is (2, 1, 2, 3, 2)
+	Tiny.Mirrors((1, 2, 3, 4), (2, 2, 1), (0, 1, 0, 1)) is (1, 2, 1, 3, 4, 3, 1, 2, 1)
+	let wide = shape(1) + sides(2) + sides(3)
+	for (shape(0) + sides(0) + sides(1)) * wide * shape(2)
+		let pixel = (index / shape(2)).Floor
+		let row = (pixel / wide).Floor - sides(0)
+		let column = pixel % wide - sides(2)
+		let mirroredRow = shape(0) - 1 - (shape(0) - 1 - row.Absolute).Absolute
+		let mirroredColumn = shape(1) - 1 - (shape(1) - 1 - column.Absolute).Absolute
+		values((mirroredRow * shape(1) + mirroredColumn) * shape(2) + index % shape(2))
+Picked(values Numbers, shape Numbers, sampling Numbers) Numbers
+	Tiny.Picked((1, 2, 3, 4, 5, 6, 7, 8, 9), (3, 1, 2, 2), (0, 2)) is (1, 3, 7, 9)
+	for shape(2) * shape(3) * shape(1)
+		let pixel = (index / shape(1)).Floor
+		let row = sampling(0) + sampling(1) * (pixel / shape(3)).Floor
+		let column = sampling(0) + sampling(1) * (pixel % shape(3))
+		values((row * shape(0) + column) * shape(1) + index % shape(1))

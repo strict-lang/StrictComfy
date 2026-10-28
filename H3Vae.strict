@@ -1,9 +1,7 @@
 has decoder H3Decoder
-has tile Number
-has overlap Number
+has tiling H3Tiles
 constant Model = Safetensors("tinyh3vae.safetensors", 32, "reference.")
-constant Tiny = H3Vae(H3Decoder.Tiny, 32, 16)
-constant Real = H3Vae(H3Decoder.Tiny, 256, 64)
+constant Tiny = H3Vae(H3Decoder.Tiny, H3Tiles.Tiny)
 constant Pixels = Tiny.Decoded(Model.Values("latent"), (12, 3, 4))
 constant Mean = (0.485, 0.456, 0.406)
 constant Deviation = (0.229, 0.224, 0.225)
@@ -44,16 +42,16 @@ Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Slow(Number
 		((before + (own - before) * (frame / shape(2)).Clamp(0, 1)) * colors(channel + 3) + colors(channel)).Clamp(0, 1)
 Canvas(window Numbers, height Number, width Number) Slow(Numbers)
 	Tiny.Canvas(H3Decoder.Window, 2, 2).Length is 86016
-	let ys = Starts(height * 16)
-	let xs = Starts(width * 16)
+	let ys = tiling.Starts(height * 16)
+	let xs = tiling.Starts(width * 16)
 	let tiles = Tiles(window, ys, xs, (Tokens + Shared, height, width))
-	let size = (Length(height * 16), Length(width * 16))
+	let size = (tiling.Length(height * 16), tiling.Length(width * 16))
 	let strips = Columns(tiles, xs, Table(xs, width * 16, size(1)), (ys.Length, size(0), size(1), width * 16))
 	Rows(strips, ys, Table(ys, height * 16, size(0)), (size(0), height * 16, width * 16))
 Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Slow(Numbers)
 	Tiny.Tiles(H3Decoder.Window, (0), (0), (7, 2, 2)).Length is 86016
-	let tall = Length(shape(1) * 16) / 16
-	let wide = Length(shape(2) * 16) / 16
+	let tall = tiling.Length(shape(1) * 16) / 16
+	let wide = tiling.Length(shape(2) * 16) / 16
 	let rotation = decoder.Rotations(shape(0), tall, wide)
 	mutable tiles = List(Number)
 	for ys.Length * xs.Length
@@ -68,7 +66,7 @@ Contributions(starts Numbers, position Number, size Number) Slow(Numbers)
 	Tiny.Contributions((0, 16), 20, 32) is (1, 0.25, 0, 0.75, 1, 0)
 	Tiny.Contributions((0, 16), 40, 32) is (1, 1, 1, 0, 1, 0)
 	Tiny.Contributions((0, 112, 224), 230, 256)(5) > 0
-	let owner = Owner(starts, position)
+	let owner = tiling.Owner(starts, position)
 	mutable entries = List(Number)
 	mutable weight = 1
 	for 3
@@ -109,27 +107,3 @@ Share(starts Numbers, at Number, position Number, size Number) Slow(Number)
 	Tiny.Share((0, 16), 0, 4, 32) is 1
 	let shared = at > 0 then starts(at - 1) + size - starts(at) else 0
 	at > 0 and position - starts(at) < shared then (position - starts(at)) / shared else 1
-Owner(starts Numbers, position Number) Slow(Number)
-	Tiny.Owner((0, 16, 32), 20) is 1
-	Tiny.Owner((0, 16, 32), 40) is 2
-	mutable owner = 0
-	for starts
-		if value <= position
-			owner = index
-	owner
-Starts(size Number) Slow(Numbers)
-	Real.Starts(480) is (0, 112, 224)
-	Real.Starts(832) is (0, 192, 384, 576)
-	Tiny.Starts(64) is (0, 16, 32)
-	Tiny.Starts(16) is (0)
-	if size <= tile
-		return List(Number) + 0
-	let count = ((size - overlap) / (tile - overlap)).Ceiling
-	let spare = ((tile * count - overlap * (count - 1) - size) / 16).Floor
-	for count
-		let extra = index < spare % (count - 1) then index else spare % (count - 1)
-		index * (tile - overlap) - 16 * (index * (spare / (count - 1)).Floor + extra)
-Length(size Number) Slow(Number)
-	Tiny.Length(16) is 16
-	Tiny.Length(64) is 32
-	size <= tile then size else tile

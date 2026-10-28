@@ -76,6 +76,7 @@ bld/
 !tinyvae.safetensors
 !tinyh3.safetensors
 !tinyh3vae.safetensors
+!tinyh3encoder.safetensors
 !tinyh3audio.safetensors
 !tinyh3lora.safetensors
 prompt*.txt

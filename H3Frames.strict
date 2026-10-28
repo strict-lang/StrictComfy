@@ -3,7 +3,7 @@ constant Encoding = " -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a 
 Run(dumps Text, video Text, audio Text)
 	let steps = Safetensors(dumps + "/steps.safetensors", 32)
 	let started = Process.Elapsed
-	let vae = H3Vae(H3Decoder.Loaded(Safetensors(video, 32)), H3Vae.Real.tile, H3Vae.Real.overlap)
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(video, 32)), H3Tiles.Real)
 	let sound = H3Audio.Loaded(Safetensors(audio, 32))
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	let last = steps.Values("sigmas").Length - 1

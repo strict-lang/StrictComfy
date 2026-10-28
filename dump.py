@@ -8,6 +8,7 @@
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
   python_embeded\\python.exe dump.py tinyh3     (tinyh3.safetensors here, for H3Block.strict and the other H3 tests)
   python_embeded\\python.exe dump.py tinyh3vae  (tinyh3vae.safetensors here, for the H3 video VAE decoder)
+  python_embeded\\python.exe dump.py tinyh3encoder  (tinyh3encoder.safetensors here, for the H3 video VAE encoder)
   python_embeded\\python.exe dump.py tinyh3lora (tinyh3lora.safetensors here, an H3 LoRA for tinyh3 + outputs with it, for H3Block.strict)
 """
 import argparse
@@ -24,7 +25,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae", "tinyh3audio", "tinyh3lora"])
+arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae", "tinyh3encoder", "tinyh3audio", "tinyh3lora"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=None)
@@ -776,6 +777,41 @@ def tinyh3vae():
 	saved({**weights, "reference.latent": latent[0], "reference.pixels": pixels[0], "reference.tile": tile[0]}, out)
 
 
+def tinyh3encoder():
+	"""H3's video VAE encoder with ComfyUI's own encode (MiniMaxH3VideoVAE.encode of one image: [-1, 1] to ImageNet pixels,
+	spatial tiles blended on the latent, the causal conv3d of one frame keeping the last temporal tap, the mean half of
+	quant_conv's moments, latent normalization) at 32 channels (levels 32, 64, 64, 64 halving the size and one of 64 that
+	does not), one resnet block per level, random float weights (ComfyUI's ops leave them uninitialized, the convolutions
+	scaled by the fan in of one temporal tap) named like minimax_h3_video_vae_int8_convrot.safetensors, tiles of
+	32 pixels overlapping by 16, a 48x64 image encoded on the CPU in float32: reference.image [3, 48, 64] in [0, 1],
+	reference.entry (conv_in of the first tile), reference.moments (_encode_moments of the first tile) and
+	reference.latent [24, 3, 4]."""
+	import comfy.ldm.minimax.vae as minimax
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinyh3encoder.safetensors")
+	torch.manual_seed(0)
+	vae = minimax.MiniMaxH3VideoVAE(ch=32, ch_mult=(1, 2, 2, 2, 2), num_res_blocks=1, space_down=(2, 2, 2, 2, 1),
+		time_down=(1, 1, 1, 1, 1), tile_size=32, tile_overlap_min=16, decoder=False)
+	weights = {}
+	for name, value in vae.state_dict().items():
+		if "norm" in name and name.endswith(".weight"):
+			weights[name] = 1 + 0.2 * torch.randn(value.shape)
+		elif name.endswith(".bias"):
+			weights[name] = 0.05 * torch.randn(value.shape)
+		elif name.endswith(".weight"):
+			weights[name] = torch.randn(value.shape) * (value[0].numel() / value.shape[2]) ** -0.5
+		else:
+			weights[name] = value.float()
+	vae.load_state_dict(weights, strict=True)
+	image = torch.rand(1, 3, 48, 64)
+	with torch.no_grad():
+		latent = vae.encode(image * 2 - 1)
+		tile = vae._normalize_pixels(image[:, :, None, 0:32, 0:32] * 2 - 1)
+		entry = vae.encoder.conv_in(tile)
+		moments = vae._encode_moments(tile)
+	saved({**weights, "reference.image": image[0], "reference.entry": entry[0, :, 0], "reference.moments": moments[0, :, 0],
+		"reference.latent": latent[0, :, 0]}, out)
+
+
 def tinyh3audio():
 	"""H3's audio VAE decoder with ComfyUI's own classes (MiniMaxH3AudioVAE.decode: latent normalization, dec_in_proj, BigVGAN with
 	the 800x upsampling, anti-aliased SnakeBeta AMP blocks, clamp) at latent width 64 and decoder width 128 (64 channels after the
@@ -833,4 +869,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae, "tinyh3audio": tinyh3audio, "tinyh3lora": tinyh3lora}[options.model]()
+	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae, "tinyh3encoder": tinyh3encoder, "tinyh3audio": tinyh3audio, "tinyh3lora": tinyh3lora}[options.model]()

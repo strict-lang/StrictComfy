@@ -1,0 +1,28 @@
+has tile Number
+has overlap Number
+constant Tiny = H3Tiles(32, 16)
+constant Real = H3Tiles(256, 64)
+Starts(size Number) Numbers
+	Real.Starts(480) is (0, 112, 224)
+	Real.Starts(832) is (0, 192, 384, 576)
+	Tiny.Starts(64) is (0, 16, 32)
+	Tiny.Starts(16) is (0)
+	if size <= tile
+		return List(Number) + 0
+	let count = ((size - overlap) / (tile - overlap)).Ceiling
+	let spare = ((tile * count - overlap * (count - 1) - size) / 16).Floor
+	for count
+		let extra = index < spare % (count - 1) then index else spare % (count - 1)
+		index * (tile - overlap) - 16 * (index * (spare / (count - 1)).Floor + extra)
+Length(size Number) Number
+	Tiny.Length(16) is 16
+	Tiny.Length(64) is 32
+	size <= tile then size else tile
+Owner(starts Numbers, position Number) Number
+	Tiny.Owner((0, 16, 32), 20) is 1
+	Tiny.Owner((0, 16, 32), 40) is 2
+	mutable owner = 0
+	for starts
+		if value <= position
+			owner = index
+	owner
