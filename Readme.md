@@ -64,6 +64,7 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.saf
 | `fast` | 8, turbo | `spectrum8_w3p3` (5 of 8 steps evaluated) | 2.0 s |
 | `faster` | 8, turbo | `spectrum8_w2p3` (4 of 8 evaluated) | 1.6 s |
 | `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 1.2 s |
+| `fastest2steps` | 2, turbo | off (softer, about half the images usable; 3 steps are no faster than fastest) | 0.77 s (480x848: 0.32 s) |
 
 `--help` lists every option with its default (`-h` is not supported):
 

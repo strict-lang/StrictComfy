@@ -564,11 +564,13 @@ class GenerationCommandTests(unittest.TestCase):
 
 	def test_moss_quality_presets(self):
 		module = self.module()
-		presets = {name: module.arguments(['--quality', name]) for name in ('best25steps', 'best50steps', 'fast', 'faster', 'fastest')}
+		presets = {name: module.arguments(['--quality', name]) for name in ('best25steps', 'best50steps', 'fast', 'faster', 'fastest',
+			'fastest2steps')}
 		presets['best'] = module.arguments([])
 		self.assertEqual({name: (args.quality, args.steps, args.guidance, args.spectrum) for name, args in presets.items()}, {
 			'best': ('best', 8, 1, 'off'), 'best25steps': ('best25steps', 25, 2, 'off'), 'best50steps': ('best50steps', 50, 2, 'off'),
-			'fast': ('fast', 8, 1, 'spectrum8_w3p3'), 'faster': ('faster', 8, 1, 'spectrum8_w2p3'), 'fastest': ('fastest', 4, 1, 'spectrum4_w2p2')})
+			'fast': ('fast', 8, 1, 'spectrum8_w3p3'), 'faster': ('faster', 8, 1, 'spectrum8_w2p3'), 'fastest': ('fastest', 4, 1, 'spectrum4_w2p2'),
+			'fastest2steps': ('fastest2steps', 2, 1, 'off')})
 		changed = module.arguments(['--quality', 'faster', '--steps', '10', '--guidance', '2'])
 		self.assertEqual((changed.steps, changed.guidance, changed.spectrum), (10, 2, 'spectrum10_w2p3'))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):

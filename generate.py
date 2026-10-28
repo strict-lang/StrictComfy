@@ -54,7 +54,8 @@ MOSS_QUALITIES = {
 	'best50steps': (50, 2, '', 'without the turbo LoRA, 50 steps with cfg 2, 37 s'),
 	'fast': (8, 1, 'w3p3', 'best with Spectrum (5 of 8 steps evaluated), 2.0 s'),
 	'faster': (8, 1, 'w2p3', 'best with Spectrum (4 of 8 steps evaluated), 1.6 s'),
-	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated), 1.2 s')}
+	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated), 1.2 s'),
+	'fastest2steps': (2, 1, '', '2 turbo steps, softer and about half the images usable, 0.77 s (480x848 0.32 s)')}
 
 
 def lora_spec(text):
