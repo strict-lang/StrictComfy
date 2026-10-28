@@ -1,0 +1,35 @@
+has first Number
+has last Number
+has residual Numbers = List(Number)
+has skipped Boolean = false
+has output Numbers = List(Number)
+constant Off = H3Span(0, 0)
+constant Tiny = H3Span(1, 2)
+constant Cached = H3Span.Tiny.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
+constant Skipped = H3Span.Cached.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
+Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, allowed Boolean) Slow(H3Span)
+	MossImage(Logger).Error(Cached.output, H3.Forward) < 0.005
+	Skipped.skipped and (MossImage(Logger).Error(Skipped.output, Cached.output) < 0.00001)
+	if first is last
+		return H3Span(value, output = h3.Output(latent, sound, sigma, text, layout, conditions, rotation))
+	let curves = h3.Curves(layout.Times(sigma))
+	let starts = layout.Rows(sigma)
+	let before = h3.Ran(h3.Hidden(latent, sound, text, layout, conditions), curves, starts, rotation, layout, 0, first)
+	let skipping = allowed and (residual.Length > 0) and (skipped is false)
+	let middle = Middle(h3, before, curves, starts, rotation, layout, skipping)
+	let after = h3.Ran(middle, curves, starts, rotation, layout, last, h3.blocks.Length)
+	let finished = h3.final.Output(after, curves, layout, sigma)
+	H3Span(value, residual = Kept(skipping, middle, before), skipped = skipping, output = finished)
+Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Slow(Numbers)
+	H3Span(Tiny, residual = (5, 6)).Middle(H3.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), H3Layout.Tiny, true) is (6, 7)
+	if skipping
+		return Combined(before, residual, 1)
+	h3.Ran(before, curves, starts, rotation, layout, first, last)
+Kept(skipping Boolean, middle Numbers, before Numbers) Numbers
+	Tiny.Kept(false, (3, 4), (1, 1)) is (2, 3)
+	H3Span(Tiny, residual = (5, 6)).Kept(true, (3, 4), (1, 1)) is (5, 6)
+	skipping then residual else Combined(middle, before, -1)
+Combined(sum Numbers, anchor Numbers, weight Number) Numbers
+	H3Span.Combined((1, 2), (3, 4), 2) is (7, 10)
+	for sum.Length
+		sum(index) + weight * anchor(index)

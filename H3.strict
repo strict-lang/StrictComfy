@@ -74,15 +74,22 @@ Routed(routing Number, block Number) Slow(Number)
 Rotation(layout H3Layout) Slow(Numbers)
 	Turned(0) is 1
 	Rope.Video.Table(layout.Positions, inverse, 1)
+Hidden(latent Numbers, sound Numbers, text Numbers, layout H3Layout, conditions Numbers) Slow(Numbers)
+	Tiny.Hidden(Model.Values("video"), Model.Values("audio"), Prompt, H3Layout.Tiny, List(Number)).Length is 4352
+	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
+	kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
+Ran(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Slow(Numbers)
+	Tiny.Ran(Prompt, Prompt, Prompt, Turned, H3Layout.Tiny, 1, 1) is Prompt
+	mutable state = hidden
+	for last - first
+		let at = first + index
+		state = blocks(at).Output(state, curves, starts, rotation, Routed(layout.routing, at), Leading(layout))
+	state
 Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers) Slow(Numbers)
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
 	Keyed(100).IsNearlyEqual(-3.046875, 0.05)
 	Keyed(818).IsNearlyEqual(0.808594, 0.02)
 	let curves = Curves(layout.Times(sigma))
-	let starts = layout.Rows(sigma)
-	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
-	mutable hidden = kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
-	for blocks
-		hidden = value.Output(hidden, curves, starts, rotation, Routed(layout.routing, index), Leading(layout))
-	final.Output(hidden, curves, layout, sigma)
+	let hidden = Hidden(latent, sound, text, layout, conditions)
+	final.Output(Ran(hidden, curves, layout.Rows(sigma), rotation, layout, 0, blocks.Length), curves, layout, sigma)

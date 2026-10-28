@@ -6,12 +6,12 @@ has coords Numbers = List(Number)
 has anchors List(Numbers) = List(Numbers)
 has output Numbers = List(Number)
 has forecasts Number = 0
+has span H3Span = H3Span.Off
 constant Tiny = H3Spectrum(4, SpectralFit.Line, 2)
 constant Video = H3.Model.Values("video")
 constant Audio = H3.Model.Values("audio")
 constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 0)
 constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 1)
-constant First = H3Spectrum.Started.anchors.First
 constant Stepping = H3Spectrum(8, SpectralFit.Line, output = (2, 4))
 IsActual(step Number) Slow(Boolean)
 	Tiny.IsActual(0)
@@ -42,8 +42,14 @@ Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layou
 	MossImage(Logger).Error(Held.output, H3.Forward) < 0.005
 	if IsActual(step) is false
 		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
-	let actual = h3.Output(latent, sound, sigma, text, layout, conditions, rotation)
-	H3Spectrum(Remembers(step) then Remembered(Coord(sigma, layout), actual) else value, output = actual)
+	let evaluated = span.Evaluated(h3, latent, sound, sigma, text, layout, conditions, rotation, IsSpanning(step))
+	let kept = Remembers(step) then Remembered(Coord(sigma, layout), evaluated.output) else value
+	H3Spectrum(kept, output = evaluated.output, span = evaluated)
+IsSpanning(step Number) Boolean
+	Tiny.IsSpanning(1) is false
+	Tiny.IsSpanning(2)
+	Tiny.IsSpanning(3) is false
+	(step > warmup) and (step < steps - 1)
 Stepped(video Numbers, sigmas Numbers, step Number, job Safetensors) Numbers
 	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is 2
 	Stepping.Stepped((1, 2), Euler(8, 5).Sigmas, 6, Safetensors("h3preview.safetensors"))(1).IsNearlyEqual(2 - 5 / 24 * 4)
@@ -54,22 +60,18 @@ Stepped(video Numbers, sigmas Numbers, step Number, job Safetensors) Numbers
 		Safetensors(path).Written("video", Euler.Stepped(stepped, output, (sigmas(step + 1), 0), 0))
 	stepped
 Remembered(coord Number, anchor Numbers) Slow(H3Spectrum)
-	Started.Remembered(0.8, First).anchors.Length is 2
-	Started.Remembered(0.8, First).Remembered(0.9, First).coords is (0.8, 0.9)
+	Started.Remembered(0.8, Started.output).anchors.Length is 2
+	Started.Remembered(0.8, Started.output).Remembered(0.9, Started.output).coords is (0.8, 0.9)
 	let kept = anchors.Length.Clamp(0, fit.degree)
 	let start = anchors.Length - kept
 	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
 Predicted(coord Number) Slow(Numbers)
 	Started.Predicted(0).Length is 960
-	MossImage(Logger).Error(Started.Remembered(0.8, First * 3).Predicted(1), First * 5) < 0.000001
+	MossImage(Logger).Error(Started.Remembered(0.8, Started.output * 3).Predicted(1), Started.output * 5) < 0.000001
 	if anchors.Length < fit.degree + 1
 		return anchors.Last
 	let weights = fit.Weights(coords, coord)
-	mutable mixed = Combined(anchors.First * 0, anchors.First, weights.First)
+	mutable mixed = H3Span.Combined(anchors.First * 0, anchors.First, weights.First)
 	for anchors.Length - 1
-		mixed = Combined(mixed, anchors(index + 1), weights(index + 1))
+		mixed = H3Span.Combined(mixed, anchors(index + 1), weights(index + 1))
 	mixed
-Combined(sum Numbers, anchor Numbers, weight Number) Numbers
-	H3Spectrum.Combined((1, 2), (3, 4), 2) is (7, 10)
-	for sum.Length
-		sum(index) + weight * anchor(index)
