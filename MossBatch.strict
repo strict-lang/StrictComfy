@@ -9,7 +9,7 @@ Run Number
 		return 2
 	let started = Process.Elapsed
 	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
-	let prompts = PromptBatch(logger, "Image").Prompts(Text.Combine(File(options.prompt).ReadLines, "\n").Trim, seeds)
+	let prompts = PromptBatch(logger, "Image").Prompts(PromptBatch(logger, "Image").Template(options.prompt), seeds)
 	let unique = prompts.Unique
 	let contexts = Contexts(unique)
 	GpuMemory.Evicted
