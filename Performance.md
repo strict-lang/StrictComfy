@@ -1,5 +1,22 @@
 # Moss performance
 
+## Moss layer span caching like H3Span (2026-10-28 05:00, RTX 3080, Strict 3425a46a)
+`--skip first:last` (MossSpan): every other evaluated step from step 2 on, never the last, adds what layers first to last added at the last full evaluation instead of running them. 720x1280, same seeds, warm sampling and PSNR of the decoded images:
+
+| Setting | Sampling | PSNR |
+|---|---:|---|
+| `best` | 2.88 s | |
+| `best --skip 10:32` | 2.33 s | 25-27 dB against best |
+| `best --skip 6:36` | 2.14 s | 25-27 dB against best |
+| `fast` (Spectrum) | 1.84 s | 26-27 dB against best |
+| `fast --skip 10:32` | 1.66 s | 21-22 dB against fast |
+| `faster` (Spectrum) | 1.48 s | 22-23 dB against best |
+| `fastest` | 1.12 s | 17-19 dB against best |
+| `best25steps` | 17.9 s | |
+| `best25steps --skip 6:36` | 12.3 s | 23.5-24.5 dB against best25steps |
+
+With 8 turbo steps the skipped steps come early and change most; Spectrum's forecasts are cheaper and closer, so the turbo presets stay without --skip. On 25 steps the skips save 31 % with the same images (slightly different colors).
+
 ## H3 presets with block span caching (2026-10-28 03:30, RTX 4090, Strict a77e65ef, StrictComfy after 5b47632)
 
 `--skip 5:45` (default for every preset): every other evaluated step after the first two reuses what blocks 5 to 45 added in the last full step. The 10 s fox clip, 8 routed turbo steps, steps 2, 4 and 6 skipped (`H3Video.exe` diagnostic arguments, `C:/StrictDumps/h3fox10/skip*`): no span 31.7 s, `15:35` 28.2 s (a skipped step 2.3 s), `10:40` 25.8 s (1.6 s), `5:45` 23.3 s (0.8 s against 3.6 s); the videos look the same (composition, sharpness, details, motion), the final latents differ from the unskipped one by 0.58 for every span (routed against dense: 0.91).

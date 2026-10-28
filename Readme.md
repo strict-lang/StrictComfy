@@ -81,6 +81,7 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.saf
 | `--merge_only` | prepare and print the merged checkpoint, then exit; it can be passed as `--model` later (its baked LoRAs are recorded) |
 | `--spectrum` | `off` (from `--quality`); `spectrum8_w3p3` forecasts three of eight steps (changes the result) |
 | `--guidance` | 1 (from `--quality`; CFG scale against a zero prompt) |
+| `--skip` | `off`; `first:last` layers (of 42) every other evaluated step from step 2 on (never the last) reuses from the last full evaluation (MossSpan): `--quality best25steps --skip 6:36` samples in 12.3 instead of 17.9 s with slightly different colors; with 8 turbo steps Spectrum (`fast`, `faster`) is the better trade |
 | `--jpg_quality` | 85 |
 | `--json_output` | off; writes a `.json` sidecar with prompt, seed, LoRAs and timings per image |
 | `--model`, `--vae`, `--te` | `moss-image-sft-dit-int8-convrot.safetensors`, `flux2-vae.safetensors`, `qwen3.5_9b_int8_convrot.safetensors` in ComfyUI's model folders |
