@@ -9,7 +9,26 @@ Per 720x1280 decode (nsys with `--cuda-graph-trace=node`, busy GPU time 253 -> 2
 
 Where a 480x848 `fast` image goes now (1.08 s per image in a batch of 48): sampling ~775 ms (int8 GEMMs 426 ms, attention 130 ms, Hadamard rotation, quantization and elementwise kernels ~207 ms), decode 140-170 ms, save 11-15 ms, ~15 ms between images.
 
-## H3 routed steps against Sol-Attn (2026-10-28 02:30, RTX 4090, Strict 029b4536)
+## Strict H3 Sampler against ComfyUI's H3 sampling, 12 s clips (2026-10-28 01:50, RTX 4090, Strict 029b4536)
+
+The 12 s fox clip (480x832, 294 frames, seed 1 then seed 2, `C:/StrictDumps/compare12e`, the scratchpad's `queue_compare.py` through ComfyUI's API with `--disable-dynamic-vram --disable-pinned-memory`), the whole prompt to the saved mp4 (Video Combine, h264 crf 19), on a quiet machine (the first round of the Strict presets ran next to a test sweep and is not used):
+
+| Sampling | Seed 1 (cold) | Seed 2 (warm) |
+|---|---:|---:|
+| ComfyUI, base model, 20 `res_multistep` steps (its H3 template's default) | 383.4 s | 291.0 s |
+| ComfyUI, 768p turbo checkpoint, 8 euler steps | 151.1 s | 148.9 s |
+| ComfyUI, turbo checkpoint, 4 euler steps | 96.8 s | 71.5 s |
+| ComfyUI, base model + TaoMate LoRA, 3 euler steps | 78.8 s | 62.4 s |
+| `best` | 94.8 s | 85.3 s |
+| `fast` | 74.2 s | 58.4 s |
+| `faster` | 58.8 s | 43.2 s |
+| `fastest4steps` | 53.9 s | 38.2 s |
+| `fastest3steps` | 81.7 s | 32.6 s |
+| `fastest2steps` | 62.7 s | 27.1 s |
+
+ComfyUI's turbo run took 148.9 s warm against 125.6 s on 2026-10-27: its warm prompt loaded the 15 GB text encoder onto the GPU again and the model only partly (5.6 GB offloaded), steps 13.8-14.2 s. The Strict seed 1 runs load a new quality's model into the resident H3Video (the base model with TaoMate for `fastest3steps` and `fastest2steps`), `best` was already resident. Against the same model and steps: `best` 1.7x ComfyUI's 8 turbo steps (97.4 s on 2026-10-27, dense attention since), `fastest4steps` 1.9x its 4 steps, `fastest3steps` 1.9x its TaoMate run.
+
+## H3 routed steps against Sol-Attn (2026-10-28 01:00, RTX 4090, Strict 029b4536)
 
 Routed attention (`--quality fast` and the presets after it): `strict_device_quantize_tokens` quantized H3's keys and values per token and head (28.9k times 56 rows of 128) with a block of 256 threads per row, 1.80 ms per call at 0.35 TB/s; a warp per row takes 0.65-0.68 ms at 0.95 TB/s, routed steps 3.82-3.86 -> 3.68-3.74 s with the same errors. Per routed step against ComfyUI with Sol-Attn (nsys, `C:/StrictDumps/prof/routednow.sqlite` before that change and `comfysol10.sqlite`):
 

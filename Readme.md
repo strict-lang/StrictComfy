@@ -186,6 +186,27 @@ The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\
 
 `quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest3steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes 16 s for `fastest3steps` (7 s of sampling, the rest decoding and the mp4), the first run of a quality, model or LoRA set adds the model load (10-16 s, the LoRAs merged while loading like `--lora_mode runtime` below, about 20 s more for TaoMate and a style LoRA). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed. With `models/vae_approx/taeh3.safetensors` (the per-frame tiny H3 decoder Model Preview Override uses) the node shows the denoised video of every step as a 512 pixel animation of every other latent frame, so a bad run can be cancelled early (about 0.3 s per evaluated step for 294 frames, a preview that comes while the last one still decodes is skipped).
 
+### Against ComfyUI's H3 sampling
+
+One `quality` setting picks the speed and the quality, where ComfyUI needs a model, a LoRA or an attention node for each and a round of tests for every combination. A 12 s clip (480x832, 294 frames, one prompt, seed 2 right after seed 1) on the 4090, the whole prompt from queueing to the saved mp4: text encoding, sampling, both VAE decodes and the same Video Combine h264 encode in every row (NVENC h265 takes a few seconds off each). ComfyUI runs with `--disable-dynamic-vram --disable-pinned-memory` and its default attention, the quality is rated by eye on these clips:
+
+| Sampling | Model evaluations | Whole prompt | Against ComfyUI's default | Quality |
+|---|---:|---:|---:|---|
+| ComfyUI's H3 template default: the base model, 20 `res_multistep` steps | 20 | 291.0 s | 1x | ★★★★★ |
+| ComfyUI, the 768p turbo 8-step checkpoint | 8 | 148.9 s (125.6 s on 2026-10-27) | 2.0x | ★★★★ |
+| ComfyUI, the turbo checkpoint with 4 steps | 4 | 71.5 s | 4.1x | ★★ |
+| ComfyUI, the base model with the TaoMate 3-step LoRA | 3 | 62.4 s | 4.7x | ★ breaks down, most in fast motion |
+| `best` | 8 | 85.3 s | 3.4x | ★★★★ |
+| `fast` (the node's default) | 8 | 58.4 s | 5.0x | ★★★★ |
+| `faster` | 5 | 43.2 s | 6.7x | ★★★★ (not rated yet, assumed like `fast`) |
+| `fastest4steps` | 4 | 38.2 s | 7.6x | ★★★ |
+| `fastest3steps` (TaoMate) | 3 | 32.6 s | 8.9x | ★★ |
+| `fastest2steps` (TaoMate) | 2 | 27.1 s | 10.7x | ★ |
+
+With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27), 1.9x (`fastest4steps` against 4 turbo steps) and 1.9x (`fastest3steps` against TaoMate) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest3steps` and `fastest2steps` add TaoMate).
+
+ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint, [Performance.md](Performance.md)): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
+
 ## H3 videos with sound from a prompt file (RTX 4090)
 
 `H3Video.exe --quality <preset>` picks the model, steps, attention and Spectrum in one go; `--model`, `--steps`, `--routing`, `--spectrum` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w1p2`), its LoRAs come before the given ones. Sampling times for the default 124 frames on a 4090, warm:
