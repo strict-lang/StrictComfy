@@ -1,5 +1,14 @@
 # Moss performance
 
+## VAE decode attention and the bfloat16 pre-pass (2026-10-28 03:00, RTX 3080, Strict prepass-vector 572ca402)
+Per 720x1280 decode (nsys with `--cuda-graph-trace=node`, busy GPU time 253 -> 218 ms, spans of 219-223 ms without gaps):
+- the mid block attention multiplied its shares with the values in place (stride 3 x 512 along the positions), the general path of `strict_device_product_tiles`: 2.29 ms per chunk of 1165 rows, 40 blocks at 7.5 TFLOPS. `FluxAttention.Transposed` writes the values as rows of positions once per decode, the fast path takes 0.83 ms per chunk, the products 44 -> 24 ms, the images identical. 4 times larger chunks were slower (331-399 ms per decode: the transposed operand stayed slow and the larger lists left 67 ms of gaps).
+- `strict_device_convolution_normed` takes 4 numbers per thread with vector loads and stores: 23.1 -> 10.6 ms (the largest call 236M numbers in 1.33 ms, ~710 GB/s).
+
+`MossImage.exe` warm decodes: 720x1280 267-287 -> 235-268 ms, 480x848 150-178 -> 138-168 ms. Between two decodes the GPU waits 28-40 ms: the 11 MB image download takes 0.4 ms, the JPEG save ~16 ms, ~11 ms go to the CPU conversions before the next latent is uploaded.
+
+Where a 480x848 `fast` image goes now (1.08 s per image in a batch of 48): sampling ~775 ms (int8 GEMMs 426 ms, attention 130 ms, Hadamard rotation, quantization and elementwise kernels ~207 ms), decode 140-170 ms, save 11-15 ms, ~15 ms between images.
+
 ## H3 routed steps against Sol-Attn (2026-10-28 02:30, RTX 4090, Strict 029b4536)
 
 Routed attention (`--quality fast` and the presets after it): `strict_device_quantize_tokens` quantized H3's keys and values per token and head (28.9k times 56 rows of 128) with a block of 256 threads per row, 1.80 ms per call at 0.35 TB/s; a warp per row takes 0.65-0.68 ms at 0.95 TB/s, routed steps 3.82-3.86 -> 3.68-3.74 s with the same errors. Per routed step against ComfyUI with Sol-Attn (nsys, `C:/StrictDumps/prof/routednow.sqlite` before that change and `comfysol10.sqlite`):
