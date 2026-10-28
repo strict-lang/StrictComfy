@@ -1,5 +1,8 @@
 # Moss performance
 
+## H3Video.exe image to video against ComfyUI (2026-10-28 20:40, RTX 4090, Strict e157c337)
+`H3Video.exe --prompt <lighthouse> --image C:/StrictDumps/h3/frame-first.png --seed 42 --quality best` against ComfyUI's i2v of the same image, prompt and seed (`C:/StrictDumps/h3i2v/video.mp4`, turbo, 8 euler steps), PSNR per frame over 124 frames: a text only context (before the vision tower) 34.3 dB on the first frame, 16.7 in the middle, 17.2 at the end, 18.5 mean; with the image in the Qwen3-VL context (the strict-cd session's vision tower) 37.5, 22.3, 23.5, 24.6 mean; with `--skip off` like ComfyUI 39.3, 31.0, 29.5, 31.7 mean, the same wave splash and camera framing side by side. Warm with the cached image context 66.5 s, the first run 184 s (PTX, the text encoder 28 s load and 13 s for vision and prefill, the keyframe 12.5 s on the slow convolution path of the default GPU mode).
+
 ## Strict's H3 video VAE encoder (2026-10-28 19:10, RTX 4090, Strict 7b64e714)
 One 480x832 image (12 tiles of 256 px): 10.1 s and 2.1-12.5 s loading (F16 weights) against ComfyUI's 0.34 s warm (2.73 s first). The GPU is busy, 6.0 of 6.1 s are the generic `Convolved_Summed` kernel (167 ms per call) for the five convolutions per tile the device convolution can not take: it needs 32 to 512 input channels in steps of 32, and conv_in reads 3, the last level and conv_out read 1024. The other 175 convolutions per 6 s take 45 ms on `strict_device_convolutions`.
 
