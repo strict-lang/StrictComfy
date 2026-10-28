@@ -1,5 +1,6 @@
 has logger
 has files H3Files
+has frame Numbers = (832, 480)
 constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
 Encoded(prompts Texts, paths Texts) Slow(Number)
@@ -7,26 +8,43 @@ Encoded(prompts Texts, paths Texts) Slow(Number)
 	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 	let encoder = Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	let count = Contexts(encoder, Tokens(tokens, prompts), paths).Length
+	let count = Contexts(encoder, Tokens(tokens, prompts), paths, Picture(tokens)).Length
 	GpuMemory.Evicted
 	count
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2
 	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0).Loaded(5000000)
-Contexts(encoder Qwen3, chosen List(Numbers), paths Texts) Slow(Numbers)
-	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + Written) is (195)
+Contexts(encoder Qwen3, chosen List(Numbers), paths Texts, picture Numbers) Slow(Numbers)
+	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + Written, List(Number)) is (195)
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
 	Safetensors(Written).Values("tags") is (1, 1, 1)
 	for paths
-		let hidden = encoder.Prefilled(chosen(index), 0).hidden
+		let hidden = Hidden(encoder, chosen(index), picture)
 		logger.Log("Encoded prompt " + (index + 1) + "/" + paths.Length)
-		Safetensors(value).Written(("context", "tags"), (hidden, Tags(chosen(index).Length)))
+		let tags = Tags(chosen(index).Length, picture, hidden.Length / encoder.norm.Length)
+		Safetensors(value).Written(("context", "tags"), (hidden, tags))
+Hidden(encoder Qwen3, chosen Numbers, picture Numbers) Slow(Numbers)
+	Tiny.Hidden(Tiny.Loaded, (1, 2, 3), List(Number)).Length is 192
+	if picture.Length is 0
+		return encoder.Prefilled(chosen, 0).hidden
+	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, (8, 16, 24))
+	let path = files.image is "" then files.lastImage else files.image
+	let pixels = H3Picture.Frame(path, frame, files.image is "")
+	Qwen3Images(encoder, vision).Prefilled(picture, pixels, frame(0), frame(1), List(Number) + 151653 + chosen).hidden
+Picture(tokens Gpt2Tokens) Numbers
+	Tiny.Picture(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens")).Length is 0
+	if files.image is "" and files.lastImage is ""
+		return List(Number)
+	if files.image is not "" and files.lastImage is not ""
+		logger.Log("The last image is not in the text context yet, only the first")
+	tokens.Encoded("<Picture 1>: ") + 151652
 Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 	Tiny.Tokens(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens"), ("ab", "")) is ((3), (151643))
 	for prompts
 		let chosen = tokens.Encoded(value)
 		chosen.Length is 0 then List(Number) + 151643 else chosen
-Tags(count Number) Numbers
-	Tiny.Tags(2) is (1, 1)
-	for count
-		1
+Tags(count Number, picture Numbers, total Number) Numbers
+	Tiny.Tags(2, List(Number), 2) is (1, 1)
+	Tiny.Tags(1, (5, 6), 6) is (1, 0, 0, 0, 0, 1)
+	for total
+		index >= picture.Length - 1 and index < total - count then 0 else 1

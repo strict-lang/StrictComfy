@@ -30,8 +30,14 @@ Cached(prompts Texts) Texts
 	Sample.Cached(List(Text) + "a").First.EndsWith(".safetensors")
 	Sample.Cached(("a", "b")).First is not Sample.Cached(("a", "b")).Last
 	let named = options.files.textEncoder is "" then Encoder else options.files.textEncoder
+	let identity = named + Text.Combine(Pictures, "") + "\n"
 	for prompts
-		Folder + "/context-" + HashCode(named + "\n" + value).number + "-" + value.Length + ".safetensors"
+		Folder + "/context-" + HashCode(identity + value).number + "-" + value.Length + ".safetensors"
+Pictures Texts
+	Sample.Pictures.Length is 0
+	H3Batch(Logger, H3Options.Parsed(("--image", "H3Batch.strict"))).Pictures.First.StartsWith(" H3Batch.strict ")
+	for options.files.Images
+		" " + value + " " + File(value).Length + " " + options.width + "x" + options.height
 Missing(paths Texts) Boolean
 	Sample.Missing(List(Text) + "H3Batch.strict") is false
 	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors"))
@@ -40,7 +46,7 @@ Missing(paths Texts) Boolean
 			return true
 	false
 Encoded(prompts Texts, paths Texts) Slow(Number)
-	let encoder = H3Encoder(logger, options.files)
+	let encoder = H3Encoder(logger, options.files, (options.height, options.width))
 	Directory.Create(Root + "/artifacts")
 	Directory.Create(Folder)
 	encoder.Encoded(prompts, paths)
