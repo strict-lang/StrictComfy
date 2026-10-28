@@ -34,7 +34,7 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		self.assertIn('--prompt', result.stdout)
 		self.assertIn('--lora', result.stdout)
-		self.assertIn('--jpg_quality', result.stdout)
+		self.assertIn('--skip', result.stdout)
 		self.assertNotIn('-h,', result.stdout)
 		self.assertIn('--quality', result.stdout)
 
