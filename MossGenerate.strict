@@ -62,7 +62,7 @@ Decoders(vae Text) Slow(List(FluxDecoder))
 	if vae is ""
 		return List(FluxDecoder)
 	List(FluxDecoder) + FluxDecoder.Loaded(vae, 32)
-Extension(data Safetensors, decoders Number) Text
+Extension(data Safetensors, decoders Number) Slow(Text)
 	MossGenerate(Logger).Extension(MossImage.Reference, 1).Length is 4
 	MossGenerate(Logger).Extension(MossImage.Reference, 0) is "-latent.safetensors"
 	if decoders is 0
