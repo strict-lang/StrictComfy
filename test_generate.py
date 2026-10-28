@@ -577,7 +577,8 @@ class GenerationCommandTests(unittest.TestCase):
 	def test_h3_quality_presets(self):
 		module = self.module()
 		best = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
-		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora), ('best', 8, 0, 'off', []))
+		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora, best.sampler, best.scheduler),
+			('best', 8, 0, 'off', [], 'euler', 'simple'))
 		self.assertEqual(module.skipped_blocks(best), (5, 45))
 		self.assertEqual(module.skipped_blocks(module.arguments(['--skip', 'off'], 'h3')), (0, 0))
 		for skip in ('45:5', '5:51', '5-45'):
@@ -597,9 +598,10 @@ class GenerationCommandTests(unittest.TestCase):
 		import torch
 		module = self.module()
 		video, audio = (1, 24, 37, 52, 30), (1, 32, 2, 207)
-		args = module.h3_arguments('fast', video, audio, '10:40')
-		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing, args.skip), (480, 832, 124, 8, 1, '10:40'))
-		self.assertEqual(tuple(module.h3_noise(args, 7)[1].shape), audio[1:])
+		args = module.h3_arguments('fast', video, audio, '10:40', 'res_multistep', 'sgm_uniform')
+		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing, args.skip, args.sampler, args.scheduler),
+			(480, 832, 124, 8, 1, '10:40', 'res_multistep', 'sgm_uniform'))
+		self.assertEqual(tuple(module.h3_noise(args, 7)['audio'].shape), audio[1:])
 		with self.assertRaises(ValueError):
 			module.h3_arguments('fast', video, (1, 32, 2, 100))
 		numbers = torch.arange(24 * 37 * 52 * 30 + 32 * 2 * 207, dtype=torch.float32)
@@ -635,11 +637,12 @@ class GenerationCommandTests(unittest.TestCase):
 	def test_h3_noise_follows_comfyui_order(self):
 		import torch
 		module = self.module()
-		video, audio = module.h3_noise(module.arguments(['--width', '64', '--height', '32', '--length', '30'], 'h3'), 7)
-		self.assertEqual((tuple(video.shape), tuple(audio.shape)), ((24, 12, 2, 4), (32, 2, 65)))
+		noise = module.h3_noise(module.arguments(['--width', '64', '--height', '32', '--length', '30', '--steps', '2',
+			'--sampler', 'er_sde'], 'h3'), 7)
+		self.assertEqual(list(noise), ['video', 'audio', 'video.noise.0', 'audio.noise.0'])
 		generator = torch.manual_seed(7)
-		self.assertTrue(torch.equal(video, torch.randn((1, 24, 12, 2, 4), generator=generator)[0]))
-		self.assertTrue(torch.equal(audio, torch.randn((1, 32, 2, 65), generator=generator)[0]))
+		for name, shape in zip(noise, [(1, 24, 12, 2, 4), (1, 32, 2, 65)] * 2):
+			self.assertTrue(torch.equal(noise[name], torch.randn(shape, generator=generator)[0]), name)
 
 	def test_h3_checkpoint_with_model_prefix_is_accepted(self):
 		import torch
@@ -673,7 +676,8 @@ class GenerationCommandTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--count', '2', '--seed', '42', '--width', '32', '--height', '32', '--length', '5',
-				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2', '--routing', '1'], 'h3')
+				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2', '--routing', '1', '--sampler', 'res_multistep',
+				'--scheduler', 'sgm_uniform'], 'h3')
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
@@ -690,7 +694,7 @@ class GenerationCommandTests(unittest.TestCase):
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
 			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
-				'45'])
+				'45', '1', '1'])
 			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')

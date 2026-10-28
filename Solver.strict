@@ -1,0 +1,91 @@
+has kind Number
+has sigmas Numbers
+has latent Numbers
+has denoised Numbers = List(Number)
+has change Numbers = List(Number)
+constant Toy = Solver(1, Euler(4, 5).Sigmas, (1, -2))
+constant First = Solver.Toy.Stepped((0.25, -1.25), 0)
+constant Second = Solver.First.Stepped((0.5 * 0.984375 / 0.9375 - 0.25, -0.5 * 1.921875 / 0.9375 - 0.25), 1)
+constant Quiet = Solver(2, Euler(4, 5).Scheduled(0, 2), (1, -2))
+constant Started = Solver.Quiet.Stepped((0.5 / Solver.Quiet.sigmas(0) - 0.25, -1 / Solver.Quiet.sigmas(0) - 0.25), 0)
+constant Staged = Solver.Started.Stepped((0.5 * 0.046874688 / 0.9375 - 0.25, -0.5 * 0.046875313 / 0.9375 - 0.25), 1)
+constant Third = Solver.Staged.Stepped((0.5 * 0.06405185 / 0.833333313 - 0.25, -0.5 * 0.006006669 / 0.833333313 - 0.25), 2)
+Stepped(output Numbers, step Number, start = 0, noise = List(Number)) Solver
+	Solver(Toy, kind = 0).Stepped((2, 4), 0).latent is Euler(1, 1).Stepped((1, -2), (2, 4), Toy.sigmas, 0)
+	First.latent is (0.984375, -1.921875)
+	Second.latent(0).IsNearlyEqual(0.953306216)
+	Second.latent(1).IsNearlyEqual(-1.78663953)
+	Solver(Quiet, sigmas = (0.5, 0)).Stepped((1, 1), 0).denoised is (0.5, -2.5)
+	let predicted = Predicted(output, step, start)
+	let ending = sigmas(step + 1) is 0
+	if kind is 2
+		return ending then Solver(value, latent = predicted, denoised = predicted) else Stochastic(predicted, step, noise)
+	let plain = (kind is 0) or ending or (denoised.Length is 0)
+	let moved = plain then Euler(1, 1).Stepped(latent, output, sigmas, step, start) else Multistep(predicted, step)
+	Solver(value, latent = moved, denoised = predicted)
+Predicted(output Numbers, step Number, start Number) Numbers
+	Toy.Predicted((0.25, -1.25), 0, 0) is (0.75, -0.75)
+	for latent
+		value - sigmas(step) * output(start + index)
+Multistep(predicted Numbers, step Number) Numbers
+	Second.denoised(0).IsNearlyEqual(0.5 * 0.984375 + 0.25 * 0.9375)
+	let sigma = sigmas(step)
+	let size = (sigma / sigmas(step + 1)).Logarithm
+	let ratio = (sigma / sigmas(step - 1)).Logarithm / size
+	let first = (1 - (0 - size).Exponential) / size
+	let second = (1 - first) / size
+	let decay = sigmas(step + 1) / sigma
+	let current = size * (first - second / ratio)
+	let older = size * second / ratio
+	for latent
+		decay * value + current * predicted(index) + older * denoised(index)
+Stochastic(predicted Numbers, step Number, noise Numbers) Solver
+	Started.latent(0).IsNearlyEqual(0.046874688)
+	Staged.latent(1).IsNearlyEqual(-0.006006669)
+	Third.latent(0).IsNearlyEqual(0.104872917)
+	Third.latent(1).IsNearlyEqual(0.050195447)
+	let ratio = Scaled(Lambda(step + 1)) / Scaled(Lambda(step))
+	let kept = (1 - sigmas(step + 1)) / (1 - sigmas(step)) * ratio
+	let changed = step is 0 then List(Number) else Changed(predicted, step)
+	let moved = Moved(predicted, changed, kept, Weights(step, ratio), noise)
+	Solver(value, latent = moved, denoised = predicted, change = changed)
+Changed(predicted Numbers, step Number) Numbers
+	Staged.change(0).IsNearlyEqual((Staged.denoised(0) - Started.denoised(0)) / (Staged.Lambda(1) - Staged.Lambda(0)))
+	let spacing = Lambda(step) - Lambda(step - 1)
+	for predicted
+		(value - denoised(index)) / spacing
+Weights(step Number, ratio Number) Numbers
+	Solver.Quiet.Stepped((0.25, -1.25), 0, 0, (0.5, -1)).latent(1).IsNearlyEqual(-0.984375313, 0.0001)
+	let lambda = Lambda(step)
+	let following = Lambda(step + 1)
+	let next = 1 - sigmas(step + 1)
+	let integrals = Integrals(lambda, following)
+	let spread = (following - lambda) ^ 2 / 2 + integrals(1) * Scaled(following)
+	let third = step < 2 then 0 else next * spread * 2 / (lambda - Lambda(step - 2))
+	let noisy = (following ^ 2 - (lambda * ratio) ^ 2).Clamp(0, 1000000000000).SquareRoot
+	(next * (1 - ratio), next * (following - lambda + integrals(0) * Scaled(following)), third, next * noisy)
+Integrals(lambda Number, following Number) Numbers
+	Toy.Integrals(1, 1) is (0, 0)
+	let spacing = (lambda - following) / 200
+	mutable plain = 0
+	mutable weighted = 0
+	for 200
+		let position = following + index * spacing
+		plain = plain + spacing / Scaled(position)
+		weighted = weighted + (position - lambda) * spacing / Scaled(position)
+	(plain, weighted)
+Moved(predicted Numbers, changed Numbers, kept Number, weights Numbers, noise Numbers) Numbers
+	Toy.Moved((1, 1), List(Number), 0.5, (1, 0, 0, 0), List(Number)) is (1.5, 0)
+	for latent
+		let staged = changed.Length is 0 then 0 else weights(1) * changed(index) + Curvature(changed, weights, index)
+		kept * value + weights(0) * predicted(index) + staged + (noise.Length is 0 then 0 else weights(3) * noise(index))
+Curvature(changed Numbers, weights Numbers, index Number) Number
+	Toy.Curvature((1, 2), (0, 0, 3, 0), 1) is 0
+	change.Length is 0 then 0 else weights(2) * (changed(index) - change(index))
+Lambda(step Number) Number
+	Toy.Lambda(4) is 0
+	Toy.Lambda(2).IsNearlyEqual(5)
+	sigmas(step) / (1 - sigmas(step))
+Scaled(lambda Number) Number
+	Toy.Scaled(0) is 0
+	lambda * ((lambda ^ 0.3).Exponential + 10)

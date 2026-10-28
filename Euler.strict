@@ -8,8 +8,28 @@ Sigmas Numbers
 	Moss.Sigmas(7).IsNearlyEqual(0.4166667)
 	Moss.Sigmas(8) is 0
 	for steps + 1
-		let time = 1 - index / steps
-		shift * time / (1 + (shift - 1) * time)
+		Shifted(1 - index / steps)
+Uniform Numbers
+	Euler(8, 12).Uniform(1).IsNearlyEqual(0.9883928)
+	Euler(8, 12).Uniform(7).IsNearlyEqual(0.6526598)
+	Euler(8, 12).Uniform(8) is 0
+	let least = Shifted(0.001)
+	for steps + 1
+		index is steps then 0 else Shifted(1 - index * (1 - least) / steps)
+Scheduled(scheduler Number, sampler Number) Numbers
+	Euler(1, 12).Scheduled(1, 2)(0).IsNearlyEqual(0.9999917)
+	Euler(4, 5).Scheduled(0, 1) is Euler(4, 5).Sigmas
+	let sigmas = scheduler is 1 then Uniform else Sigmas
+	sampler is 2 then Offset(sigmas) else sigmas
+Shifted(time Number) Number
+	Moss.Shifted(1) is 1
+	Moss.Shifted(0.5).IsNearlyEqual(5 / 6)
+	shift * time / (1 + (shift - 1) * time)
+Offset(sigmas Numbers) Numbers
+	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(0).IsNearlyEqual(0.999979998)
+	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(1) is 0.9375
+	for sigmas
+		(index is 0) and (value >= 1) then Shifted(0.9999) else value
 Stepped(latent Numbers, output Numbers, sigmas Numbers, step Number, start = 0) Numbers
 	Moss.Stepped((1, 2), (2, 4), Moss.Sigmas, 7)(1).IsNearlyEqual(2 - 5 / 12 * 4)
 	Moss.Stepped((1, 2), (0, 2, 4), Moss.Sigmas, 7, 1)(1).IsNearlyEqual(2 - 5 / 12 * 4)

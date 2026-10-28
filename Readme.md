@@ -181,7 +181,7 @@ The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\
 | Load CLIP | `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`, type `minimax` |
 | Load VAE, twice | `minimax_h3_video_vae_int8_convrot.safetensors` and `minimax_h3_audio_vae_fp32.safetensors` |
 | MiniMax H3 Image to Video | prompt, width, height, length (124 = 5.2 s), optional first and last frame |
-| **Strict H3 Sampler** (`sampling/strict`) | `positive` and `latent` of MiniMax H3 Image to Video, `quality` (`fast`), `seed`, `skip` (`5:45`), optional `model` |
+| **Strict H3 Sampler** (`sampling/strict`) | `positive` and `latent` of MiniMax H3 Image to Video, `quality` (`fast`), `seed`, `skip` (`5:45`), `sampler_name` (`euler`), `scheduler` (`simple`), optional `model` |
 | VAE Decode, VAE Decode Audio | the latent with the video and the audio VAE |
 | Video Combine (VideoHelperSuite) or Create Video + Save Video | the frames at 24 fps with the audio |
 
@@ -209,7 +209,7 @@ ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo che
 
 ## H3 videos with sound from a prompt file (RTX 4090)
 
-`H3Video.exe --quality <preset>` picks the model, steps, attention and Spectrum in one go; `--model`, `--steps`, `--routing`, `--spectrum`, `--skip` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with `spectrum10_w1p2`), its LoRAs come before the given ones. Sampling times for the default 124 frames on a 4090, warm:
+`H3Video.exe --quality <preset>` picks the model, steps, attention and Spectrum in one go; `--model`, `--steps`, `--routing`, `--spectrum`, `--skip` and `--lora` change a preset (`--sampler` and `--scheduler` apply to all) (`--quality faster --steps 10` samples 10 steps with `spectrum10_w1p2`), its LoRAs come before the given ones. Sampling times for the default 124 frames on a 4090, warm:
 
 | `--quality` | Model, LoRA | Steps | Attention, Spectrum | Sampling |
 |---|---|---:|---|---:|
@@ -241,6 +241,8 @@ LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and 
 
 `--skip first:last` (default `5:45` for every preset, `off` for none, the node's `skip` input): every other evaluated step after the first two (never the last) reuses what blocks first to last of the 50 added in the last full evaluation instead of computing them, the hidden state before the span plus that difference (one hidden-sized list, 0.8 GB at 480x832 and 10 s). 8 routed turbo steps of a 10 s clip on a 4090 skip steps 2, 4 and 6: `15:35` 11 %, `10:40` 19 %, `5:45` 26 % faster (a skipped step 2.3, 1.6 and 0.8 s instead of 3.6 s), the videos show the same composition, sharpness and motion. Steps with Spectrum forecasts are not evaluated and do not count, 3 or fewer steps skip nothing.
 
+`--sampler euler|res_multistep|er_sde` and `--scheduler simple|sgm_uniform` (default `euler` and `simple`, the node's `sampler_name` and `scheduler`) are ComfyUI's k-diffusion samplers and schedulers (`Solver.strict`, `Euler.Scheduled`): `res_multistep` is second order (the default of the H3 workflows), `er_sde` is stochastic with new noise every step but the last (from the seed's generator after the initial noise, ComfyUI draws it on the GPU, so the video differs) and starts below sigma 1 like ComfyUI. Video and audio each run the sampler on their own sigmas, which is ComfyUI's result for `euler` and close to it for the others. Every sampler evaluates the model once per step, so all take as long.
+
 ### Diagnostic mode: positional arguments
 
 `dump.py h3 --runs 0` writes the inputs of a prompt and seed without sampling in ComfyUI: `conditioning.safetensors` (Qwen3-VL states and token tags) and `steps.safetensors` (the noise as `video.0`/`audio.0`, `sigmas` of the default 8 steps); a full `dump.py h3` run (also with `--lora name:strength`) adds ComfyUI's per step references, which the positional mode compares against. `dump.py h3decode` decodes every `<name>-latent.safetensors` in a folder with ComfyUI's VAEs into `<name>-video.mp4` (plus first, middle and last frame PNGs).
@@ -256,12 +258,13 @@ $env:STRICT_GPU = "all"
 & $python dump.py h3decode --out C:\StrictDumps\fox
 ```
 
-Arguments after the executable: `dumps model name loras steps shift period warmup degree routing first last`, defaults `strict "" 0 12 0 1 1 0 0 0`.
+Arguments after the executable: `dumps model name loras steps shift period warmup degree routing first last sampler scheduler`, defaults `strict "" 0 12 0 1 1 0 0 0 0 0`.
 
 - `name`: the output is `<name>-latent.safetensors` (one F32 tensor `latent`: the video, then the audio numbers).
 - `loras`: `path=strength` entries separated by `;`, a path without `=` has strength 1, an empty argument for none (`'""'` in Windows PowerShell 5.1, which drops `""`). Keys `[diffusion_model.]blocks.N.{attn.qkv_proj,attn.out_proj,mlp.fc1,mlp.fc2}.{lora_A,lora_B,lora_down,lora_up}.weight` with an optional `alpha` (scale alpha / rank, 1 without, times the strength), the same for `token_refiner.blocks.N`. Several LoRAs stack by rank. The int8 convrot block weights get the update merged at load like ComfyUI does (dequantized, the rotated update added, requantized per row with stochastic rounding; `Safetensors.Tuned` in ../Strict), so steps cost the same as without LoRA; the dense token refiner applies them per call. The load line reports how many of each file's tensors were applied: adaln, patch projection and final layer LoRAs and FastH3's `diff`/`diff_b` tensors are not applied yet.
 - `steps`: 0 takes the count of the folder's `sigmas`; the schedule is ComfyUI's simple flow schedule `shift t / (1 + (shift - 1) t)` (8 steps match ComfyUI exactly), `shift` is the video flow shift and the audio sigmas follow from it with shift 3 like ComfyUI's MiniMax H3 shift node. Per step errors against ComfyUI print only when the folder has its references and the step count matches.
 - `period`: Spectrum, 0 is off. After `warmup` actual steps every `period`-th step is actual, the others are forecast from the last actual ones, the last step is always actual: 8 steps with period 2 are A F A F A F A A (5 transformer evaluations), period 3 skips two of three. `degree` is the Chebyshev degree of the fit (ridge 0.1, blended half with the line through the last two, `SpectralFit`), it keeps `degree + 1` anchors; with one anchor the forecast holds it. H3 forecasts its output, not its features ([Spectrum.md](Spectrum.md)).
 - `routing`: `--routing` (0 attends densely), `first` and `last`: the blocks of `--skip` (0 and 0 for none).
+- `sampler`: 0 `euler`, 1 `res_multistep`, 2 `er_sde` (its noise in the job as `video.noise.<step>` and `audio.noise.<step>`, none is no noise), `scheduler`: 0 `simple`, 1 `sgm_uniform`.
 
 Loading the 21 GB model takes 14-20 s, merging adds about 20 s for TaoMate (rank 4-21) and 80 s for the turbo 8-step LoRA (rank 128-384). The first step of a fresh process uploads all weights once (about 12 s more), the H3 reference folder hides that in its per-layer comparison before sampling. Timings and quality numbers are in [Performance.md](Performance.md).
