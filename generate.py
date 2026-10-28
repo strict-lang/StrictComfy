@@ -44,8 +44,7 @@ QUALITIES = {
 	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 11 s'),
 	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 7 s'),
 	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 6.4 s'),
-	'fastest3steps': (H3_BASE, 3, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, routed, 6.4 s'),
-	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'fastest3steps with 2 steps, 4.5 s')}
+	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, 4.5 s')}
 # Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),

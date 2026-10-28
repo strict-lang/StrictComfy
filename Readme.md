@@ -184,7 +184,7 @@ The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\
 | VAE Decode, VAE Decode Audio | the latent with the video and the audio VAE |
 | Video Combine (VideoHelperSuite) or Create Video + Save Video | the frames at 24 fps with the audio |
 
-`quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest3steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes 16 s for `fastest3steps` (7 s of sampling, the rest decoding and the mp4), the first run of a quality, model or LoRA set adds the model load (10-16 s, the LoRAs merged while loading like `--lora_mode runtime` below, about 20 s more for TaoMate and a style LoRA). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed. With `models/vae_approx/taeh3.safetensors` (the per-frame tiny H3 decoder Model Preview Override uses) the node shows the denoised video of every step as a 512 pixel animation of every other latent frame, so a bad run can be cancelled early (about 0.3 s per evaluated step for 294 frames, a preview that comes while the last one still decodes is skipped).
+`quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest2steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes its sampling time (the table below) and about 9 s more for decoding and the mp4, the first run of a quality, model or LoRA set adds the model load (10-16 s, the LoRAs merged while loading like `--lora_mode runtime` below, about 20 s more for TaoMate and a style LoRA). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed. With `models/vae_approx/taeh3.safetensors` (the per-frame tiny H3 decoder Model Preview Override uses) the node shows the denoised video of every step as a 512 pixel animation of every other latent frame, so a bad run can be cancelled early (about 0.3 s per evaluated step for 294 frames, a preview that comes while the last one still decodes is skipped).
 
 ### Against ComfyUI's H3 sampling
 
@@ -200,10 +200,9 @@ One `quality` setting picks the speed and the quality, where ComfyUI needs a mod
 | `fast` (the node's default) | 8 | 58.4 s | 5.0x | ★★★★ |
 | `faster` | 5 | 43.2 s | 6.7x | ★★★★ (not rated yet, assumed like `fast`) |
 | `fastest4steps` | 4 | 38.2 s | 7.6x | ★★★ |
-| `fastest3steps` (TaoMate) | 3 | 32.6 s | 8.9x | ★★ |
 | `fastest2steps` (TaoMate) | 2 | 27.1 s | 10.7x | ★ |
 
-With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27), 1.9x (`fastest4steps` against 4 turbo steps) and 1.9x (`fastest3steps` against TaoMate) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest3steps` and `fastest2steps` add TaoMate).
+With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27) and 1.9x (`fastest4steps` against 4 turbo steps) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest3steps` and `fastest2steps` add TaoMate).
 
 ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint, [Performance.md](Performance.md)): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
 
@@ -217,10 +216,9 @@ ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo che
 | `fast` | turbo | 8 | `--routing 1` | 11.1 s (14.8 s with `--skip off`) |
 | `faster` | turbo | 8 | `--routing 1`, `spectrum8_w1p2` (5 of 8 steps evaluated) | 7.1 s |
 | `fastest4steps` | turbo | 4 | `--routing 1` | 6.4 s |
-| `fastest3steps` | base + TaoMate 3-step LoRA (strength 1) | 3 | `--routing 1` | 6.4 s |
-| `fastest2steps` | base + TaoMate 3-step LoRA | 2 | `--routing 1` | 4.5 s |
+| `fastest2steps` | base + TaoMate 3-step LoRA (strength 1) | 2 | `--routing 1` | 4.5 s |
 
-Every preset runs with `--skip 5:45` (below), the times are the second of two videos of the fox prompt with one model load (2026-10-28, before: 22, 16, 11, 9, 7 and 6 s).
+Every preset runs with `--skip 5:45` (below), the times are the second of two videos of the fox prompt with one model load (2026-10-28, before: 22, 16, 11, 9 and 6 s; `fastest3steps` is gone, 3 steps skip nothing and took as long as `fastest4steps`).
 
 It has the options of `MossImage.exe` above: `prompt.txt` with `{a|b|}` choices, `--count` resident batches with distinct seeds, `--seed`, repeated `--lora path:strength`, `--lora_mode`, `--merge_only`, `--spectrum`, numbered outputs that are never overwritten and `--json_output`. It adds `--length` (frames at 24 fps, snapped up to 17k+5 like ComfyUI, default 124 = 5.2 s) and `--shift` (12, the audio follows with shift 3), and has no `--guidance` or `--jpg_quality`. Defaults: `--quality best`, 480x832, `H3Video.mp4`, `minimax_h3_video_vae_int8_convrot`, `minimax_h3_audio_vae_fp32` and the `qwen3vl_32b_minimax_h3_nvfp4_awq` text encoder under `--comfyui`.
 

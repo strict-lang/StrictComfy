@@ -562,16 +562,13 @@ class GenerationCommandTests(unittest.TestCase):
 		for skip in ('45:5', '5:51', '5-45'):
 			with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 				module.arguments(['--skip', skip], 'h3')
-		fastest = module.arguments(['--quality', 'fastest3steps', '--lora', 'style.safetensors:0.5'], 'h3')
-		self.assertEqual((Path(fastest.model).name, fastest.steps, fastest.routing, fastest.lora),
-			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 3, 1,
+		fastest = module.arguments(['--quality', 'fastest2steps', '--lora', 'style.safetensors:0.5'], 'h3')
+		self.assertEqual((Path(fastest.model).name, fastest.steps, fastest.routing, fastest.spectrum, fastest.lora),
+			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 2, 1, 'off',
 			['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1', 'style.safetensors:0.5']))
 		faster = module.arguments(['--quality', 'faster', '--steps', '10', '--routing', '0.5'], 'h3')
 		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 0.5))
-		self.assertEqual(list(module.QUALITIES), ['best', 'fast', 'faster', 'fastest4steps', 'fastest3steps', 'fastest2steps'])
-		fastest2 = module.arguments(['--quality', 'fastest2steps'], 'h3')
-		self.assertEqual((Path(fastest2.model).name, fastest2.steps, fastest2.routing, fastest2.spectrum, fastest2.lora),
-			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 2, 1, 'off', fastest.lora[:1]))
+		self.assertEqual(list(module.QUALITIES), ['best', 'fast', 'faster', 'fastest4steps', 'fastest2steps'])
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--quality', 'ultra'], 'h3')
 
