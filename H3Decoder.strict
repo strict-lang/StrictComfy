@@ -19,7 +19,8 @@ Loaded(model Safetensors) Slow(H3Decoder)
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
 	let embedded = MossText.Dense(decoder, "x_embedder")
 	let mixed = Batch(Split(model.Values("post_quant_conv.weight"), 24), model.Values("post_quant_conv.bias"))
-	let suffix = decoder.Values("register_tokens")
+	let tokens = decoder.Values("register_tokens")
+	let suffix = tokens + Layer.Zeros(tokens.Length / 4)
 	let weights = decoder.Values("norm_out.weight")
 	let biases = decoder.Values("norm_out.bias")
 	let projected = MossText.Dense(decoder, "proj_out")
@@ -51,7 +52,8 @@ Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
 		latent(((channel * shape(0) + box(0) + frame) * shape(1) + box(2) + y) * shape(2) + box(4) + x)
 Embedded(tile Numbers) Slow(Numbers)
 	Embedding.Length is 8448
-	embedder.Sums(post.Sums(Moss.Transposed(tile, means.Length))) + registers + Layer.Zeros(registers.Length / 4)
+	Tiny.registers.Length is 1280
+	embedder.Sums(post.Sums(Moss.Transposed(tile, means.Length))) + registers
 Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	Turning.Length is 4224
 	Turning(3649) is 0
@@ -72,15 +74,14 @@ Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 		let time = (token / (height * width)).Floor
 		let at = axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)
 		2 * (at + 0.5) / size - 1
-Pixels(tile Numbers, frames Number, height Number, width Number) Slow(Numbers)
-	Tiny.Pixels(Window, 7, 2, 2)(1000).IsNearlyEqual(1.640707, 0.01)
-	Tiny.Pixels(Window, 7, 2, 2)(86015).IsNearlyEqual(0.326644, 0.01)
-	let rotation = Rotations(frames, height, width)
+Pixels(tile Numbers, rotation Numbers, shape Numbers) Slow(Numbers)
+	Tiny.Pixels(Window, Turning, (7, 2, 2))(1000).IsNearlyEqual(1.640707, 0.01)
+	Tiny.Pixels(Window, Turning, (7, 2, 2))(86015).IsNearlyEqual(0.326644, 0.01)
 	mutable state = Embedded(tile)
 	for blocks
 		state = value.Output(state, rotation)
-	let count = frames * height * width * normWeights.Length
-	Unpatched(projection.Sums(LayerNormed(Safetensors.Part(state, 0, count, 1))), frames, height, width)
+	let count = shape(0) * shape(1) * shape(2) * normWeights.Length
+	Unpatched(projection.Sums(LayerNormed(Safetensors.Part(state, 0, count, 1))), shape(0), shape(1), shape(2))
 LayerNormed(state Numbers) Slow(Numbers)
 	Tiny.LayerNormed(Layer.Zeros(256) + Tiny.normWeights).Length is 512
 	let width = normWeights.Length
@@ -104,7 +105,7 @@ Mean(values Numbers, first Number, size Number) Slow(Number)
 		sum = sum + values(first + index)
 	sum / size
 Unpatched(rows Numbers, frames Number, height Number, width Number) Slow(Numbers)
-	Tiny.Pixels(Window, 7, 2, 2).Length is 86016
+	Tiny.Pixels(Window, Turning, (7, 2, 2)).Length is 86016
 	let wide = width * 16
 	let high = height * 16
 	let size = projection.weights.Length

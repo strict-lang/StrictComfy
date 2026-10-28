@@ -9,10 +9,18 @@ Run(dumps Text, video Text, audio Text)
 	let last = steps.Values("sigmas").Length - 1
 	let shape = Safetensors.Part(steps.Shape("video." + last), 1, 3, 1)
 	let frames = Pictures(vae, steps.Values("video." + last), shape, steps.Values("frames"))
-	File(dumps + "/strict-vae.rgb").Write(Bytes(frames))
-	File(dumps + "/strict-vae.wav").Write(Wave(Heard(sound, steps.Values("audio." + last))))
-	let result = Process.RunTool("ffmpeg", Arguments(steps.Shape("frames"), dumps))
-	logger.Log(result.exitCode is 0 then "wrote " + dumps + "/strict-vae.mp4" else "ffmpeg failed: " + result.error)
+	let size = Safetensors.Part(steps.Shape("frames"), 1, 2, 1)
+	Saved(frames, Heard(sound, steps.Values("audio." + last)), size, dumps + "/strict-vae.mp4")
+Saved(frames Numbers, waveform Numbers, size Numbers, output Text) Slow(Number)
+	File(output + ".rgb").Write(Bytes(frames))
+	File(output + ".wav").Write(Wave(waveform))
+	let result = Process.RunTool("ffmpeg", Arguments(size, output))
+	File(output + ".rgb").Delete
+	File(output + ".wav").Delete
+	if result.exitCode is not 0
+		return Error("FfmpegFailed: " + result.error)
+	logger.Log("Wrote " + output)
+	0
 Pictures(vae H3Vae, latent Numbers, shape Numbers, expected Numbers) Numbers
 	let before = Process.Elapsed
 	let frames = vae.Decoded(latent, shape)
@@ -31,13 +39,13 @@ Scaled(bytes Numbers) Numbers
 Bytes(frames Numbers) Bytes
 	H3Frames(Logger).Bytes((0, 0.5, 1))(1) is Byte(128)
 	for frames
-		Byte((value * 255).Round)
-Arguments(shape Numbers, dumps Text) Text
-	H3Frames(Logger).Arguments((2, 4, 6, 3), "out").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
-	H3Frames(Logger).Arguments((2, 4, 6, 3), "out").EndsWith(" -i out/strict-vae.wav" + Encoding + "out/strict-vae.mp4")
-	let path = dumps + "/strict-vae"
-	let input = " -s " + shape(2) + "x" + shape(1) + " -r 24 -i " + path + ".rgb -i " + path + ".wav"
-	"-y -loglevel error -f rawvideo -pix_fmt rgb24" + input + Encoding + path + ".mp4"
+		(value * 255 + 0.5).Floor
+Arguments(size Numbers, output Text) Text
+	H3Frames(Logger).Arguments((4, 6), "a b.mp4").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
+	H3Frames(Logger).Arguments((4, 6), "a b.mp4").EndsWith(" -i \"a b.mp4.wav\"" + Encoding + "\"a b.mp4\"")
+	let path = "\"" + output
+	let input = " -s " + size(1) + "x" + size(0) + " -r 24 -i " + path + ".rgb\" -i " + path + ".wav\""
+	"-y -loglevel error -f rawvideo -pix_fmt rgb24" + input + Encoding + path + "\""
 Wave(waveform Numbers) Bytes
 	H3Frames(Logger).Wave((0, 0)).Length is 48
 	for Header(waveform.Length) + Samples(waveform)

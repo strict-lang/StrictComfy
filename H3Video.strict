@@ -19,7 +19,7 @@ Run(arguments Texts) Number
 		return 2
 	Diagnosed(arguments)
 Diagnosed(arguments Texts) Number
-	let loras = GenerationCommand(logger).Option(arguments, 3, "")
+	let loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
 		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
 	let conditions = Conditions(arguments(0))
@@ -48,11 +48,11 @@ Conditions(dumps Text) List(Safetensors)
 	let data = Safetensors(dumps + "/generation.safetensors", 32)
 	if File(data.path).Exists is false
 		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
-	for GenerationCommand(logger).Count(data)
-		GenerationCommand(logger).Job(data, dumps, index)
+	for GenerationCommand.Count(data)
+		GenerationCommand.Job(data, dumps, index)
 Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) None
 	let numbers = Numbered(arguments)
-	let name = GenerationCommand(logger).Option(arguments, 2, "strict")
+	let name = GenerationCommand.Option(arguments, 2, "strict")
 	for conditions
 		let before = Process.Elapsed
 		let sampled = Generated(h3, value, H3Job(Steps(dumps, value)), texts(index), numbers, dumps)

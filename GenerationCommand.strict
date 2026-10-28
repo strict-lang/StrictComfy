@@ -1,44 +1,14 @@
-has logger
-Python(arguments Texts) Process
-	for arguments
-		if value is "--python"
-			if index + 1 >= arguments.Length
-				return Error("--python requires an interpreter path")
-			return Process(arguments(index + 1))
-	for ("D:/ComfyUI_windows_portable/python_embeded/python.exe", "C:/ComfyUI_windows_portable/python_embeded/python.exe")
-		if File(value).Exists
-			return Process(value)
-	Process.Find(Process.OperatingSystem is "Windows" then "python" else "python3")
-QuotedAll(arguments Texts) Texts
-	for arguments
-		Quoted(value)
-Quoted(argument Text) Text
-	GenerationCommand(Logger).Quoted("a b") is "\"a b\""
-	GenerationCommand(Logger).Quoted("a\"b") is "\"a\\\"b\""
-	GenerationCommand(Logger).Quoted("C:\\out\\") is "\"C:\\out\\\\\""
-	mutable parts = List(Mutable(Text))
-	for argument.Split("\"")
-		parts.Add(DoubledTail(value))
-	"\"" + Text.Combine(parts, "\\\"") + "\""
-DoubledTail(text Text) Text
-	GenerationCommand(Logger).DoubledTail("a\\\\") is "a\\\\\\\\"
-	mutable result = text
-	for text.Length
-		if text(text.Length - index - 1) is not "\\"
-			return result
-		result = result + "\\"
-	result
 Count(data Safetensors) Number
-	GenerationCommand(Logger).Count(MossImage.Reference) is 1
+	GenerationCommand.Count(MossImage.Reference) is 1
 	let key = data.Entry("jobs") is "" then "runs" else "jobs"
 	let count = data.Entry(key) is "" then 1 else data.Values(key).First
 	if (count < 1) or (count.Floor is not count)
 		return Error("Invalid generation count")
 	count
 Job(data Safetensors, dumps Text, index Number) Safetensors
-	GenerationCommand(Logger).Job(MossImage.Reference, "", 0).path is "tinymoss.safetensors"
+	GenerationCommand.Job(MossImage.Reference, "", 0).path is "tinymoss.safetensors"
 	data.Entry("jobs") is "" then data else Safetensors(dumps + "/generation-" + index + ".safetensors", 32)
 Option(arguments Texts, index Number, default Text) Text
-	GenerationCommand(Logger).Option(("a", "b"), 1, "c") is "b"
-	GenerationCommand(Logger).Option(("a", "b"), 2, "c") is "c"
+	GenerationCommand.Option(("a", "b"), 1, "c") is "b"
+	GenerationCommand.Option(("a", "b"), 2, "c") is "c"
 	arguments.Length > index then arguments(index) else default

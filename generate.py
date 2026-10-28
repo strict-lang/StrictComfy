@@ -170,7 +170,6 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
 	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
 	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family, help='Prompt, merged-model, runtime-adapter and CUDA caches')
-	parser.add_argument('--python', type=Path, help='Python interpreter for the native launcher; use ComfyUI Python')
 	args = parser.parse_args(argv)
 	args.family = family
 	quality(args)
