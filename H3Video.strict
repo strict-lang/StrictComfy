@@ -3,11 +3,12 @@ constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
 constant Tiny = H3Video(Logger)
+constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
 Run(arguments Texts) Number
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 		return GenerationCommand(logger).Run("h3", arguments)
 	if arguments.Length < 2
-		logger.Log("Use --help, or: dumps model name loras steps shift period warmup degree routing first last")
+		logger.Log("--help or: dumps model name loras steps shift period warmup degree routing first last sampler scheduler")
 		return 2
 	let loras = GenerationCommand(logger).Option(arguments, 3, "")
 	if arguments(0) is "-"
@@ -24,8 +25,8 @@ Served(h3 H3, refiner H3Refiner, arguments Texts) Number
 		dumps = Process.InputLine
 	0
 Numbered(arguments Texts) Numbers
-	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0)
-	for (0, 12, 0, 1, 1, 0, 0, 0)
+	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
+	for (0, 12, 0, 1, 1, 0, 0, 0, 0, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Loaded(model Text, loras Text) Slow(H3)
 	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2
@@ -57,17 +58,18 @@ Steps(dumps Text, condition Safetensors) Slow(Safetensors)
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
 Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers Numbers, dumps Text) Slow(Numbers)
-	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0), "").Length is 960
+	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
 	let video = steps.Shape(Stream(steps, "video"))
 	let shaped = Layout(video, steps.Shape(Stream(steps, "audio")), condition)
 	let layout = H3Layout(shaped, shift = numbers(1), routing = numbers(5))
-	let conditions = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
+	let rows = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
 	if File(dumps + "/step0.safetensors").Exists
 		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
 	let count = numbers(0) is 0 then Count(steps) else numbers(0)
 	let span = H3Span(numbers(6), numbers(7))
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
-	Sampled(h3, steps, text, layout, conditions, spectrum, h3.Rotation(layout))
+	let sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
+	Sampled(h3, steps, text, layout, rows, spectrum, Solver(numbers(8), sigmas, steps.Values(Stream(steps, "video"))))
 Stream(steps Safetensors, name Text) Slow(Text)
 	H3Video(Logger).Stream(Reference, "audio") is "audio"
 	steps.Entry(name + ".0") is "" then name else name + ".0"
@@ -99,19 +101,19 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 			error = MossImage(logger).Error(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
-Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, rotation Numbers) Slow(Numbers)
-	Tiny.Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, H3.Turned).Length is 960
-	let sigmas = Euler(spectrum.steps, layout.shift).Sigmas
-	mutable video = steps.Values(Stream(steps, "video"))
-	mutable audio = steps.Values(Stream(steps, "audio"))
+Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Slow(Numbers)
+	Tiny.Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
+	let rotation = h3.Rotation(layout)
+	mutable seen = solver
+	mutable heard = Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = steps.Values(Stream(steps, "audio")))
 	mutable state = spectrum
 	for spectrum.steps
 		let before = Process.Elapsed
-		state = state.Advanced(h3, video, audio, sigmas(index), text, layout, conditions, rotation, index)
-		video = state.Stepped(video, sigmas, index, steps)
-		audio = Euler.Stepped(audio, state.output, layout.AudioSigmas(sigmas), index, video.Length)
-		logger.Log(Progress(steps, index, state, video, audio, before))
-	video + audio
+		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
+		seen = state.Stepped(seen, index, steps)
+		heard = heard.Stepped(state.output, index, seen.latent.Length, state.Noise(steps, "audio", index))
+		logger.Log(Progress(steps, index, state, seen.latent, heard.latent, before))
+	seen.latent + heard.latent
 Progress(steps Safetensors, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
 	H3Video(Logger).Progress(Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
 	let took = ((Process.Elapsed - before) * 1000).Round

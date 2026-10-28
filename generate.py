@@ -36,6 +36,8 @@ SKIP = re.compile(r'(\d+):(\d+)')
 # H3 --skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
 # clip got on a 4090
 SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
+# H3 --sampler and --scheduler like ComfyUI's sampler_name and scheduler, H3Video.exe gets their index
+SAMPLERS, SCHEDULERS = ['euler', 'res_multistep', 'er_sde'], ['simple', 'sgm_uniform']
 H3_TURBO, H3_BASE = FAMILIES['h3']['files'][0][2], 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
@@ -153,6 +155,10 @@ def arguments(argv=None, family='moss'):
 			'the first two reuses from the last full step instead of computing them, off for none; faster for 8 routed steps '
 			'of a 10 s clip on a 4090: ' + ', '.join(f'{name} {faster} %%' for name, faster in SKIPS.items() if name != 'off') +
 			'; changes the sampling result')
+		parser.add_argument('--sampler', choices=SAMPLERS, default='euler', help="ComfyUI's sampler_name: euler, "
+			'res_multistep (second order, the default of the H3 workflows) or er_sde (stochastic, new noise every step); '
+			'the same model evaluations for each')
+		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple', help="ComfyUI's scheduler of the sigmas")
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS, help='Classifier-free guidance (CFG) scale' + from_quality)
@@ -597,13 +603,16 @@ def runtime_spec(loras):
 
 
 def h3_noise(args, seed):
-	"""Video and audio noise of one H3 job like ComfyUI's RandomNoise: one generator, the video latent first."""
+	"""Video and audio noise of one H3 job like ComfyUI's RandomNoise: one generator, the video latent first, then for
+	er_sde the noise of every step but the last (video.noise.<step> and audio.noise.<step>)."""
 	import torch
 	frames = args.length + (5 - args.length) % 17
 	latent = 2 if frames <= 5 else (frames - 5) // 17 * 5 + 2
 	shapes = (1, 24, latent, args.height // 16, args.width // 16), (1, 32, 2, round(frames / 24 * 40))
 	generator = torch.Generator('cpu').manual_seed(seed)
-	return tuple(torch.randn(shape, generator=generator)[0] for shape in shapes)
+	steps = range(args.steps - 1 if args.sampler == 'er_sde' else 0)
+	names = ['video', 'audio'] + [f'{stream}.noise.{step}' for step in steps for stream in ('video', 'audio')]
+	return {name: torch.randn(shapes[index % 2], generator=generator)[0] for index, name in enumerate(names)}
 
 
 def h3_condition(conditioning):
@@ -621,14 +630,14 @@ def h3_condition(conditioning):
 	return condition
 
 
-def h3_arguments(quality, video, audio, skip='5:45'):
-	"""The --quality and --skip settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W] and audio [B, 32, 2, T]:
-	its size and frame count."""
+def h3_arguments(quality, video, audio, skip='5:45', sampler='euler', scheduler='simple'):
+	"""The --quality, --skip, --sampler and --scheduler settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W]
+	and audio [B, 32, 2, T]: its size and frame count."""
 	frames = (video[2] - 2) // 5 * 17 + 5
 	if len(video) != 5 or video[1] != 24 or tuple(audio) != (video[0], 32, 2, round(frames / 24 * 40)):
 		raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video or Empty MiniMax H3 AV Latent)')
-	return arguments(['--quality', quality, '--skip', skip, '--width', str(video[4] * 16), '--height', str(video[3] * 16),
-		'--length', str(frames)], 'h3')
+	return arguments(['--quality', quality, '--skip', skip, '--sampler', sampler, '--scheduler', scheduler,
+		'--width', str(video[4] * 16), '--height', str(video[3] * 16), '--length', str(frames)], 'h3')
 
 
 def h3_latents(numbers, video, audio):
@@ -692,7 +701,7 @@ def backend(args, folder, model, vae, adapter):
 	if args.family == 'h3':
 		return [str(ROOT / 'H3Video.exe'), str(folder), str(model), 'strict', adapter, str(args.steps), f'{args.shift:g}',
 			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
-			*map(str, skipped_blocks(args))]
+			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler))]
 	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
 
 
@@ -706,7 +715,7 @@ def prepared(args, contexts, plan, folder):
 			latents = [data.pop(f'keyframe.{number}') for number in range(len(data.get('keyframes', [])))]
 			if latents:
 				data['rows'] = h3_rows(latents, job['seed'])
-			data['video'], data['audio'] = h3_noise(args, job['seed'])
+			data |= h3_noise(args, job['seed'])
 		else:
 			data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
 				generator=torch.Generator('cpu').manual_seed(job['seed']))

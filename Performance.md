@@ -1,5 +1,8 @@
 # Moss performance
 
+## H3 samplers and schedulers (2026-10-28 05:20, RTX 4090, StrictComfy after d2e4332)
+`--sampler euler|res_multistep|er_sde` and `--scheduler simple|sgm_uniform` (`Solver.strict`, `Euler.Scheduled`, the node's `sampler_name` and `scheduler`). The default 5 s clip with `--quality fast`, fox prompt, seed 7, the first video of a process (`C:/StrictDumps/samplers`): euler 12.6 s (22.3 s right after the rebuild with an empty CUDA cache), res_multistep 12.6 s, er_sde with sgm_uniform 12.7 s, every step as fast as before (3.8 s the first, 1.7 s full, 0.35 s with blocks 5-45 skipped). res_multistep stays close to euler, er_sde gets its own composition from the fresh noise of every step, none collapses or overcooks. Through the node with the 0.2 MP fastest2steps workflow er_sde samples in 9.8 s, euler in 10.1 s.
+
 ## Moss layer span caching like H3Span (2026-10-28 05:00, RTX 3080, Strict 3425a46a)
 `--skip first:last` (MossSpan): every other evaluated step from step 2 on, never the last, adds what layers first to last added at the last full evaluation instead of running them. 720x1280, same seeds, warm sampling and PSNR of the decoded images:
 
