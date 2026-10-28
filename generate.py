@@ -643,20 +643,27 @@ def skipping(executor):
 	return submit
 
 
+def preview_batch(video):
+	"""The latent frames of an H3 latent of shape video (ComfyUI's, [B, 24, T, H, W]) a preview decodes at once: 4 at
+	480x832 (0.6 GB of GPU memory for taeh3), 1 from 720p on."""
+	return max(1, 4 * 30 * 52 // (video[3] * video[4]))
+
+
 def h3_preview(numbers, video, decoder):
-	"""An animated WebP of every other frame of the denoised video H3Video.exe writes for a step (numbers, video the
-	ComfyUI latent shape), decoder turning one latent frame into an image, at most 512 pixels, playing in real time."""
+	"""An animated WebP of the denoised video H3Video.exe writes for a step (numbers, video the ComfyUI latent shape),
+	decoder turning a batch of latent frames at their own size into images: every latent frame (17 / 5 video frames, about
+	7 per second, playing in real time) scaled to at most 512 pixels."""
 	import torch
 	from PIL import Image
-	frames = []
-	for latent in numbers.reshape(video[1:])[:, ::2].movedim(1, 0):
-		image = decoder(latent[None]).float()
-		image = torch.nn.functional.interpolate(image, scale_factor=min(1, 512 / max(image.shape[-2:])), mode='bilinear',
+	latents, batch, frames = numbers.reshape(video[1:]).movedim(1, 0), preview_batch(video), []
+	for first in range(0, len(latents), batch):
+		images = decoder(latents[first:first + batch]).float()
+		images = torch.nn.functional.interpolate(images, scale_factor=min(1, 512 / max(images.shape[-2:])), mode='bilinear',
 			antialias=True)
-		frames.append(Image.fromarray(image[0].clamp(0, 1).mul(255).byte().movedim(0, -1).cpu().numpy()))
+		frames += [Image.fromarray(image.clamp(0, 1).mul(255).byte().movedim(0, -1).cpu().numpy()) for image in images]
 	buffer = io.BytesIO()
-	frames[0].save(buffer, 'WEBP', save_all=True, append_images=frames[1:], duration=round(2 * 17 / 5 / 24 * 1000), loop=0,
-		quality=80, method=0)
+	frames[0].save(buffer, 'WEBP', save_all=True, append_images=frames[1:], duration=round(17 / 5 / 24 * 1000), loop=0,
+		quality=85, method=0)
 	return buffer.getvalue()
 
 

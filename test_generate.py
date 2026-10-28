@@ -600,13 +600,17 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual((tuple(latent_video.shape), tuple(latent_audio.shape)), (video, audio))
 		self.assertEqual(latent_audio.flatten()[0].item(), 24 * 37 * 52 * 30)
 
-	def test_h3_preview_is_every_other_frame_at_512_pixels(self):
+	def test_h3_preview_is_every_frame_at_512_pixels(self):
 		import torch
 		from PIL import Image
 		module = self.module()
-		decoder = lambda latent: torch.nn.functional.interpolate(latent[:, :3], scale_factor=256)
+		batches = []
+		def decoder(latents):
+			batches.append(len(latents))
+			return torch.nn.functional.interpolate(latents[:, :3], scale_factor=256)
 		preview = Image.open(io.BytesIO(module.h3_preview(torch.rand(24 * 5 * 4 * 2), (1, 24, 5, 4, 2), decoder)))
-		self.assertEqual((preview.n_frames, preview.size), (3, (256, 512)))
+		preview.load()
+		self.assertEqual((preview.n_frames, preview.size, preview.info['duration'], batches), (5, (256, 512), 142, [5]))
 
 	def test_skipping_drops_work_while_the_last_still_runs(self):
 		from concurrent.futures import ThreadPoolExecutor

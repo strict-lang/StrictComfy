@@ -53,19 +53,16 @@ def tiny_decoder():
 	return TINY.get(path)
 
 
-def shrunk(decoder, latent):
-	"""taeh3 of a latent frame scaled to at most 32 positions per side (512 pixels), a few hundred MB of GPU memory that
-	stay cached for the next frame: Windows pages instead of failing an allocation past H3Video's budget."""
-	scale = min(1, 32 / max(latent.shape[-2:]))
-	latent = torch.nn.functional.interpolate(latent.to(decoder[1].weight.device).float(),
-		size=[round(side * scale) for side in latent.shape[-2:]], mode='bilinear', antialias=True)
+def decoded(decoder, latents):
+	"""taeh3 of latent frames at their own size (generate.preview_batch of them, 0.6 GB of GPU memory at 480x832 that
+	stays cached for the next batch: Windows pages instead of failing an allocation past H3Video's budget)."""
 	with torch.inference_mode():
-		return decoder(latent.half().contiguous(memory_format=torch.channels_last))
+		return decoder(latents.to(decoder[1].weight.device).half().contiguous(memory_format=torch.channels_last))
 
 
 def previewed(decoder, numbers, video, node):
 	"""Shows the denoised video H3Video.exe wrote for a step on the node (web/h3_preview.js)."""
-	image = generate.h3_preview(numbers, video, lambda latent: shrunk(decoder, latent))
+	image = generate.h3_preview(numbers, video, lambda latents: decoded(decoder, latents))
 	PromptServer.instance.send_sync('strict_h3_preview', {'node': node, 'image': base64.b64encode(image).decode()},
 		PromptServer.instance.client_id)
 
@@ -179,7 +176,7 @@ class StrictH3Sampler:
 		comfy.model_management.soft_empty_cache()
 		decoder = tiny_decoder()
 		if decoder:
-			shrunk(decoder, torch.zeros(1, *video[1:2], *video[3:]))
+			decoded(decoder, torch.zeros(generate.preview_batch(video), *video[1:2], *video[3:]))
 		progress, preview = comfy.utils.ProgressBar(video[0] * args.steps), generate.skipping(PREVIEWS)
 		def stepped(line):
 			progress.update(1)
