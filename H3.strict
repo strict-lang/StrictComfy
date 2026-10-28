@@ -7,9 +7,10 @@ has final H3Final
 constant Tiny = H3.Loaded("tinyh3.safetensors")
 constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Prompt = Model.Values("token_refiner")
-constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number))
+constant Turned = Tiny.Rotation(H3Layout.Tiny)
+constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number), Turned)
 constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4)
-constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"))
+constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"), Tiny.Rotation(Kept))
 Loaded(path Text, loras = "") Slow(H3)
 	Tiny.blocks.Length is 2
 	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
@@ -70,13 +71,15 @@ Routed(routing Number, block Number) Slow(Number)
 	Tiny.Routed(1, 0) is 2
 	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 1.3
 	routing * (block < blocks.Length * 0.76 then 2 else 1.3)
-Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers) Slow(Numbers)
+Rotation(layout H3Layout) Slow(Numbers)
+	Turned(0) is 1
+	Rope.Video.Table(layout.Positions, inverse, 1)
+Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers) Slow(Numbers)
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
 	Keyed(100).IsNearlyEqual(-3.046875, 0.05)
 	Keyed(818).IsNearlyEqual(0.808594, 0.02)
 	let curves = Curves(layout.Times(sigma))
-	let rotation = Rope.Video.Table(layout.Positions, inverse, 1)
 	let starts = layout.Rows(sigma)
 	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
 	mutable hidden = kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))

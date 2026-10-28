@@ -2,6 +2,7 @@ has logger
 constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
+constant Tiny = H3Video(Logger)
 Run(arguments Texts) Number
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 		return GenerationCommand(logger).Run("h3", arguments)
@@ -65,7 +66,7 @@ Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers
 		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
 	let count = numbers(0) is 0 then Count(steps) else numbers(0)
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3))
-	Sampled(h3, steps, text, layout, conditions, spectrum)
+	Sampled(h3, steps, text, layout, conditions, spectrum, h3.Rotation(layout))
 Stream(steps Safetensors, name Text) Slow(Text)
 	H3Video(Logger).Stream(Reference, "audio") is "audio"
 	steps.Entry(name + ".0") is "" then name else name + ".0"
@@ -86,7 +87,7 @@ Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) 
 	Layered(h3, first, curves, layout, sigma)
 Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Slow(Number)
 	H3Video(Logger).Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
-	let rotation = Rope.Video.Table(layout.Positions, h3.inverse, 1)
+	let rotation = h3.Rotation(layout)
 	let starts = layout.Rows(sigma)
 	mutable state = first.Values("blocks.0.input")
 	mutable error = 0
@@ -97,15 +98,15 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 			error = MossImage(logger).Error(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
-Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum) Slow(Numbers)
-	H3Video(Logger).Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny).Length is 960
+Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, rotation Numbers) Slow(Numbers)
+	Tiny.Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, H3.Turned).Length is 960
 	let sigmas = Euler(spectrum.steps, layout.shift).Sigmas
 	mutable video = steps.Values(Stream(steps, "video"))
 	mutable audio = steps.Values(Stream(steps, "audio"))
 	mutable state = spectrum
 	for spectrum.steps
 		let before = Process.Elapsed
-		state = state.Advanced(h3, video, audio, sigmas(index), text, layout, conditions, index)
+		state = state.Advanced(h3, video, audio, sigmas(index), text, layout, conditions, rotation, index)
 		video = state.Stepped(video, sigmas, index, steps)
 		audio = Euler.Stepped(audio, state.output, layout.AudioSigmas(sigmas), index, video.Length)
 		logger.Log(Progress(steps, index, state, video, audio, before))

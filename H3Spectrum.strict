@@ -9,8 +9,8 @@ has forecasts Number = 0
 constant Tiny = H3Spectrum(4, SpectralFit.Line, 2)
 constant Video = H3.Model.Values("video")
 constant Audio = H3.Model.Values("audio")
-constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 0)
-constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), 1)
+constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 0)
+constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 1)
 constant First = H3Spectrum.Started.anchors.First
 constant Stepping = H3Spectrum(8, SpectralFit.Line, output = (2, 4))
 IsActual(step Number) Slow(Boolean)
@@ -34,7 +34,7 @@ Coord(sigma Number, layout H3Layout) Number
 	Tiny.Coord(1, H3Layout.Tiny) is -1
 	Tiny.Coord(0, H3Layout.Tiny) is 1
 	1 - 2 * layout.Unshifted(sigma)
-Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, step Number) Slow(H3Spectrum)
+Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, step Number) Slow(H3Spectrum)
 	MossImage(Logger).Error(Started.output, H3.Forward) < 0.005
 	Started.coords.Length is 1
 	Held.forecasts is 1
@@ -42,7 +42,7 @@ Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layou
 	MossImage(Logger).Error(Held.output, H3.Forward) < 0.005
 	if IsActual(step) is false
 		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
-	let actual = h3.Output(latent, sound, sigma, text, layout, conditions)
+	let actual = h3.Output(latent, sound, sigma, text, layout, conditions, rotation)
 	H3Spectrum(Remembers(step) then Remembered(Coord(sigma, layout), actual) else value, output = actual)
 Stepped(video Numbers, sigmas Numbers, step Number, job Safetensors) Numbers
 	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is 2
