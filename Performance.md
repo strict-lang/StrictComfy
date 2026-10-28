@@ -1,5 +1,20 @@
 # Moss performance
 
+## H3 routed steps against Sol-Attn (2026-10-28 02:30, RTX 4090, Strict 029b4536)
+
+Routed attention (`--quality fast` and the presets after it): `strict_device_quantize_tokens` quantized H3's keys and values per token and head (28.9k times 56 rows of 128) with a block of 256 threads per row, 1.80 ms per call at 0.35 TB/s; a warp per row takes 0.65-0.68 ms at 0.95 TB/s, routed steps 3.82-3.86 -> 3.68-3.74 s with the same errors. Per routed step against ComfyUI with Sol-Attn (nsys, `C:/StrictDumps/prof/routednow.sqlite` before that change and `comfysol10.sqlite`):
+
+| Per step | ComfyUI, Sol-Attn | Strict `--routing 1` |
+|---|---:|---:|
+| int8 GEMMs | 1724 ms | 1857 ms |
+| attention and its preparation | 650 + 166 ms (13 ms per call) | 839 + 70 ms (13.8 ms per call, ncu median) |
+| quantize and rotate the GEMM inputs | 209 ms (one fused kernel) | 386 -> 272 ms (the Hadamard reads 32 bit inputs) |
+| rope | 89 ms | 128 ms |
+| elementwise and norms | 303 ms | about 340 ms |
+| idle | | 104 ms |
+
+The elementwise kernels, rope and the Hadamard already run at 0.7-0.95 TB/s, they only get faster with fewer bytes (16 bit inputs instead of 32) or fused; the GEMMs are 8 % behind, the routed attention 7 %.
+
 ## H3 dense attention in comfy_kitchen's shape (2026-10-28 00:30, RTX 4090, Strict 1ce4fa84)
 
 `strict_device_dense_attention` (`--quality best`, attention without routing) now has the block shape of comfy_kitchen's `qk_int_sv_i8_attn_kernel` (ncu: 8 warps of 16 queries per block, 128 keys per step, one block per SM): values transposed and scaled per number by their quantize pass, 128 positions per step in 8 tile buffers of dynamic shared memory, unsigned 8 bit shares quantized by the largest share of each row and step, the row sums on the tensor cores, scores in key scale units with the row factor in the exponent. The 10 s fox clip (480x832, 243 frames, 28.9k tokens, 8 turbo steps), one attention call (ncu median of 40 calls) and the steps:
