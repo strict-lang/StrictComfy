@@ -132,6 +132,11 @@ def arguments(argv=None, family='moss'):
 	parser.add_argument('--spectrum', default=argparse.SUPPRESS,
 		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result' +
 		from_quality)
+	if family == 'moss':
+		parser.add_argument('--skip', default='off', help='Layers first:last (of 42) that every other evaluated step from step 2 '
+			'on (never the last) reuses from the last full evaluation instead of computing them, off for none; 6:36 makes '
+			'best25steps 31 %% faster, with 8 turbo steps Spectrum (--quality fast, faster) is the better trade; changes the '
+			'sampling result')
 	parser.add_argument('--output', type=Path, default=Path(settings['output']), help='numbered output base; never overwritten')
 	parser.add_argument('--json_output', action='store_true', help='write a per-output JSON settings sidecar')
 	parser.add_argument('--width', type=int, default=settings['width'], help='Width in pixels')
@@ -167,9 +172,10 @@ def arguments(argv=None, family='moss'):
 		parser.error('jpg_quality must be 0-100 and guidance finite')
 	if family == 'h3' and (args.length < 5 or not math.isfinite(args.shift) or args.shift <= 0):
 		parser.error('length must be at least 5 frames and shift positive')
-	if family == 'h3' and args.skip != 'off' and not (SKIP.fullmatch(args.skip) and int(args.skip.split(':')[0]) <
-			int(args.skip.split(':')[1]) <= 50):
-		parser.error('--skip must be off or first:last with first below last and last at most 50')
+	layers = 50 if family == 'h3' else 41
+	if args.skip != 'off' and not (SKIP.fullmatch(args.skip) and int(args.skip.split(':')[0]) <
+			int(args.skip.split(':')[1]) <= layers):
+		parser.error(f'--skip must be off or first:last with first below last and last at most {layers}')
 	if args.seed is not None and not 0 <= args.seed < 2**63:
 		parser.error('seed must be between 0 and 2^63-1')
 	if args.output.suffix.lower() not in settings['suffixes']:
@@ -673,6 +679,7 @@ def prepared(args, contexts, plan, folder):
 			for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period,
 				'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
 				data[name] = torch.tensor([value], dtype=torch.float32)
+			data['span'] = torch.tensor(skipped_blocks(args), dtype=torch.float32)
 		save_file(data, str(folder / f'generation-{index}.safetensors'))
 		if index == 0:
 			data['jobs'] = torch.tensor([len(plan)], dtype=torch.float32)

@@ -65,10 +65,9 @@ Rotation(latent Numbers, text Numbers, width Number) Slow(Numbers)
 	let count = latent.Length / video.weights.First.Length
 	MossBlock.Rotations(count / width, width, text.Length / finalNorm.Length, 128)
 Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
-	let channels = video.weights.First.Length
-	let count = latent.Length / channels
-	let hidden = video.Sums(Transposed(latent, channels)) + text
-	Transformed(hidden, blockModulation.Sums(vector), rotation, count * finalNorm.Length)
+	Ran(Embedded(latent, text), blockModulation.Sums(vector), rotation, latent, 0, layers.Length)
+Embedded(latent Numbers, text Numbers) Numbers
+	video.Sums(Transposed(latent, video.weights.First.Length)) + text
 Head(image Numbers, vector Numbers) Numbers
 	let count = image.Length / finalNorm.Length
 	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
@@ -80,12 +79,16 @@ TextEmbedded(context Numbers, text Number) Slow(Numbers)
 	for texts
 		hidden = value.Output(hidden, rotation)
 	hidden
-Transformed(hidden Numbers, modulation Numbers, rotation Numbers, kept Number) Slow(Numbers)
+Ran(hidden Numbers, modulation Numbers, rotation Numbers, latent Numbers, first Number, last Number) Slow(Numbers)
 	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
+	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 1, 1) is MossBlock.Input
+	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 0, 1) is MossBlock.Layered
+	let kept = latent.Length / video.weights.First.Length * finalNorm.Length
 	mutable state = hidden
-	for layers
-		let last = index is layers.Length - 1
-		state = last then value.Cropped(state, modulation, rotation, kept) else value.Output(state, modulation, rotation)
+	for last - first
+		let layer = layers(first + index)
+		let cropping = first + index is layers.Length - 1
+		state = cropping then layer.Cropped(state, modulation, rotation, kept) else layer.Output(state, modulation, rotation)
 	state
 Transposed(values Numbers, rows Number) Numbers
 	Moss.Transposed((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)

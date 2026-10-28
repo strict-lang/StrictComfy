@@ -27,7 +27,8 @@ Configured(data Safetensors, mode Text) MossSampling
 	let width = data.Shape("noise").Last
 	let steps = data.Values("steps").First
 	let guidance = data.Values("guidance").First
-	MossSampling(logger, width, steps, guidance, mode, data.Values("warmup").First, data.Values("period").First)
+	let span = data.Entry("span") is "" then MossSpan.Off else MossSpan(data.Values("span")(0), data.Values("span")(1))
+	MossSampling(logger, width, steps, guidance, mode, data.Values("warmup").First, data.Values("period").First, span)
 Generated(moss Moss, sampling MossSampling, data Safetensors, adapter Text) Numbers
 	let noise = data.Values("noise")
 	let context = data.Values("context")

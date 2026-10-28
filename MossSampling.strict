@@ -5,6 +5,7 @@ has guidance Number = 1
 has mode Text = "off"
 has warmup Number = 8
 has period Number = 2
+has span MossSpan = MossSpan.Off
 Guided(positive Numbers, negative Numbers) Numbers
 	MossSampling(Logger, guidance = 3).Guided((2, 4), (1, 2)) is (4, 8)
 	for positive.Length
@@ -57,4 +58,5 @@ State MossSpectrum
 	MossSampling(Logger, warmup = 3).State.history.fit.degree is 2
 	MossSampling(Logger, warmup = 2).State.history.fit.degree is 1
 	MossSampling(Logger, warmup = 8).State.history.fit.degree is 4
-	MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
+	let configured = MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
+	MossSpectrum(configured, span = span)

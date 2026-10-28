@@ -541,6 +541,13 @@ class GenerationCommandTests(unittest.TestCase):
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--spectrum', 'spectrum8_w1p2', '--steps', '6'], 'h3')
 
+	def test_moss_skipped_layers(self):
+		module = self.module()
+		self.assertEqual(module.skipped_blocks(module.arguments([])), (0, 0))
+		self.assertEqual(module.skipped_blocks(module.arguments(['--skip', '6:36'])), (6, 36))
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			module.arguments(['--skip', '6:42'])
+
 	def test_moss_quality_presets(self):
 		module = self.module()
 		presets = {name: module.arguments(['--quality', name]) for name in ('best25steps', 'best50steps', 'fast', 'faster', 'fastest')}
