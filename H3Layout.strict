@@ -66,7 +66,7 @@ Axis(size Number, other Number, at Number) Number
 	(at * ratio * 2 / size + (1 - ratio) / 2) * 32
 FrameTime(frame Number) Number
 	Tiny.FrameTime(0) is 0
-	Tiny.FrameTime(1).IsNearlyEqual(1.666667)
+	Tiny.FrameTime(1).IsNearlyEqual(5 / 3)
 	Tiny.FrameTime(6).IsNearlyEqual(30)
 	(4 * frame - 3 * ((frame + 4) / 5).Floor) * 5 / 3
 Rows(sigma Number) Numbers
@@ -102,7 +102,7 @@ Times(sigma Number) Numbers
 AudioSigma(sigma Number) Number
 	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
 	Tiny.AudioSigma(1) is 1
-	H3Layout(Tiny, shift = 8).AudioSigma(0.75).IsNearlyEqual(0.529412)
+	H3Layout(Tiny, shift = 8).AudioSigma(0.75).IsNearlyEqual(9 / 17)
 	let base = Unshifted(sigma)
 	AudioShift * base / (1 + (AudioShift - 1) * base)
 AudioSigmas(sigmas Numbers) Numbers
@@ -111,6 +111,6 @@ AudioSigmas(sigmas Numbers) Numbers
 		AudioSigma(value)
 Unshifted(sigma Number) Number
 	Tiny.Unshifted(1) is 1
-	Tiny.Unshifted(0.96).IsNearlyEqual(0.666667)
+	Tiny.Unshifted(0.96).IsNearlyEqual(2 / 3)
 	H3Layout(Tiny, shift = 1).Unshifted(0.3).IsNearlyEqual(0.3)
 	sigma / (shift + sigma * (1 - shift))
