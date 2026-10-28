@@ -43,7 +43,7 @@ Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count
 	let shares = Softmax.Shares(queried.Multiplied, positions)
 	Products(shares, transposed, (1, count, positions, size), (0, 0, positions, 1, 0, 0, 1, positions)).Multiplied
 Transposed(values Numbers, size Number) Numbers
-	Middle.Transposed((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 2) is (5, 11, 6, 12)
+	FluxAttention.Transposed((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 2) is (5, 11, 6, 12)
 	let positions = values.Length / (3 * size)
 	for values.Length / 3
 		values((index % positions) * 3 * size + 2 * size + (index / positions).Floor)
