@@ -88,7 +88,11 @@ class StrictMossSampler:
 				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'}),
 			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum (sampling '
 				'times for 720x1280 on a 3080): ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
-				'; custom: the steps, cfg and spectrum above'})},
+				'; custom: the steps, cfg and spectrum above'}),
+			'skip': ('STRING', {'default': 'off', 'tooltip': 'off or first:last layers (of 42, last at most 41) that every other '
+				'evaluated step from step 2 on (never the last) reuses from the last full evaluation, like --skip of MossImage.exe '
+				'(changes the result): best25steps with 6:36 samples 31 % faster; the turbo presets have only one such step '
+				'with Spectrum (fast: step 2, faster: step 4), fastest none'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
 	RETURN_TYPES = ('IMAGE',)
 	FUNCTION = 'sample'
@@ -96,7 +100,8 @@ class StrictMossSampler:
 	DESCRIPTION = ('Euler sampling of Moss in Strict (StrictComfy MossGenerate.exe), the Strict process keeps the model loaded '
 		'for the next run with the same model, LoRAs and Spectrum')
 
-	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo, unique_id=None, prompt=None):
+	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo, skip='off', unique_id=None,
+			prompt=None):
 		checkpointed = checkpoint(model)
 		metadata = generate.validate_model(checkpointed)
 		if len(positive) != 1:
@@ -106,7 +111,8 @@ class StrictMossSampler:
 			raise ValueError('latent_image must be a Flux 2 latent with 128 channels (Empty Flux 2 Latent)')
 		try:
 			chosen = ['--steps', str(steps), '--guidance', repr(cfg), '--spectrum', spectrum] if quality == 'custom' else ['--quality', quality]
-			args = generate.arguments(chosen + ['--lora_mode', lora_mode, '--width', str(width * 16), '--height', str(height * 16)])
+			args = generate.arguments(chosen + ['--skip', skip.strip(), '--lora_mode', lora_mode, '--width', str(width * 16),
+				'--height', str(height * 16)])
 		except SystemExit:
 			raise ValueError('Invalid StrictMossSampler settings, see the console') from None
 		args.cache.mkdir(parents=True, exist_ok=True)
