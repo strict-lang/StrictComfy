@@ -59,8 +59,8 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.saf
 | `--quality` | Steps | Guidance, Spectrum | Sampling |
 |---|---:|---|---:|
 | `best` (default) | 8, DMD turbo LoRA | cfg 1 | 3.2 s |
-| `best25steps` | 25, no turbo LoRA | cfg 4 (two model runs per step) | 18 s |
-| `best50steps` | 50, no turbo LoRA | cfg 4 | 37 s |
+| `best25steps` | 25, no turbo LoRA | cfg 2 (two model runs per step; 4 overbakes against the zero prompt Strict guides away from) | 18 s |
+| `best50steps` | 50, no turbo LoRA | cfg 2 | 37 s |
 | `fast` | 8, turbo | `spectrum8_w3p3` (5 of 8 steps evaluated) | 2.0 s |
 | `faster` | 8, turbo | `spectrum8_w2p3` (4 of 8 evaluated) | 1.6 s |
 | `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 1.2 s |

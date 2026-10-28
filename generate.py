@@ -48,8 +48,8 @@ QUALITIES = {
 # Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
-	'best25steps': (25, 4, '', 'without the turbo LoRA, 25 steps with cfg 4, 18 s'),
-	'best50steps': (50, 4, '', 'without the turbo LoRA, 50 steps with cfg 4, 37 s'),
+	'best25steps': (25, 2, '', 'without the turbo LoRA, 25 steps with cfg 2, 18 s'),
+	'best50steps': (50, 2, '', 'without the turbo LoRA, 50 steps with cfg 2, 37 s'),
 	'fast': (8, 1, 'w3p3', 'best with Spectrum (5 of 8 steps evaluated), 2.0 s'),
 	'faster': (8, 1, 'w2p3', 'best with Spectrum (4 of 8 steps evaluated), 1.6 s'),
 	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated), 1.2 s')}
