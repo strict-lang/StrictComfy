@@ -26,6 +26,9 @@ class GenerationCommandTests(unittest.TestCase):
 		from safetensors.torch import load
 		return load(Path(path).read_bytes())
 
+	def test_comfyui_nodes_compile(self):
+		compile((ROOT / '__init__.py').read_text(encoding='utf-8'), '__init__.py', 'exec')
+
 	def test_executable_help(self):
 		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--help'], capture_output=True, text=True)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
