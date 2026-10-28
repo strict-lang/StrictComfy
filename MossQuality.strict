@@ -1,0 +1,7 @@
+constant Best
+constant Best25Steps
+constant Best50Steps
+constant Fast
+constant Faster
+constant Fastest
+constant Fastest2Steps

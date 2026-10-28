@@ -3,13 +3,14 @@ has width Number = 45
 constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
 constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
 Run(arguments Texts) Number
-	if (arguments.Length is 0) or arguments(0).StartsWith("-")
-		return GenerationCommand(logger).Run("moss", arguments)
-	if arguments.Length is not 4
-		logger.Log("Use --help, or diagnostic arguments: dumps model lora vae")
-		return 2
-	ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
-	0
+	if "--help" is in arguments
+		logger.Log("MossImage.exe [options] makes Moss images, diagnostic arguments: dumps model lora vae")
+		logger.Log(MossOptions.Usage)
+		return 0
+	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
+		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
+		return 0
+	MossBatch(logger, MossOptions.Parsed(arguments)).Run
 ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	let steps = Safetensors(dumps + "/steps.safetensors", 64)
 	let context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")

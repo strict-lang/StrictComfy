@@ -1,0 +1,115 @@
+has logger
+has options MossOptions
+constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
+constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
+Run Number
+	let problem = options.Problem
+	if problem is not ""
+		logger.Log(problem)
+		return 2
+	let started = Process.Elapsed
+	let seeds = Seeds
+	let prompts = Prompts(Text.Combine(File(options.prompt).ReadLines, "\n").Trim, seeds)
+	let unique = prompts.Unique
+	let contexts = Contexts(unique)
+	GpuMemory.Evicted
+	Images(seeds, prompts, unique, contexts)
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
+Seeds Numbers
+	MossBatch(Logger, MossOptions.Parsed(("--seed", "7", "--count", "3"))).Seeds.First is 7
+	MossBatch(Logger, MossOptions.Parsed(("--seed", "7", "--count", "3"))).Seeds(1) is 976413892
+	let first = options.seed >= 0 then options.seed else 4294967296.Random.Floor
+	let following = MersenneTwister.Seeded(first).Uints(options.count)
+	for options.count
+		index is 0 then first else following(index)
+Prompts(template Text, seeds Numbers) Texts
+	Sample.Prompts("a {b|c}", (1, 2)).Length is 2
+	for seeds
+		let prompt = Expanded(template, value)
+		logger.Log("Image " + (index + 1) + "/" + seeds.Length + ", seed " + value + "\nPrompt: " + prompt)
+		prompt
+Expanded(template Text, seed Number) Text
+	Sample.Expanded("a cat", 1) is "a cat"
+	Sample.Expanded("{x|x}{y|y|y} {z}", 5) is "xy z"
+	Sample.Expanded("a {big|small} {red|{dark|light} blue} cat", 3).EndsWith(" cat")
+	Sample.Expanded("a {b", 1) is Error("UnclosedBrace")
+	let draws = MersenneTwister.Seeded(seed).Uints(template.Count("}") + 1)
+	mutable expanded = template
+	for draws.Length - 1
+		expanded = Chosen(expanded, draws(index))
+	expanded.IndexOf("{") >= 0 then Error("UnclosedBrace") else expanded
+Chosen(text Text, draw Number) Text
+	Sample.Chosen("a {b|c} d", 1) is "a c d"
+	Sample.Chosen("{x|y}", 4) is "x"
+	Sample.Chosen("a } b", 0) is Error("UnmatchedBrace")
+	let close = text.IndexOf("}")
+	let open = text.Substring(0, close).LastIndexOf("{")
+	if open < 0
+		return Error("UnmatchedBrace")
+	let choices = text.Substring(open + 1, close - open - 1).Split("|")
+	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
+Contexts(prompts Texts) Slow(List(Numbers))
+	let before = Process.Elapsed
+	let tokens = Gpt2Tokens.Folder(options.Folder + "/../comfy/text_encoders/qwen35_tokenizer")
+	let path = options.Located("qwen3.5_9b_int8_convrot.safetensors", "text_encoders")
+	let file = Safetensors(path, 32, "model.language_model.")
+	let encoder = QwenSafetensors(file, 64).Loaded(10000000)
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	for prompts
+		let hidden = encoder.Prefilled(tokens.Encoded(Template.Replace("{prompt}", value)), 0).hidden
+		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length)
+		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
+Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
+	let before = Process.Elapsed
+	let moss = Moss.Loaded(options.Checkpoint, options.Loras)
+	let decoder = FluxDecoder.Loaded(options.Located("flux2-vae.safetensors", "vae"), 32)
+	logger.Log("Moss and VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	let sampling = options.Sampling(logger)
+	for seeds
+		let context = contexts(unique.Index(prompts(index)))
+		Saved(Sampled(moss, sampling, value, context), decoder, value, prompts(index))
+	seeds.Length
+Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers) Slow(Numbers)
+	let before = Process.Elapsed
+	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
+	let latent = sampling.Sampled(moss, noise, context)
+	logger.Log("Sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	GpuMemory.Released
+	latent
+Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text) Slow(Text)
+	let before = Process.Elapsed
+	let image = decoder.Decoded(latent, options.width / 16)
+	let path = Reserved(options.output)
+	if path.EndsWith(".png")
+		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
+	else
+		ImageCodec.SaveJpeg(path, image, options.width, 85)
+	if options.JsonOutput
+		File(path + ".json").Write(List(Text) + Described(seed, prompt))
+	logger.Log("Saved " + path + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	path
+Described(seed Number, prompt Text) Text
+	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")
+	let sampling = options.Sampling(Logger)
+	let settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
+	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
+	described + ", \"model\": " + options.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
+Reserved(base Text) Text
+	Sample.Reserved("MossBatchTest.jpg") is "MossBatchTest0001.jpg"
+	Sample.Reserved("artifacts/MossBatchTest.png") is "artifacts/MossBatchTest0001.png"
+	let dot = base.LastIndexOf(".")
+	let stem = base.Substring(0, dot)
+	let extension = base.Substring(dot, base.Length - dot)
+	mutable number = 1
+	for as long as IsTaken(Numbered(stem, number) + extension)
+		number = number + 1
+	Numbered(stem, number) + extension
+IsTaken(path Text) Boolean
+	Sample.IsTaken("MossBatch.strict")
+	Sample.IsTaken("MossBatchMissing.jpg") is false
+	File(path).Exists or File(path + ".json").Exists
+Numbered(stem Text, number Number) Text
+	Sample.Numbered("a", 7) is "a0007"
+	Sample.Numbered("a", 12345) is "a12345"
+	let digits = number to Text
+	stem + (digits.Length < 4 then "0000".Substring(0, 4 - digits.Length) else "") + digits

@@ -25,14 +25,33 @@ Stacked(name Text) Slow(MossLora)
 	Half.Stacked("blocks.0.mlp.fc1.").rank is 2
 	Half.Stacked("blocks.1.mlp.fc2.").up is H3Lora(File).Stacked("blocks.1.mlp.fc2.").up * 0.5
 	Half.Stacked("blocks.0.adaln_proj.linear.").rank is 0
-	mutable stacked = MossLora(List(Number), List(Number), 0, 0)
+	H3Lora("tinyqkvlora.safetensors").Stacked("layers.0.proj.k.").up is MossLora.Tiny.up * 2
+	H3Lora("").Stacked("blocks.0.mlp.fc1.").rank is 0
+	if loras is ""
+		return MossLora.None
+	mutable stacked = MossLora.None
 	for loras.Split(";")
 		let parts = value.Split("=")
-		let strength = parts.Length is 1 then 1 else parts.Last to Number
-		let prefix = Prefixed(TensorFile.Header(parts.First), name)
-		if prefix is not ""
-			stacked = stacked.Stacked(MossLora.Loaded(parts.First, prefix, strength))
+		stacked = stacked.Stacked(Found(parts.First, name, parts.Length is 1 then 1 else parts.Last to Number))
 	stacked
+Found(path Text, name Text, strength Number) Slow(MossLora)
+	Half.Found(File, "blocks.0.adaln_proj.linear.", 1).rank is 0
+	Half.Found("tinyqkvlora.safetensors", "layers.0.proj.o.", 1).rank is 0
+	let header = TensorFile.Header(path)
+	let prefix = Prefixed(header, name)
+	if prefix is not ""
+		return MossLora.Loaded(path, prefix, strength)
+	let part = (".q.", ".k.", ".v.").Index(name.Substring(name.Length - 3, 3))
+	let fused = part < 0 then "" else Prefixed(header, name.Substring(0, name.Length - 2) + "qkv.")
+	fused is "" then MossLora.None else MossLora.Loaded(path, fused, strength).Third(part)
+Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
+	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
+	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
+	MossImage(Logger).Error(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
+	let lora = Stacked(prefix + name + ".")
+	if lora.rank is 0
+		return rows.Quantized(name)
+	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
 Prefixed(header Text, name Text) Text
 	Half.Prefixed("\"diffusion_model.b.fc1.lora_A.weight\"", "b.fc1.") is "diffusion_model.b.fc1."
 	Half.Prefixed("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."

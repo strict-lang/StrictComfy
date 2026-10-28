@@ -6,26 +6,29 @@ has attention List(Numbers)
 has output List(Numbers)
 has expansion List(Numbers)
 has reduction List(Numbers)
-has loras List(MossLora)
 constant Model = Safetensors("tinymoss.safetensors")
 constant Tiny = MossBlock.Loaded(Model, "layers.0.", "")
 constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
 constant Modulation = Model.Values("reference.shared_block_modulation")
 constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
 constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
-Loaded(model Safetensors, prefix Text, lora Text) Slow(MossBlock)
-	Tiny.attention.Length is 768
+Loaded(model Safetensors, prefix Text, loras Text) Slow(MossBlock)
 	Tiny.expansion.Length is 512
+	MossBlock.Loaded(Model, "layers.0.", "tinylora.safetensors").attention is not Tiny.attention
 	let rows = Safetensors(model.path, 32, prefix + "proj.")
 	let norms = Safetensors(model.path, 32, prefix)
-	let projections = rows.Quantized("q") + rows.Quantized("k") + rows.Quantized("v")
+	let lora = H3Lora(loras)
 	let queried = norms.Values("q_norm.weight")
 	let keyed = norms.Values("k_norm.weight")
 	let first = norms.Values("norm1.weight")
 	let second = norms.Values("norm2.weight")
-	let expanded = rows.Quantized("ffn_up_gate")
-	let tuned = MossLora.Layer(lora, prefix)
-	MossBlock(first, second, queried, keyed, projections, rows.Quantized("o"), expanded, rows.Quantized("ffn_down"), tuned)
+	let expanded = lora.Merged(rows, "ffn_up_gate", rows.prefix)
+	let reduced = lora.Merged(rows, "ffn_down", rows.prefix)
+	MossBlock(first, second, queried, keyed, Qkv(rows, lora), lora.Merged(rows, "o", rows.prefix), expanded, reduced)
+Qkv(rows Safetensors, lora H3Lora) Slow(List(Numbers))
+	Tiny.attention.Length is 768
+	Tiny.Qkv(Safetensors(Model.path, 32, "layers.0.proj."), H3Lora("")) is Tiny.attention
+	lora.Merged(rows, "q", rows.prefix) + lora.Merged(rows, "k", rows.prefix) + lora.Merged(rows, "v", rows.prefix)
 Heads Slow(Number)
 	Tiny.Heads is 2
 	attention.Length / 3 / queryNorm.Length
@@ -45,16 +48,16 @@ Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Slow(N
 ImageAttended(normed Numbers, rotation Numbers, kept Number) Slow(Numbers)
 	Tiny.ImageAttended(Input, Rotation, 4096) is Safetensors.Part(Tiny.Attended(Input, Rotation), 0, 4096, 1)
 	let width = attentionNorm.Length
-	let combined = MossLora.Attended(loras, Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let combined = Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let queries = Safetensors.Part(Rotated(combined, 0, width, queryNorm, rotation), 0, kept, 1)
 	let keys = Rotated(combined, width, width, keyNorm, rotation)
 	let merged = Attention(queries, keys, combined, Heads, Heads, queryNorm.Length, 1, false, 2 * width, 3 * width).Merged
-	MossLora.Applied(loras, 3, Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated), merged)
+	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
 Attended(normed Numbers, rotation Numbers) Slow(Numbers)
 	Tiny.Attended(Input, Rotation).Length is 4864
-	let combined = MossLora.Attended(loras, Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let combined = Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let merged = Merged(combined, rotation, queryNorm, keyNorm)
-	MossLora.Applied(loras, 3, Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated), merged)
+	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Slow(Numbers)
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
@@ -66,9 +69,9 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Slow(N
 	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width).Merged
 FedForward(normed Numbers) Slow(Numbers)
 	Tiny.FedForward(Input).Length is 4864
-	let expanded = MossLora.Applied(loras, 4, Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated), normed)
+	let expanded = Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let activated = Activated(expanded, reduction.First.Length)
-	MossLora.Applied(loras, 5, Batch(reduction, Layer.Unbiased).Sums(Convrot(activated).Rotated), activated)
+	Batch(reduction, Layer.Unbiased).Sums(Convrot(activated).Rotated)
 Activated(expanded Numbers, width Number) Slow(BFloat16s)
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2

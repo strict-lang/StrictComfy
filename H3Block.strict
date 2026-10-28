@@ -37,12 +37,9 @@ Merged(rows Safetensors, name Text, loras Text, prefix Text) Slow(List(Numbers))
 	Tiny.Merged(Safetensors(Model.path, 16, "blocks.0."), "mlp.fc2", "", "blocks.0.") is Tiny.reduction
 	H3Lora.Block.attention is not Tiny.attention
 	MossImage(Logger).Error(H3Lora.Layered, H3Lora.Reference.Values("blocks.0")) < 0.02
-	if (rows.Entry(name + ".comfy_quant") is "") or (loras is "")
+	if rows.Entry(name + ".comfy_quant") is ""
 		return Projection(rows, name)
-	let lora = H3Lora(loras).Stacked(prefix + name + ".")
-	if lora.rank is 0
-		return Projection(rows, name)
-	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
+	H3Lora(loras).Merged(rows, name, prefix)
 Curved(curves Safetensors) Slow(Batch)
 	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
