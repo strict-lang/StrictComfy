@@ -61,15 +61,7 @@ Loras Text
 	Text.Combine(added + specs, ";")
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
-	for lora
-		Spec(value)
-Spec(text Text) Text
-	MossOptions.Parsed(List(Text)).Spec("tinylora.safetensors") is "tinylora.safetensors=1"
-	MossOptions.Parsed(List(Text)).Spec("tinylora.safetensors:0.25") is "tinylora.safetensors=0.25"
-	let at = text.LastIndexOf(":")
-	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
-	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
-	files.Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
+	ModelFiles(files.models).Specs(lora)
 Problem Text
 	MossOptions.Parsed(List(Text)).Problem is ""
 	MossOptions.Parsed(("--width", "500")).Problem is "--width and --height must be positive multiples of 16"

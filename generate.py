@@ -368,7 +368,10 @@ def encoded(request, output):
 		vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
 		first, last = [dump.image_tensor(path) if path else None for path in images]
 	moss = None if family == 'h3' else contexts(clip, request['prompts'])
+	outputs = request.get('outputs') or [output / f'{index}.safetensors' for index in range(len(request['prompts']))]
 	for index, prompt in enumerate(request['prompts']):
+		if moss is None and 'outputs' in request and os.path.exists(outputs[index]):
+			continue
 		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
 		if moss:
 			tensors = {'context': next(moss)}
@@ -380,13 +383,14 @@ def encoded(request, output):
 				conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
 			tensors = h3_condition(conditioning)
 		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
-			str(output / f'{index}.safetensors'), metadata={'prompt': prompt})
+			str(outputs[index]) + '.tmp', metadata={'prompt': prompt})
+		os.replace(str(outputs[index]) + '.tmp', outputs[index])
 
 
 def decoding(request):
 	"""Worker: imports ComfyUI ("decoder started", nodes_audio sets up its database in about 3 s) and loads its video and
-	audio VAEs while the backend samples, then decodes every H3 latent of the jobs on stdin into <prefix>video.mp4, each
-	video encoded while the next latent decodes."""
+	audio VAEs while the backend samples, then decodes every H3 latent of the jobs (the request's, with their latent shapes
+	and output paths from H3Video.exe, or on stdin) into <prefix>video.mp4, each video encoded while the next latent decodes."""
 	os.environ['COMFYUI'] = request['comfyui']
 	sys.argv = ['dump.py', 'h3', '--audio-vae', request['audio_vae']]
 	import dump
@@ -398,13 +402,19 @@ def decoding(request):
 	dump.audio_decoder()
 	with ThreadPoolExecutor(1) as encoder:
 		encodes = []
-		for job in json.loads(sys.stdin.read()):
-			with safe_open(job['generation'], framework='pt') as file:
-				shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
+		jobs = request['jobs'] if 'jobs' in request else json.loads(sys.stdin.read())
+		for job in jobs:
+			if 'shapes' in job:
+				shapes = job['shapes']
+			else:
+				with safe_open(job['generation'], framework='pt') as file:
+					shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
 			frames = dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])[0]
 			encodes.append(encoder.submit(dump.encoded_av, frames, request['folder'], job['prefix']))
-		for encode in encodes:
+		for job, encode in zip(jobs, encodes):
 			encode.result()
+			if 'output' in job:
+				os.replace(os.path.join(request['folder'], job['prefix'] + 'video.mp4'), job['output'])
 
 
 def framing(args):

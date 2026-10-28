@@ -536,7 +536,7 @@ class GenerationCommandTests(unittest.TestCase):
 	def test_h3_executable_help(self):
 		result = subprocess.run([str(ROOT / 'H3Video.exe'), '--help'], capture_output=True, text=True)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-		for option in ('--prompt', '--lora', '--length', '--count', '--spectrum'):
+		for option in ('--prompt', '--lora', '--length', '--count', '--skip', '--sampler', '--scheduler'):
 			self.assertIn(option, result.stdout)
 		self.assertNotIn('--jpg_quality', result.stdout)
 
@@ -652,6 +652,41 @@ class GenerationCommandTests(unittest.TestCase):
 			args = module.arguments(['--width', '64', '--height', '32', '--length', '5', '--steps', '3', '--sampler', sampler], 'h3')
 			self.assertEqual(len(module.h3_noise(args, 7)), 6 if sampler in ('er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'lcm') else 2,
 				sampler)
+
+	def test_h3_decoder_takes_shapes_and_outputs_from_the_request(self):
+		from unittest.mock import MagicMock, patch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			dump = MagicMock()
+			dump.decoded_latent.return_value = ('frames',)
+			dump.encoded_av.side_effect = lambda frames, out, prefix: (Path(out) / (prefix + 'video.mp4')).write_bytes(b'mp4')
+			shapes = [[24, 2, 2, 2], [32, 2, 8]]
+			request = {'comfyui': 'C:/ComfyUI', 'vae': 'v', 'audio_vae': 'a', 'folder': str(folder), 'jobs': [{'latent': 'l.safetensors',
+				'output': str(folder / 'H3Video0001.mp4'), 'prefix': 'strict-0-', 'shapes': shapes}]}
+			modules = {'dump': dump, 'comfy_extras': MagicMock(), 'comfy_extras.nodes_audio': MagicMock()}
+			with patch.dict(sys.modules, modules), patch.dict(module.os.environ), patch.object(sys, 'argv', []), 					redirect_stdout(io.StringIO()):
+				module.decoding(request)
+			self.assertEqual(dump.decoded_latent.call_args.args[2], shapes)
+			self.assertEqual((folder / 'H3Video0001.mp4').read_bytes(), b'mp4')
+
+	def test_h3_encoder_writes_the_requested_outputs_and_skips_cached_ones(self):
+		from unittest.mock import MagicMock, patch
+		import torch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			folder = Path(temporary)
+			dump = MagicMock()
+			clip = dump.comfy.sd.load_clip.return_value
+			clip.encode_from_tokens_scheduled.return_value = [[torch.ones(1, 3, 4), {}]]
+			(folder / 'a.safetensors').write_bytes(b'cached')
+			request = {'comfyui': 'C:/ComfyUI', 'family': 'h3', 'te': 't', 'prompts': ['a', 'b'],
+				'outputs': [str(folder / 'a.safetensors'), str(folder / 'b.safetensors')]}
+			with patch.dict(sys.modules, {'dump': dump}), patch.dict(module.os.environ), patch.object(sys, 'argv', []), 					redirect_stdout(io.StringIO()):
+				module.encoded(request, folder)
+			clip.tokenize.assert_called_once_with('b')
+			self.assertEqual((folder / 'a.safetensors').read_bytes(), b'cached')
+			self.assertEqual(tuple(self.tensors(folder / 'b.safetensors')['context'].shape), (3, 4))
 
 	def test_h3_checkpoint_with_model_prefix_is_accepted(self):
 		import torch

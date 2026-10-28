@@ -1,0 +1,23 @@
+has model = ""
+has vae = ""
+has audioVae = ""
+has textEncoder = ""
+has models = ""
+constant Help = ("H3 int8 Convrot model file, a name in models/diffusion_models or a path, empty for the one of --quality", "video VAE file, a name in models/vae or a path, empty for minimax_h3_video_vae_int8_convrot.safetensors", "audio VAE file, a name in models/vae or a path, empty for minimax_h3_audio_vae_fp32.safetensors", "Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
+constant Local = H3Files.Parsed(("--models", "."))
+Checkpoint(base Boolean) Text
+	H3Files.Parsed(("--model", "tinyh3.safetensors")).Checkpoint(false) is "tinyh3.safetensors"
+	Local.Checkpoint(true) is Error
+	ModelFiles(models).Located(model is "" then (base then H3Video.Base else H3Video.Turbo) else model, "diffusion_models")
+Decoder Text
+	Local.Decoder is Error
+	ModelFiles(models).Located(vae is "" then "minimax_h3_video_vae_int8_convrot.safetensors" else vae, "vae")
+Sound Text
+	Local.Sound is Error
+	ModelFiles(models).Located(audioVae is "" then "minimax_h3_audio_vae_fp32.safetensors" else audioVae, "vae")
+Encoder Text
+	Local.Encoder is Error
+	ModelFiles(models).Located(textEncoder is "" then H3Batch.Encoder else textEncoder, "text_encoders")
+ComfyUI Text
+	Local.ComfyUI is "./.."
+	ModelFiles(models).Folder + "/.."

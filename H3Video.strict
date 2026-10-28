@@ -4,12 +4,21 @@ constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
 constant Tiny = H3Video(Logger)
 constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
+constant Turbo = "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors"
+constant Base = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
+	if "--help" is in arguments
+		logger.Log("H3Video.exe [options] makes H3 videos with sound, diagnostic arguments: " + Positional)
+		logger.Log(H3Options.Usage)
+		return 0
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
-		return GenerationCommand(logger).Run("h3", arguments)
+		return H3Batch(logger, H3Options.Parsed(arguments)).Run
 	if arguments.Length < 2
-		logger.Log("--help or: dumps model name loras steps shift period warmup degree routing first last sampler scheduler")
+		logger.Log("--help or: " + Positional)
 		return 2
+	Diagnosed(arguments)
+Diagnosed(arguments Texts) Number
 	let loras = GenerationCommand(logger).Option(arguments, 3, "")
 	if arguments(0) is "-"
 		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
@@ -46,7 +55,7 @@ Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text
 	let name = GenerationCommand(logger).Option(arguments, 2, "strict")
 	for conditions
 		let before = Process.Elapsed
-		let sampled = Generated(h3, value, Steps(dumps, value), texts(index), numbers, dumps)
+		let sampled = Generated(h3, value, H3Job(Steps(dumps, value)), texts(index), numbers, dumps)
 		let file = value.Entry("video") is "" then name else name + "-" + index
 		Safetensors(dumps + "/" + file + "-latent.safetensors").Written("latent", sampled)
 		if index is conditions.Length - 1
@@ -57,30 +66,23 @@ Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text
 Steps(dumps Text, condition Safetensors) Slow(Safetensors)
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition
-Generated(h3 H3, condition Safetensors, steps Safetensors, text Numbers, numbers Numbers, dumps Text) Slow(Numbers)
-	H3Video(Logger).Generated(H3.Tiny, Keyed, Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
-	let video = steps.Shape(Stream(steps, "video"))
-	let shaped = Layout(video, steps.Shape(Stream(steps, "audio")), condition)
+Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Slow(Numbers)
+	Tiny.Generated(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
+	let shaped = Layout(job.VideoShape, job.AudioShape, condition)
 	let layout = H3Layout(shaped, shift = numbers(1), routing = numbers(5))
 	let rows = condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
 	if File(dumps + "/step0.safetensors").Exists
 		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
-	let count = numbers(0) is 0 then Count(steps) else numbers(0)
+	let count = numbers(0) is 0 then job.Count else numbers(0)
 	let span = H3Span(numbers(6), numbers(7))
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
 	let sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
-	Sampled(h3, steps, text, layout, rows, spectrum, Solver(numbers(8), sigmas, steps.Values(Stream(steps, "video"))))
-Stream(steps Safetensors, name Text) Slow(Text)
-	H3Video(Logger).Stream(Reference, "audio") is "audio"
-	steps.Entry(name + ".0") is "" then name else name + ".0"
+	Sampled(h3, job, text, layout, rows, spectrum, Solver(numbers(8), sigmas, job.Video))
 Layout(video Numbers, audio Numbers, condition Safetensors) Slow(H3Layout)
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), video(2), video(3))
-Count(steps Safetensors) Slow(Number)
-	H3Video(Logger).Count(Reference) is 1
-	steps.Entry("sigmas") is "" then 1 else steps.Values("sigmas").Length - 1
 Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Slow(Number)
 	H3Video(Logger).Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
 	let curves = h3.Curves(layout.Times(sigma))
@@ -101,26 +103,29 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 			error = MossImage(logger).Error(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
-Sampled(h3 H3, steps Safetensors, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Slow(Numbers)
-	Tiny.Sampled(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
+Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Slow(Numbers)
+	Tiny.Sampled(H3.Tiny, H3Job.Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
 	let rotation = h3.Rotation(layout)
 	mutable seen = solver
-	mutable heard = Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = steps.Values(Stream(steps, "audio")))
+	mutable heard = Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = job.Audio)
 	mutable state = spectrum
 	for spectrum.steps
 		let before = Process.Elapsed
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
-		seen = state.Stepped(seen, index, steps)
-		heard = heard.Stepped(state.output, index, seen.latent.Length, state.Noise(steps, "audio", index))
-		logger.Log(Progress(steps, index, state, seen.latent, heard.latent, before))
+		seen = state.Stepped(seen, index, job)
+		heard = heard.Stepped(state.output, index, seen.latent.Length, job.Noise("audio", index))
+		logger.Log(Progress(job, index, state, seen.latent, heard.latent, before))
 	seen.latent + heard.latent
-Progress(steps Safetensors, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
-	H3Video(Logger).Progress(Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
+Progress(job H3Job, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
+	Tiny.Progress(H3Job.Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
 	let took = ((Process.Elapsed - before) * 1000).Round
-	"step " + step + " " + took + " ms, forecasts " + state.forecasts + Errors(steps, step + 1, state.steps, video, audio)
-Errors(steps Safetensors, step Number, count Number, video Numbers, audio Numbers) Slow(Text)
-	H3Video(Logger).Errors(Reference, 1, 1, (1, 2), (3, 4)) is ""
-	if (steps.Entry("video." + step) is "") or (Count(steps) is not count)
+	"step " + step + " " + took + " ms, forecasts " + state.forecasts + Errors(job, step + 1, state.steps, video, audio)
+Errors(job H3Job, step Number, count Number, video Numbers, audio Numbers) Slow(Text)
+	H3Video(Logger).Errors(H3Job.Reference, 1, 1, (1, 2), (3, 4)) is ""
+	H3Video(Logger).Errors(H3Job.Noisy, 1, 1, (1, 2), (3, 4)) is ""
+	if job.video.Length > 0
 		return ""
-	let seen = MossImage(logger).Error(video, steps.Values("video." + step))
-	", video error " + seen + ", audio error " + MossImage(logger).Error(audio, steps.Values("audio." + step))
+	if (job.file.Entry("video." + step) is "") or (job.Count is not count)
+		return ""
+	let seen = MossImage(logger).Error(video, job.file.Values("video." + step))
+	", video error " + seen + ", audio error " + MossImage(logger).Error(audio, job.file.Values("audio." + step))

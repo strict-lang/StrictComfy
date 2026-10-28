@@ -1,0 +1,111 @@
+has logger
+has options H3Options
+constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
+constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+Run Number
+	let problem = options.Problem
+	if problem is not ""
+		logger.Log(problem)
+		return 2
+	let started = Process.Elapsed
+	let batch = PromptBatch(logger, "Video")
+	let seeds = batch.Seeds(options.seed, options.count)
+	let prompts = batch.Prompts(Text.Combine(File(options.prompt).ReadLines, "\n").Trim, seeds)
+	let unique = prompts.Unique
+	let made = Videos(seeds, prompts, unique, Conditions(unique))
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " videos")
+	made
+Conditions(prompts Texts) Slow(List(Safetensors))
+	let paths = Cached(prompts)
+	if Missing(paths)
+		Encoded(prompts, paths)
+	else
+		logger.Log("Using cached prompt conditioning")
+	if Missing(paths)
+		return Error("TextEncoderFailed")
+	for paths
+		Safetensors(value, 32)
+Cached(prompts Texts) Texts
+	Sample.Cached(List(Text) + "a").First.EndsWith(".safetensors")
+	Sample.Cached(("a", "b")).First is not Sample.Cached(("a", "b")).Last
+	let named = options.files.textEncoder is "" then Encoder else options.files.textEncoder
+	for prompts
+		Folder + "/context-" + HashCode(named + "\n" + value).number + "-" + value.Length + ".safetensors"
+Missing(paths Texts) Boolean
+	Sample.Missing(List(Text) + "H3Batch.strict") is false
+	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors"))
+	for paths
+		if File(value).Exists is false
+			return true
+	false
+Encoded(prompts Texts, paths Texts) Slow(Number)
+	let request = Folder + "/encode.json"
+	Directory.Create(Root + "/artifacts")
+	Directory.Create(Folder)
+	let encoder = options.files.Encoder.Code
+	let comfyui = options.files.ComfyUI.Code
+	let lists = "\"prompts\": " + Array(prompts) + ", \"outputs\": " + Array(paths)
+	let fields = lists + ", \"te\": " + encoder + ", \"comfyui\": " + comfyui
+	File(request).Write(List(Text) + ("{\"family\": \"h3\", " + fields + "}"))
+	Helper(("_encode", request, Folder))
+Videos(seeds Numbers, prompts Texts, unique Texts, conditions List(Safetensors)) Slow(Number)
+	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
+	let texts = H3Refiner.Loaded(options.Checkpoint, options.Loras).Texts(conditions)
+	let outputs = Reserved(seeds.Length)
+	let latents = Latents(seeds.Length)
+	for seeds
+		let before = Process.Elapsed
+		let at = unique.Index(prompts(index))
+		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value))
+		GpuMemory.Released
+		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	GpuMemory.Evicted
+	Decoded(latents, outputs)
+Generated(h3 H3, condition Safetensors, text Numbers, seed Number) Slow(Numbers)
+	let shapes = options.Shapes
+	let count = 24 * shapes(0) * shapes(1) * shapes(2)
+	let noise = MersenneTwister.Seeded(seed).Normals(count + 64 * shapes(3))
+	let audio = noise.Slice(count, noise.Length - count)
+	let shape = (24, shapes(0), shapes(1), shapes(2))
+	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
+	H3Video(logger).Generated(h3, condition, job, text, options.Numbers, "")
+Reserved(count Number) Slow(Texts)
+	for count
+		let path = PromptBatch(logger, "Video").Reserved(options.output)
+		File(path).Write(List(Text))
+		path
+Latents(count Number) Texts
+	Sample.Latents(2).Last.EndsWith("/latent-1.safetensors")
+	for count
+		Folder + "/latent-" + index + ".safetensors"
+Decoded(latents Texts, outputs Texts) Slow(Number)
+	let request = Folder + "/decode.json"
+	let shapes = options.Shapes
+	let shaped = "[[24, " + shapes(0) + ", " + shapes(1) + ", " + shapes(2) + "], [32, 2, " + shapes(3) + "]]"
+	let audio = ", \"audio_vae\": " + options.files.Sound.Code
+	let head = "{\"comfyui\": " + options.files.ComfyUI.Code + ", \"vae\": " + options.files.Decoder.Code + audio
+	let jobs = ", \"jobs\": [" + Text.Combine(Jobs(latents, outputs, shaped), ", ") + "]}"
+	File(request).Write(List(Text) + (head + ", \"folder\": " + Folder.Code + jobs))
+	Helper(("_decode", request))
+Jobs(latents Texts, outputs Texts, shapes Text) Texts
+	Sample.Jobs(List(Text) + "l", List(Text) + "o", "[]").First.StartsWith("{\"latent\": \"l\", \"output\": \"o\", ")
+	for latents
+		let named = "\"output\": " + outputs(index).Code + ", \"prefix\": \"strict-" + index + "-\""
+		"{\"latent\": " + value.Code + ", " + named + ", \"shapes\": " + shapes + "}"
+Helper(arguments Texts) Slow(Number)
+	let command = GenerationCommand(logger)
+	let script = command.Quoted(Root + "/generate.py") + " " + Text.Combine(command.QuotedAll(arguments), " ")
+	command.Python(List(Text)).Started(script) is 0 then 0 else Error("ComfyUIHelperFailed:" + arguments.First)
+Array(texts Texts) Text
+	Sample.Array(("a", "b\"")) is "[\"a\", \"b\\\"\"]"
+	"[" + Text.Combine(Coded(texts), ", ") + "]"
+Coded(texts Texts) Texts
+	Sample.Coded(List(Text) + "a") is ("\"a\"")
+	for texts
+		value.Code
+Folder Text
+	Sample.Folder.EndsWith("/artifacts/h3")
+	Root + "/artifacts/h3"
+Root Text
+	Sample.Root.Length > 0
+	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text

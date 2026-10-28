@@ -6,19 +6,11 @@ constant Help = ("Moss int8 Convrot model file, a name in models/diffusion_model
 constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
 Folder Text
 	Local.Folder is "."
-	if models is not ""
-		return models
-	for ("D:/ComfyUI_windows_portable/ComfyUI/models", "C:/ComfyUI_windows_portable/ComfyUI/models")
-		if Directory.Exists(value)
-			return value
-	Error("ModelsFolderNotFound")
+	ModelFiles(models).Folder
 Located(name Text, folder Text) Text
 	Local.Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
 	Local.Located("x.y", "loras") is Error("FileNotFound:x.y")
-	if File(name).Exists
-		return name
-	let inside = Folder + "/" + folder + "/" + name
-	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
+	ModelFiles(models).Located(name, folder)
 Checkpoint Text
 	Local.Checkpoint is "tinymoss.safetensors"
 	Located(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")

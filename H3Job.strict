@@ -1,0 +1,52 @@
+has file Safetensors
+has video Numbers = List(Number)
+has audio Numbers = List(Number)
+has shape Numbers = List(Number)
+has seed = -1
+constant Reference = H3Job(Safetensors("tinyh3.safetensors", 32, "reference."))
+constant Noisy = H3Job(Safetensors(""), Layer.Zeros(32), Layer.Zeros(64), (2, 4, 2, 2), 3)
+Video Numbers
+	Reference.Video.Length is 768
+	Noisy.Video.Length is 32
+	video.Length > 0 then video else file.Values(Stream("video"))
+Audio Numbers
+	Reference.Audio.Length is 192
+	Noisy.Audio.Length is 64
+	video.Length > 0 then audio else file.Values(Stream("audio"))
+VideoShape Numbers
+	Reference.VideoShape is (24, 2, 4, 4)
+	Noisy.VideoShape is (2, 4, 2, 2)
+	video.Length > 0 then shape else file.Shape(Stream("video"))
+AudioShape Numbers
+	Reference.AudioShape is (32, 2, 3)
+	Noisy.AudioShape is (32, 2, 1)
+	video.Length > 0 then (32, 2, audio.Length / 64) else file.Shape(Stream("audio"))
+Stream(name Text) Text
+	Reference.Stream("audio") is "audio"
+	file.Entry(name + ".0") is "" then name else name + ".0"
+Count Number
+	Reference.Count is 1
+	Noisy.Count is 1
+	if video.Length > 0
+		return 1
+	file.Entry("sigmas") is "" then 1 else file.Values("sigmas").Length - 1
+Noise(stream Text, step Number) Numbers
+	Reference.Noise("video", 0) is List(Number)
+	Noisy.Noise("audio", 1).Length is 64
+	H3Job(Noisy, seed = -1).Noise("video", 0) is List(Number)
+	if video.Length > 0
+		return seed < 0 then List(Number) else Drawn(stream, step)
+	let name = stream + ".noise." + step
+	file.Entry(name) is "" then List(Number) else file.Values(name)
+Drawn(stream Text, step Number) Numbers
+	Noisy.Drawn("video", 0).Length is 32
+	Noisy.Drawn("video", 0) is not Noisy.Drawn("video", 1)
+	Noisy.Drawn("video", 1) is not Noisy.Drawn("audio", 0)
+	let count = stream is "video" then video.Length else audio.Length
+	MersenneTwister.Seeded((seed + 2 * step + (stream is "video" then 1 else 2)) % 4294967296).Normals(count)
+Preview(step Number) Text
+	Reference.Preview(0) is ""
+	Noisy.Preview(0) is ""
+	if video.Length > 0
+		return ""
+	file.Entry("preview") is "" then "" else file.path.Replace(".safetensors", "-step" + step + ".safetensors")

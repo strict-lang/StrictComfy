@@ -1,0 +1,55 @@
+has logger
+has noun Text
+constant Sample = PromptBatch(Logger, "Image")
+Seeds(seed Number, count Number) Numbers
+	Sample.Seeds(7, 3).First is 7
+	Sample.Seeds(7, 3)(1) is 976413892
+	let first = seed >= 0 then seed else 4294967296.Random.Floor
+	let following = MersenneTwister.Seeded(first).Uints(count)
+	for count
+		index is 0 then first else following(index)
+Prompts(template Text, seeds Numbers) Texts
+	Sample.Prompts("a {b|c}", (1, 2)).Length is 2
+	for seeds
+		let prompt = Expanded(template, value)
+		logger.Log(noun + " " + (index + 1) + "/" + seeds.Length + ", seed " + value + "\nPrompt: " + prompt)
+		prompt
+Expanded(template Text, seed Number) Text
+	Sample.Expanded("a cat", 1) is "a cat"
+	Sample.Expanded("{x|x}{y|y|y} {z}", 5) is "xy z"
+	Sample.Expanded("a {big|small} {red|{dark|light} blue} cat", 3).EndsWith(" cat")
+	Sample.Expanded("a {b", 1) is Error("UnclosedBrace")
+	let draws = MersenneTwister.Seeded(seed).Uints(template.Count("}") + 1)
+	mutable expanded = template
+	for draws.Length - 1
+		expanded = Chosen(expanded, draws(index))
+	expanded.IndexOf("{") >= 0 then Error("UnclosedBrace") else expanded
+Chosen(text Text, draw Number) Text
+	Sample.Chosen("a {b|c} d", 1) is "a c d"
+	Sample.Chosen("{x|y}", 4) is "x"
+	Sample.Chosen("a } b", 0) is Error("UnmatchedBrace")
+	let close = text.IndexOf("}")
+	let open = text.Substring(0, close).LastIndexOf("{")
+	if open < 0
+		return Error("UnmatchedBrace")
+	let choices = text.Substring(open + 1, close - open - 1).Split("|")
+	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
+Reserved(base Text) Text
+	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
+	Sample.Reserved("artifacts/PromptBatchTest.png") is "artifacts/PromptBatchTest0001.png"
+	let dot = base.LastIndexOf(".")
+	let stem = base.Substring(0, dot)
+	let extension = base.Substring(dot, base.Length - dot)
+	mutable number = 1
+	for as long as IsTaken(Numbered(stem, number) + extension)
+		number = number + 1
+	Numbered(stem, number) + extension
+IsTaken(path Text) Boolean
+	Sample.IsTaken("PromptBatch.strict")
+	Sample.IsTaken("PromptBatchMissing.jpg") is false
+	File(path).Exists or File(path + ".json").Exists
+Numbered(stem Text, number Number) Text
+	Sample.Numbered("a", 7) is "a0007"
+	Sample.Numbered("a", 12345) is "a12345"
+	let digits = number to Text
+	stem + (digits.Length < 4 then "0000".Substring(0, 4 - digits.Length) else "") + digits

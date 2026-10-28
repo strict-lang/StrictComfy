@@ -1,8 +1,4 @@
 has logger
-Run(family Text, arguments Texts) Number
-	let folder = Path(Process.Current.executable).PathOnly.text
-	let script = Quoted(folder + "/generate.py") + " " + family + " "
-	Python(arguments).Started(script + Text.Combine(QuotedAll(arguments), " "))
 Python(arguments Texts) Process
 	for arguments
 		if value is "--python"

@@ -1,0 +1,27 @@
+has models Text
+Folder Text
+	ModelFiles(".").Folder is "."
+	if models is not ""
+		return models
+	for ("D:/ComfyUI_windows_portable/ComfyUI/models", "C:/ComfyUI_windows_portable/ComfyUI/models")
+		if Directory.Exists(value)
+			return value
+	Error("ModelsFolderNotFound")
+Located(name Text, folder Text) Text
+	ModelFiles("").Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
+	ModelFiles(".").Located("x.y", "loras") is Error("FileNotFound:x.y")
+	if File(name).Exists
+		return name
+	let inside = Folder + "/" + folder + "/" + name
+	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
+Specs(loras Texts) Texts
+	ModelFiles("").Specs(List(Text) + "tinylora.safetensors:0.5") is ("tinylora.safetensors=0.5")
+	for loras
+		Spec(value)
+Spec(text Text) Text
+	ModelFiles("").Spec("tinylora.safetensors") is "tinylora.safetensors=1"
+	ModelFiles("").Spec("tinylora.safetensors:0.25") is "tinylora.safetensors=0.25"
+	let at = text.LastIndexOf(":")
+	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
+	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
+	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
