@@ -1,5 +1,22 @@
 # Moss performance
 
+## H3 presets with block span caching (2026-10-28 03:30, RTX 4090, Strict a77e65ef, StrictComfy after 5b47632)
+
+`--skip 5:45` (default for every preset): every other evaluated step after the first two reuses what blocks 5 to 45 added in the last full step. The 10 s fox clip, 8 routed turbo steps, steps 2, 4 and 6 skipped (`H3Video.exe` diagnostic arguments, `C:/StrictDumps/h3fox10/skip*`): no span 31.7 s, `15:35` 28.2 s (a skipped step 2.3 s), `10:40` 25.8 s (1.6 s), `5:45` 23.3 s (0.8 s against 3.6 s); the videos look the same (composition, sharpness, details, motion), the final latents differ from the unskipped one by 0.58 for every span (routed against dense: 0.91).
+
+All of today's work together (dense attention in comfy_kitchen's shape, the warp per row quantization of keys and values, the rope table once per generation, `--skip 5:45`), the default 5 s clip (480x832, 124 frames, fox prompt, seed 1), the second of two videos (`H3Video.exe --quality <preset> --count 2`, `C:/StrictDumps/overall`):
+
+| `--quality` | Before (Readme) | Now |
+|---|---:|---:|
+| `best` | 22 s | 14.0 s |
+| `fast` | 16 s | 11.1 s (14.8 s with `--skip off`) |
+| `faster` | 11 s | 7.1 s |
+| `fastest4steps` | 9 s | 6.4 s |
+| `fastest3steps` | 7 s | 6.4 s |
+| `fastest2steps` | 6 s | 4.5 s |
+
+3 or fewer steps skip nothing, so `fastest3steps` now takes as long as `fastest4steps`.
+
 ## VAE decode attention and the bfloat16 pre-pass (2026-10-28 03:00, RTX 3080, Strict prepass-vector 572ca402)
 Per 720x1280 decode (nsys with `--cuda-graph-trace=node`, busy GPU time 253 -> 218 ms, spans of 219-223 ms without gaps):
 - the mid block attention multiplied its shares with the values in place (stride 3 x 512 along the positions), the general path of `strict_device_product_tiles`: 2.29 ms per chunk of 1165 rows, 40 blocks at 7.5 TFLOPS. `FluxAttention.Transposed` writes the values as rows of positions once per decode, the fast path takes 0.83 ms per chunk, the products 44 -> 24 ms, the images identical. 4 times larger chunks were slower (331-399 ms per decode: the transposed operand stayed slow and the larger lists left 67 ms of gaps).

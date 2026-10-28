@@ -135,7 +135,11 @@ class StrictH3Sampler:
 				'Latent: width, height, length and batch size'}),
 			'quality': (list(generate.QUALITIES), {'default': 'fast', 'tooltip': 'Model, steps, attention and Spectrum; sampling '
 				'times for 124 frames on a 4090: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.QUALITIES.items())}),
-			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True})},
+			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True}),
+			'skip': (list(generate.SKIPS), {'default': '5:45', 'tooltip': 'Blocks first:last (of 50) that every other '
+				'evaluated step after the first two reuses from the last full step instead of computing them (changes the '
+				'result), faster for 8 routed steps of a 10 s clip on a 4090: ' +
+				', '.join(f'{name} {faster} %' for name, faster in generate.SKIPS.items())})},
 			'optional': {'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
 				'of the model of the quality, the LoRAs of the quality still apply'})},
 			'hidden': {'unique_id': 'UNIQUE_ID'}}
@@ -146,14 +150,14 @@ class StrictH3Sampler:
 		'the latent with VAE Decode and VAE Decode Audio. The Strict process keeps the model loaded for the next run with '
 		'the same quality and model.')
 
-	def sample(self, positive, latent, quality, seed, model=None, unique_id=None):
+	def sample(self, positive, latent, quality, seed, skip='5:45', model=None, unique_id=None):
 		samples = latent['samples']
 		if not getattr(samples, 'is_nested', False) or len(samples.tensors) != 2:
 			raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video)')
 		if len(positive) != 1:
 			raise ValueError('positive must be a single conditioning')
 		video, audio = (tuple(tensor.shape) for tensor in samples.tensors)
-		args = generate.h3_arguments(quality, video, audio)
+		args = generate.h3_arguments(quality, video, audio, skip)
 		args.cache.mkdir(parents=True, exist_ok=True)
 		models = Path(folder_paths.models_dir)
 		preset = Path(args.model).name

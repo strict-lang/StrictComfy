@@ -32,16 +32,20 @@ FAMILIES = {
 			('audio_vae', 'vae', 'minimax_h3_audio_vae_fp32.safetensors', 'Audio VAE'),
 			('te', 'text_encoders', 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', 'Text encoder')]}}
 SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
+SKIP = re.compile(r'(\d+):(\d+)')
+# H3 --skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
+# clip got on a 4090
+SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
 H3_TURBO, H3_BASE = FAMILIES['h3']['files'][0][2], 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
 QUALITIES = {
-	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 22 s'),
-	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 16 s'),
-	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 11 s'),
-	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 9 s'),
-	'fastest3steps': (H3_BASE, 3, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, routed, 7 s'),
-	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'fastest3steps with 2 steps, 6 s')}
+	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 14 s'),
+	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 11 s'),
+	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 7 s'),
+	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 6.4 s'),
+	'fastest3steps': (H3_BASE, 3, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, routed, 6.4 s'),
+	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'fastest3steps with 2 steps, 4.5 s')}
 # Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
@@ -141,6 +145,10 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--routing', type=float, default=argparse.SUPPRESS, help='Sparse attention like Sol-Attn above 0: key blocks whose '
 			'pooled score stays below 2x this many standard deviations in the first 38 of 50 blocks (1.3x after) are pooled, '
 			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result' + from_quality)
+		parser.add_argument('--skip', default='5:45', help='Blocks first:last (of 50) that every other evaluated step after '
+			'the first two reuses from the last full step instead of computing them, off for none; faster for 8 routed steps '
+			'of a 10 s clip on a 4090: ' + ', '.join(f'{name} {faster} %%' for name, faster in SKIPS.items() if name != 'off') +
+			'; changes the sampling result')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS, help='Classifier-free guidance (CFG) scale' + from_quality)
@@ -160,6 +168,9 @@ def arguments(argv=None, family='moss'):
 		parser.error('jpg_quality must be 0-100 and guidance finite')
 	if family == 'h3' and (args.length < 5 or not math.isfinite(args.shift) or args.shift <= 0):
 		parser.error('length must be at least 5 frames and shift positive')
+	if family == 'h3' and args.skip != 'off' and not (SKIP.fullmatch(args.skip) and int(args.skip.split(':')[0]) <
+			int(args.skip.split(':')[1]) <= 50):
+		parser.error('--skip must be off or first:last with first below last and last at most 50')
 	if args.seed is not None and not 0 <= args.seed < 2**63:
 		parser.error('seed must be between 0 and 2^63-1')
 	if args.output.suffix.lower() not in settings['suffixes']:
@@ -186,6 +197,11 @@ def quality(args):
 		args.guidance = getattr(args, 'guidance', guidance)
 	args.steps = getattr(args, 'steps', steps)
 	args.spectrum = getattr(args, 'spectrum', f'spectrum{args.steps}_{spectrum}' if spectrum else 'off')
+
+
+def skipped_blocks(args):
+	"""The first and the last block --skip reuses, 0 and 0 for off."""
+	return (0, 0) if args.skip == 'off' else tuple(int(block) for block in args.skip.split(':'))
 
 
 def spectrum_config(args):
@@ -573,13 +589,14 @@ def h3_condition(conditioning):
 	return condition
 
 
-def h3_arguments(quality, video, audio):
-	"""The --quality settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W] and audio [B, 32, 2, T]: its size
-	and frame count."""
+def h3_arguments(quality, video, audio, skip='5:45'):
+	"""The --quality and --skip settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W] and audio [B, 32, 2, T]:
+	its size and frame count."""
 	frames = (video[2] - 2) // 5 * 17 + 5
 	if len(video) != 5 or video[1] != 24 or tuple(audio) != (video[0], 32, 2, round(frames / 24 * 40)):
 		raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video or Empty MiniMax H3 AV Latent)')
-	return arguments(['--quality', quality, '--width', str(video[4] * 16), '--height', str(video[3] * 16), '--length', str(frames)], 'h3')
+	return arguments(['--quality', quality, '--skip', skip, '--width', str(video[4] * 16), '--height', str(video[3] * 16),
+		'--length', str(frames)], 'h3')
 
 
 def h3_latents(numbers, video, audio):
@@ -635,7 +652,8 @@ def backend(args, folder, model, vae, adapter):
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
 		return [str(ROOT / 'H3Video.exe'), str(folder), str(model), 'strict', adapter, str(args.steps), f'{args.shift:g}',
-			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}']
+			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
+			*map(str, skipped_blocks(args))]
 	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
 
 

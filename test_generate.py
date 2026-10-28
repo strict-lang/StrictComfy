@@ -557,6 +557,11 @@ class GenerationCommandTests(unittest.TestCase):
 		module = self.module()
 		best = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
 		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora), ('best', 8, 0, 'off', []))
+		self.assertEqual(module.skipped_blocks(best), (5, 45))
+		self.assertEqual(module.skipped_blocks(module.arguments(['--skip', 'off'], 'h3')), (0, 0))
+		for skip in ('45:5', '5:51', '5-45'):
+			with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+				module.arguments(['--skip', skip], 'h3')
 		fastest = module.arguments(['--quality', 'fastest3steps', '--lora', 'style.safetensors:0.5'], 'h3')
 		self.assertEqual((Path(fastest.model).name, fastest.steps, fastest.routing, fastest.lora),
 			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 3, 1,
@@ -574,8 +579,8 @@ class GenerationCommandTests(unittest.TestCase):
 		import torch
 		module = self.module()
 		video, audio = (1, 24, 37, 52, 30), (1, 32, 2, 207)
-		args = module.h3_arguments('fast', video, audio)
-		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing), (480, 832, 124, 8, 1))
+		args = module.h3_arguments('fast', video, audio, '10:40')
+		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing, args.skip), (480, 832, 124, 8, 1, '10:40'))
 		self.assertEqual(tuple(module.h3_noise(args, 7)[1].shape), audio[1:])
 		with self.assertRaises(ValueError):
 			module.h3_arguments('fast', video, (1, 32, 2, 100))
@@ -662,7 +667,8 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(launch.call_count, 1)
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
-			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1'])
+			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
+				'45'])
 			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')
