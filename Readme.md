@@ -202,7 +202,7 @@ One `quality` setting picks the speed and the quality, where ComfyUI needs a mod
 | `fastest4steps` | 4 | 38.2 s | 7.6x | ★★★ |
 | `fastest2steps` (TaoMate) | 2 | 27.1 s | 10.7x | ★ |
 
-With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27) and 1.9x (`fastest4steps` against 4 turbo steps) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest3steps` and `fastest2steps` add TaoMate).
+With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27) and 1.9x (`fastest4steps` against 4 turbo steps) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest2steps` adds TaoMate).
 
 ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint, [Performance.md](Performance.md)): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
 
