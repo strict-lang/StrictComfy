@@ -263,6 +263,7 @@ class GenerationCommandTests(unittest.TestCase):
 
 	def test_comfyui_lora_patches_become_one_cached_adapter(self):
 		from types import SimpleNamespace
+		from unittest.mock import patch
 		import torch
 		module = self.module()
 		up, down = torch.randn(4, 2), torch.randn(2, 3)
@@ -272,7 +273,8 @@ class GenerationCommandTests(unittest.TestCase):
 			(2.0, lora((other_up, other_down, None)), 1.0, None, None)]}
 		with tempfile.TemporaryDirectory() as temporary:
 			path = module.patched_adapter(Path(temporary), patches)
-			self.assertEqual(module.patched_adapter(Path(temporary), patches), path)
+			with patch.object(module.hashlib, 'sha256', side_effect=AssertionError('the same patches hashed again')):
+				self.assertEqual(module.patched_adapter(Path(temporary), patches), path)
 			tensors = self.tensors(path)
 			prefix = 'diffusion_model.layers.0.proj.q.'
 			self.assertEqual(tensors[prefix + 'alpha'].item(), 3)
@@ -281,6 +283,18 @@ class GenerationCommandTests(unittest.TestCase):
 			patches['diffusion_model.layers.0.proj.q.weight'][0] = (1.0, lora((up, down, 4.0)), 1.0, (0, 0, 2), None)
 			with self.assertRaises(ValueError):
 				module.patched_adapter(Path(temporary), patches)
+
+	def test_a_model_only_strict_reads_can_be_released(self):
+		module = self.module()
+		loaded = {'class_type': 'UNETLoader', 'inputs': {'unet_name': 'h3.safetensors'}}
+		lora = {'class_type': 'LoraLoader', 'inputs': {'model': ['1', 0], 'lora_name': 'turbo.safetensors'}}
+		strict = {'class_type': 'StrictH3Sampler', 'inputs': {'model': ['2', 0], 'positive': ['5', 0]}}
+		prompt = {'1': loaded, '2': lora, '3': strict, '5': {'class_type': 'CLIPTextEncode', 'inputs': {'clip': ['2', 1]}}}
+		self.assertTrue(module.releasable(prompt, '3'))
+		self.assertTrue(module.releasable(prompt | {'6': strict}, '3'))
+		self.assertFalse(module.releasable(prompt | {'4': {'class_type': 'BasicGuider', 'inputs': {'model': ['2', 0]}}}, '3'))
+		self.assertFalse(module.releasable(prompt | {'4': {'class_type': 'ModelSamplingSD3', 'inputs': {'model': ['1', 0]}}}, '3'))
+		self.assertFalse(module.releasable({'1': loaded, '3': {'class_type': 'StrictH3Sampler', 'inputs': {}}}, '3'))
 
 	def test_comfyui_patches_with_turbo_lora_are_detected(self):
 		from types import SimpleNamespace

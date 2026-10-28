@@ -499,11 +499,20 @@ def runtime_adapter(args, model, loras):
 	return str(path)
 
 
+# the files of patched_adapter per cache folder and LoRA patches, with their adapters so no other object gets their ids
+PATCHED = {}
+
+
 def patched_adapter(cache, patches):
 	"""The LoRA patches of a ComfyUI MODEL (LoraLoader nodes) as one stacked adapter file in runtime_adapter's layout,
-	named by its content so cached merges and adapters stay valid."""
+	named by its content so cached merges and adapters stay valid; the adapters of cached LoraLoader nodes (the same for
+	every run) give their file without converting and hashing their tensors again."""
 	import torch
 	from safetensors.torch import save_file
+	identity = (str(cache), tuple((key, tuple((entry[0], id(entry[1]), *entry[2:]) for entry in entries))
+		for key, entries in sorted(patches.items())))
+	if identity in PATCHED:
+		return PATCHED[identity][1]
 	tensors = {}
 	for key, entries in sorted(patches.items()):
 		downs, ups = [], []
@@ -532,7 +541,25 @@ def patched_adapter(cache, patches):
 		with tempfile.TemporaryDirectory(dir=cache) as temporary:
 			save_file(tensors, str(Path(temporary) / 'adapter.safetensors'))
 			os.replace(Path(temporary) / 'adapter.safetensors', path)
+	PATCHED[identity] = ([entry[1] for entries in patches.values() for entry in entries], path)
 	return path
+
+
+def releasable(prompt, node):
+	"""Whether the Load Diffusion Model behind the model input of node in a ComfyUI prompt (through LoRA loaders) feeds
+	only Strict samplers, so its weights can be freed: Strict loads the checkpoint itself and reads only its file and
+	the LoRA patches."""
+	chain, source = [], prompt[node]['inputs'].get('model')
+	while isinstance(source, list) and source[0] in prompt and source[0] not in chain:
+		chain.append(source[0])
+		upstream = prompt[source[0]]
+		source = upstream['inputs'].get('model') if upstream['class_type'] in ('LoraLoader', 'LoraLoaderModelOnly') else None
+	if not chain or prompt[chain[-1]]['class_type'] != 'UNETLoader':
+		return False
+	readers = [(other['class_type'], value) for key, other in prompt.items() if key not in chain
+		for value in other['inputs'].values() if isinstance(value, list) and len(value) == 2 and value[0] in chain]
+	return all(kind in ('StrictH3Sampler', 'StrictMossSampler') or prompt[value[0]]['class_type'] == 'LoraLoader' and value[1] == 1
+		for kind, value in readers)
 
 
 def turbo_patched(patches, turbo):
