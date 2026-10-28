@@ -648,6 +648,10 @@ class GenerationCommandTests(unittest.TestCase):
 		generator = torch.manual_seed(7)
 		for name, shape in zip(noise, [(1, 24, 12, 2, 4), (1, 32, 2, 65)] * 2):
 			self.assertTrue(torch.equal(noise[name], torch.randn(shape, generator=generator)[0]), name)
+		for sampler in ('euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm'):
+			args = module.arguments(['--width', '64', '--height', '32', '--length', '5', '--steps', '3', '--sampler', sampler], 'h3')
+			self.assertEqual(len(module.h3_noise(args, 7)), 6 if sampler in ('er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'lcm') else 2,
+				sampler)
 
 	def test_h3_checkpoint_with_model_prefix_is_accepted(self):
 		import torch

@@ -7,20 +7,56 @@ Sigmas Numbers
 	Moss.Sigmas(1).IsNearlyEqual(0.9722222)
 	Moss.Sigmas(7).IsNearlyEqual(0.4166667)
 	Moss.Sigmas(8) is 0
+	Euler(3, 12).Sigmas(1).IsNearlyEqual(0.960057557)
+	Euler(6, 12).Sigmas(5).IsNearlyEqual(0.70638001)
 	for steps + 1
-		Shifted(1 - index / steps)
-Uniform Numbers
-	Euler(8, 12).Uniform(1).IsNearlyEqual(0.9883928)
-	Euler(8, 12).Uniform(7).IsNearlyEqual(0.6526598)
-	Euler(8, 12).Uniform(8) is 0
+		index is steps then 0 else Shifted(1 - (index * (1000 / steps)).Floor / 1000)
+Spaced(intervals Number) Numbers
+	Euler(8, 12).Spaced(8)(1).IsNearlyEqual(0.9883928)
+	Euler(8, 12).Spaced(8)(7).IsNearlyEqual(0.6526598)
+	Euler(8, 12).Spaced(7)(7).IsNearlyEqual(0.125984251)
+	Euler(1, 12).Spaced(1) is (1, 0)
 	let least = Shifted(0.001)
 	for steps + 1
-		index is steps then 0 else Shifted(1 - index * (1 - least) / steps)
+		index is steps then 0 else Shifted(1 - index * (1 - least) / intervals)
+Beta(alpha Number, beta Number) Numbers
+	Euler(4, 12).Beta(0.6, 0.6)(1).IsNearlyEqual(0.982511938)
+	Euler(4, 12).Beta(0.6, 0.6)(2).IsNearlyEqual(0.923360527)
+	Euler(4, 12).Beta(0.5, 0.7)(3).IsNearlyEqual(0.563135028)
+	let distribution = BetaDistribution(alpha, beta)
+	for steps + 1
+		index is steps then 0 else Shifted(((distribution.Quantile(1 - index / steps) * 999).Counted("Even") + 1) / 1000)
+Quadratic Numbers
+	Euler(8, 12).Quadratic(3).IsNearlyEqual(0.981249988)
+	Euler(8, 12).Quadratic(6).IsNearlyEqual(0.725000024)
+	Euler(1, 12).Quadratic is (1, 0)
+	if steps is 1
+		return (1, 0)
+	let linear = (steps / 2).Floor
+	let spread = (linear - 0.025 * steps) / (steps - linear) ^ 2
+	let slope = 0.025 / linear - 2 * spread
+	for steps + 1
+		let ramp = index < linear then index * 0.025 / linear else spread / linear * (index ^ 2 + linear ^ 2) + slope * index
+		index is steps then 0 else 1 - ramp
 Scheduled(scheduler Number, sampler Number) Numbers
 	Euler(1, 12).Scheduled(1, 2)(0).IsNearlyEqual(0.9999917)
 	Euler(4, 5).Scheduled(0, 1) is Euler(4, 5).Sigmas
-	let sigmas = scheduler is 1 then Uniform else Sigmas
-	sampler is 2 then Offset(sigmas) else sigmas
+	Euler(4, 5).Scheduled(0, 4)(0).IsNearlyEqual(0.999979998)
+	let sigmas = Schedule(scheduler)
+	(sampler is 2) or (sampler is 4) then Offset(sigmas) else sigmas
+Schedule(scheduler Number) Numbers
+	Euler(8, 12).Schedule(2)(4).IsNearlyEqual(0.902460515)
+	Euler(4, 12).Schedule(4)(3).IsNearlyEqual(0.563135028)
+	Euler(8, 12).Schedule(5)(5).IsNearlyEqual(0.909375012)
+	if scheduler is 1
+		return Spaced(steps)
+	if scheduler is 2
+		return Spaced((steps - 1).Clamp(1, steps))
+	if scheduler is 3
+		return Beta(0.6, 0.6)
+	if scheduler is 4
+		return Beta(0.5, 0.7)
+	scheduler is 5 then Quadratic else Sigmas
 Shifted(time Number) Number
 	Moss.Shifted(1) is 1
 	Moss.Shifted(0.5).IsNearlyEqual(5 / 6)

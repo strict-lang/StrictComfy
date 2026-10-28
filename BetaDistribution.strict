@@ -1,0 +1,31 @@
+has alpha Number
+has beta Number
+Quantile(probability Number) Number
+	BetaDistribution(0.6, 0.6).Quantile(0.875).IsNearlyEqual(0.942843636377586)
+	BetaDistribution(0.5, 0.7).Quantile(0.25).IsNearlyEqual(0.09617666129459618)
+	BetaDistribution(0.6, 0.6).Quantile(0.5) is 0.5
+	let total = Total
+	mutable low = 0
+	mutable high = 1
+	for 32
+		let middle = (low + high) / 2
+		let below = Fraction(middle, total) < probability
+		low = below then middle else low
+		high = below then high else middle
+	high
+Fraction(position Number, total Number) Number
+	BetaDistribution(0.6, 0.6).Fraction(0.3, 2.4153442080024723).IsNearlyEqual(0.35252651177214367)
+	BetaDistribution(0.5, 0.7).Fraction(0.8, BetaDistribution(0.5, 0.7).Total).IsNearlyEqual(0.8067813209919942)
+	position > 0.5 then 1 - BetaDistribution(beta, alpha).Area(1 - position) / total else Area(position) / total
+Total Number
+	BetaDistribution(0.6, 0.6).Total.IsNearlyEqual(2.4153442080024723)
+	Area(0.5) + BetaDistribution(beta, alpha).Area(0.5)
+Area(position Number) Number
+	BetaDistribution(0.6, 0.6).Area(0.3).IsNearlyEqual(0.8514728683761625)
+	BetaDistribution(1, 1).Area(0.5) is 0.5
+	mutable term = position ^ alpha
+	mutable sum = 0
+	for 40
+		sum = sum + term / (alpha + index)
+		term = term * position * (index + 1 - beta) / (index + 1)
+	sum

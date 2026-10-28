@@ -152,9 +152,10 @@ class StrictH3Sampler:
 				'evaluated step after the first two reuses from the last full step instead of computing them (changes the '
 				'result), faster for 8 routed steps of a 10 s clip on a 4090: ' +
 				', '.join(f'{name} {faster} %' for name, faster in generate.SKIPS.items())})},
-			'optional': {'sampler_name': (generate.SAMPLERS, {'default': 'euler', 'tooltip': 'res_multistep is second order '
-				'(the default of the H3 workflows), er_sde adds new noise every step; the same speed for each'}),
-				'scheduler': (generate.SCHEDULERS, {'default': 'simple'}),
+			'optional': {'sampler_name': (generate.SAMPLERS, {'default': 'euler', 'tooltip': 'res_multistep is the default of '
+				'the H3 workflows, ' + ', '.join(sorted(generate.NOISY)) + ' add new noise every step; the same speed for each'}),
+				'scheduler': (generate.SCHEDULERS, {'default': 'simple', 'tooltip': 'beta57 is beta with alpha 0.5 and beta 0.7 '
+					'like RES4LYF'}),
 				'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
 					'of the model of the quality, the LoRAs of the quality still apply'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}

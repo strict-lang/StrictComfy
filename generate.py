@@ -36,8 +36,11 @@ SKIP = re.compile(r'(\d+):(\d+)')
 # H3 --skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
 # clip got on a 4090
 SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
-# H3 --sampler and --scheduler like ComfyUI's sampler_name and scheduler, H3Video.exe gets their index
-SAMPLERS, SCHEDULERS = ['euler', 'res_multistep', 'er_sde'], ['simple', 'sgm_uniform']
+# H3 --sampler and --scheduler like ComfyUI's sampler_name and scheduler (beta57 from RES4LYF), H3Video.exe gets their
+# index; NOISY samplers add new noise every step but the last
+SAMPLERS = ['euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm']
+SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linear_quadratic'], {'er_sde', 'euler_ancestral',
+	'dpmpp_2m_sde', 'lcm'}
 H3_TURBO, H3_BASE = FAMILIES['h3']['files'][0][2], 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
@@ -156,10 +159,11 @@ def arguments(argv=None, family='moss'):
 			'the first two reuses from the last full step instead of computing them, off for none; faster for 8 routed steps '
 			'of a 10 s clip on a 4090: ' + ', '.join(f'{name} {faster} %%' for name, faster in SKIPS.items() if name != 'off') +
 			'; changes the sampling result')
-		parser.add_argument('--sampler', choices=SAMPLERS, default='euler', help="ComfyUI's sampler_name: euler, "
-			'res_multistep (second order, the default of the H3 workflows) or er_sde (stochastic, new noise every step); '
-			'the same model evaluations for each')
-		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple', help="ComfyUI's scheduler of the sigmas")
+		parser.add_argument('--sampler', choices=SAMPLERS, default='euler', help="ComfyUI's sampler_name: res_multistep is "
+			'the default of the H3 workflows, ' + ', '.join(sorted(NOISY)) + ' add new noise every step; one model evaluation '
+			'per step for each, so all take as long')
+		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple', help="ComfyUI's scheduler of the sigmas, "
+			'beta57 is beta with alpha 0.5 and beta 0.7 like RES4LYF')
 	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
 	if family == 'moss':
 		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS, help='Classifier-free guidance (CFG) scale' + from_quality)
@@ -605,13 +609,13 @@ def runtime_spec(loras):
 
 def h3_noise(args, seed):
 	"""Video and audio noise of one H3 job like ComfyUI's RandomNoise: one generator, the video latent first, then for
-	er_sde the noise of every step but the last (video.noise.<step> and audio.noise.<step>)."""
+	a NOISY sampler the noise of every step but the last (video.noise.<step> and audio.noise.<step>)."""
 	import torch
 	frames = args.length + (5 - args.length) % 17
 	latent = 2 if frames <= 5 else (frames - 5) // 17 * 5 + 2
 	shapes = (1, 24, latent, args.height // 16, args.width // 16), (1, 32, 2, round(frames / 24 * 40))
 	generator = torch.Generator('cpu').manual_seed(seed)
-	steps = range(args.steps - 1 if args.sampler == 'er_sde' else 0)
+	steps = range(args.steps - 1 if args.sampler in NOISY else 0)
 	names = ['video', 'audio'] + [f'{stream}.noise.{step}' for step in steps for stream in ('video', 'audio')]
 	return {name: torch.randn(shapes[index % 2], generator=generator)[0] for index, name in enumerate(names)}
 
