@@ -26,21 +26,34 @@ Contexts(prompts Texts) Slow(List(Numbers))
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length)
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
 Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
+	let moss = Loaded
+	let sampled = Process.Elapsed
+	let latents = Latents(moss, seeds, prompts, unique, contexts)
+	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
+	GpuMemory.Evicted
+	let decoded = Process.Elapsed
+	Decoded(latents, seeds, prompts)
+	logger.Log("Decoded and saved " + seeds.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
+	seeds.Length
+Loaded Moss
 	let before = Process.Elapsed
 	let moss = Moss.Loaded(options.files.Checkpoint, options.Loras)
-	let decoder = FluxDecoder.Loaded(options.files.Decoder, 32)
-	logger.Log("Moss and VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	moss
+Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(List(Numbers))
 	let sampling = options.Sampling(logger)
 	for seeds
-		let context = contexts(unique.Index(prompts(index)))
-		Saved(Sampled(moss, sampling, value, context), decoder, value, prompts(index))
-	seeds.Length
+		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))))
+Decoded(latents List(Numbers), seeds Numbers, prompts Texts) Slow(Texts)
+	let decoder = FluxDecoder.Loaded(options.files.Decoder, 32)
+	for seeds
+		Saved(latents(index), decoder, value, prompts(index))
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers) Slow(Numbers)
 	let before = Process.Elapsed
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	let latent = sampling.Sampled(moss, noise, context)
-	logger.Log("Sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	GpuMemory.Released
+	logger.Log("Sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	latent
 Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text) Slow(Text)
 	let before = Process.Elapsed
