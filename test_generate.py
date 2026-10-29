@@ -1,4 +1,5 @@
-"""Local CLI checks; run with ComfyUI's Python. No full model required."""
+"""Checks of the ComfyUI nodes' side (generate.py, merge.py) and of the executables' options; run with ComfyUI's Python.
+No full model required."""
 import importlib.util
 import io
 import json
@@ -39,15 +40,12 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertIn('--quality', result.stdout)
 
 	def test_defaults(self):
-		args = self.module().arguments(['--model', 'moss.safetensors'])
-		self.assertEqual((args.prompt, args.steps, args.output), (Path('prompt.txt'), 8, Path('MossImage.jpg')))
-		self.assertTrue(hasattr(args, 'json_output'), 'JSON sidecar option is missing')
-		self.assertFalse(args.json_output)
-		self.assertTrue(self.module().arguments(['--json_output']).json_output)
-		self.assertTrue(hasattr(args, 'lora_mode'), 'Cached merged mode is missing')
-		self.assertEqual(args.lora_mode, 'merged')
-		self.assertFalse(args.merge_only)
-		self.assertEqual(args.spectrum, 'off')
+		args = self.module().arguments([])
+		self.assertEqual((args.width, args.height, args.steps, args.guidance, args.lora_mode, args.spectrum, args.lora),
+			(720, 1280, 8, 1, 'merged', 'off', []))
+		self.assertEqual(args.cache, ROOT / 'artifacts' / 'moss')
+		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+			self.module().arguments(['--quality'])
 
 	def test_spectrum_preset_reaches_backend(self):
 		module = self.module()
@@ -81,13 +79,6 @@ class GenerationCommandTests(unittest.TestCase):
 				self.assertEqual(run.call_count, 1)
 			self.assertEqual(base.read_bytes(), b'original checkpoint')
 			self.assertEqual(module.selected_loras(args, folder, {'strict_lora_merge': json.dumps(marker)}), [])
-			with patch.object(module, 'validate_model', return_value={}), \
-				patch.object(module, 'cached_merge', return_value=merged), \
-				patch.object(module, 'conditioning') as encode:
-				self.assertEqual(module.main(['moss', '--model', str(base), '--lora', str(lora),
-					'--cache', str(folder), '--merge_only', '--prompt', str(folder / 'missing.txt'),
-					'--te', 'missing-encoder', '--vae', 'missing-vae']), 0)
-				encode.assert_not_called()
 
 	def test_cached_merge_keeps_the_three_newest_models(self):
 		import os
@@ -150,45 +141,14 @@ class GenerationCommandTests(unittest.TestCase):
 				expected = third.to(torch.float8_e4m3fn).float().norm(dim=1)
 				self.assertTrue(torch.allclose(weight.norm(dim=1), expected, rtol=0.02), name)
 
-	def test_visible_defaults_and_long_help_only(self):
-		module = self.module()
-		with redirect_stderr(io.StringIO()):
-			try:
-				args = module.arguments(['--comfyui', 'D:/ComfyUI_windows_portable/ComfyUI'])
-			except SystemExit:
-				self.fail('Default model is missing')
-			self.assertEqual((args.width, args.height, args.steps, args.guidance, args.jpg_quality), (720, 1280, 8, 1, 85))
-			self.assertEqual(Path(args.model), Path('D:/ComfyUI_windows_portable/ComfyUI/models/diffusion_models/moss-image-sft-dit-int8-convrot.safetensors'))
-			self.assertEqual(Path(args.vae).name, 'flux2-vae.safetensors')
-			self.assertEqual(Path(args.te).name, 'qwen3.5_9b_int8_convrot.safetensors')
-			for option in ('-h', '--quality'):
-				with self.assertRaises(SystemExit):
-					module.arguments([option])
-
-	def test_count_and_distinct_reproducible_jobs(self):
-		module = self.module()
-		self.assertTrue(hasattr(module, 'jobs'), 'Resident batch jobs are missing')
-		args = module.arguments(['--model', 'moss', '--count', '10', '--seed', '42'])
-		first = module.jobs(args, '{a woman|a man|}')
-		self.assertEqual(first, module.jobs(args, '{a woman|a man|}'))
-		self.assertEqual(len(first), 10)
-		self.assertEqual(len({job['seed'] for job in first}), 10)
-		self.assertEqual(first[0]['seed'], 42)
-		self.assertGreater(len({job['prompt'] for job in first}), 1)
-		self.assertEqual(module.arguments(['--model', 'moss']).count, 1)
-		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
-			module.arguments(['--model', 'moss', '--count', '0'])
-
 	def test_batch_launches_backend_once_with_distinct_inputs(self):
 		from unittest.mock import MagicMock, patch
 		import torch
 		from safetensors.torch import save_file
 		module = self.module()
-		self.assertTrue(hasattr(module, 'jobs'), 'Resident batch jobs are missing')
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
-			args = module.arguments(['--model', 'moss', '--count', '2', '--seed', '42',
-				'--width', '16', '--height', '16', '--cache', str(folder), '--spectrum', 'spectrum8_w3p3'])
+			args = module.arguments(['--width', '16', '--height', '16', '--cache', str(folder), '--spectrum', 'spectrum8_w3p3'])
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
@@ -199,13 +159,12 @@ class GenerationCommandTests(unittest.TestCase):
 			process.wait.return_value = 0
 			process.poll.return_value = 0
 			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()) as output:
-				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
-					module.jobs(args, '{a|b}'), folder))
+				results = list(module.Resident().generated(args, Path('model'), contexts, [{'seed': 42}, {'seed': 7}], folder))
 			self.assertEqual(launch.call_count, 1)
 			self.assertIn('step 0 at 1.234', output.getvalue())
 			self.assertNotIn('evaluation ', output.getvalue())
-			self.assertEqual(launch.call_args.args[0][5], 'on')
-			self.assertEqual([result[1].name for result in results], ['strict-on-0.jpg', 'strict-on-1.jpg'])
+			self.assertEqual(launch.call_args.args[0][4:6], ['', 'on'])
+			self.assertEqual([result[1].name for result in results], ['strict-on-0-latent.safetensors', 'strict-on-1-latent.safetensors'])
 			self.assertEqual([result[0] for result in results], [0, 1])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')
@@ -231,7 +190,7 @@ class GenerationCommandTests(unittest.TestCase):
 				for run in range(3):
 					(folder / str(run)).mkdir()
 				for run in range(2):
-					results = list(resident.generated(args, Path('model'), '', [folder / 'context.safetensors'],
+					results = list(resident.generated(args, Path('model'), [folder / 'context.safetensors'],
 						[{'seed': run}], folder / str(run)))
 					self.assertEqual([(index, path.name, milliseconds) for index, path, milliseconds in results],
 						[(0, 'strict-off-latent.safetensors', 20 + run)])
@@ -242,27 +201,9 @@ class GenerationCommandTests(unittest.TestCase):
 				args.spectrum = 'spectrum8_w3p3'
 				launch.return_value = MagicMock(stdout=io.StringIO('generation 0 in 22 ms\n'))
 				launch.return_value.poll.return_value = None
-				list(resident.generated(args, Path('model'), '', [folder / 'context.safetensors'], [{'seed': 2}], folder / '2'))
+				list(resident.generated(args, Path('model'), [folder / 'context.safetensors'], [{'seed': 2}], folder / '2'))
 				self.assertEqual(launch.call_count, 2)
 				process.terminate.assert_called_once()
-
-	def test_backend_without_vae_returns_latents(self):
-		from unittest.mock import MagicMock, patch
-		import torch
-		from safetensors.torch import save_file
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			args = module.arguments(['--width', '16', '--height', '16', '--cache', str(folder)])
-			context = folder / 'context.safetensors'
-			save_file({'context': torch.zeros((1, 2, 3))}, str(context))
-			process = MagicMock()
-			process.stdout = io.StringIO('generation 0 in 20 ms\n')
-			process.wait.return_value = 0
-			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
-				results = list(module.generated(args, Path('model'), '', [context], [{'seed': 1}], folder))
-			self.assertEqual(launch.call_args.args[0][4], '')
-			self.assertEqual([result[1].name for result in results], ['strict-off-latent.safetensors'])
 
 	def test_comfyui_lora_patches_become_one_cached_adapter(self):
 		from types import SimpleNamespace
@@ -313,48 +254,6 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertTrue(module.turbo_patched(patch(down.clone()), turbo))
 			self.assertFalse(module.turbo_patched(patch(torch.randn(2, 3)), turbo))
 			self.assertFalse(module.turbo_patched({}, turbo))
-
-	def test_batch_encodes_unique_missing_prompts_in_one_worker(self):
-		from unittest.mock import patch
-		import torch
-		from safetensors.torch import save_file
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			(folder / 'comfy').mkdir()
-			(folder / 'comfy/sd.py').write_text('fixture')
-			encoder = folder / 'encoder.safetensors'
-			encoder.write_bytes(b'identity')
-			args = module.arguments(['--model', 'moss', '--cache', str(folder), '--comfyui', str(folder)])
-			def worker(command, **kwargs):
-				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
-				self.assertEqual(request['prompts'], ['first', 'second'])
-				for index in range(len(request['prompts'])):
-					save_file({'context': torch.zeros((1, 2, 3))}, str(Path(command[4]) / f'{index}.safetensors'))
-			with patch.object(module.subprocess, 'run', side_effect=worker) as launch:
-				paths = module.conditioning(args, ['first', 'second', 'first'], encoder)
-				self.assertEqual(paths[0], paths[2])
-				self.assertNotEqual(paths[0], paths[1])
-				self.assertTrue(all(path.is_file() for path in paths))
-				self.assertEqual(module.conditioning(args, ['first', 'second'], encoder), paths[:2])
-				self.assertEqual(launch.call_count, 1)
-
-	def test_moss_prompts_encode_in_right_padded_batches(self):
-		import torch
-		class Clip:
-			class cond_stage_model:
-				clip = 'qwen'
-				qwen = type('Model', (), {'special_tokens': {'pad': 0}})
-			batches = []
-			def tokenize(self, prompt):
-				return {'qwen': [[(len(word), 1.0) for word in prompt.split()]]}
-			def encode_from_tokens(self, tokens):
-				self.batches.append(tokens['qwen'])
-				return torch.tensor([[[token for token, weight in part] for part in tokens['qwen']]], dtype=torch.float).reshape(1, -1, 1)
-		clip = Clip()
-		contexts = [context.flatten().tolist() for context in self.module().contexts(clip, ['a bb ccc', 'dddd', 'ee f'], 2)]
-		self.assertEqual(contexts, [[1, 2, 3], [4], [2, 1]])
-		self.assertEqual(clip.batches, [[[(1, 1.0), (2, 1.0), (3, 1.0)], [(4, 1.0), (0, 1.0), (0, 1.0)]], [[(2, 1.0), (1, 1.0)]]])
 
 	def test_wrong_checkpoint_is_rejected(self):
 		import torch
@@ -420,51 +319,12 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertTrue(torch.allclose(weights[key + 'lora_up.weight'] @ weights[key + 'lora_down.weight'],
 				torch.tensor([[7.5e-6] * 4, [1e-5] * 4]), atol=1e-8, rtol=1e-4))
 
-	def test_json_sidecar_is_opt_in(self):
-		from contextlib import redirect_stdout
-		from unittest.mock import patch
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			model = folder / 'model.safetensors'
-			model.touch()
-			prompt = folder / 'prompt.txt'
-			prompt.write_text('woman', encoding='utf-8')
-			source = folder / 'native.jpg'
-			source.write_bytes(b'native image bytes')
-			def batch(*args, **kwargs):
-				yield 0, source, 10
-			for enabled in (False, True):
-				output = folder / ('with.jpg' if enabled else 'without.jpg')
-				command = ['moss', '--model', str(model), '--vae', str(model), '--te', str(model), '--steps', '25',
-					'--prompt', str(prompt), '--output', str(output), '--seed', '42', '--cache', str(folder)]
-				if enabled:
-					command.append('--json_output')
-				with patch.object(module, 'validate_model'), patch.object(module, 'native', return_value=True), \
-					patch.object(module, 'conditioning', return_value=[model]), patch.object(module, 'generated', side_effect=batch), \
-					redirect_stdout(io.StringIO()):
-					self.assertEqual(module.main(command), 0)
-				image = output.with_name(output.stem + '0001.jpg')
-				self.assertEqual(image.read_bytes(), source.read_bytes())
-				self.assertEqual(image.with_suffix('.jpg.json').exists(), enabled)
-
 	def test_launcher_preserves_spaces(self):
 		name = 'missing model with spaces.safetensors'
 		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--model', name],
 			cwd=tempfile.gettempdir(), capture_output=True, text=True)
 		self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 		self.assertIn('FileNotFound:' + name.replace(' ', '_'), result.stdout)
-
-	def test_prompt_choices_and_empty_alternative(self):
-		expand = self.module().expand_prompt
-		results = {expand('Portrait of {a woman|a man|}.', random.Random(seed)) for seed in range(100)}
-		self.assertEqual(results, {'Portrait of a woman.', 'Portrait of a man.', 'Portrait of .'})
-		self.assertEqual(expand('{a|{b|c}} and {d|}', random.Random(7)),
-			expand('{a|{b|c}} and {d|}', random.Random(7)))
-		self.assertEqual(expand('plain | text', random.Random(0)), 'plain | text')
-		for text in ('{unclosed', 'unopened}'):
-			with self.assertRaises(ValueError):
-				expand(text, random.Random(0))
 
 	def test_weighted_lora_paths(self):
 		parse = self.module().lora_spec
@@ -476,32 +336,6 @@ class GenerationCommandTests(unittest.TestCase):
 		for text in ('style.safetensors:nan', 'style.safetensors:inf', 'style.safetensors:bad'):
 			with self.assertRaises(ValueError):
 				parse(text)
-
-	def test_numbered_outputs_never_overwrite(self):
-		reserve = self.module().reserve_output
-		with tempfile.TemporaryDirectory() as folder:
-			base = Path(folder) / 'MossImage.jpg'
-			old = base.with_name('MossImage0009.jpg')
-			old.write_bytes(b'keep')
-			base.with_name('MossImage0001.jpg').write_bytes(b'first')
-			path, output = reserve(base)
-			with output:
-				output.write(b'new')
-			self.assertEqual(path.name, 'MossImage0010.jpg')
-			self.assertEqual(old.read_bytes(), b'keep')
-			path, output = reserve(base)
-			output.close()
-			self.assertEqual(path.name, 'MossImage0011.jpg')
-
-	def test_number_reservation_is_exclusive(self):
-		from concurrent.futures import ThreadPoolExecutor
-		reserve = self.module().reserve_output
-		with tempfile.TemporaryDirectory() as folder:
-			with ThreadPoolExecutor(max_workers=4) as threads:
-				results = list(threads.map(lambda _: reserve(Path(folder) / 'image.jpg'), range(8)))
-			for path, output in results:
-				output.close()
-			self.assertEqual(len({path for path, output in results}), 8)
 
 	def test_relative_weighted_stack_merges_once(self):
 		import torch
@@ -542,15 +376,13 @@ class GenerationCommandTests(unittest.TestCase):
 
 	def test_h3_defaults(self):
 		module = self.module()
-		args = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
-		self.assertEqual((args.width, args.height, args.length, args.steps, args.shift, args.output),
-			(480, 832, 124, 8, 12, Path('H3Video.mp4')))
-		self.assertEqual(Path(args.model).name, 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors')
-		self.assertEqual(Path(args.audio_vae).name, 'minimax_h3_audio_vae_fp32.safetensors')
+		args = module.arguments([], 'h3')
+		self.assertEqual((args.width, args.height, args.length, args.steps, args.lora_mode), (480, 832, 124, 8, 'runtime'))
+		self.assertEqual(args.model, 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors')
 		self.assertEqual(args.cache, ROOT / 'artifacts' / 'h3')
-		self.assertFalse(hasattr(args, 'jpg_quality'))
+		self.assertFalse(hasattr(args, 'guidance'))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
-			module.arguments(['--output', 'video.jpg'], 'h3')
+			module.arguments(['--length', '4'], 'h3')
 
 	def test_h3_spectrum_preset(self):
 		module = self.module()
@@ -581,7 +413,7 @@ class GenerationCommandTests(unittest.TestCase):
 
 	def test_h3_quality_presets(self):
 		module = self.module()
-		best = module.arguments(['--comfyui', 'C:/ComfyUI'], 'h3')
+		best = module.arguments([], 'h3')
 		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora, best.sampler, best.scheduler),
 			('best', 8, 0, 'off', [], 'euler', 'simple'))
 		self.assertEqual(module.skipped_blocks(best), (5, 45))
@@ -589,12 +421,12 @@ class GenerationCommandTests(unittest.TestCase):
 		for skip in ('45:5', '5:51', '5-45'):
 			with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 				module.arguments(['--skip', skip], 'h3')
-		fastest = module.arguments(['--quality', 'fastest2steps', '--lora', 'style.safetensors:0.5'], 'h3')
-		self.assertEqual((Path(fastest.model).name, fastest.steps, fastest.routing, fastest.spectrum, fastest.lora),
+		fastest = module.arguments(['--quality', 'fastest2steps'], 'h3')
+		self.assertEqual((fastest.model, fastest.steps, fastest.routing, fastest.spectrum, fastest.lora),
 			('minimax_h3_fl2va_pruned_int8_convrot.safetensors', 2, 1, 'off',
-			['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1', 'style.safetensors:0.5']))
-		faster = module.arguments(['--quality', 'faster', '--steps', '10', '--routing', '0.5'], 'h3')
-		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 0.5))
+			['h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1']))
+		faster = module.arguments(['--quality', 'faster', '--steps', '10'], 'h3')
+		self.assertEqual((faster.steps, faster.spectrum, faster.routing), (10, 'spectrum10_w1p2', 1))
 		self.assertEqual(list(module.QUALITIES), ['best', 'fast', 'faster', 'fastest4steps', 'fastest2steps'])
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
 			module.arguments(['--quality', 'ultra'], 'h3')
@@ -653,41 +485,6 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(len(module.h3_noise(args, 7)), 6 if sampler in ('er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'lcm') else 2,
 				sampler)
 
-	def test_h3_decoder_takes_shapes_and_outputs_from_the_request(self):
-		from unittest.mock import MagicMock, patch
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			dump = MagicMock()
-			dump.decoded_latent.return_value = ('frames',)
-			dump.encoded_av.side_effect = lambda frames, out, prefix: (Path(out) / (prefix + 'video.mp4')).write_bytes(b'mp4')
-			shapes = [[24, 2, 2, 2], [32, 2, 8]]
-			request = {'comfyui': 'C:/ComfyUI', 'vae': 'v', 'audio_vae': 'a', 'folder': str(folder), 'jobs': [{'latent': 'l.safetensors',
-				'output': str(folder / 'H3Video0001.mp4'), 'prefix': 'strict-0-', 'shapes': shapes}]}
-			modules = {'dump': dump, 'comfy_extras': MagicMock(), 'comfy_extras.nodes_audio': MagicMock()}
-			with patch.dict(sys.modules, modules), patch.dict(module.os.environ), patch.object(sys, 'argv', []), 					redirect_stdout(io.StringIO()):
-				module.decoding(request)
-			self.assertEqual(dump.decoded_latent.call_args.args[2], shapes)
-			self.assertEqual((folder / 'H3Video0001.mp4').read_bytes(), b'mp4')
-
-	def test_h3_encoder_writes_the_requested_outputs_and_skips_cached_ones(self):
-		from unittest.mock import MagicMock, patch
-		import torch
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			dump = MagicMock()
-			clip = dump.comfy.sd.load_clip.return_value
-			clip.encode_from_tokens_scheduled.return_value = [[torch.ones(1, 3, 4), {}]]
-			(folder / 'a.safetensors').write_bytes(b'cached')
-			request = {'comfyui': 'C:/ComfyUI', 'family': 'h3', 'te': 't', 'prompts': ['a', 'b'],
-				'outputs': [str(folder / 'a.safetensors'), str(folder / 'b.safetensors')]}
-			with patch.dict(sys.modules, {'dump': dump}), patch.dict(module.os.environ), patch.object(sys, 'argv', []), 					redirect_stdout(io.StringIO()):
-				module.encoded(request, folder)
-			clip.tokenize.assert_called_once_with('b')
-			self.assertEqual((folder / 'a.safetensors').read_bytes(), b'cached')
-			self.assertEqual(tuple(self.tensors(folder / 'b.safetensors')['context'].shape), (3, 4))
-
 	def test_h3_checkpoint_with_model_prefix_is_accepted(self):
 		import torch
 		from safetensors.torch import save_file
@@ -719,9 +516,8 @@ class GenerationCommandTests(unittest.TestCase):
 		module = self.module()
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
-			args = module.arguments(['--count', '2', '--seed', '42', '--width', '32', '--height', '32', '--length', '5',
-				'--cache', str(folder), '--spectrum', 'spectrum8_w1p2', '--routing', '1', '--sampler', 'res_multistep',
-				'--scheduler', 'sgm_uniform'], 'h3')
+			args = module.arguments(['--quality', 'faster', '--width', '32', '--height', '32', '--length', '5',
+				'--cache', str(folder), '--sampler', 'res_multistep', '--scheduler', 'sgm_uniform'], 'h3')
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
@@ -732,12 +528,12 @@ class GenerationCommandTests(unittest.TestCase):
 			process.wait.return_value = 0
 			process.poll.return_value = 0
 			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
-				results = list(module.generated(args, Path('model'), Path('vae'), contexts,
-					module.jobs(args, '{a|b}'), folder, 'style.safetensors=0.5'))
+				results = list(module.Resident().generated(args, Path('model'), contexts, [{'seed': 42}, {'seed': 7}], folder,
+					'style.safetensors=0.5'))
 			self.assertEqual(launch.call_count, 1)
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
-			self.assertEqual(command[1:], [str(folder), 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
+			self.assertEqual(command[1:], ['-', 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
 				'45', '1', '1'])
 			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
@@ -746,73 +542,6 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(set(first), {'context', 'tags', 'video', 'audio'})
 			self.assertEqual((tuple(first['video'].shape), tuple(first['audio'].shape)), ((24, 2, 2, 2), (32, 2, 8)))
 			self.assertFalse(torch.equal(first['video'], second['video']))
-
-	def test_h3_latents_decode_in_one_worker_sampling_does_not_wait_for(self):
-		from unittest.mock import MagicMock, patch
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			args = module.arguments(['--comfyui', str(folder)], 'h3')
-			paths = [folder / f'strict-{index}-latent.safetensors' for index in range(2)]
-			events, finished = [], []
-			sampled, written = threading.Event(), threading.Event()
-			def printed():
-				sampled.wait(2)
-				events.append('printed')
-				yield 'decoder started\n'
-			process = MagicMock()
-			process.stdout = printed()
-			process.wait.return_value = 0
-			process.poll.return_value = None
-			process.stdin.write.side_effect = lambda text: events.append(json.loads(text)) or written.set()
-			def latents():
-				events.append('sampling')
-				sampled.set()
-				yield from [(index, path, 20 + index) for index, path in enumerate(paths)]
-				finished.append(written.wait(2))
-			def launch(command, **kwargs):
-				events.append('worker')
-				return process
-			with patch.object(module.subprocess, 'Popen', side_effect=launch), redirect_stdout(io.StringIO()):
-				videos = module.decoded(args, latents(), folder, len(paths))
-			self.assertEqual(events[:2], ['worker', 'sampling'])
-			self.assertEqual(finished, [True])
-			jobs = next(event for event in events if isinstance(event, list))
-			self.assertEqual([job['latent'] for job in jobs], [str(path) for path in paths])
-			self.assertEqual(jobs[1]['prefix'], 'strict-1-')
-			self.assertEqual(videos, [(0, folder / 'strict-0-video.mp4', 20), (1, folder / 'strict-1-video.mp4', 21)])
-
-	def test_h3_decode_worker_encodes_while_the_next_latent_decodes(self):
-		from types import ModuleType
-		from unittest.mock import MagicMock, patch
-		import torch
-		from safetensors.torch import save_file
-		module = self.module()
-		second, overlapped, events = threading.Event(), [], []
-		def decoded(vae, path, shapes, out, prefix):
-			events.append('decode ' + prefix)
-			second.set() if prefix == 'strict-1-' else None
-			return prefix, 0, 0
-		def encoded(frames, out, prefix):
-			overlapped.append(second.wait(2)) if prefix == 'strict-0-' else None
-			events.append('encode ' + prefix)
-		dump = ModuleType('dump')
-		dump.comfy, dump.audio_decoder, dump.decoded_latent, dump.encoded_av = MagicMock(), MagicMock(), decoded, encoded
-		audio = ModuleType('comfy_extras.nodes_audio')
-		with tempfile.TemporaryDirectory() as folder:
-			save_file({'video': torch.zeros(1), 'audio': torch.zeros(1)}, str(Path(folder) / 'generation.safetensors'))
-			jobs = [{'latent': 'x', 'generation': str(Path(folder) / 'generation.safetensors'), 'prefix': f'strict-{index}-'}
-				for index in range(2)]
-			stdin, before_jobs = MagicMock(), []
-			stdin.read.side_effect = lambda: before_jobs.extend(call.args[0] for call in imported.call_args_list) or json.dumps(jobs)
-			modules = {'dump': dump, 'comfy_extras': ModuleType('comfy_extras'), 'comfy_extras.nodes_audio': audio}
-			with patch.dict(sys.modules, modules), patch.object(sys, 'stdin', stdin), patch.object(sys, 'argv', ['generate.py']), \
-				patch.object(module.os, 'environ', {}), patch('builtins.__import__', wraps=__import__) as imported, \
-				redirect_stdout(io.StringIO()):
-				module.decoding({'comfyui': folder, 'vae': 'v', 'audio_vae': 'a', 'folder': folder})
-		self.assertEqual(overlapped, [True])
-		self.assertEqual(sorted(events), ['decode strict-0-', 'decode strict-1-', 'encode strict-0-', 'encode strict-1-'])
-		self.assertIn('comfy_extras.nodes_audio', before_jobs)
 
 	def test_h3_runtime_loras_become_one_backend_argument(self):
 		self.assertEqual(self.module().runtime_spec([(Path('a.safetensors'), 1.0), (Path('b c.safetensors'), 0.5)]),
@@ -840,14 +569,6 @@ class GenerationCommandTests(unittest.TestCase):
 				self.assertTrue(torch.allclose(merged['model.diffusion_model.' + name + '.weight'].float() *
 					merged['model.diffusion_model.' + name + '.weight_scale'], torch.full((2, 256), 1.5)))
 
-	def test_h3_image_options(self):
-		module = self.module()
-		args = module.arguments(['--image', 'first.png', '--last_image', 'last.png'], 'h3')
-		self.assertEqual((args.image, args.last_image), (Path('first.png'), Path('last.png')))
-		self.assertIsNone(module.arguments([], 'h3').image)
-		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
-			module.arguments(['--image', 'first.png'])
-
 	def test_h3_image_rows_restart_the_seeded_noise_per_keyframe(self):
 		import torch
 		module = self.module()
@@ -858,35 +579,6 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertTrue(torch.allclose(rows[0, :4], 0.999 * torch.tensor([0.0, 1, 6, 7]) +
 			0.001 * torch.randn((6, 96), generator=torch.Generator().manual_seed(42))[0, :4]))
 
-	def test_h3_image_conditioning_is_cached_per_image_and_size(self):
-		from unittest.mock import patch
-		import torch
-		from safetensors.torch import save_file
-		module = self.module()
-		with tempfile.TemporaryDirectory() as temporary:
-			folder = Path(temporary)
-			(folder / 'comfy').mkdir()
-			(folder / 'comfy/sd.py').write_text('fixture')
-			for name in ('encoder.safetensors', 'vae.safetensors', 'first.png', 'other.png'):
-				(folder / name).write_bytes(name.encode())
-			requests = []
-			def worker(command, **kwargs):
-				request = json.loads(Path(command[3]).read_text(encoding='utf-8'))
-				requests.append(request)
-				for index in range(len(request['prompts'])):
-					save_file({'context': torch.zeros((2, 3))}, str(Path(command[4]) / f'{index}.safetensors'))
-			paths = []
-			for image in ('first.png', 'other.png', 'first.png'):
-				args = module.arguments(['--comfyui', str(folder), '--cache', str(folder), '--image', str(folder / image),
-					'--vae', str(folder / 'vae.safetensors')], 'h3')
-				with patch.object(module.subprocess, 'run', side_effect=worker):
-					paths += module.conditioning(args, ['prompt'], folder / 'encoder.safetensors')
-			self.assertEqual(len(requests), 2)
-			self.assertEqual(requests[0]['images'], [str(folder / 'first.png'), ''])
-			self.assertEqual((requests[0]['width'], requests[0]['height'], requests[0]['length']), (480, 832, 124))
-			self.assertNotEqual(paths[0], paths[1])
-			self.assertEqual(paths[0], paths[2])
-
 	def test_h3_image_jobs_carry_rows_instead_of_keyframe_latents(self):
 		from unittest.mock import MagicMock, patch
 		import torch
@@ -894,7 +586,7 @@ class GenerationCommandTests(unittest.TestCase):
 		module = self.module()
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
-			args = module.arguments(['--seed', '42', '--width', '32', '--height', '32', '--length', '5', '--cache', str(folder)], 'h3')
+			args = module.arguments(['--width', '32', '--height', '32', '--length', '5', '--cache', str(folder)], 'h3')
 			context = folder / 'context.safetensors'
 			latent = torch.ones((24, 1, 2, 2))
 			save_file({'context': torch.zeros((2, 3)), 'tags': torch.ones(2), 'keyframe.0': latent,
@@ -904,7 +596,7 @@ class GenerationCommandTests(unittest.TestCase):
 			process.wait.return_value = 0
 			process.poll.return_value = 0
 			with patch.object(module.subprocess, 'Popen', return_value=process), redirect_stdout(io.StringIO()):
-				list(module.generated(args, Path('model'), Path('vae'), [context], module.jobs(args, 'a'), folder, ''))
+				list(module.Resident().generated(args, Path('model'), [context], [{'seed': 42}], folder))
 			job = self.tensors(folder / 'generation-0.safetensors')
 			self.assertEqual(set(job), {'context', 'tags', 'keyframes', 'rows', 'video', 'audio'})
 			self.assertTrue(torch.equal(job['rows'], module.h3_rows([latent], 42)))

@@ -130,7 +130,7 @@ class StrictMossSampler:
 			folder = Path(temporary)
 			save_file({'context': positive[0][0].float().cpu().contiguous()}, str(folder / 'context.safetensors'))
 			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(batch)]
-			with closing(RESIDENT.generated(args, loaded, '', [folder / 'context.safetensors'] * batch, plan, folder, adapter)) as outputs:
+			with closing(RESIDENT.generated(args, loaded, [folder / 'context.safetensors'] * batch, plan, folder, adapter)) as outputs:
 				for index, path, milliseconds in outputs:
 					latents.append(load(path.read_bytes())['latent'].reshape(1, channels, height, width))
 					progress.update(1)
@@ -177,8 +177,7 @@ class StrictH3Sampler:
 		args = generate.h3_arguments(quality, video, audio, skip, sampler_name, scheduler)
 		args.cache.mkdir(parents=True, exist_ok=True)
 		models = Path(folder_paths.models_dir)
-		preset = Path(args.model).name
-		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', preset))
+		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', args.model))
 		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
 		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
 		released(model, prompt, unique_id)
@@ -202,7 +201,7 @@ class StrictH3Sampler:
 			condition = {name: value.detach().cpu().float().contiguous() for name, value in generate.h3_condition(positive).items()}
 			save_file(condition | ({'preview': torch.ones(1)} if decoder else {}), str(context))
 			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(video[0])]
-			with closing(RESIDENT_H3.generated(args, loaded, '', [context] * video[0], plan, folder, adapter, stepped)) as outputs:
+			with closing(RESIDENT_H3.generated(args, loaded, [context] * video[0], plan, folder, adapter, stepped)) as outputs:
 				for index, path, milliseconds in outputs:
 					pairs.append(generate.h3_latents(load(path.read_bytes())['latent'], video, audio))
 		joined = [torch.cat([pair[stream] for pair in pairs]) for stream in (0, 1)]

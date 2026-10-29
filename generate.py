@@ -1,56 +1,41 @@
-"""Moss images (MossImage.exe) and H3 videos with sound (H3Video.exe): ComfyUI encodes the prompts and decodes H3 videos,
-Strict samples (and decodes Moss images)."""
+"""The ComfyUI side of the Strict Moss and H3 samplers: quality presets, LoRA patches as adapters, cached int8 merges
+(merge.py) and the resident MossGenerate.exe or H3Video.exe the nodes send their conditioning to."""
 import argparse
 import hashlib
 import io
-import itertools
 import json
 import math
 import os
 from pathlib import Path
-import random
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
-import threading
-import time
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
 FAMILIES = {
-	'moss': {'program': 'MossImage.exe', 'backend': 'MossGenerate.exe', 'noun': 'Image', 'output': 'MossImage.jpg',
-		'suffixes': ('.jpg', '.jpeg', '.png'), 'width': 720, 'height': 1280, 'spectrum': 'spectrum8_w3p3', 'linear': 'layers.0.proj.q',
-		'files': [('model', 'diffusion_models', 'moss-image-sft-dit-int8-convrot.safetensors', 'Base int8 Convrot model'),
-			('vae', 'vae', 'flux2-vae.safetensors', 'Image VAE'),
-			('te', 'text_encoders', 'qwen3.5_9b_int8_convrot.safetensors', 'Text encoder')]},
-	'h3': {'program': 'H3Video.exe', 'backend': 'H3Video.exe', 'noun': 'Video', 'output': 'H3Video.mp4',
-		'suffixes': ('.mp4',), 'width': 480, 'height': 832, 'spectrum': 'spectrum8_w1p2', 'linear': 'blocks.0.attn.qkv_proj',
-		'files': [('model', 'diffusion_models', 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'int8 Convrot model'),
-			('vae', 'vae', 'minimax_h3_video_vae_int8_convrot.safetensors', 'Video VAE'),
-			('audio_vae', 'vae', 'minimax_h3_audio_vae_fp32.safetensors', 'Audio VAE'),
-			('te', 'text_encoders', 'qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors', 'Text encoder')]}}
+	'moss': {'backend': 'MossGenerate.exe', 'width': 720, 'height': 1280, 'linear': 'layers.0.proj.q'},
+	'h3': {'backend': 'H3Video.exe', 'width': 480, 'height': 832, 'linear': 'blocks.0.attn.qkv_proj'}}
 SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
 SKIP = re.compile(r'(\d+):(\d+)')
-# H3 --skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
+# H3 skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
 # clip got on a 4090
 SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
-# H3 --sampler and --scheduler like ComfyUI's sampler_name and scheduler (beta57 from RES4LYF), H3Video.exe gets their
-# index; NOISY samplers add new noise every step but the last
+# H3 sampler_name and scheduler like ComfyUI's (beta57 from RES4LYF), H3Video.exe gets their index; NOISY samplers add new
+# noise every step but the last
 SAMPLERS = ['euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm']
 SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linear_quadratic'], {'er_sde', 'euler_ancestral',
 	'dpmpp_2m_sde', 'lcm'}
-H3_TURBO, H3_BASE = FAMILIES['h3']['files'][0][2], 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
+H3_TURBO, H3_BASE = 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
-# H3 --quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
+# H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
 QUALITIES = {
 	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 14 s'),
 	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 11 s'),
 	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 7 s'),
 	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 6.4 s'),
 	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, 4.5 s')}
-# Moss --quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
+# Moss quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
 	'best25steps': (25, 2, '', 'without the turbo LoRA, 25 steps with cfg 2, 18 s'),
@@ -74,142 +59,53 @@ def lora_spec(text):
 	return path, strength
 
 
-def expand_prompt(text, rng):
-	groups = [['']]
-	for character in text:
-		if character == '{':
-			groups.append([''])
-		elif character == '}':
-			if len(groups) == 1:
-				raise ValueError('Unmatched } in prompt')
-			groups[-2][-1] += rng.choice(groups.pop())
-		elif character == '|' and len(groups) > 1:
-			groups[-1].append('')
-		else:
-			groups[-1][-1] += character
-	if len(groups) != 1:
-		raise ValueError('Unclosed { in prompt')
-	return groups[0][0]
-
-
-def reserve_output(base):
-	base = Path(base)
-	base.parent.mkdir(parents=True, exist_ok=True)
-	pattern = re.compile(re.escape(base.stem) + r'(\d{4,})' + re.escape(base.suffix), re.IGNORECASE)
-	numbers = [int(match[1]) for path in base.parent.iterdir() if (match := pattern.fullmatch(path.name))]
-	number = max(numbers, default=0) + 1
-	while True:
-		path = base.with_name(f'{base.stem}{number:04d}{base.suffix}')
-		if not path.with_suffix(path.suffix + '.json').exists():
-			try:
-				return path, path.open('xb')
-			except FileExistsError:
-				pass
-		number += 1
-
-
 def arguments(argv=None, family='moss'):
+	"""The settings of a node run from arguments like MossImage.exe's and H3Video.exe's, invalid ones exit like argparse."""
 	settings = FAMILIES[family]
-	default_comfy = next((Path(drive + ':/ComfyUI_windows_portable/ComfyUI') for drive in ('D', 'C')
-		if Path(drive + ':/ComfyUI_windows_portable/ComfyUI').is_dir()), Path('ComfyUI'))
-	default_comfy = Path(os.environ.get('COMFYUI', default_comfy))
-	files = settings['files']
-	parser = argparse.ArgumentParser(prog=settings['program'], description=__doc__, add_help=False,
-		allow_abbrev=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-	parser.add_argument('--help', action='help', help='show this help message and exit')
-	for name, folder, filename, description in files:
-		chosen = 'the one of --quality' if family == 'h3' and name == 'model' else default_comfy / 'models' / folder / filename
-		parser.add_argument('--' + name, default=argparse.SUPPRESS, help=f'{description} (default: {chosen})')
-	presets = QUALITIES if family == 'h3' else MOSS_QUALITIES
-	changed = '--model, --steps, --routing, --spectrum and --lora' if family == 'h3' else '--steps, --guidance and --spectrum'
-	timed = '124 frames on a 4090' if family == 'h3' else '720x1280 on a 3080'
-	parser.add_argument('--quality', choices=presets, default='best', help=f'presets of {changed}, which change them when given '
-		f'(sampling times for {timed}): ' + '; '.join(name + ': ' + preset[-1] for name, preset in presets.items()))
-	from_quality = ' (default: the one of --quality)'
-	parser.add_argument('--prompt', type=Path, default=Path('prompt.txt'), help='UTF-8 prompt file; supports {a|b|}')
-	parser.add_argument('--steps', type=int, default=argparse.SUPPRESS,
-		help='Diffusion sampling steps' + ('; 8 or fewer apply the DMD turbo LoRA' if family == 'moss' else '') + from_quality)
-	parser.add_argument('--count', type=int, default=1, help='outputs per loaded model; fresh seed/prompt choices each time')
-	parser.add_argument('--lora', action='append', default=[], help='repeat for each path[:strength], default strength 1')
-	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged' if family == 'moss' else 'runtime',
-		help='merged: cached INT8 stochastic merge (fast, approximate); runtime: ' +
-		('floating adapters' if family == 'moss' else 'merged by Strict at every load, no cached model file'))
-	parser.add_argument('--merge_only', action='store_true', help='prepare/print the cached merged model without encoding or generating')
-	parser.add_argument('--spectrum', default=argparse.SUPPRESS,
-		help=f'off, or spectrum<steps>_w<warmup>p<period> like {settings["spectrum"]}: forecasts steps; changes the sampling result' +
-		from_quality)
-	if family == 'moss':
-		parser.add_argument('--skip', default='off', help='Layers first:last (of 42) that every other evaluated step from step 2 '
-			'on (never the last) reuses from the last full evaluation instead of computing them, off for none; 6:36 makes '
-			'best25steps 31 %% faster, with 8 turbo steps Spectrum (--quality fast, faster) is the better trade; changes the '
-			'sampling result')
-	parser.add_argument('--output', type=Path, default=Path(settings['output']), help='numbered output base; never overwritten')
-	parser.add_argument('--json_output', action='store_true', help='write a per-output JSON settings sidecar')
-	parser.add_argument('--width', type=int, default=settings['width'], help='Width in pixels')
-	parser.add_argument('--height', type=int, default=settings['height'], help='Height in pixels')
+	parser = argparse.ArgumentParser(prog=settings['backend'], allow_abbrev=False)
+	parser.add_argument('--quality', choices=QUALITIES if family == 'h3' else MOSS_QUALITIES, default='best')
+	parser.add_argument('--steps', type=int, default=argparse.SUPPRESS)
+	parser.add_argument('--spectrum', default=argparse.SUPPRESS)
+	parser.add_argument('--lora_mode', choices=['merged', 'runtime'], default='merged' if family == 'moss' else 'runtime')
+	parser.add_argument('--skip', default='5:45' if family == 'h3' else 'off')
+	parser.add_argument('--width', type=int, default=settings['width'])
+	parser.add_argument('--height', type=int, default=settings['height'])
 	if family == 'h3':
-		parser.add_argument('--length', type=int, default=124, help='Frames at 24 fps, snapped up to 17k+5 like ComfyUI')
-		parser.add_argument('--shift', type=float, default=12, help='Flow shift of the video sigmas, the audio follows with shift 3')
-		parser.add_argument('--image', type=Path, help='First frame (image to video), resized to width and height')
-		parser.add_argument('--last_image', type=Path, help='Last frame, cover-cropped to width and height')
-		parser.add_argument('--routing', type=float, default=argparse.SUPPRESS, help='Sparse attention like Sol-Attn above 0: key blocks whose '
-			'pooled score stays below 2x this many standard deviations in the first 38 of 50 blocks (1.3x after) are pooled, '
-			'text and audio stay exact (1 is ~0.9 s faster per step on a 4090); changes the sampling result' + from_quality)
-		parser.add_argument('--skip', default='5:45', help='Blocks first:last (of 50) that every other evaluated step after '
-			'the first two reuses from the last full step instead of computing them, off for none; faster for 8 routed steps '
-			'of a 10 s clip on a 4090: ' + ', '.join(f'{name} {faster} %%' for name, faster in SKIPS.items() if name != 'off') +
-			'; changes the sampling result')
-		parser.add_argument('--sampler', choices=SAMPLERS, default='euler', help="ComfyUI's sampler_name: res_multistep is "
-			'the default of the H3 workflows, ' + ', '.join(sorted(NOISY)) + ' add new noise every step; one model evaluation '
-			'per step for each, so all take as long')
-		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple', help="ComfyUI's scheduler of the sigmas, "
-			'beta57 is beta with alpha 0.5 and beta 0.7 like RES4LYF')
-	parser.add_argument('--seed', type=int, default=None, help='random by default; fixes prompt choices and noise')
-	if family == 'moss':
-		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS, help='Classifier-free guidance (CFG) scale' + from_quality)
-		parser.add_argument('--jpg_quality', type=int, default=85, help='JPEG compression quality, 0-100; does not affect inference')
-	parser.add_argument('--comfyui', type=Path, default=default_comfy, help='Installed ComfyUI directory')
-	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family, help='Prompt, merged-model, runtime-adapter and CUDA caches')
+		parser.add_argument('--length', type=int, default=124)
+		parser.add_argument('--sampler', choices=SAMPLERS, default='euler')
+		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple')
+	else:
+		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS)
+	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family)
 	args = parser.parse_args(argv)
 	args.family = family
 	quality(args)
-	for name, folder, filename, description in files:
-		if not hasattr(args, name):
-			setattr(args, name, str(args.comfyui / 'models' / folder / filename))
-	if args.steps < 1 or args.count < 1 or min(args.width, args.height) < 16 or args.width % 16 or args.height % 16:
-		parser.error('count/steps must be positive; width/height must be positive multiples of 16')
-	if family == 'moss' and (not 0 <= args.jpg_quality <= 100 or not math.isfinite(args.guidance)):
-		parser.error('jpg_quality must be 0-100 and guidance finite')
-	if family == 'h3' and (args.length < 5 or not math.isfinite(args.shift) or args.shift <= 0):
-		parser.error('length must be at least 5 frames and shift positive')
+	if args.steps < 1 or min(args.width, args.height) < 16 or args.width % 16 or args.height % 16:
+		parser.error('steps must be positive; width/height must be positive multiples of 16')
+	if family == 'moss' and not math.isfinite(args.guidance):
+		parser.error('guidance must be finite')
+	if family == 'h3' and args.length < 5:
+		parser.error('length must be at least 5 frames')
 	layers = 50 if family == 'h3' else 41
 	if args.skip != 'off' and not (SKIP.fullmatch(args.skip) and int(args.skip.split(':')[0]) <
 			int(args.skip.split(':')[1]) <= layers):
 		parser.error(f'--skip must be off or first:last with first below last and last at most {layers}')
-	if args.seed is not None and not 0 <= args.seed < 2**63:
-		parser.error('seed must be between 0 and 2^63-1')
-	if args.output.suffix.lower() not in settings['suffixes']:
-		parser.error('output extension must be ' + ' or '.join(settings['suffixes']))
 	spectrum = SPECTRUM.fullmatch(args.spectrum)
 	if args.spectrum != 'off' and spectrum is None:
 		parser.error('--spectrum must be off or spectrum<steps>_w<warmup>p<period>')
 	if spectrum and int(spectrum[1]) != args.steps:
 		parser.error(f'{args.spectrum} requires --steps {spectrum[1]}')
-	if args.merge_only and args.lora_mode != 'merged':
-		parser.error('--merge_only requires --lora_mode merged')
 	return args
 
 
 def quality(args):
 	if args.family == 'h3':
-		model, steps, routing, spectrum, loras = QUALITIES[args.quality][:5]
-		if not hasattr(args, 'model'):
-			args.model = str(args.comfyui / 'models' / 'diffusion_models' / model)
-		args.routing = getattr(args, 'routing', routing)
-		args.lora = loras + args.lora
+		args.model, steps, args.routing, spectrum, loras = QUALITIES[args.quality][:5]
+		args.lora = list(loras)
 	else:
 		steps, guidance, spectrum = MOSS_QUALITIES[args.quality][:3]
 		args.guidance = getattr(args, 'guidance', guidance)
+		args.lora = []
 	args.steps = getattr(args, 'steps', steps)
 	args.spectrum = getattr(args, 'spectrum', f'spectrum{args.steps}_{spectrum}' if spectrum else 'off')
 
@@ -222,18 +118,6 @@ def skipped_blocks(args):
 def spectrum_config(args):
 	spectrum = SPECTRUM.fullmatch(args.spectrum)
 	return ('off', 5, 2) if spectrum is None else ('on', int(spectrum[2]), int(spectrum[3]))
-
-
-def jobs(args, template):
-	rng = random.Random(args.seed) if args.seed is not None else random.SystemRandom()
-	result, used = [], set()
-	for index in range(args.count):
-		seed = args.seed if index == 0 and args.seed is not None else rng.getrandbits(63)
-		while seed in used:
-			seed = rng.getrandbits(63)
-		used.add(seed)
-		result.append({'seed': seed, 'prompt': expand_prompt(template, random.Random(seed))})
-	return result
 
 
 def located(name, folder):
@@ -285,11 +169,11 @@ def layout(checkpoint, family):
 		layouts = [prefix + 'layers.0.proj.' + name + '.weight' for prefix in ('', 'model.diffusion_model.') for name in ('q', 'qkv')]
 		if family == 'moss' and any(name in checkpoint.keys() for name in layouts):
 			return False
-		raise ValueError('--model must be an int8 Convrot checkpoint for ' + FAMILIES[family]['program'] +
+		raise ValueError('The model must be an int8 Convrot checkpoint for ' + FAMILIES[family]['backend'] +
 			(', or a bf16, fp16 or fp8 Moss checkpoint' if family == 'moss' else ''))
 	quant = json.loads(bytes(checkpoint.get_tensor(key).tolist()))
 	if not quant.get('convrot') or quant.get('convrot_groupsize') != 256 or quant.get('format') != 'int8_tensorwise':
-		raise ValueError('--model must use int8 Convrot with group size 256')
+		raise ValueError('The model must use int8 Convrot with group size 256')
 	return not key.startswith('model.') or family != 'moss'
 
 
@@ -333,122 +217,6 @@ def cached_merge(args, model, loras):
 			OMP_NUM_THREADS='8', MKL_NUM_THREADS='8', PYTHONUNBUFFERED='1'))
 		os.replace(output, path)
 	return path
-
-
-def contexts(clip, prompts, size=16):
-	"""Moss contexts of the prompts, encoded in batches of right padded token sections: the encoder is causal, so every
-	prompt's own tokens come out as if encoded alone (48 prompts in 1.6 instead of 50.6 s on the 4090)."""
-	pad = getattr(clip.cond_stage_model, clip.cond_stage_model.clip).special_tokens['pad']
-	for start in range(0, len(prompts), size):
-		tokens = [clip.tokenize(prompt) for prompt in prompts[start:start + size]]
-		name = next(iter(tokens[0]))
-		if any(len(part[name]) != 1 for part in tokens):
-			raise ValueError('A prompt was split into several token sections, they can not be batched')
-		sections = [part[name][0] for part in tokens]
-		longest = max(map(len, sections))
-		combined = clip.encode_from_tokens({name: [section + [(pad, 1.0) + section[-1][2:]] * (longest - len(section))
-			for section in sections]})
-		for index, section in enumerate(sections):
-			yield combined[:, index * longest:index * longest + len(section)]
-
-
-def encoded(request, output):
-	os.environ['COMFYUI'] = request['comfyui']
-	family = request['family']
-	sys.argv = ['dump.py', family]
-	import dump
-	from safetensors.torch import save_file
-	types = dump.comfy.sd.CLIPType
-	clip = dump.comfy.sd.load_clip([request['te']], embedding_directory=dump.folder_paths.get_folder_paths('embeddings'),
-		clip_type=types.MINIMAX if family == 'h3' else types.MOSS_IMAGE)
-	images = request.get('images', [])
-	if any(images):
-		from comfy_extras.nodes_minimax_h3 import MiniMaxH3ImageToVideo
-		vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
-		first, last = [dump.image_tensor(path) if path else None for path in images]
-	moss = None if family == 'h3' else contexts(clip, request['prompts'])
-	outputs = request.get('outputs') or [output / f'{index}.safetensors' for index in range(len(request['prompts']))]
-	for index, prompt in enumerate(request['prompts']):
-		if moss is None and 'outputs' in request and os.path.exists(outputs[index]):
-			continue
-		print(f'Encoding prompt {index + 1}/{len(request["prompts"])}', flush=True)
-		if moss:
-			tensors = {'context': next(moss)}
-		else:
-			if any(images):
-				conditioning = MiniMaxH3ImageToVideo.execute(clip, vae, prompt, request['width'], request['height'], request['length'],
-					first_frame=first, last_frame=last).result[0]
-			else:
-				conditioning = clip.encode_from_tokens_scheduled(clip.tokenize(prompt))
-			tensors = h3_condition(conditioning)
-		save_file({name: value.detach().cpu().float().contiguous() for name, value in tensors.items()},
-			str(outputs[index]) + '.tmp', metadata={'prompt': prompt})
-		os.replace(str(outputs[index]) + '.tmp', outputs[index])
-
-
-def decoding(request):
-	"""Worker: imports ComfyUI ("decoder started", nodes_audio sets up its database in about 3 s) and loads its video and
-	audio VAEs while the backend samples, then decodes every H3 latent of the jobs (the request's, with their latent shapes
-	and output paths from H3Video.exe, or on stdin) into <prefix>video.mp4, each video encoded while the next latent decodes."""
-	os.environ['COMFYUI'] = request['comfyui']
-	sys.argv = ['dump.py', 'h3', '--audio-vae', request['audio_vae']]
-	import dump
-	import comfy_extras.nodes_audio
-	print('decoder started', flush=True)
-	from concurrent.futures import ThreadPoolExecutor
-	from safetensors import safe_open
-	vae = dump.comfy.sd.VAE(sd=dump.comfy.utils.load_torch_file(request['vae']))
-	dump.audio_decoder()
-	with ThreadPoolExecutor(1) as encoder:
-		encodes = []
-		jobs = request['jobs'] if 'jobs' in request else json.loads(sys.stdin.read())
-		for job in jobs:
-			if 'shapes' in job:
-				shapes = job['shapes']
-			else:
-				with safe_open(job['generation'], framework='pt') as file:
-					shapes = file.get_slice('video').get_shape(), file.get_slice('audio').get_shape()
-			frames = dump.decoded_latent(vae, job['latent'], shapes, request['folder'], job['prefix'])[0]
-			encodes.append(encoder.submit(dump.encoded_av, frames, request['folder'], job['prefix']))
-		for job, encode in zip(jobs, encodes):
-			encode.result()
-			if 'output' in job:
-				os.replace(os.path.join(request['folder'], job['prefix'] + 'video.mp4'), job['output'])
-
-
-def framing(args):
-	"""The H3 frame images and what their conditioning depends on, empty without images."""
-	images = [str(path) if path else '' for path in (getattr(args, 'image', None), getattr(args, 'last_image', None))]
-	if not any(images):
-		return {}
-	return {'images': images, 'width': args.width, 'height': args.height, 'length': args.length, 'vae': str(args.vae)}
-
-
-def conditioning(args, prompts, encoder):
-	paths, missing = [], {}
-	framed = framing(args)
-	for prompt in prompts:
-		request = {'prompt': prompt, 'te': str(encoder), 'comfyui': str(args.comfyui.resolve()), **framed}
-		inputs = [Path(path) for path in framed.get('images', []) if path] + ([Path(framed['vae'])] if framed else [])
-		key = cache_key([1, request, identity(encoder), identity(args.comfyui / 'comfy' / 'sd.py'), *map(identity, inputs)])
-		path = args.cache / ('context-' + key + '.safetensors')
-		paths.append(path)
-		if not path.exists():
-			missing[path] = prompt
-	if missing:
-		print(f'Preparing {len(missing)} uncached prompts with one text-encoder load', flush=True)
-		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-			folder = Path(temporary)
-			request = {'prompts': list(missing.values()), 'te': str(encoder), 'comfyui': str(args.comfyui.resolve()),
-				'family': args.family, **framed}
-			(folder / 'request.json').write_text(json.dumps(request), encoding='utf-8')
-			subprocess.run([sys.executable, str(ROOT / 'generate.py'), '_encode', str(folder / 'request.json'),
-				str(folder)], check=True)
-			for index, path in enumerate(missing):
-				os.replace(folder / f'{index}.safetensors', path)
-	else:
-		print('Using cached prompt conditioning', flush=True)
-	return paths
 
 
 def lora_factors(file, prefix):
@@ -645,7 +413,7 @@ def h3_condition(conditioning):
 
 
 def h3_arguments(quality, video, audio, skip='5:45', sampler='euler', scheduler='simple'):
-	"""The --quality, --skip, --sampler and --scheduler settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W]
+	"""The quality, skip, sampler and scheduler settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W]
 	and audio [B, 32, 2, T]: its size and frame count."""
 	frames = (video[2] - 2) // 5 * 17 + 5
 	if len(video) != 5 or video[1] != 24 or tuple(audio) != (video[0], 32, 2, round(frames / 24 * 40)):
@@ -657,7 +425,6 @@ def h3_arguments(quality, video, audio, skip='5:45', sampler='euler', scheduler=
 def h3_latents(numbers, video, audio):
 	"""The video and the audio latent of one job from the numbers H3Video.exe writes (the video, then the audio), shaped
 	like the ComfyUI latent of one batch entry."""
-	import math
 	size = math.prod(video[1:])
 	return numbers[:size].reshape(1, *video[1:]), numbers[size:].reshape(1, *audio[1:])
 
@@ -710,13 +477,14 @@ def h3_rows(latents, seed):
 	return torch.cat(rows)
 
 
-def backend(args, folder, model, vae, adapter):
+def backend(args, model, adapter):
+	"""The resident backend command, it reads one job folder per input line."""
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
-		return [str(ROOT / 'H3Video.exe'), str(folder), str(model), 'strict', adapter, str(args.steps), f'{args.shift:g}',
+		return [str(ROOT / 'H3Video.exe'), '-', str(model), 'strict', adapter, str(args.steps), '12',
 			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
 			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler))]
-	return [str(ROOT / 'MossGenerate.exe'), str(folder), str(model), adapter, str(vae), mode, '']
+	return [str(ROOT / 'MossGenerate.exe'), '-', str(model), adapter, '', mode, '']
 
 
 def prepared(args, contexts, plan, folder):
@@ -733,8 +501,7 @@ def prepared(args, contexts, plan, folder):
 		else:
 			data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
 				generator=torch.Generator('cpu').manual_seed(job['seed']))
-			for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period,
-				'jpeg': int(args.output.suffix.lower() != '.png'), 'quality': args.jpg_quality}.items():
+			for name, value in {'steps': args.steps, 'guidance': args.guidance, 'warmup': warmup, 'period': period}.items():
 				data[name] = torch.tensor([value], dtype=torch.float32)
 			data['span'] = torch.tensor(skipped_blocks(args), dtype=torch.float32)
 		save_file(data, str(folder / f'generation-{index}.safetensors'))
@@ -746,12 +513,12 @@ def prepared(args, contexts, plan, folder):
 def started(args, command):
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
-	return subprocess.Popen(command, cwd=ROOT, env=environment, stdin=subprocess.PIPE if command[1] == '-' else None,
-		stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
+	return subprocess.Popen(command, cwd=ROOT, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+		stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 
 
-def collected(args, worker, vae, plan, folder, stepped=None):
-	"""The outputs of plan from the backend's output lines, as soon as each generation is done, stepped called with
+def collected(args, worker, plan, folder, stepped=None):
+	"""The latents of plan from the backend's output lines, as soon as each generation is done, stepped called with
 	the line of each step."""
 	mode = spectrum_config(args)[0]
 	completed = 0
@@ -768,8 +535,7 @@ def collected(args, worker, vae, plan, folder, stepped=None):
 				raise RuntimeError('Unexpected generation index from native backend')
 			completed += 1
 			suffix = f'-{index}' if len(plan) > 1 else ''
-			extension = '-latent.safetensors' if vae == '' else '.png' if args.output.suffix.lower() == '.png' else '.jpg'
-			name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else 'strict-' + mode + suffix + extension
+			name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else f'strict-{mode}{suffix}-latent.safetensors'
 			yield index, folder / name, int(match[2])
 			if completed == len(plan):
 				return
@@ -786,33 +552,21 @@ def stopped(worker):
 	worker.stdout.close()
 
 
-def generated(args, model, vae, contexts, plan, folder, adapter=''):
-	prepared(args, contexts, plan, folder)
-	worker = started(args, backend(args, folder, model, vae, adapter))
-	try:
-		yield from collected(args, worker, vae, plan, folder)
-		code = worker.wait()
-		if code:
-			raise subprocess.CalledProcessError(code, worker.args)
-	finally:
-		stopped(worker)
-
-
 class Resident:
 	"""One MossGenerate.exe or H3Video.exe that keeps its model loaded between runs: each run writes its folder to the
-	backend's input, other settings (model, LoRAs, VAE, Spectrum, steps, routing) start a new one."""
+	backend's input, other settings (model, LoRAs, Spectrum, steps, routing) start a new one."""
 	worker, command = None, None
 
-	def generated(self, args, model, vae, contexts, plan, folder, adapter='', stepped=None):
+	def generated(self, args, model, contexts, plan, folder, adapter='', stepped=None):
 		prepared(args, contexts, plan, folder)
-		command = backend(args, '-', model, vae, adapter)
+		command = backend(args, model, adapter)
 		if self.worker is None or self.worker.poll() is not None or self.command != command:
 			self.close()
 			self.worker, self.command = started(args, command), command
 		try:
 			self.worker.stdin.write(str(folder) + '\n')
 			self.worker.stdin.flush()
-			yield from collected(args, self.worker, vae, plan, folder, stepped)
+			yield from collected(args, self.worker, plan, folder, stepped)
 		except BaseException:
 			self.close()
 			raise
@@ -821,115 +575,3 @@ class Resident:
 		if self.worker is not None:
 			stopped(self.worker)
 			self.worker = None
-
-
-def decoded(args, latents, folder, count):
-	"""Decodes the count latents H3Video.exe writes in one ComfyUI worker: it imports ComfyUI and loads the VAEs (about
-	20 s) while the backend loads and samples, and gets the jobs once the backend gave the GPU back with its last latent,
-	before the backend exits."""
-	request = {'comfyui': str(args.comfyui.resolve()), 'vae': str(args.vae), 'audio_vae': str(args.audio_vae), 'folder': str(folder)}
-	(folder / 'decode.json').write_text(json.dumps(request), encoding='utf-8')
-	command = [sys.executable, str(ROOT / 'generate.py'), '_decode', str(folder / 'decode.json')]
-	worker = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-		text=True, encoding='utf-8', errors='replace', bufsize=1)
-	def forwarded():
-		for line in worker.stdout:
-			print(line, end='', flush=True)
-	forwarding = threading.Thread(target=forwarded, daemon=True)
-	forwarding.start()
-	try:
-		remaining = iter(latents)
-		latents = list(itertools.islice(remaining, count))
-		if worker.poll() is not None:
-			raise subprocess.CalledProcessError(worker.returncode, command)
-		worker.stdin.write(json.dumps([{'latent': str(path), 'generation': str(folder / f'generation-{index}.safetensors'),
-			'prefix': f'strict-{index}-'} for index, path, milliseconds in latents]))
-		worker.stdin.close()
-		if next(remaining, None) is not None:
-			raise RuntimeError('More latents than generations from the native backend')
-		code = worker.wait()
-	except BaseException:
-		worker.kill()
-		raise
-	forwarding.join()
-	if code:
-		raise subprocess.CalledProcessError(code, command)
-	return [(index, folder / f'strict-{index}-video.mp4', milliseconds) for index, path, milliseconds in latents]
-
-
-def main(argv=None):
-	argv = sys.argv[1:] if argv is None else argv
-	if not argv or argv[0] not in FAMILIES:
-		raise ValueError('The first argument must be ' + ' or '.join(FAMILIES))
-	args = arguments(argv[1:], argv[0])
-	started = time.perf_counter()
-	models = args.comfyui / 'models'
-	model = located(args.model, models / 'diffusion_models')
-	metadata = validate_model(model, args.family)
-	loras = selected_loras(args, models, metadata)
-	args.cache = args.cache.resolve()
-	args.cache.mkdir(parents=True, exist_ok=True)
-	loaded, adapter = lora_model(args, model, loras)
-	if args.merge_only:
-		print('Merged model: ' + str(loaded), flush=True)
-		return 0
-	vae = args.vae = located(args.vae, models / 'vae')
-	if args.family == 'h3':
-		args.audio_vae = located(args.audio_vae, models / 'vae')
-		args.image, args.last_image = [located(path, Path.cwd()) if path else None for path in (args.image, args.last_image)]
-	encoder = located(args.te, models / 'text_encoders')
-	name = Path(FAMILIES[args.family]['backend']).stem
-	if not (ROOT / (name + '.exe')).is_file():
-		raise FileNotFoundError(f'Build {name}.strict first: ../Strict/strict.exe build {name}.strict')
-	plan = jobs(args, args.prompt.read_text(encoding='utf-8-sig').strip())
-	for index, job in enumerate(plan):
-		print(f'{FAMILIES[args.family]["noun"]} {index + 1}/{args.count}, seed {job["seed"]}\nPrompt: {job["prompt"]}', flush=True)
-	print('Input model: ' + str(model), flush=True)
-	print('Quality: ' + args.quality + f', steps {args.steps}, ' + (f'routing {args.routing:g}, ' if args.family == 'h3' else
-		f'guidance {args.guidance:g}, ') +
-		'LoRA mode: ' + args.lora_mode + ', Spectrum: ' + args.spectrum, flush=True)
-	for path, strength in loras:
-		print(f'LoRA: {path}, strength {strength}', flush=True)
-	contexts = conditioning(args, [job['prompt'] for job in plan], encoder)
-	from contextlib import closing
-	with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
-		with closing(generated(args, loaded, vae, contexts, plan, Path(temporary), adapter)) as images:
-			outputs = decoded(args, images, Path(temporary), len(plan)) if args.family == 'h3' else images
-			for index, image, generation_ms in outputs:
-				output, handle = reserve_output(args.output.resolve())
-				try:
-					with handle, image.open('rb') as source:
-						shutil.copyfileobj(source, handle)
-					if args.json_output:
-						settings = dict(plan[index], model=str(model), loaded_model=str(loaded),
-							loras=[(str(path), strength) for path, strength in loras], baked_loras=baked_loras(metadata),
-							lora_mode=args.lora_mode, spectrum=args.spectrum,
-							steps=args.steps, width=args.width, height=args.height, vae=str(vae), te=str(encoder),
-							seconds=time.perf_counter() - started, batch_index=index + 1, count=args.count, generation_ms=generation_ms)
-						settings.update({name: getattr(args, name) for name in ('guidance', 'length', 'shift') if hasattr(args, name)})
-						settings.update({name: str(getattr(args, name)) for name in ('image', 'last_image') if getattr(args, name, None)})
-						if args.family == 'moss':
-							settings['jpg_quality'] = args.jpg_quality if output.suffix.lower() != '.png' else None
-						with output.with_suffix(output.suffix + '.json').open('x', encoding='utf-8') as sidecar:
-							json.dump(settings, sidecar, indent=2, ensure_ascii=False)
-				except BaseException:
-					handle.close()
-					output.unlink(missing_ok=True)
-					raise
-				print(f'Saved {output}', flush=True)
-	print(f'Total {time.perf_counter() - started:.2f} s for {args.count} {FAMILIES[args.family]["noun"].lower()}(s)', flush=True)
-	return 0
-
-
-if __name__ == '__main__':
-	sys.dont_write_bytecode = True
-	try:
-		if len(sys.argv) > 1 and sys.argv[1] == '_encode':
-			encoded(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')), Path(sys.argv[3]))
-		elif len(sys.argv) > 1 and sys.argv[1] == '_decode':
-			decoding(json.loads(Path(sys.argv[2]).read_text(encoding='utf-8')))
-		else:
-			raise SystemExit(main())
-	except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
-		print(Path(sys.argv[0]).stem + ': ' + str(error), file=sys.stderr)
-		raise SystemExit(1)

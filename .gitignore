@@ -80,7 +80,6 @@ bld/
 !tinyh3audio.safetensors
 !tinyh3lora.safetensors
 prompt*.txt
-benchmark.py
 *.jpg
 *.nativecache
 *.mp4

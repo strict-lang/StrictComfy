@@ -1,6 +1,6 @@
 # StrictComfy
 
-ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): Strict samples natively on the GPU, ComfyUI loads the models, encodes the prompts and decodes the latents. Pending work is in [Plan.md](Plan.md), measurements in [Performance.md](Performance.md), Spectrum forecasting in [Spectrum.md](Spectrum.md).
+ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): `MossImage.exe` and `H3Video.exe` make images and videos with sound from a prompt file on their own (no Python or ComfyUI, only the model files), the Strict Moss Sampler and Strict H3 Sampler nodes sample in Strict inside a ComfyUI workflow. Pending work is in [Plan.md](Plan.md), measurements in [Performance.md](Performance.md), Spectrum forecasting in [Spectrum.md](Spectrum.md).
 
 ## Build
 
@@ -12,7 +12,7 @@ From this folder, with `../Strict/strict.exe`:
 ../Strict/strict.exe build H3Video.strict
 ```
 
-`MossImage.exe` makes Moss images on its own (no Python), `MossGenerate.exe` is the Moss backend of the ComfyUI node, `H3Video.exe` is the H3 command and backend. Keep the built `.exe` and `.ptx` files next to `generate.py`, `merge.py` and `dump.py`. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
+`MossImage.exe` and `H3Video.exe` are the commands, `MossGenerate.exe` and `H3Video.exe` the backends of the ComfyUI nodes, which start them from this folder. The Python files serve ComfyUI only: `__init__.py` and `generate.py` are the nodes, `merge.py` the Moss node's cached LoRA merges, `dump.py` writes ComfyUI references and the tiny test fixtures. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
 
 ## ComfyUI node: Strict Moss Sampler
 
@@ -96,77 +96,7 @@ D:/ComfyUI_windows_portable/python_embeded/python.exe test_generate.py
 ../Strict/strict.exe check .
 ```
 
-`test_generate.py` covers the commands and the node's LoRA conversion without a full model; `.strict` files test themselves against the tiny fixtures (`tiny*.safetensors`, written by `dump.py tiny...`).
-
-## Comparison harness
-
-New manifests use base weights plus the original runtime DMD for turbo8/spectrum8. Existing comparison.json files are not rewritten: update their model/lora fields or use a fresh output root before comparing. Older gallery results using the premerged DMD file are not validation of the corrected default.
-
-`MossGenerate` generates images without the per-layer and per-step reference comparisons in `MossImage`. `MossSampling` supports the existing flow Euler schedule, ordinary CFG with zero conditioning, separate Spectrum histories for its positive/negative branches, and Rapid-MOSS data-space iteration. No error or PNG equality requirement is imposed across these methods.
-
-`compare_moss.py` prepares identical conditioning/noise within each prompt/seed case, runs the variants and writes a local HTML gallery. Default cases: lighthouse, portrait with hands, and a cafe menu; seeds 42 and 1234; 720x1280. Edit `comparison.json` in the chosen output root to use your own prompts, seeds or settings, then prepare again.
-
-### Run
-
-From StrictComfy, using ComfyUI's installed Python and existing base model/text encoder/VAE:
-
-```powershell
-../Strict/strict.exe build MossGenerate.strict
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --download
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --merge
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --prepare
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --run --report
-```
-
-For interactive-style timing, keep the model and decoder loaded across generations:
-
-```powershell
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --run --cases portrait-42 --variants turbo8 --resident-runs 3 --report
-```
-
-`--repeat` starts separate processes; `--resident-runs` reruns inference inside one process. Each resident pass executes the sampler again with the saved input, rather than reusing an image. Logs and JSON retain every pass, including the first one. A fresh Spectrum history is created for each image. `GpuMemory.Released` runs between resident generations after saving, freeing unused VAE workspace without changing the global H3 allocation policy.
-
-Output defaults to JPEG quality 85 on Windows, using its built-in codec. `--jpg_quality 0..100` selects JPEG compression quality. `--format png` selects lossless stored-DEFLATE PNGs; add `--compressed` for compressed PNGs. The shared `ImageSaver` still defaults to compressed PNGs. JPEG accepts flat RGB values directly, avoiding the temporary ColorValue list. On the 720x1280 portrait, JPEG was 95,022 bytes versus 3,688,028 for stored PNG, and saving took 25-30 ms. JPEG decoded pixels differ: 42.22 dB PSNR and mean absolute error 1.45/255 against the PNG. This is an explicit output quality tradeoff, independent of model precision. Native JPEG currently requires Windows; direct MossGenerate defaults to PNG on other platforms.
-
-Run `--prepare` separately so the text encoder process releases its GPU memory. Default output root is `D:/StrictDumps/moss-speed-comparison`; `--root` overrides it. `index.html` links full-resolution images; `summary.json`, per-run JSON/logs and `comparison.json` record timings and settings. Models and images are not checked in. The existing eight-step merged model is expected at the path in the manifest; `merge.py` can create it from the base model and your existing DMD LoRA.
-
-For a small comparison or repeat:
-
-```powershell
-& D:/ComfyUI_windows_portable/python_embeded/python.exe compare_moss.py --run --cases portrait-42 --variants base25 turbo8 akhaliq4 rapid4 --repeat 2 --report
-```
-
-The executable itself accepts `dumps model lora vae mode adapter`. `generation.safetensors` contains `noise` [1,128,H/16,W/16], `context` and scalar `steps`, `guidance`, `warmup`, `period`; optional `runs` defaults to one, `compressed` to zero, `jpeg` to one on Windows and zero elsewhere, and `quality` to 85. An empty adapter path selects Euler; a Rapid adapter folder selects its replacement timestep weights, biases, mixing matrix and step codes. Mode is off/shadow/on for Euler. Data-space currently does not apply Spectrum.
-
-### What each column means
-
-| Variant | Sampling | Transformer evaluations |
-|---|---|---:|
-| base25 | Base int8 Convrot, Euler shift 5, ordinary CFG 3 | 50 |
-| spectrum25 | Same, warmup 8, period 3, degree 4, actual final step | 28 actual, 22 forecasts across two branches |
-| turbo8 | Base INT8 + original runtime DMD, Euler shift 5, CFG 1 | 8 |
-| spectrum8 | Same, warmup 5, period 2 | 7 actual, 1 forecast |
-| akhaliq4 | Current Euler-native four-step LoRA, merged int8, CFG 1 | 4 |
-| rapid4 | darask0 data-space adapter, merged int8, CFG 1 | 4 |
-
-The 25-step preset uses zero conditioning for CFG and no skipped negative block. It is not the release pipeline's default negative-block-22 skip, nor ComfyUI's ER-SDE preset. It provides an explicitly labeled baseline rather than claiming the best attainable 25-step quality. The eight-step model is the existing Euler-compatible DMD setup; it is not switched to a different checkpoint or sampler during comparison.
-
-Rapid-MOSS requires all three files. Its iteration is `x = z + Q*x0; x0 = z - model(x, code[r])`, with fixed original noise, not four Euler steps. The custom path uses the exact code's sinusoid and replacement f32 time embedding/biases. Other small dense weights keep the existing model loader's precision. In contrast, akhaliq's current root adapter is Euler-native; its old data-space checkpoint instructions do not apply to this revision.
-
-Both four-step speed variants use the existing `merge.py`: form the LoRA delta in f32, rotate it and requantize projections to int8 once. This is a quality tradeoff: small deltas can be lost, and upstream evaluates unmerged floating-point adapters. Optional `akhaliq4-unmerged` / `rapid4-unmerged` variants exercise Strict's existing 16-bit low-rank loading path; they do not claim upstream's fp32-LoRA fidelity. The unmerged tests are excluded by default because they are much slower and use more memory here.
-
-Sources and pinned adapter revisions:
-
-- [Rapid-MOSS](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora), c88f33bcb3251eb39943d0635e74b650732977c8.
-- [akhaliq four-step](https://huggingface.co/akhaliq/MOSS-Image-SFT-4-steps), 2ded95c37a029360245926fe72e475e30039bbfb.
-- [RunComfy workflow](https://www.runcomfy.com/comfyui-workflows/moss-image-rapid-moss-sft-4-step-comfyui-text-to-image). The adapter's own current sampler instructions take precedence over the workflow's generic guidance description.
-- Spectrum feature coverage and missing upstream features: [Spectrum.md](Spectrum.md).
-
-### Timing
-
-`sampling_ms` includes text projection, initial uploads, all evaluations and final latent synchronization, but excludes loading and decode/save. `denoising_ms` starts at evaluation 0 and includes its initial uploads. Neither is a resident-model steady-step-only measurement. Progress lines mark host submission; they do not individually synchronize GPU completion. Process wall time includes loading, decoding, saving and startup, across all resident passes. `generation_runs_ms` measures each complete sampling/decode/save pass (and boundary cleanup when another pass follows); `sampling_runs_ms` retains its sampler timings. Gallery cells label the last generation and the total process separately.
-
-The harness uses a writable CUDA JIT cache under its output root, with a 4 GiB cap. A cold compiled module may add tens of seconds; warm it before comparing timings. This is a per-process setting, not a global driver change. RTX 3080 results use locked 1695 MHz graphics / 9506 MHz actual CUDA memory, with clock limits restored afterwards. Results and quality observations are in [Performance.md](Performance.md).
+`test_generate.py` covers the nodes' presets, LoRA conversion, cached merges and backend jobs without a full model; `.strict` files test themselves against the tiny fixtures (`tiny*.safetensors`, written by `dump.py tiny...`).
 
 ## ComfyUI node: Strict H3 Sampler
 
@@ -181,7 +111,7 @@ The same junction installs it (on the 4090 machine `C:\ComfyUI_windows_portable\
 | VAE Decode, VAE Decode Audio | the latent with the video and the audio VAE |
 | Video Combine (VideoHelperSuite) or Create Video + Save Video | the frames at 24 fps with the audio |
 
-`quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest2steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes its sampling time (the table below) and about 9 s more for decoding and the mp4, the first run of a quality, model or LoRA set adds the model load (10-16 s, the LoRAs merged while loading like `--lora_mode runtime` below, about 20 s more for TaoMate and a style LoRA). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed. With `models/vae_approx/taeh3.safetensors` (the per-frame tiny H3 decoder Model Preview Override uses) the node shows the denoised video of every step as an animation of every latent frame (about 7 per second in real time, decoded at its own size and scaled to at most 512 pixels), so a bad run can be cancelled early (about 0.3 s of GPU per evaluated step for 294 frames, a preview that comes while the last one still decodes is skipped).
+`quality` is the presets of `H3Video.exe --quality` (the table below), the model and its LoRAs come from the models folder. An optional `model` (Load Diffusion Model, LoraLoaderModelOnly for style LoRAs) replaces the preset's checkpoint, the preset's LoRAs (TaoMate for `fastest2steps`) still apply. The node unloads ComfyUI's models from the GPU and sends the run to a resident `H3Video.exe`, which keeps the model in host memory until the quality or model changes (or ComfyUI exits) and evicts its GPU copies after every run so ComfyUI can decode. On the 4090 with 124 frames: a run on the loaded model takes its sampling time (the table below) and about 9 s more for decoding and the mp4, the first run of a quality, model or LoRA set adds the model load (10-16 s, the LoRAs merged while loading like `H3Video.exe --lora` below, about 20 s more for TaoMate and a style LoRA). Video `i` of a batch uses seed `seed + i` with ComfyUI's noise for that seed. With `models/vae_approx/taeh3.safetensors` (the per-frame tiny H3 decoder Model Preview Override uses) the node shows the denoised video of every step as an animation of every latent frame (about 7 per second in real time, decoded at its own size and scaled to at most 512 pixels), so a bad run can be cancelled early (about 0.3 s of GPU per evaluated step for 294 frames, a preview that comes while the last one still decodes is skipped).
 
 ### Against ComfyUI's H3 sampling
 
@@ -203,35 +133,54 @@ With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo
 
 ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint, [Performance.md](Performance.md)): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
 
-## H3 videos with sound from a prompt file (RTX 4090)
+## Command line: H3Video.exe
 
-`H3Video.exe [options]` parses its own command line like `MossImage.exe` (`H3Options`, `--help` lists every option with its default): `--quality <preset>` picks the model, steps, attention and Spectrum in one go, `--steps`, `--skip` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with every other one forecast), `--sampler` and `--scheduler` apply to all, the LoRAs of a preset come before the given ones. Sampling times for the default 124 frames on a 4090, warm:
-
-| `--quality` | Model, LoRA | Steps | Attention, Spectrum | Sampling |
-|---|---|---:|---|---:|
-| `best` (default) | turbo INT8 8-step | 8 | exact | 14.0 s |
-| `fast` | turbo | 8 | `--routing 1` | 11.1 s (14.8 s with `--skip off`) |
-| `faster` | turbo | 8 | `--routing 1`, `spectrum8_w1p2` (5 of 8 steps evaluated) | 7.1 s |
-| `fastest4steps` | turbo | 4 | `--routing 1` | 6.4 s |
-| `fastest2steps` | base + TaoMate 3-step LoRA (strength 1) | 2 | `--routing 1` | 4.5 s |
-
-Every preset runs with `--skip 5:45` (below), the times are the second of two videos of the fox prompt with one model load (2026-10-28, before: 22, 16, 11, 9 and 6 s; `fastest3steps` is gone, 3 steps skip nothing and took as long as `fastest4steps`).
-
-The other options: `--prompt` (`prompt.txt`, `{a|b|}` picks one alternative per video, the empty one too), `--count` videos with one model load, each with its own seed and prompt choices, `--seed` (-1 for a random one, reproduces a whole batch), repeated `--lora path[:strength]` (relative paths resolve under ComfyUI's `models/loras`), `--width` and `--height` (multiples of 16), `--length` (frames at 24 fps, snapped up to 17k+5), `--output` (`H3Video.mp4`, numbered `H3Video0001.mp4`, never overwritten) `--model`, `--vae`, `--audio_vae` and `--text_encoder` (names in ComfyUI's model folders or paths, empty for the ones of the preset and ComfyUI's H3 files) and `--models` (ComfyUI's models folder, `D:` or `C:/ComfyUI_windows_portable/ComfyUI/models` when empty).
+From any folder with a UTF-8 `prompt.txt`, without ComfyUI or Python (only the model files and the Qwen3-VL tokenizer files in ComfyUI's `comfy/text_encoders/qwen25_tokenizer`, next to the models folder):
 
 ```powershell
 cd C:\StrictDumps\videos
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --count 4
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality faster --count 4 --sampler res_multistep
-C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fastest2steps --length 241 --seed 7
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fastest2steps --length 243 --seed 7
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fast --skip off --scheduler beta
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --last_image last.jpg
 ```
 
-Strict expands the prompt choices, draws the seeds and the noise (MersenneTwister reproduces torch's generator: ComfyUI's noise for the same seed whenever the video latent holds a multiple of 16 numbers, the per step noise of `er_sde`, `euler_ancestral`, `dpmpp_2m_sde` and `lcm` comes from its own seeds), samples every video with one model load and writes the numbered `.mp4` files, without Python or ComfyUI: `H3Encoder` encodes the uncached prompts with Qwen3-VL 32B NVFP4 before the model loads (cached per prompt and encoder under `artifacts/h3`, the same states and token tags as ComfyUI's H3 node, ComfyUI's tokenizer files are read from its folder), `H3Vae` and `H3Audio` decode the video and the audio of every video after the last one, and the installed ffmpeg writes the mp4 (libx264 crf 18 and aac 192k). `--image` and `--last_image` (png or jpg) make image to video like ComfyUI's MiniMax H3 Image to Video node: the first image is stretched to the video size, the last one cropped to its aspect first, both with Pillow's Lanczos (`Lanczos.strict`, the same bytes), `H3Picture` encodes them with the video VAE before the model loads and every video gets them as noise augmented keyframe rows at its first and last frame (seeded like ComfyUI's). The prompt does not see the images yet (Qwen3-VL's vision tower is not in Strict). The old command line also keeps `--routing`, `--spectrum` and `--lora_mode`.
+`--quality <preset>` picks the model, steps, attention and Spectrum in one go, `--steps`, `--skip` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with every other one forecast), the LoRAs of a preset come before the given ones. Per video at 480x832 on the RTX 4090, warm (the second video of `--count 2` with a cached prompt; the video adds the VAE decode and the mp4 to the sampling):
 
-LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and kohya's `lora_unet_<module with _>`, `lora_A`/`lora_B` or `lora_down`/`lora_up` with an optional `alpha`. `H3Video.exe` (and `--lora_mode runtime` of `generate.py`, the default, like ComfyUI's LoRA loaders) merges the block linears and the token refiner at every load (`Safetensors.Tuned`, no cached file, the same step times; about 20 s more load for TaoMate with a small style LoRA, 110 s for rank 384, 140 s for a stack of rank 300-800); its load line counts the applied tensors. `generate.py h3 --lora_mode merged` merges every matching tensor once into a cached int8 model with `merge.py` (4 minutes and 56 GB of RAM): the block linears, the dense token refiner, adaln and final layer, a full 21 GB file per model, LoRA and strength combination in `artifacts/h3`, so delete old ones after trying many strengths. FastH3's `diff`/`diff_b` tensors are applied by neither.
+| `--quality` | Model, LoRA | Steps | Attention, Spectrum | 5 s (124 frames): sampling, video | 10 s (243 frames): sampling, video |
+|---|---|---:|---|---:|---:|
+| `best` (default) | turbo INT8 8-step | 8 | exact | 13.7 s, 19.0 s | 34.6 s, 44.7 s |
+| `fast` | turbo | 8 | routed like Sol-Attn | 10.7 s, 16.2 s | 21.5 s, 31.8 s |
+| `faster` | turbo | 8 | routed, `spectrum8_w1p2` (5 of 8 steps evaluated) | 6.6 s, 11.9 s | 14.1 s, 24.6 s |
+| `fastest4steps` | turbo | 4 | routed | 6.6 s, 12.5 s | 13.3 s, 24.3 s |
+| `fastest2steps` | base + TaoMate 3-step LoRA (strength 1) | 2 | routed | 4.2 s, 10.0 s | 9.4 s, 20.1 s |
 
-Spectrum (`--quality faster`, `generate.py h3 --spectrum spectrum<steps>_w<warmup>p<period>`): after `warmup` actual steps every `period`-th step is actual, the others are forecast, the last is always actual; `spectrum8_w1p2` is A F A F A F A A (5 of 8 transformer evaluations). Moss uses `spectrum8_w3p3`.
+A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge) and the VAEs (2-3 s): 23.7 s (`faster`) to 36.3 s (`best`) for 5 s, 37.5 to 58.6 s for 10 s. A new prompt adds the text encoder (29 s to load, 7 s per prompt). Every preset runs with `--skip 5:45` (below). ComfyUI's default H3 workflow (Image to Video (MiniMax H3) with its Lightning LoRA: the base model with the turbo 8-step LoRA, 8 `res_multistep` steps) takes 38.5 s per 5 s video and 118.4 s per 10 s video ([Performance.md](Performance.md)).
+
+`--help` lists every option with its default and description (the options are the members of `H3Options` and `H3Files`, parsed by Strict's generated `Parsed`):
+
+| Option | Default |
+|---|---|
+| `--model`, `--vae`, `--audio_vae`, `--text_encoder` | the model of `--quality`, `minimax_h3_video_vae_int8_convrot.safetensors`, `minimax_h3_audio_vae_fp32.safetensors`, `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`: a path, or a name in the models folder |
+| `--models` | `D:` or `C:/ComfyUI_windows_portable/ComfyUI/models`, for files and LoRAs given by name |
+| `--prompt` | `prompt.txt`; `{a\|b\|}` picks one alternative per video (the empty one too), nesting works |
+| `--quality` | `best`, see the table above |
+| `--steps`, `--skip` | from `--quality`; `--skip` below |
+| `--sampler`, `--scheduler` | `euler`, `simple`: ComfyUI's `sampler_name` and `scheduler`, below |
+| `--lora` | repeat as `path[:strength]` (relative paths under the models folder's `loras`), merged at load |
+| `--count` | 1; videos per run with one model load, each with its own seed and prompt choices |
+| `--seed` | -1 (random); the first video's seed, the others follow from it (reproduces a whole batch) |
+| `--width`, `--height` | 480, 832 (multiples of 16) |
+| `--length` | 124 frames at 24 fps (5.2 s), snapped up to 17k+5 like ComfyUI |
+| `--image`, `--last_image` | none; png or jpg first and last frame for image to video |
+| `--output` | `H3Video.mp4` numbered `H3Video0001.mp4`, ...; never overwrites |
+
+Strict does everything in one process: it expands the prompt choices, draws the seeds and the noise (MersenneTwister reproduces torch's generator: ComfyUI's noise for the same seed whenever the video latent holds a multiple of 16 numbers, the per step noise of `er_sde`, `euler_ancestral`, `dpmpp_2m_sde` and `lcm` comes from its own seeds), encodes the uncached prompts with `H3Encoder` (Qwen3-VL 32B NVFP4) before the model loads (cached per prompt, encoder and images under `artifacts/h3`, the same states and token tags as ComfyUI's H3 node), samples every video with one model load, decodes the video and the audio of every video after the last one (`H3Vae`, `H3Audio`) and writes the numbered `.mp4` files with the installed ffmpeg (libx264 crf 18 and aac 192k). `--image` and `--last_image` make image to video like ComfyUI's MiniMax H3 Image to Video node: the first image is stretched to the video size, the last one cropped to its aspect first, both with Pillow's Lanczos (`Lanczos.strict`, the same bytes), `H3Picture` encodes them with the video VAE before the model loads, every video gets them as noise augmented keyframe rows at its first and last frame (seeded like ComfyUI's) and the first image (or the last one alone) goes into the Qwen3-VL context like ComfyUI's (with both images only the first so far).
+
+LoRA names are matched like ComfyUI: `diffusion_model.<module>`, `<module>` and kohya's `lora_unet_<module with _>`, `lora_A`/`lora_B` or `lora_down`/`lora_up` with an optional `alpha`. `H3Video.exe` merges the block linears and the token refiner at every load like ComfyUI's LoRA loaders (`Safetensors.Tuned`, no cached file, the same step times; about 20 s more load for TaoMate with a small style LoRA, 110 s for rank 384, 140 s for a stack of rank 300-800); its load line counts the applied tensors. adaln, patch projection and final layer LoRAs and FastH3's `diff`/`diff_b` tensors are not applied.
+
+Spectrum (`--quality faster`): after `warmup` actual steps every `period`-th step is actual, the others are forecast, the last is always actual; `spectrum8_w1p2` is A F A F A F A A (5 of 8 transformer evaluations). Moss uses `spectrum8_w3p3`.
 
 `--skip first:last` (default `5:45` for every preset, `off` for none, the node's `skip` input): every other evaluated step after the first two (never the last) reuses what blocks first to last of the 50 added in the last full evaluation instead of computing them, the hidden state before the span plus that difference (one hidden-sized list, 0.8 GB at 480x832 and 10 s). 8 routed turbo steps of a 10 s clip on a 4090 skip steps 2, 4 and 6: `15:35` 11 %, `10:40` 19 %, `5:45` 26 % faster (a skipped step 2.3, 1.6 and 0.8 s instead of 3.6 s), the videos show the same composition, sharpness and motion. Steps with Spectrum forecasts are not evaluated and do not count, 3 or fewer steps skip nothing.
 

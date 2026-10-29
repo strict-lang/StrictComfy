@@ -1,5 +1,19 @@
 # Moss performance
 
+## H3Video.exe against ComfyUI's default H3 workflow, 5 s and 10 s at 480x832 (2026-10-29 01:40, RTX 4090, Strict b7c49099)
+The fox prompt, `H3Video.exe --quality <preset> --length 124|243 --count 2 --seed 1` with a cached prompt (`C:/StrictDumps/perf29`, `analyze.py`): the second video's sampling plus its decode and mp4, the model loaded. ComfyUI with the user's flags, the Image to Video (MiniMax H3) blueprint with its Lightning LoRA switch on (the base int8 model, `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16` at strength 1, 8 `res_multistep` steps; the installed int8 Convrot video VAE instead of the blueprint's missing fp16 one), CreateVideo and SaveVideo, from queueing to the saved video with only the seed changed:
+
+| Run | 5 s: sampling, video | 10 s: sampling, video |
+|---|---:|---:|
+| ComfyUI's default workflow | 27.5 s (3.44 s per step), 38.5 s | 89 s (11.1 s per step, 4.5 GB of the model offloaded), 118.4 s with the prompt encode |
+| `best` | 13.7 s, 19.0 s (2.0x) | 34.6 s, 44.7 s (2.6x) |
+| `fast` | 10.7 s, 16.2 s (2.4x) | 21.5 s, 31.8 s (3.7x) |
+| `faster` | 6.6 s, 11.9 s (3.2x) | 14.1 s, 24.6 s (4.8x) |
+| `fastest4steps` | 6.6 s, 12.5 s (3.1x) | 13.3 s, 24.3 s (4.9x) |
+| `fastest2steps` | 4.2 s, 10.0 s (3.9x) | 9.4 s, 20.1 s (5.9x) |
+
+The decode and mp4 take 5.3-5.9 s per 5 s video and 10.1-11.0 s per 10 s video, half of the `faster` and `fastest` videos. A run of one video adds the model load (6.4-11.0 s, 13.9-21.5 s with the TaoMate merge) and the VAEs (2.2-3.0 s): 23.7-40.6 s for 5 s, 37.5-58.6 s for 10 s; a new prompt adds 28.9 s of text encoder load and 6.9 s to encode it, ComfyUI's first run 114.9 s. ComfyUI's warm 10 s run stopped after 5 steps: its 6th step hung for two minutes, the driver reset (Display 4101 at 02:01:42) and the GPU was lost until a reboot, so the Strict H3 Sampler rows of this comparison are still open.
+
 ## H3Video.exe image to video against ComfyUI (2026-10-28 20:40, RTX 4090, Strict e157c337)
 `H3Video.exe --prompt <lighthouse> --image C:/StrictDumps/h3/frame-first.png --seed 42 --quality best` against ComfyUI's i2v of the same image, prompt and seed (`C:/StrictDumps/h3i2v/video.mp4`, turbo, 8 euler steps), PSNR per frame over 124 frames: a text only context (before the vision tower) 34.3 dB on the first frame, 16.7 in the middle, 17.2 at the end, 18.5 mean; with the image in the Qwen3-VL context (the strict-cd session's vision tower) 37.5, 22.3, 23.5, 24.6 mean; with `--skip off` like ComfyUI 39.3, 31.0, 29.5, 31.7 mean, the same wave splash and camera framing side by side. Warm with the cached image context 66.5 s, the first run 184 s (PTX, the text encoder 28 s load and 13 s for vision and prefill, the keyframe 12.5 s on the slow convolution path of the default GPU mode).
 
