@@ -58,13 +58,15 @@ Stacked(other MossLora) Slow(MossLora)
 	if rank is 0
 		return other
 	MossLora(down + other.down, Widened(other), rank + other.rank, columns)
-Widened(other MossLora) Slow(Numbers)
+Widened(other MossLora) Slow(BFloat16s)
 	MossLora(Tiny, up = (1, 2, 3, 4), rank = 2).Widened(MossLora(Tiny, up = (5, 6), rank = 1)) is (1, 2, 5, 3, 4, 6)
-	let width = rank + other.rank
-	for up.Length + other.up.Length
-		let row = (index / width).Floor
-		let column = index % width
-		column < rank then up(row * rank + column) else other.up(row * other.rank + column - rank)
+	Interleaved(up, other.up, rank, other.rank)
+Interleaved(first Numbers, second Numbers, firstRank Number, secondRank Number) BFloat16s
+	MossLora.Interleaved((1, 2, 3, 4), (5, 6), 2, 1) is (1, 2, 5, 3, 4, 6)
+	for first.Length + second.Length
+		let row = (index / (firstRank + secondRank)).Floor
+		let column = index % (firstRank + secondRank)
+		column < firstRank then first(row * firstRank + column) else second(row * secondRank + column - firstRank)
 Third(part Number) MossLora
 	MossLora(List(Number), (1, 2, 3, 4, 5, 6), 2, 1).Third(1).up is (3, 4)
 	MossLora(down, up.Slice(part * up.Length / 3, up.Length / 3), rank, columns)
