@@ -1,0 +1,29 @@
+has logger
+has vae H3Vae
+has sound H3Audio
+constant Tiny = H3Decoding(Logger, H3Vae.Tiny, H3Audio.Tiny)
+constant Latent = H3Vae.Model.Values("latent") + H3Audio.Latent
+constant Both = Tiny.Decoded(Latent, (12, 3, 4))
+Decoded(latent Numbers, shape Numbers) Slow(List(Numbers))
+	Both(0) is H3Vae.Pixels
+	Both(1) is H3Audio.Tiny.Normalized(H3Audio.Waveform)
+	let count = 24 * shape(0) * shape(1) * shape(2)
+	let frames = vae.Decoded(latent.Slice(0, count), shape)
+	(frames, sound.Normalized(sound.Decoded(latent.Slice(count, latent.Length - count))))
+Shapes(conditions List(Safetensors)) List(Numbers)
+	Safetensors("h3decode.safetensors").Written(("video", "decode"), ((1, 2, 3), List(Number) + 1)) is 4
+	Tiny.Shapes(List(Safetensors) + Safetensors("h3decode.safetensors")).First is (3)
+	Tiny.Shapes(List(Safetensors) + H3Video.Reference).First.Length is 0
+	for conditions
+		value.Entry("decode") is "" then List(Number) else H3Job(value).VideoShape
+Written(file Text, shape Numbers, index Number) Slow(Number)
+	Safetensors("h3test-latent.safetensors").Written("latent", Latent) is 3712
+	Tiny.Written("h3test", (24, 12, 3, 4), 0) is 6400
+	File("h3test-decoded.rgb").Length is 359424
+	Safetensors("h3test-decoded.safetensors", 32).Values("audio") is Both(1)
+	let before = Process.Elapsed
+	let decoded = Decoded(Safetensors(file + "-latent.safetensors", 32).Values("latent"), shape.Slice(1, 3))
+	File(file + "-decoded.rgb").Write(H3Frames(logger).Bytes(decoded(0)))
+	let written = Safetensors(file + "-decoded.safetensors").Written("audio", decoded(1))
+	logger.Log("decoded " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	written

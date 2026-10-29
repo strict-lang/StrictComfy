@@ -236,6 +236,7 @@ class GenerationCommandTests(unittest.TestCase):
 		prompt = {'1': loaded, '2': lora, '3': strict, '5': {'class_type': 'CLIPTextEncode', 'inputs': {'clip': ['2', 1]}}}
 		self.assertTrue(module.releasable(prompt, '3'))
 		self.assertTrue(module.releasable(prompt | {'6': strict}, '3'))
+		self.assertTrue(module.releasable(prompt | {'6': strict | {'class_type': 'StrictH3LatentSampler'}}, '3'))
 		self.assertFalse(module.releasable(prompt | {'4': {'class_type': 'BasicGuider', 'inputs': {'model': ['2', 0]}}}, '3'))
 		self.assertFalse(module.releasable(prompt | {'4': {'class_type': 'ModelSamplingSD3', 'inputs': {'model': ['1', 0]}}}, '3'))
 		self.assertFalse(module.releasable({'1': loaded, '3': {'class_type': 'StrictH3Sampler', 'inputs': {}}}, '3'))
@@ -439,6 +440,7 @@ class GenerationCommandTests(unittest.TestCase):
 		self.assertEqual((args.width, args.height, args.length, args.steps, args.routing, args.skip, args.sampler, args.scheduler),
 			(480, 832, 124, 8, 1, '10:40', 'res_multistep', 'sgm_uniform'))
 		self.assertEqual(tuple(module.h3_noise(args, 7)['audio'].shape), audio[1:])
+		self.assertEqual((args.decode, module.h3_arguments('fast', video, audio, decode=True).decode), (False, True))
 		with self.assertRaises(ValueError):
 			module.h3_arguments('fast', video, (1, 32, 2, 100))
 		numbers = torch.arange(24 * 37 * 52 * 30 + 32 * 2 * 207, dtype=torch.float32)
@@ -517,14 +519,15 @@ class GenerationCommandTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary:
 			folder = Path(temporary)
 			args = module.arguments(['--quality', 'faster', '--width', '32', '--height', '32', '--length', '5',
-				'--cache', str(folder), '--sampler', 'res_multistep', '--scheduler', 'sgm_uniform'], 'h3')
+				'--cache', str(folder), '--sampler', 'res_multistep', '--scheduler', 'sgm_uniform', '--decode'], 'h3')
 			contexts = []
 			for index in range(2):
 				path = folder / f'context{index}.safetensors'
 				save_file({'context': torch.full((2, 3), float(index)), 'tags': torch.ones(2)}, str(path))
 				contexts.append(path)
 			process = MagicMock()
-			process.stdout = io.StringIO('step 0 3500 ms, forecasts 0\ngeneration 0 in 20 ms\ngeneration 1 in 21 ms\n')
+			process.stdout = io.StringIO('step 0 3500 ms, forecasts 0\ngeneration 0 in 20 ms\ngeneration 1 in 21 ms\n'
+				'decoded 0 in 30 ms\ndecoded 1 in 31 ms\n')
 			process.wait.return_value = 0
 			process.poll.return_value = 0
 			with patch.object(module.subprocess, 'Popen', return_value=process) as launch, redirect_stdout(io.StringIO()):
@@ -534,12 +537,12 @@ class GenerationCommandTests(unittest.TestCase):
 			command = launch.call_args.args[0]
 			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
 			self.assertEqual(command[1:], ['-', 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
-				'45', '1', '1'])
-			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors', 'strict-1-latent.safetensors'])
+				'45', '1', '1', 'minimax_h3_video_vae_int8_convrot.safetensors', 'minimax_h3_audio_vae_fp32.safetensors'])
+			self.assertEqual([result[1].name for result in results], ['strict-0-decoded.rgb', 'strict-1-decoded.rgb'])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
 			first = self.tensors(folder / 'generation-0.safetensors')
 			second = self.tensors(folder / 'generation-1.safetensors')
-			self.assertEqual(set(first), {'context', 'tags', 'video', 'audio'})
+			self.assertEqual(set(first), {'context', 'tags', 'video', 'audio', 'decode'})
 			self.assertEqual((tuple(first['video'].shape), tuple(first['audio'].shape)), ((24, 2, 2, 2), (32, 2, 8)))
 			self.assertFalse(torch.equal(first['video'], second['video']))
 
@@ -596,7 +599,8 @@ class GenerationCommandTests(unittest.TestCase):
 			process.wait.return_value = 0
 			process.poll.return_value = 0
 			with patch.object(module.subprocess, 'Popen', return_value=process), redirect_stdout(io.StringIO()):
-				list(module.Resident().generated(args, Path('model'), [context], [{'seed': 42}], folder))
+				results = list(module.Resident().generated(args, Path('model'), [context], [{'seed': 42}], folder))
+			self.assertEqual([result[1].name for result in results], ['strict-0-latent.safetensors'])
 			job = self.tensors(folder / 'generation-0.safetensors')
 			self.assertEqual(set(job), {'context', 'tags', 'keyframes', 'rows', 'video', 'audio'})
 			self.assertTrue(torch.equal(job['rows'], module.h3_rows([latent], 42)))

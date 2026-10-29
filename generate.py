@@ -74,6 +74,9 @@ def arguments(argv=None, family='moss'):
 		parser.add_argument('--length', type=int, default=124)
 		parser.add_argument('--sampler', choices=SAMPLERS, default='euler')
 		parser.add_argument('--scheduler', choices=SCHEDULERS, default='simple')
+		parser.add_argument('--vae', default='minimax_h3_video_vae_int8_convrot.safetensors')
+		parser.add_argument('--audio_vae', default='minimax_h3_audio_vae_fp32.safetensors')
+		parser.add_argument('--decode', action='store_true')
 	else:
 		parser.add_argument('--guidance', type=float, default=argparse.SUPPRESS)
 	parser.add_argument('--cache', type=Path, default=ROOT / 'artifacts' / family)
@@ -352,7 +355,7 @@ def releasable(prompt, node):
 		return False
 	readers = [(other['class_type'], value) for key, other in prompt.items() if key not in chain
 		for value in other['inputs'].values() if isinstance(value, list) and len(value) == 2 and value[0] in chain]
-	return all(kind in ('StrictH3Sampler', 'StrictMossSampler') or prompt[value[0]]['class_type'] == 'LoraLoader' and value[1] == 1
+	return all(kind in ('StrictH3Sampler', 'StrictH3LatentSampler', 'StrictMossSampler') or prompt[value[0]]['class_type'] == 'LoraLoader' and value[1] == 1
 		for kind, value in readers)
 
 
@@ -412,14 +415,14 @@ def h3_condition(conditioning):
 	return condition
 
 
-def h3_arguments(quality, video, audio, skip='5:45', sampler='euler', scheduler='simple'):
+def h3_arguments(quality, video, audio, skip='5:45', sampler='euler', scheduler='simple', decode=False):
 	"""The quality, skip, sampler and scheduler settings for a ComfyUI H3 latent of shapes video [B, 24, T, H, W]
-	and audio [B, 32, 2, T]: its size and frame count."""
+	and audio [B, 32, 2, T]: its size and frame count, decode for H3Video.exe to decode the videos too."""
 	frames = (video[2] - 2) // 5 * 17 + 5
 	if len(video) != 5 or video[1] != 24 or tuple(audio) != (video[0], 32, 2, round(frames / 24 * 40)):
 		raise ValueError('latent must be an H3 video and audio latent (MiniMax H3 Image to Video or Empty MiniMax H3 AV Latent)')
 	return arguments(['--quality', quality, '--skip', skip, '--sampler', sampler, '--scheduler', scheduler,
-		'--width', str(video[4] * 16), '--height', str(video[3] * 16), '--length', str(frames)], 'h3')
+		'--width', str(video[4] * 16), '--height', str(video[3] * 16), '--length', str(frames)] + ['--decode'] * decode, 'h3')
 
 
 def h3_latents(numbers, video, audio):
@@ -478,12 +481,13 @@ def h3_rows(latents, seed):
 
 
 def backend(args, model, adapter):
-	"""The resident backend command, it reads one job folder per input line."""
+	"""The resident backend command, it reads one job folder per input line (H3Video.exe decodes jobs with decode)."""
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
 		return [str(ROOT / 'H3Video.exe'), '-', str(model), 'strict', adapter, str(args.steps), '12',
 			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
-			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler))]
+			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler)),
+			str(args.vae), str(args.audio_vae)]
 	return [str(ROOT / 'MossGenerate.exe'), '-', str(model), adapter, '', mode, '']
 
 
@@ -497,7 +501,7 @@ def prepared(args, contexts, plan, folder):
 			latents = [data.pop(f'keyframe.{number}') for number in range(len(data.get('keyframes', [])))]
 			if latents:
 				data['rows'] = h3_rows(latents, job['seed'])
-			data |= h3_noise(args, job['seed'])
+			data |= h3_noise(args, job['seed']) | ({'decode': torch.ones(1)} if args.decode else {})
 		else:
 			data['noise'] = torch.randn((1, 128, args.height // 16, args.width // 16),
 				generator=torch.Generator('cpu').manual_seed(job['seed']))
@@ -518,24 +522,24 @@ def started(args, command):
 
 
 def collected(args, worker, plan, folder, stepped=None):
-	"""The latents of plan from the backend's output lines, as soon as each generation is done, stepped called with
-	the line of each step."""
+	"""The latents of plan (H3: the frames, the audio next to them) from the backend's output lines, as soon as each is done,
+	stepped called with the line of each step."""
 	mode = spectrum_config(args)[0]
-	completed = 0
+	completed, decoded = 0, args.family == 'h3' and args.decode
 	for line in worker.stdout:
 		if line.startswith('evaluation '):
 			line = 'step ' + line[len('evaluation '):]
 		print(line, end='', flush=True)
 		if stepped and line.startswith('step '):
 			stepped(line)
-		match = re.fullmatch(r'generation (\d+) in (\d+) ms\s*', line)
+		match = re.fullmatch(('decoded' if decoded else 'generation') + r' (\d+) in (\d+) ms\s*', line)
 		if match:
 			index = int(match[1])
 			if index != completed or index >= len(plan):
 				raise RuntimeError('Unexpected generation index from native backend')
 			completed += 1
 			suffix = f'-{index}' if len(plan) > 1 else ''
-			name = f'strict-{index}-latent.safetensors' if args.family == 'h3' else f'strict-{mode}{suffix}-latent.safetensors'
+			name = f'strict-{index}-{"decoded.rgb" if decoded else "latent.safetensors"}' if args.family == 'h3' else f'strict-{mode}{suffix}-latent.safetensors'
 			yield index, folder / name, int(match[2])
 			if completed == len(plan):
 				return

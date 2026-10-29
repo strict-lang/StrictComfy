@@ -83,3 +83,4 @@ prompt*.txt
 *.jpg
 *.nativecache
 *.mp4
+*.rgb

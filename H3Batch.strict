@@ -82,22 +82,16 @@ Latents(count Number) Texts
 	for count
 		Folder + "/latent-" + index + ".safetensors"
 Decoded(latents Texts, outputs Texts) Slow(Number)
-	let before = Process.Elapsed
-	let decoder = H3Decoder.Loaded(Safetensors(options.files.Decoder, 32))
-	let vae = H3Vae(decoder, H3Tiles.Real)
-	let sound = H3Audio.Loaded(Safetensors(options.files.Sound, 32))
-	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	let decoding = H3Video(logger).Decoding(options.files.Decoder, options.files.Sound)
 	for latents
-		Saved(vae, sound, Safetensors(value, 32).Values("latent"), outputs(index))
+		Saved(decoding, Safetensors(value, 32).Values("latent"), outputs(index))
 	0
-Saved(vae H3Vae, sound H3Audio, latent Numbers, output Text) Slow(Number)
+Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)
 	let before = Process.Elapsed
 	let shapes = options.Shapes
-	let count = 24 * shapes(0) * shapes(1) * shapes(2)
-	let frames = vae.Decoded(latent.Slice(0, count), (shapes(0), shapes(1), shapes(2)))
-	let waveform = sound.Normalized(sound.Decoded(latent.Slice(count, latent.Length - count)))
+	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
-	H3Frames(logger).Saved(frames, waveform, (shapes(1) * 16, shapes(2) * 16), output)
+	H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), output)
 Folder Text
 	Sample.Folder.EndsWith("/artifacts/h3")
 	Root + "/artifacts/h3"

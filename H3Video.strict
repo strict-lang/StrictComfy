@@ -6,6 +6,7 @@ constant Tiny = H3Video(Logger)
 constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
 constant Turbo = "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors"
 constant Base = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+constant Decoders = H3Video(Logger).Decoding("tinyh3vae.safetensors", "tinyh3audio.safetensors")
 constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
 	if "--help" is in arguments
@@ -21,18 +22,33 @@ Run(arguments Texts) Number
 Diagnosed(arguments Texts) Number
 	let loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
-		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
+		let decoding = Decoding(arguments(14), arguments(15))
+		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), decoding, arguments)
 	let conditions = Conditions(arguments(0))
 	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
 	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments)
 	0
-Served(h3 H3, refiner H3Refiner, arguments Texts) Number
+Served(h3 H3, refiner H3Refiner, decoding H3Decoding, arguments Texts) Number
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		let conditions = Conditions(dumps)
-		Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
+		let shapes = decoding.Shapes(conditions)
+		let files = Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
+		GpuMemory.Evicted
+		for files
+			if shapes(index).Length > 0
+				decoding.Written(value, shapes(index), index)
+		GpuMemory.Evicted
 		dumps = Process.InputLine
 	0
+Decoding(video Text, audio Text) Slow(H3Decoding)
+	Decoders.vae.tiling is H3Tiles.Real
+	Decoders.Decoded(H3Decoding.Latent, (12, 3, 4))(1)(5000).IsNearlyEqual(H3Decoding.Both(1)(5000), 0.001)
+	let before = Process.Elapsed
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(video, 32)), H3Tiles.Real)
+	let decoding = H3Decoding(logger, vae, H3Audio.Loaded(Safetensors(audio, 32)))
+	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	decoding
 Numbered(arguments Texts) Numbers
 	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
 	for (0, 12, 0, 1, 1, 0, 0, 0, 0, 0)
@@ -50,19 +66,17 @@ Conditions(dumps Text) List(Safetensors)
 		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
 	for GenerationCommand.Count(data)
 		GenerationCommand.Job(data, dumps, index)
-Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) None
+Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) Slow(Texts)
 	let numbers = Numbered(arguments)
 	let name = GenerationCommand.Option(arguments, 2, "strict")
 	for conditions
 		let before = Process.Elapsed
 		let sampled = Generated(h3, value, H3Job(Steps(dumps, value)), texts(index), numbers, dumps)
-		let file = value.Entry("video") is "" then name else name + "-" + index
-		Safetensors(dumps + "/" + file + "-latent.safetensors").Written("latent", sampled)
-		if index is conditions.Length - 1
-			GpuMemory.Evicted
-		else
-			GpuMemory.Released
+		let file = dumps + "/" + (value.Entry("video") is "" then name else name + "-" + index)
+		Safetensors(file + "-latent.safetensors").Written("latent", sampled)
+		GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		file
 Steps(dumps Text, condition Safetensors) Slow(Safetensors)
 	H3Video(Logger).Steps("", Reference) is Reference
 	condition.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else condition

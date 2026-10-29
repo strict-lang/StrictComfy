@@ -1,5 +1,5 @@
 """ComfyUI nodes: Moss images (MossGenerate.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
-conditioning and latent (Moss also its model and LoRAs), decoded by ComfyUI."""
+conditioning and latent (Moss also its model and LoRAs), Moss decoded by ComfyUI, H3 by Strict."""
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
@@ -159,12 +159,13 @@ class StrictH3Sampler:
 				'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
 					'of the model of the quality, the LoRAs of the quality still apply'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
-	RETURN_TYPES = ('LATENT',)
+	RETURN_TYPES = ('IMAGE', 'AUDIO')
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
-	DESCRIPTION = ('Samples H3 video and sound in Strict (StrictComfy H3Video.exe) instead of SamplerCustomAdvanced: decode '
-		'the latent with VAE Decode and VAE Decode Audio. The Strict process keeps the model loaded for the next run with '
-		'the same quality and model.')
+	DESCRIPTION = ('Samples and decodes H3 video and sound in Strict (StrictComfy H3Video.exe) instead of '
+		'SamplerCustomAdvanced, VAE Decode and VAE Decode Audio (with minimax_h3_video_vae_int8_convrot and '
+		'minimax_h3_audio_vae_fp32 of models/vae): connect the images and the audio to Create Video. The Strict process '
+		'keeps the model loaded for the next run with the same quality and model.')
 
 	def sample(self, positive, latent, quality, seed, skip='5:45', sampler_name='euler', scheduler='simple', model=None,
 			unique_id=None, prompt=None):
@@ -174,7 +175,8 @@ class StrictH3Sampler:
 		if len(positive) != 1:
 			raise ValueError('positive must be a single conditioning')
 		video, audio = (tuple(tensor.shape) for tensor in samples.tensors)
-		args = generate.h3_arguments(quality, video, audio, skip, sampler_name, scheduler)
+		args = generate.h3_arguments(quality, video, audio, skip, sampler_name, scheduler, 'IMAGE' in self.RETURN_TYPES)
+		args.vae, args.audio_vae = (folder_paths.get_full_path_or_raise('vae', name) for name in (args.vae, args.audio_vae))
 		args.cache.mkdir(parents=True, exist_ok=True)
 		models = Path(folder_paths.models_dir)
 		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', args.model))
@@ -189,12 +191,11 @@ class StrictH3Sampler:
 			decoded(decoder, torch.zeros(generate.preview_batch(video), *video[1:2], *video[3:]))
 		progress, preview = comfy.utils.ProgressBar(video[0] * args.steps), generate.skipping(PREVIEWS)
 		def stepped(line):
+			path = folder / f'generation-{progress.current // args.steps}-step{line.split()[1]}.safetensors'
 			progress.update(1)
-			path = folder / f'generation-{len(pairs)}-step{line.split()[1]}.safetensors'
 			if decoder and path.exists():
 				preview(previewed, decoder, load(path.read_bytes())['video'], video, unique_id)
 			comfy.model_management.throw_exception_if_processing_interrupted()
-		pairs = []
 		with tempfile.TemporaryDirectory(dir=args.cache) as temporary:
 			folder = Path(temporary)
 			context = folder / 'context.safetensors'
@@ -202,11 +203,29 @@ class StrictH3Sampler:
 			save_file(condition | ({'preview': torch.ones(1)} if decoder else {}), str(context))
 			plan = [{'seed': (seed + index) % 2 ** 63} for index in range(video[0])]
 			with closing(RESIDENT_H3.generated(args, loaded, [context] * video[0], plan, folder, adapter, stepped)) as outputs:
-				for index, path, milliseconds in outputs:
-					pairs.append(generate.h3_latents(load(path.read_bytes())['latent'], video, audio))
-		joined = [torch.cat([pair[stream] for pair in pairs]) for stream in (0, 1)]
-		return ({'samples': comfy.nested_tensor.NestedTensor(joined)},)
+				return self.returned([path for index, path, milliseconds in outputs], video, audio)
+
+	@staticmethod
+	def returned(paths, video, audio):
+		"""The frames (RGB bytes) and the audio H3Video.exe decoded, like VAE Decode and VAE Decode Audio."""
+		frames = torch.cat([torch.frombuffer(bytearray(path.read_bytes()), dtype=torch.uint8) for path in paths])
+		waveforms = [load(path.with_suffix('.safetensors').read_bytes())['audio'].reshape(1, 2, -1) for path in paths]
+		return frames.reshape(-1, video[3] * 16, video[4] * 16, 3).float() / 255, {'waveform': torch.cat(waveforms),
+			'sample_rate': 32000}
 
 
-NODE_CLASS_MAPPINGS = {'StrictMossSampler': StrictMossSampler, 'StrictH3Sampler': StrictH3Sampler}
-NODE_DISPLAY_NAME_MAPPINGS = {'StrictMossSampler': 'Strict Moss Sampler', 'StrictH3Sampler': 'Strict H3 Sampler'}
+class StrictH3LatentSampler(StrictH3Sampler):
+	RETURN_TYPES = ('LATENT',)
+	DESCRIPTION = ('Strict H3 Sampler that returns the video and audio latent instead of decoding it, for latent nodes '
+		'(upscaling, a second pass) before VAE Decode and VAE Decode Audio. It shares the Strict process of Strict H3 Sampler.')
+
+	@staticmethod
+	def returned(paths, video, audio):
+		pairs = [generate.h3_latents(load(path.read_bytes())['latent'], video, audio) for path in paths]
+		return ({'samples': comfy.nested_tensor.NestedTensor([torch.cat([pair[stream] for pair in pairs]) for stream in (0, 1)])},)
+
+
+NODE_CLASS_MAPPINGS = {'StrictMossSampler': StrictMossSampler, 'StrictH3Sampler': StrictH3Sampler,
+	'StrictH3LatentSampler': StrictH3LatentSampler}
+NODE_DISPLAY_NAME_MAPPINGS = {'StrictMossSampler': 'Strict Moss Sampler', 'StrictH3Sampler': 'Strict H3 Sampler',
+	'StrictH3LatentSampler': 'Strict H3 Sampler (Latent)'}
