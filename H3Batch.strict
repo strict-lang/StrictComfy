@@ -11,7 +11,7 @@ Run Number
 	let started = Process.Elapsed
 	let batch = PromptBatch(logger, "Video")
 	let seeds = batch.Seeds(options.seed, options.count)
-	let prompts = batch.Prompts(Text.Combine(File(options.prompt).ReadLines, "\n").Trim, seeds)
+	let prompts = batch.Prompts(batch.Template(options.prompt), seeds)
 	let unique = prompts.Unique
 	let made = H3Batch(logger, options, Pictured).Videos(seeds, prompts, unique, Conditions(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " videos")

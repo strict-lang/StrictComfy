@@ -8,6 +8,11 @@ Seeds(seed Number, count Number) Numbers
 	let following = MersenneTwister.Seeded(first).Uints(count)
 	for count
 		index is 0 then first else following(index)
+Template(path Text) Text
+	Sample.Template("a red fox") is Error("FileNotFound:a_red_fox")
+	if File(path).Exists is false
+		return Error("FileNotFound:" + path.Replace(" ", "_"))
+	Text.Combine(File(path).ReadLines, "\n").Trim
 Prompts(template Text, seeds Numbers) Texts
 	Sample.Prompts("a {b|c}", (1, 2)).Length is 2
 	for seeds
