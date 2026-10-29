@@ -37,9 +37,16 @@ Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(
 	seeds.Length
 Loaded Moss
 	let before = Process.Elapsed
-	let moss = Moss.Loaded(options.files.Checkpoint, options.Loras)
+	let loras = options.Loras
+	logger.Log(Loading(loras))
+	let moss = Moss.Loaded(options.files.Checkpoint, loras)
 	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	moss
+Loading(loras Text) Text
+	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
+	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
+	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
+	"Loading Moss from " + options.files.Checkpoint + merging
 Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(List(Numbers))
 	let sampling = options.Sampling(logger)
 	for seeds
