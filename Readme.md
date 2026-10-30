@@ -7,12 +7,11 @@ ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Stri
 From this folder, with `../Strict/strict.exe`:
 
 ```powershell
-../Strict/strict.exe build MossGenerate.strict
 ../Strict/strict.exe build MossImage.strict
 ../Strict/strict.exe build H3Video.strict
 ```
 
-`MossImage.exe` and `H3Video.exe` are the commands, `MossGenerate.exe` and `H3Video.exe` the backends of the ComfyUI nodes, which start them from this folder. The Python files serve ComfyUI only: `__init__.py` and `generate.py` are the nodes, `merge.py` the Moss node's cached LoRA merges, `dump.py` writes ComfyUI references and the tiny test fixtures. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
+`MossImage.exe` and `H3Video.exe` are the commands and also the backends of the ComfyUI nodes, which start them from this folder with `-` as the first argument (then they read one job folder per input line and keep the model loaded). To ship the nodes, copy the Python files with both executables and the PTX files next to each (`Name.ptx`, `Name.runtime.ptx`, and the `.older.ptx` variants for older GPUs). The Python files serve ComfyUI only: `__init__.py` and `generate.py` are the nodes, `merge.py` the Moss node's cached LoRA merges, `dump.py` writes ComfyUI references and the tiny test fixtures. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
 
 ## ComfyUI node: Strict Moss Sampler
 
@@ -35,7 +34,7 @@ Workflow, everything except the sampler is a standard ComfyUI node:
 | **Strict Moss Sampler** (`sampling/strict`) | `seed`, `steps` (8), `cfg` (1), `spectrum` (`off`), `lora_mode` (`merged`), `turbo` (`auto`) |
 | Save Image | the `IMAGE` output |
 
-What the node does: it reads the checkpoint path from the MODEL, turns the LoRA patches of the LoraLoader nodes into one adapter (cached by content in `artifacts/moss`), merges it into a cached int8 checkpoint (`merged`, first time about 15 s, then reused; the 3 most recently used merges stay in the cache, 5.4 GB each) or applies it as floating adapters (`runtime`, slower per image), unloads ComfyUI's models from the GPU and sends the run to a resident `MossGenerate.exe`, which keeps the model loaded until the model, LoRAs or Spectrum change (or ComfyUI exits), then decodes the latents with the connected VAE. Image `i` of a batch uses seed `seed + i` with the same noise as a ComfyUI sampler at batch size 1.
+What the node does: it reads the checkpoint path from the MODEL, turns the LoRA patches of the LoraLoader nodes into one adapter (cached by content in `artifacts/moss`), merges it into a cached int8 checkpoint (`merged`, first time about 15 s, then reused; the 3 most recently used merges stay in the cache, 5.4 GB each) or applies it as floating adapters (`runtime`, slower per image), unloads ComfyUI's models from the GPU and sends the run to a resident `MossImage.exe`, which keeps the model loaded until the model, LoRAs or Spectrum change (or ComfyUI exits), then decodes the latents with the connected VAE. Image `i` of a batch uses seed `seed + i` with the same noise as a ComfyUI sampler at batch size 1.
 
 - `quality` picks steps, `cfg` and `spectrum` like `MossImage.exe --quality` below, `custom` uses the `steps`, `cfg` and `spectrum` inputs instead (workflows saved before `quality` existed load with `best`, set `custom` to keep their steps).
 - 8 steps or fewer need the DMD turbo LoRA and `cfg` 1: `turbo` `auto` adds `loras/moss/dmd_turbo_lora.safetensors` at 8 steps or fewer unless a LoraLoader or the checkpoint's merge metadata already has it. Use `off` for checkpoints with a turbo LoRA baked in by someone else, and 25-50 steps with `cfg` 4 without turbo (turbo at 25 or 50 steps gives broken images).
@@ -92,7 +91,7 @@ Supported LoRAs: kohya `lora_down`/`lora_up` and PEFT `lora_A`/`lora_B` with opt
 
 ```powershell
 D:/ComfyUI_windows_portable/python_embeded/python.exe test_generate.py
-../Strict/strict.exe test MossGenerate.strict
+../Strict/strict.exe test MossImage.strict
 ../Strict/strict.exe check .
 ```
 

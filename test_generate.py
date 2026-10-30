@@ -163,7 +163,7 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(launch.call_count, 1)
 			self.assertIn('step 0 at 1.234', output.getvalue())
 			self.assertNotIn('evaluation ', output.getvalue())
-			self.assertEqual(launch.call_args.args[0][4:6], ['', 'on'])
+			self.assertEqual(launch.call_args.args[0], [str(module.ROOT / 'MossImage.exe'), '-', 'model', '', 'on'])
 			self.assertEqual([result[1].name for result in results], ['strict-on-0-latent.safetensors', 'strict-on-1-latent.safetensors'])
 			self.assertEqual([result[0] for result in results], [0, 1])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)

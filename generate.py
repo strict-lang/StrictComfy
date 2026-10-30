@@ -1,5 +1,5 @@
 """The ComfyUI side of the Strict Moss and H3 samplers: quality presets, LoRA patches as adapters, cached int8 merges
-(merge.py) and the resident MossGenerate.exe or H3Video.exe the nodes send their conditioning to."""
+(merge.py) and the resident MossImage.exe or H3Video.exe the nodes send their conditioning to."""
 import argparse
 import hashlib
 import io
@@ -14,7 +14,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent
 FAMILIES = {
-	'moss': {'backend': 'MossGenerate.exe', 'width': 720, 'height': 1280, 'linear': 'layers.0.proj.q'},
+	'moss': {'backend': 'MossImage.exe', 'width': 720, 'height': 1280, 'linear': 'layers.0.proj.q'},
 	'h3': {'backend': 'H3Video.exe', 'width': 480, 'height': 832, 'linear': 'blocks.0.attn.qkv_proj'}}
 SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
 SKIP = re.compile(r'(\d+):(\d+)')
@@ -372,7 +372,7 @@ def turbo_patched(patches, turbo):
 
 def lora_model(args, model, loras):
 	"""The checkpoint the backend loads and its LoRA argument: a cached merge of the LoRAs, or the checkpoint (converted
-	once when Strict can not load it) with the LoRAs H3Video.exe merges at load or MossGenerate.exe's floating adapter."""
+	once when Strict can not load it) with the LoRAs H3Video.exe merges at load or the adapter MossImage.exe merges at load."""
 	if args.lora_mode == 'merged':
 		return cached_merge(args, model, loras), ''
 	loaded = cached_merge(args, model, [])
@@ -488,7 +488,7 @@ def backend(args, model, adapter):
 			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
 			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler)),
 			str(args.vae), str(args.audio_vae)]
-	return [str(ROOT / 'MossGenerate.exe'), '-', str(model), adapter, '', mode, '']
+	return [str(ROOT / 'MossImage.exe'), '-', str(model), adapter, mode]
 
 
 def prepared(args, contexts, plan, folder):
@@ -557,7 +557,7 @@ def stopped(worker):
 
 
 class Resident:
-	"""One MossGenerate.exe or H3Video.exe that keeps its model loaded between runs: each run writes its folder to the
+	"""One MossImage.exe or H3Video.exe that keeps its model loaded between runs: each run writes its folder to the
 	backend's input, other settings (model, LoRAs, Spectrum, steps, routing) start a new one."""
 	worker, command = None, None
 

@@ -3,6 +3,7 @@ has last Number
 has residual Numbers = List(Number)
 has skipped Boolean = false
 has output Numbers = List(Number)
+has reused Number = 0
 constant Off = MossSpan(0, 0)
 constant Tiny = MossSpan(0, 1)
 constant Vector = Moss.Tiny.TimeEmbedded(0.75)
@@ -12,6 +13,7 @@ constant Skipped = MossSpan.Cached.Evaluated(Moss.Tiny, Moss.Model.Values("refer
 Evaluated(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, allowed Boolean) Slow(MossSpan)
 	MossImage(Logger).Error(Cached.output, Features) < 0.005
 	Skipped.skipped and (MossImage(Logger).Error(Skipped.output, Cached.output) < 0.00001)
+	(Cached.reused is 0) and (Skipped.reused is 1)
 	if first is last
 		return MossSpan(value, output = moss.Features(latent, text, rotation, vector))
 	let modulation = moss.blockModulation.Sums(vector)
@@ -20,7 +22,7 @@ Evaluated(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numb
 	let middle = Middle(moss, before, modulation, rotation, latent, skipping)
 	let after = moss.Ran(middle, modulation, rotation, latent, last, moss.layers.Length)
 	let cached = skipping then residual else H3Span.Combined(middle, before, -1)
-	MossSpan(value, residual = cached, skipped = skipping, output = after)
+	MossSpan(value, residual = cached, skipped = skipping, output = after, reused = reused + (skipping then 1 else 0))
 Middle(moss Moss, before Numbers, modulation Numbers, rotation Numbers, latent Numbers, skipping Boolean) Slow(Numbers)
 	MossSpan(Tiny, residual = (5, 6)).Middle(Moss.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), true) is (6, 7)
 	skipping then H3Span.Combined(before, residual, 1) else moss.Ran(before, modulation, rotation, latent, first, last)

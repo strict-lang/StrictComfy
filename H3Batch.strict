@@ -3,7 +3,7 @@ has options H3Options
 has pictured List(Numbers) = List(Numbers)
 constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
-Run Number
+Completed Number
 	let problem = options.Problem
 	if problem is not ""
 		logger.Log(problem)
@@ -53,7 +53,7 @@ Encoded(prompts Texts, paths Texts) Slow(Number)
 Videos(seeds Numbers, prompts Texts, unique Texts, conditions List(Safetensors)) Slow(Number)
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let texts = H3Refiner.Loaded(options.Checkpoint, options.Loras).Texts(conditions)
-	let outputs = Reserved(seeds.Length)
+	let outputs = PromptBatch(logger, "Video").Outputs(options.output, seeds.Length)
 	let latents = Latents(seeds.Length)
 	for seeds
 		let before = Process.Elapsed
@@ -72,11 +72,6 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number) Slow(Numbers)
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
 	let keyed = H3Job(job, rows = job.Keyed(pictured, (24, 1, shapes(1), shapes(2)), seed), keyframes = Indices)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
-Reserved(count Number) Slow(Texts)
-	for count
-		let path = PromptBatch(logger, "Video").Reserved(options.output)
-		File(path).Write(List(Text))
-		path
 Latents(count Number) Texts
 	Sample.Latents(2).Last.EndsWith("/latent-1.safetensors")
 	for count

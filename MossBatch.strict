@@ -2,18 +2,17 @@ has logger
 has options MossOptions
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
-Run Number
+Completed Number
 	let problem = options.Problem
 	if problem is not ""
 		logger.Log(problem)
 		return 2
+	options.Located
 	let started = Process.Elapsed
 	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
 	let prompts = PromptBatch(logger, "Image").Prompts(PromptBatch(logger, "Image").Template(options.prompt), seeds)
 	let unique = prompts.Unique
-	let contexts = Contexts(unique)
-	GpuMemory.Evicted
-	Images(seeds, prompts, unique, contexts)
+	Images(seeds, prompts, unique, Contexts(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
@@ -26,13 +25,15 @@ Contexts(prompts Texts) Slow(List(Numbers))
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length)
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
 Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
+	GpuMemory.Evicted
 	let moss = Loaded
+	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
 	let sampled = Process.Elapsed
-	let latents = Latents(moss, seeds, prompts, unique, contexts)
+	let latents = Latents(moss, seeds, prompts, unique, contexts, outputs)
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
 	GpuMemory.Evicted
 	let decoded = Process.Elapsed
-	Decoded(latents, seeds, prompts)
+	Decoded(latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + seeds.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
 	seeds.Length
 Loaded Moss
@@ -47,25 +48,23 @@ Loading(loras Text) Text
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
 	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
-Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(List(Numbers))
+Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(List(Numbers))
 	let sampling = options.Sampling(logger)
 	for seeds
-		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))))
-Decoded(latents List(Numbers), seeds Numbers, prompts Texts) Slow(Texts)
+		let label = "Image " + (index + 1) + "/" + seeds.Length + " " + Path(outputs(index)).FileName.text
+		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))), label)
+Decoded(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
 	let decoder = FluxDecoder.Loaded(options.files.Decoder, 32)
 	for seeds
-		Saved(latents(index), decoder, value, prompts(index))
-Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers) Slow(Numbers)
-	let before = Process.Elapsed
+		Saved(latents(index), decoder, value, prompts(index), outputs(index))
+Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
-	let latent = sampling.Sampled(moss, noise, context)
+	let latent = sampling.Sampled(moss, noise, context, label)
 	GpuMemory.Released
-	logger.Log("Sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	latent
-Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text) Slow(Text)
+Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text, path Text) Slow(Text)
 	let before = Process.Elapsed
 	let image = decoder.Decoded(latent, options.width / 16)
-	let path = PromptBatch(logger, "Image").Reserved(options.output)
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
 	else

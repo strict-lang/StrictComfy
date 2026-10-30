@@ -1,4 +1,4 @@
-"""ComfyUI nodes: Moss images (MossGenerate.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
+"""ComfyUI nodes: Moss images (MossImage.exe) and H3 videos with sound (H3Video.exe) sampled by Strict from ComfyUI's
 conditioning and latent (Moss also its model and LoRAs), Moss decoded by ComfyUI, H3 by Strict."""
 import base64
 from concurrent.futures import ThreadPoolExecutor
@@ -97,7 +97,7 @@ class StrictMossSampler:
 	RETURN_TYPES = ('IMAGE',)
 	FUNCTION = 'sample'
 	CATEGORY = 'sampling/strict'
-	DESCRIPTION = ('Euler sampling of Moss in Strict (StrictComfy MossGenerate.exe), the Strict process keeps the model loaded '
+	DESCRIPTION = ('Euler sampling of Moss in Strict (StrictComfy MossImage.exe), the Strict process keeps the model loaded '
 		'for the next run with the same model, LoRAs and Spectrum')
 
 	def sample(self, model, positive, latent_image, vae, seed, quality, steps, cfg, spectrum, lora_mode, turbo, skip='off', unique_id=None,

@@ -1,5 +1,15 @@
 # Moss performance
 
+## ComfyUI with and without the Strict Moss Sampler node, MossImage presets (2026-10-29 10:40, RTX 3080, Strict bdb09db0)
+720x1280, base int8 Convrot Moss with the DMD turbo LoRA (LoraLoaderModelOnly), 8 steps, a headless ComfyUI on port 8190, from queueing to the saved image, warm:
+
+| Run | New prompt per image | Same prompt (text encoding cached) |
+|---|---:|---:|
+| ComfyUI default workflow (KSampler euler simple, VAE Decode, SaveImage) | 7.37-7.66 s | 3.28-3.31 s (sampler 2.75-2.92 it/s) |
+| Strict Moss Sampler node (resident `MossImage.exe -`, ComfyUI's VAE Decode) | 5.82-5.93 s (sampling 2.76-2.85 s) | 3.22-3.25 s (sampling 2.81 s) |
+
+The first node run took 34 s (the turbo merge cached again since generate.py changed, the driver compiling the PTX into `artifacts/moss/cuda`). `MossImage.exe --quality <preset> --count 3 --seed 7`, one prompt, per image of the batch: `best` sampling 2.82-2.91 s (with `GpuMemory.Finished` after every step: 345-350 ms per step; 2.97-3.00 s without the wait on an earlier Strict), `fast` 1.78-1.89 s, `faster` 1.50-1.61 s, `fastest` 1.13-1.20 s, `fastest2steps` 0.76-0.83 s, `best25steps` 17.7-17.8 s; the VAE decode and JPEG 0.34-0.37 s per image including the VAE load. `STRICT_GPU=all` (the node's setting): `best` 2.85-2.91 s, `fastest` 1.19-1.26 s.
+
 ## Strict H3 Sampler decodes in Strict, Strict H3 Sampler (Latent) leaves it to ComfyUI, 5 s at 480x832 (2026-10-29 09:00, RTX 4090)
 The fox prompt (cached after the first run), `best`, 124 frames, ComfyUI with the user's flags (`C:/StrictDumps/perf29/node2.sh`, a new seed every run), from queueing to the saved video:
 

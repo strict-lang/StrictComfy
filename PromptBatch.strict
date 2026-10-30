@@ -49,6 +49,11 @@ Reserved(base Text) Text
 	for as long as IsTaken(Numbered(stem, number) + extension)
 		number = number + 1
 	Numbered(stem, number) + extension
+Outputs(base Text, count Number) Slow(Texts)
+	for count
+		let path = Reserved(base)
+		File(path).Write(List(Text))
+		path
 IsTaken(path Text) Boolean
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false

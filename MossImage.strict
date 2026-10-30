@@ -2,15 +2,49 @@ has logger
 has width Number = 45
 constant Reference = Safetensors("tinymoss.safetensors", 32, "reference.")
 constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
+constant Positional = "ComfyUI node backend arguments: - model loras spectrum, diagnostic arguments: dumps model lora vae"
 Run(arguments Texts) Number
 	if "--help" is in arguments
-		logger.Log("MossImage.exe [options] makes Moss images, diagnostic arguments: dumps model lora vae")
+		logger.Log("MossImage.exe [options] makes Moss images, " + Positional)
 		logger.Log(MossOptions.Usage)
 		return 0
+	if (arguments.Length is 4) and (arguments(0) is "-")
+		return Served(Loaded(arguments(1), arguments(2)), arguments(3))
 	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
-	MossBatch(logger, MossOptions.Parsed(arguments)).Run
+	MossBatch(logger, MossOptions.Parsed(arguments)).Completed
+Loaded(model Text, lora Text) Slow(Moss)
+	MossImage(Logger).Loaded("tinymoss.safetensors", "").layers.Length is 2
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model, lora)
+	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	moss
+Served(moss Moss, mode Text) Number
+	mutable dumps = Process.InputLine
+	for as long as dumps is not ""
+		Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
+		dumps = Process.InputLine
+	0
+Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
+	let sampling = Configured(data, mode)
+	let count = GenerationCommand.Count(data)
+	for count
+		let before = Process.Elapsed
+		let job = GenerationCommand.Job(data, dumps, index)
+		let path = dumps + "/strict-" + mode + (count > 1 then "-" + index else "") + "-latent.safetensors"
+		let label = "Generation " + (index + 1) + "/" + count
+		let latent = sampling.Sampled(moss, job.Values("noise"), job.Values("context"), label)
+		Safetensors(path).Written("latent", latent)
+		GpuMemory.Released
+		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		path
+Configured(data Safetensors, mode Text) MossSampling
+	let columns = data.Shape("noise").Last
+	let steps = data.Values("steps").First
+	let guidance = data.Values("guidance").First
+	let span = data.Entry("span") is "" then MossSpan.Off else MossSpan(data.Values("span")(0), data.Values("span")(1))
+	MossSampling(logger, columns, steps, guidance, mode, data.Values("warmup").First, data.Values("period").First, span)
 ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	let steps = Safetensors(dumps + "/steps.safetensors", 64)
 	let context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")
@@ -21,9 +55,7 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png")
 Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Slow(Numbers)
 	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
-	let started = Process.Elapsed
-	let moss = Moss.Loaded(model, lora)
-	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	let moss = Loaded(model, lora)
 	Compared(moss, step)
 	Sampled(moss, euler, steps, context)
 Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Slow(Number)

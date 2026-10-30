@@ -59,6 +59,9 @@ Loras Text
 	let turbo = (Evaluated <= 8) and (Text.Combine(specs, ";").IndexOf("dmd_turbo_lora.safetensors") < 0)
 	let added = turbo then List(Text) + (files.Located("moss/dmd_turbo_lora.safetensors", "loras") + "=1") else List(Text)
 	Text.Combine(added + specs, ";")
+Located Texts
+	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is Error("FileNotFound:a_b.safetensors")
+	(files.Checkpoint, Loras, files.Decoder, files.Encoder, files.Tokenizer)
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)
