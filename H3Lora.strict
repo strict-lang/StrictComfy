@@ -5,6 +5,7 @@ constant Quarters = H3Lora(File + "=0.25;" + File + "=0.25")
 constant Reference = Safetensors(File, 32, "reference.")
 constant Normed = Reference.Values("blocks.0.attn.input")
 constant Linears = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
+constant Floats = ("video_patch_proj", "audio_patch_proj", "condition_proj", "final_layer.video_out", "final_layer.audio_out")
 constant Block = H3Block.Loaded(H3Block.Model, "blocks.0.", Half.loras)
 constant Input = Reference.Values("blocks.0.input")
 constant Layered = Block.Output(Input, H3.Model.Values("t_emb"), H3Layout.Tiny.Rows(0.75), Rope.Turning)
@@ -31,19 +32,32 @@ Stacked(name Text) Slow(MossLora)
 		return MossLora.None
 	mutable stacked = MossLora.None
 	for loras.Split(";")
-		let parts = value.Split("=")
-		stacked = stacked.Stacked(Found(parts.First, name, parts.Length is 1 then 1 else parts.Last to Number))
+		stacked = stacked.Stacked(Found(value.Split("=").First, name, Strength(value)))
 	stacked
+Strength(entry Text) Number
+	Half.Strength("a.safetensors=0.25") is 0.25
+	Half.Strength("a.safetensors") is 1
+	let parts = entry.Split("=")
+	parts.Length is 1 then 1 else parts.Last to Number
 Found(path Text, name Text, strength Number) Slow(MossLora)
 	Half.Found(File, "blocks.0.adaln_proj.linear.", 1).rank is 0
 	Half.Found("tinyqkvlora.safetensors", "layers.0.proj.o.", 1).rank is 0
 	let header = TensorFile.Header(path)
 	let prefix = Prefixed(header, name)
 	if prefix is not ""
-		return MossLora.Loaded(path, prefix, strength)
+		return Swapped(MossLora.Loaded(path, prefix, strength), name.EndsWith("mlp.fc1.") and IsFlipped(header))
 	let part = (".q.", ".k.", ".v.").Index(name.Substring(name.Length - 3, 3))
 	let fused = part < 0 then "" else Prefixed(header, name.Substring(0, name.Length - 2) + "qkv.")
 	fused is "" then MossLora.None else MossLora.Loaded(path, fused, strength).Third(part)
+IsFlipped(header Text) Boolean
+	Half.IsFlipped("\"hyperflow\":\"true\"")
+	Half.IsFlipped("\"hyperflow\":\"true\",\"hyperflow_fc1_layout\":\"gate_value\"") is false
+	Half.IsFlipped("") is false
+	false
+Swapped(lora MossLora, flipped Boolean) MossLora
+	Half.Swapped(MossLora(MossLora.Tiny, up = (1, 2, 3, 4)), true).up is (3, 4, 1, 2)
+	Half.Swapped(MossLora.Tiny, false) is MossLora.Tiny
+	lora
 Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
 	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
@@ -52,19 +66,53 @@ Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	if lora.rank is 0
 		return rows.Quantized(name)
 	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
-Prefixed(header Text, name Text) Text
+Dense(weights Safetensors, name Text) Slow(Batch)
+	H3Lora("").Dense(H3Block.Model, "video_patch_proj") is MossText.Dense(H3Block.Model, "video_patch_proj")
+	Half.Dense(H3Block.Model, "video_patch_proj").biases is not MossText.Dense(H3Block.Model, "video_patch_proj").biases
+	let batch = MossText.Dense(weights, name)
+	if loras is ""
+		return batch
+	Batch(Weighted(batch.weights, name), MossText.Added(batch.biases, Changed(name, "diff_b", batch.biases.Length)))
+Values(weights Safetensors, name Text) Slow(Numbers)
+	Half.Values(H3Block.Model, "blocks.1.norm1") is H3Block.Model.Values("blocks.1.norm1.weight")
+	Half.Values(H3Block.Model, "blocks.0.norm1") is not H3Block.Model.Values("blocks.0.norm1.weight")
+	let values = weights.Values(name + ".weight")
+	loras is "" then values else MossText.Added(values, Changed(name, "diff", values.Length))
+Weighted(rows List(Numbers), name Text) Slow(List(Numbers))
+	Half.Weighted(((1, 2), (3, 4)), "missing") is ((1, 2), (3, 4))
+	Half.Weighted(((1, 2), (3, 4)), "blocks.1.adaln_proj.linear") is ((1, 2), (3, 4))
+	let width = rows.First.Length
+	let lora = Stacked(name + ".")
+	let fits = lora.rank > 0 and lora.down.Length is lora.rank * width and lora.up.Length is lora.rank * rows.Length
+	let changes = Changed(name, "diff", rows.Length * width)
+	let delta = fits then MossText.Added(changes, lora.Dense) else changes
+	for rows
+		MossText.Added(value, delta.Slice(index * width, width))
+Changed(module Text, suffix Text, size Number) Slow(Numbers)
+	Half.Changed("missing", "diff", 2) is (0, 0)
+	Half.Changed("video_patch_proj", "diff_b", 256)(0) is not 0
+	Quarters.Changed("video_patch_proj", "diff_b", 256) is Half.Changed("video_patch_proj", "diff_b", 256)
+	mutable sum = Layer.Zeros(size)
+	for loras.Split(";")
+		let path = value.Split("=").First
+		let prefix = Prefixed(TensorFile.Header(path), module + ".", suffix + "\"")
+		if prefix is not ""
+			sum = MossText.Added(sum, Safetensors(path, 32, prefix).Values(suffix) * Strength(value))
+	sum
+Prefixed(header Text, name Text, suffix = "lora_") Text
 	Half.Prefixed("\"diffusion_model.b.fc1.lora_A.weight\"", "b.fc1.") is "diffusion_model.b.fc1."
 	Half.Prefixed("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."
 	Half.Prefixed("\"b.fc1.lora_down.weight\"", "b.fc1.") is "b.fc1."
 	Half.Prefixed("\"b.fc1.alpha\"", "b.fc1.") is ""
+	Half.Prefixed("\"b.norm1.diff_b\"", "b.norm1.", "diff\"") is ""
 	let kohya = "lora_unet_" + name.Substring(0, name.Length - 1).Replace(".", "_") + "."
 	for ("diffusion_model." + name, name, kohya)
-		if header.IndexOf("\"" + value + "lora_") >= 0
+		if header.IndexOf("\"" + value + suffix) >= 0
 			return value
 	""
 Report Text
 	H3Lora("").Report is ""
-	Half.Report is ", tinyh3lora.safetensors applies 35 of its 43 tensors"
+	Half.Report is ", tinyh3lora.safetensors applies 51 of its 61 tensors"
 	if loras is ""
 		return ""
 	mutable report = ""
@@ -75,11 +123,16 @@ Report Text
 		report = report + applied + " of its " + (header.Split("\"dtype\"").Length - 1) + " tensors"
 	report
 Applied(header Text) Number
-	Half.Applied("\"b.mlp.fc1.lora_A.weight\":{},\"b.mlp.fc1.alpha\":{},\"b.norm1.diff\"") is 2
+	Half.Applied("\"b.mlp.fc1.lora_A.weight\":{},\"b.mlp.fc1.alpha\":{},\"b.norm1.diff\"") is 3
 	Half.Applied("\"lora_unet_b_mlp_fc1.lora_down.weight\":{},\"lora_unet_b_mlp_fc1.alpha\":{}") is 2
+	Half.Applied("\"audio_out.lora_A.weight\",\"b.norm.diff\",\"final_layer.norm.diff\",\"condition_proj.diff_b\"") is 2
 	mutable count = 0
 	for Linears
 		count = count + Counted(header, "." + value + ".") + Counted(header, "_" + value.Replace(".", "_") + ".")
+	for Floats
+		count = count + Counted(header, value + ".") + header.Split(value + ".diff").Length - 1
+	for (".norm1.diff\"", ".norm2.diff\"", "final_layer.norm.diff\"", "adaln_proj.linear.diff_b\"")
+		count = count + header.Split(value).Length - 1
 	count
 Counted(header Text, module Text) Number
 	Half.Counted("\"a.b.lora_A\",\"a.b.alpha\",\"a.c.alpha\"", ".b.") is 2

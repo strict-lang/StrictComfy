@@ -4,11 +4,12 @@ has video Batch
 has audio Batch
 constant Tiny = H3Final.Loaded(Safetensors("tinyh3.safetensors"))
 constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
-Loaded(model Safetensors) Slow(H3Final)
+Loaded(model Safetensors, loras = "") Slow(H3Final)
 	Tiny.video.biases.Length is 96
-	let final = Safetensors(model.path, 32, model.prefix + "final_layer.")
-	let modulated = MossText.Dense(final, "adaln_proj.linear")
-	H3Final(final.Values("norm.weight"), modulated, MossText.Dense(final, "video_out"), MossText.Dense(final, "audio_out"))
+	let tuning = H3Lora(loras)
+	let modulated = tuning.Dense(model, "final_layer.adaln_proj.linear")
+	let shown = tuning.Dense(model, "final_layer.video_out")
+	H3Final(tuning.Values(model, "final_layer.norm"), modulated, shown, tuning.Dense(model, "final_layer.audio_out"))
 Output(hidden Numbers, curves Numbers, layout H3Layout, sigma Number) Slow(Numbers)
 	Tiny.Output(Model.Values("blocks.1"), Model.Values("t_emb"), H3Layout.Tiny, 0.75)(100).IsNearlyEqual(-2.90625, 0.05)
 	Tiny.Output(Model.Values("blocks.1"), Model.Values("t_emb"), H3Layout.Tiny, 0.75)(818).IsNearlyEqual(0.773438, 0.05)

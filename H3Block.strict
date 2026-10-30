@@ -16,16 +16,16 @@ constant Epsilon = 0.00001
 Loaded(model Safetensors, prefix Text, loras = "") Slow(H3Block)
 	Tiny.attention.Length is 1536
 	let rows = Safetensors(model.path, 16, model.prefix + prefix)
-	let norms = Safetensors(model.path, 32, rows.prefix)
-	let first = norms.Values("norm1.weight")
-	let second = norms.Values("norm2.weight")
-	let queried = norms.Values("attn.q_norm.weight")
-	let keyed = norms.Values("attn.k_norm.weight")
+	let first = H3Lora(loras).Values(model, prefix + "norm1")
+	let second = H3Lora(loras).Values(model, prefix + "norm2")
+	let queried = model.Values(prefix + "attn.q_norm.weight")
+	let keyed = model.Values(prefix + "attn.k_norm.weight")
 	let qkv = Merged(rows, "attn.qkv_proj", loras, prefix)
 	let projected = Merged(rows, "attn.out_proj", loras, prefix)
 	let expanded = Merged(rows, "mlp.fc1", loras, prefix)
 	let reduced = Merged(rows, "mlp.fc2", loras, prefix)
-	H3Block(first, second, queried, keyed, qkv, projected, expanded, reduced, Curved(norms), Deltas(rows, loras, prefix))
+	let curved = Curved(model, prefix, loras)
+	H3Block(first, second, queried, keyed, qkv, projected, expanded, reduced, curved, Deltas(rows, loras, prefix))
 Deltas(rows Safetensors, loras Text, prefix Text) Slow(List(MossLora))
 	H3Lora.Block.deltas.Length is 0
 	H3Block.Loaded(Model, "token_refiner.blocks.0.", H3Lora.Half.loras).deltas.Length is 4
@@ -40,12 +40,12 @@ Merged(rows Safetensors, name Text, loras Text, prefix Text) Slow(List(Numbers))
 	if rows.Entry(name + ".comfy_quant") is ""
 		return Projection(rows, name)
 	H3Lora(loras).Merged(rows, name, prefix)
-Curved(curves Safetensors) Slow(Batch)
-	Tiny.Curved(Safetensors(Model.path, 32, "blocks.1.")).biases.Length is 4608
+Curved(model Safetensors, prefix Text, loras = "") Slow(Batch)
+	Tiny.Curved(Model, "blocks.1.").biases.Length is 4608
 	H3Block.Loaded(Model, "token_refiner.blocks.0.").adaln.weights.Length is 0
-	if curves.Entry("adaln_proj.linear.weight") is ""
+	if model.Entry(prefix + "adaln_proj.linear.weight") is ""
 		return Batch(List(Numbers), Layer.Unbiased)
-	MossText.Dense(curves, "adaln_proj.linear")
+	H3Lora(loras).Dense(model, prefix + "adaln_proj.linear")
 Output(input Numbers, curves Numbers, starts Numbers, rotation Numbers, routing = 0, exact = 0) Slow(Numbers)
 	Layered(0).IsNearlyEqual(-1.015625, 0.03)
 	Layered(2309).IsNearlyEqual(0.40625, 0.03)

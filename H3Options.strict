@@ -12,7 +12,7 @@ has width = 480
 has height = 832
 has length = 124
 has output = "H3Video.mp4"
-constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per video", "presets of model, steps, attention and Spectrum (124 frames at 480x832 on a 4090): best the turbo model 8 steps 14 s, fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps 4 routed turbo steps 6.4 s, fastest2steps the base model with the TaoMate LoRA 2 routed steps 4.5 s", "sampling steps, 0 for the ones of --quality", "blocks first:last (of 50) every other evaluated step after the first two reuses, like 5:45, 10:40 or 15:35, off for none", "euler, res_multistep, er_sde, euler_ancestral, dpmpp_2m_sde, gradient_estimation or lcm (the last four but gradient_estimation add noise every step)", "simple, sgm_uniform, normal, beta, beta57 or linear_quadratic", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "videos per run, each with its own seed and prompt choices", "seed of the first video, the others follow from it, -1 for a random one", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s)", "numbered output base (.mp4), never overwritten")
+constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per video", "presets of model, steps, attention and Spectrum (124 frames at 480x832 on a 4090): best the turbo model 8 steps 14 s, fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps 4 routed turbo steps 6.4 s, fastest2steps the base model with the TaoMate LoRA 2 routed steps 4.5 s", "sampling steps, 0 for the ones of --quality", "blocks first:last (of 50) every other evaluated step after the first two reuses, like 5:45, 10:40 or 15:35, off for none", "euler, res_multistep, er_sde, euler_ancestral, dpmpp_2m_sde, gradient_estimation or lcm (the last four but gradient_estimation add noise every step)", "simple, sgm_uniform, normal, beta, beta57, linear_quadratic or hyperflow (HyperFlow's 8 step grid)", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "videos per run, each with its own seed and prompt choices", "seed of the first video, the others follow from it, -1 for a random one", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s)", "numbered output base (.mp4), never overwritten")
 Preset Numbers
 	H3Options.Parsed(List(Text)).Preset is (8, 0, 0)
 	H3Options.Parsed(("--quality", "faster")).Preset is (8, 1, 2)
@@ -27,6 +27,7 @@ Numbers Numbers
 	H3Options.Parsed(("--quality", "faster", "--steps", "6", "--skip", "off", "--sampler", "lcm")).Numbers(2) is 2
 	H3Options.Parsed(("--quality", "faster", "--steps", "6", "--skip", "off", "--sampler", "lcm")).Numbers(8) is 6
 	H3Options.Parsed(("--scheduler", "beta57")).Numbers(9) is 4
+	H3Options.Parsed(("--scheduler", "hyperflow")).Numbers(9) is 6
 	let preset = Preset
 	let blocks = Skipped
 	(Evaluated, 12, preset(2), 1, 1, preset(1), blocks(0), blocks(1), Samplers.Index(sampler), Schedulers.Index(scheduler))

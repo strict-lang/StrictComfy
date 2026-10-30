@@ -685,7 +685,9 @@ def tinyh3():
 def tinyh3lora():
 	"""An H3 LoRA for tinyh3.safetensors with the key names of the H3 speed LoRAs (diffusion_model.*.lora_A/lora_B.weight and
 	an alpha per linear, except blocks.1.mlp.fc2 without alpha, scaled by 1 like ComfyUI does), ranks 4/3/2/5 for qkv/out/fc1/fc2
-	in token_refiner block 0 and both blocks, plus the reference.* outputs of tinyh3's t2va forward with it applied by ComfyUI
+	in token_refiner block 0 and both blocks, LoRAs on the float audio_patch_proj and final_layer.audio_out, one on blocks.1's adaln
+	of the full form's width (16 instead of the curve's 8, ComfyUI skips it), FastH3's .diff and .diff_b on float weights, norms
+	and biases, plus the reference.* outputs of tinyh3's t2va forward with it applied by ComfyUI
 	at strength 0.5 and reference.qkv, the exact float32 blocks.0 qkv delta 0.5 * alpha / rank * B(A(x)), x = blocks.0.attn.input."""
 	from safetensors.torch import load_file
 	import comfy.ldm.minimax.model as minimax
@@ -703,6 +705,15 @@ def tinyh3lora():
 			lora[key + ".lora_B.weight"] = (torch.randn(outputs, rank) * 0.3 * rank ** -0.5).to(torch.bfloat16)
 			if key != "diffusion_model.blocks.1.mlp.fc2":
 				lora[key + ".alpha"] = torch.tensor(2.0 * rank)
+	for name, rank in (("audio_patch_proj", 3), ("final_layer.audio_out", 2), ("blocks.1.adaln_proj.linear", 2)):
+		outputs, inputs = weights[name + ".weight"].shape
+		inputs = 16 if "adaln" in name else inputs
+		lora["diffusion_model." + name + ".lora_A.weight"] = (torch.randn(rank, inputs) * inputs ** -0.5).to(torch.bfloat16)
+		lora["diffusion_model." + name + ".lora_B.weight"] = (torch.randn(outputs, rank) * 0.3 * rank ** -0.5).to(torch.bfloat16)
+	for name in ("video_patch_proj", "condition_proj", "final_layer.video_out", "blocks.0.norm1", "blocks.1.norm2", "token_refiner.blocks.0.norm1", "final_layer.norm"):
+		lora["diffusion_model." + name + ".diff"] = (torch.randn(weights[name + ".weight"].shape) * 0.1).to(torch.bfloat16)
+	for name in ("video_patch_proj", "audio_patch_proj", "condition_proj", "blocks.0.adaln_proj.linear", "final_layer.adaln_proj.linear"):
+		lora["diffusion_model." + name + ".diff_b"] = (torch.randn(weights[name + ".bias"].shape) * 0.1).to(torch.bfloat16)
 	model = comfy.sd.load_diffusion_model_state_dict(dict(weights))
 	model, _ = comfy.sd.load_lora_for_models(model, None, lora, strength, 0)
 	comfy.model_management.load_models_gpu([model])

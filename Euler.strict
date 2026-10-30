@@ -1,6 +1,7 @@
 has steps Number
 has shift Number
 constant Moss = Euler(8, 5)
+constant Flow = (1, 0.931506, 0.839236, 0.703462, 0.5, 0.296538, 0.160764, 0.068494, 0)
 Sigmas Numbers
 	Moss.Sigmas.Length is 9
 	Moss.Sigmas(0) is 1
@@ -48,15 +49,18 @@ Schedule(scheduler Number) Numbers
 	Euler(8, 12).Schedule(2)(4).IsNearlyEqual(0.902460515)
 	Euler(4, 12).Schedule(4)(3).IsNearlyEqual(0.563135028)
 	Euler(8, 12).Schedule(5)(5).IsNearlyEqual(0.909375012)
-	if scheduler is 1
-		return Spaced(steps)
-	if scheduler is 2
-		return Spaced((steps - 1).Clamp(1, steps))
-	if scheduler is 3
-		return Beta(0.6, 0.6)
-	if scheduler is 4
-		return Beta(0.5, 0.7)
+	Euler(8, 12).Schedule(6)(7).IsNearlyEqual(0.468753315)
+	if (scheduler is 1) or (scheduler is 2)
+		return Spaced(scheduler is 1 then steps else (steps - 1).Clamp(1, steps))
+	if (scheduler is 3) or (scheduler is 4)
+		return scheduler is 3 then Beta(0.6, 0.6) else Beta(0.5, 0.7)
+	if scheduler is 6
+		return HyperFlow
 	scheduler is 5 then Quadratic else Sigmas
+HyperFlow Numbers
+	Euler(8, 12).HyperFlow(1).IsNearlyEqual(0.993909785)
+	Euler(4, 12).HyperFlow is Error("HyperFlowNeedsEightSteps")
+	Sigmas
 Shifted(time Number) Number
 	Moss.Shifted(1) is 1
 	Moss.Shifted(0.5).IsNearlyEqual(5 / 6)

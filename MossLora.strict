@@ -40,6 +40,10 @@ Delta(input Numbers) Slow(Numbers)
 	MossImage(Logger).Error(Tiny.Delta(MossBlock.Input), Query) < 0.005
 	for Projected(input)
 		value / Gain
+Dense Slow(Numbers)
+	MossLora((1, 2), (64, 128), 1, 2).Dense is (1, 2, 2, 4)
+	for Products(up, down, (1, up.Length / rank, rank, columns), (0, 0, rank, 1, 0, 0, columns, 1)).Multiplied
+		value / Gain
 Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Slow(Numbers)
 	MossLora.Applied(List(MossLora), 0, (1, 2), (3, 4)) is (1, 2)
 	MossImage(Logger).Error(MossLora.Applied(List(MossLora) + Tiny, 0, Query, MossBlock.Input), Query * 2) < 0.005

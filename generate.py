@@ -24,7 +24,7 @@ SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
 # H3 sampler_name and scheduler like ComfyUI's (beta57 from RES4LYF), H3Video.exe gets their index; NOISY samplers add new
 # noise every step but the last
 SAMPLERS = ['euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm']
-SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linear_quadratic'], {'er_sde', 'euler_ancestral',
+SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linear_quadratic', 'hyperflow'], {'er_sde', 'euler_ancestral',
 	'dpmpp_2m_sde', 'lcm'}
 H3_TURBO, H3_BASE = 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'

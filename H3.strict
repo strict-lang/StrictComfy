@@ -15,10 +15,10 @@ Loaded(path Text, loras = "") Slow(H3)
 	Tiny.blocks.Length is 2
 	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
-	let patches = MossText.Dense(model, "video_patch_proj")
-	let heard = MossText.Dense(model, "audio_patch_proj")
+	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
+	let heard = H3Lora(loras).Dense(model, "audio_patch_proj")
 	let table = model.Values("adaln_t_table")
-	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks.", loras), H3Final.Loaded(model))
+	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks.", loras), H3Final.Loaded(model, loras))
 Weights(path Text, bits Number) Safetensors
 	H3.Weights("tinyh3.safetensors", 16).prefix is ""
 	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
