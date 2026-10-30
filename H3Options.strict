@@ -47,7 +47,7 @@ Samplers Texts
 	("euler", "res_multistep", "er_sde", "euler_ancestral", "dpmpp_2m_sde", "gradient_estimation", "lcm")
 Schedulers Texts
 	H3Options.Parsed(List(Text)).Schedulers(5) is "linear_quadratic"
-	("simple", "sgm_uniform", "normal", "beta", "beta57", "linear_quadratic")
+	("simple", "sgm_uniform", "normal", "beta", "beta57", "linear_quadratic", "hyperflow")
 IsNoisy Boolean
 	H3Options.Parsed(("--sampler", "lcm")).IsNoisy
 	H3Options.Parsed(("--sampler", "gradient_estimation")).IsNoisy is false

@@ -155,7 +155,7 @@ class StrictH3Sampler:
 			'optional': {'sampler_name': (generate.SAMPLERS, {'default': 'euler', 'tooltip': 'res_multistep is the default of '
 				'the H3 workflows, ' + ', '.join(sorted(generate.NOISY)) + ' add new noise every step; the same speed for each'}),
 				'scheduler': (generate.SCHEDULERS, {'default': 'simple', 'tooltip': 'beta57 is beta with alpha 0.5 and beta 0.7 '
-					'like RES4LYF'}),
+					'like RES4LYF, hyperflow the 8 step grid of the HyperFlow LoRA'}),
 				'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
 					'of the model of the quality, the LoRAs of the quality still apply'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
