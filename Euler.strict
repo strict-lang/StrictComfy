@@ -60,7 +60,10 @@ Schedule(scheduler Number) Numbers
 HyperFlow Numbers
 	Euler(8, 12).HyperFlow(1).IsNearlyEqual(0.993909785)
 	Euler(4, 12).HyperFlow is Error("HyperFlowNeedsEightSteps")
-	Sigmas
+	if steps is not 8
+		return Error("HyperFlowNeedsEightSteps")
+	for Flow
+		Shifted(value)
 Shifted(time Number) Number
 	Moss.Shifted(1) is 1
 	Moss.Shifted(0.5).IsNearlyEqual(5 / 6)

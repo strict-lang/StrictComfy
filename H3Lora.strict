@@ -53,11 +53,14 @@ IsFlipped(header Text) Boolean
 	Half.IsFlipped("\"hyperflow\":\"true\"")
 	Half.IsFlipped("\"hyperflow\":\"true\",\"hyperflow_fc1_layout\":\"gate_value\"") is false
 	Half.IsFlipped("") is false
-	false
+	(header.IndexOf("\"hyperflow\":\"true\"") >= 0) and (header.IndexOf("\"hyperflow_fc1_layout\":\"gate_value\"") < 0)
 Swapped(lora MossLora, flipped Boolean) MossLora
 	Half.Swapped(MossLora(MossLora.Tiny, up = (1, 2, 3, 4)), true).up is (3, 4, 1, 2)
 	Half.Swapped(MossLora.Tiny, false) is MossLora.Tiny
-	lora
+	if flipped is false
+		return lora
+	let half = lora.up.Length / 2
+	MossLora(lora, up = lora.up.Slice(half, half) + lora.up.Slice(0, half))
 Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
 	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
