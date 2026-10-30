@@ -79,6 +79,7 @@ bld/
 !tinyh3encoder.safetensors
 !tinyh3audio.safetensors
 !tinyh3lora.safetensors
+!tinyqkvlora.safetensors
 prompt*.txt
 *.jpg
 *.nativecache

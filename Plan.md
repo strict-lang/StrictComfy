@@ -3,16 +3,8 @@ This file lists only what is still to be implemented: remove an item once it is 
 
 ## Conventions
 - Model specific Strict code and fixtures (`Moss*`, `H3*`, `Euler`, VAEs, `tinymoss.safetensors`) live here in StrictComfy, run with `../Strict/strict.exe test|build X.strict`; only generic pieces go into `../Strict` (other sessions work there too).
-- `dump.py` (ComfyUI's `python_embeded`) writes reference dumps to `D:\StrictDumps\<name>` (`moss` with the DMD LoRA, `moss-base` without), prompt from `prompt.txt` (not checked in), 720 wide × 1280 high by default. `layer.py` recomputes layer 0 step by step in float32 torch from a dump (`layer0.safetensors`) to find where a port differs.
+- `dump.py` (ComfyUI's `python_embeded`) writes reference dumps to `D:\StrictDumps\<name>` (`moss` with the DMD LoRA, `moss-base` without), prompt from `prompt.txt` (not checked in), 720 wide × 1280 high by default.
 - Convrot int8 weights load as 8 bit packed rows whose per-32 scales all are the row scale (`Safetensors.Quantized`, exact) and run on the existing int8 tensor core path; activations are quantized per 32 numbers (ComfyUI: per token).
-
-## Moss (RTX 3080)
-- Resident backend: on 10 GB cards keeping the Moss weights on the GPU beats freeing them (Performance.md); a card that can not fit them next to ComfyUI's working set would evict them at job boundaries (`GpuMemory.Evicted`, like H3Video's resident mode).
-- Node: negative conditioning for cfg above 1 (Strict guides against a zero prompt of the positive's length; another length needs its own rotation table).
-- Runtime LoRA speed (5.3 s per image against 3.25 s merged): the LoRA epilogue (base + delta / Gain) fused into the expand `Products` (about 0.38 s per image of memory traffic), occupancy of the rank-128 down projection (split-K or a 64x128 tile), the per-image re-uploads (56/31/28 MB x 42).
-- Grouped Modulated/Rotated vectorization, the full-size Rotated index miscompile, gate/modulation precision alignment.
-- Merged LoRAs: per-32 scales for less rounding (stochastic rounding is approximate, 21-25 dB against runtime adapters). Spectrum: adaptive scheduling and ER-SDE are not covered (Spectrum.md).
-- GEMM: no emitter change accepted yet, the analysis is in [GemmStalls3080.md](GemmStalls3080.md).
 
 ## H3 (RTX 4090)
 - Steps: `best` 5.99-6.09 s against comfy_kitchen int8's 5.24-5.29 s per step of a 10 s clip (Readme.md); the gap is runtime work in ../Strict/improvements-gpu.md (dense attention, weight uploads not overlapped with compute, collections before activation blocks).
