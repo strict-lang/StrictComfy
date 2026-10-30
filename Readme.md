@@ -11,7 +11,7 @@ From this folder, with `../Strict/strict.exe`:
 ../Strict/strict.exe build H3Video.strict
 ```
 
-`MossImage.exe` and `H3Video.exe` are the commands and also the backends of the ComfyUI nodes, which start them from this folder with `-` as the first argument (then they read one job folder per input line and keep the model loaded). To ship the nodes, copy the Python files with both executables and the PTX files next to each (`Name.ptx`, `Name.runtime.ptx`, and the `.older.ptx` variants for older GPUs). The Python files serve ComfyUI only: `__init__.py` and `generate.py` are the nodes, `merge.py` the Moss node's cached LoRA merges, `dump.py` writes ComfyUI references and the tiny test fixtures. The first run of a new build compiles its PTX (tens of seconds), later runs use the CUDA cache in `artifacts/`.
+`MossImage.exe` and `H3Video.exe` are the commands and also the backends of the ComfyUI nodes, which start them from this folder with `-` as the first argument (then they read one job folder per input line and keep the model loaded). To ship the nodes, copy the Python files with both executables and the GPU files next to each (`Name.fatbin` and `Name.runtime.fatbin` with the compiled kernels for sm_75, sm_80, sm_86 and sm_89, `Name.ptx`, `Name.runtime.ptx` and the `.older.ptx` variants for other GPUs). The Python files serve ComfyUI only: `__init__.py` and `generate.py` are the nodes, `merge.py` the Moss node's cached LoRA merges, `dump.py` writes ComfyUI references and the tiny test fixtures. Other GPUs compile the PTX on their first run (tens of seconds), later runs use the CUDA cache in `artifacts/`.
 
 ## ComfyUI node: Strict Moss Sampler
 

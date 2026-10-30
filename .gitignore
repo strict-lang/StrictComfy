@@ -48,6 +48,7 @@ bld/
 *.exe
 *.wasm
 *.ptx
+*.fatbin
 *.metal
 *.hsaco
 *.asm

@@ -51,7 +51,8 @@ ImageAttended(normed Numbers, rotation Numbers, kept Number) Slow(Numbers)
 	let combined = Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated)
 	let queries = Safetensors.Part(Rotated(combined, 0, width, queryNorm, rotation), 0, kept, 1)
 	let keys = Rotated(combined, width, width, keyNorm, rotation)
-	let merged = Attention(queries, keys, Values(combined, width), Heads, Heads, queryNorm.Length, 1, false, 0, 0, true).Merged
+	let size = queryNorm.Length
+	let merged = Attention(queries, keys, combined, Heads, Heads, size, 1, false, 2 * width, 3 * width, true).Merged
 	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
 Attended(normed Numbers, rotation Numbers) Slow(Numbers)
 	Tiny.Attended(Input, Rotation).Length is 4864
@@ -66,10 +67,7 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Slow(N
 	let heads = width / size
 	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
 	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
-	Attention(rotatedQueries, rotatedKeys, Values(combined, width), heads, heads, size, 1, false, 0, 0, true).Merged
-Values(combined Numbers, width Number) BFloat16s
-	for combined.Length / 3
-		combined(index + (index / width).Floor * 2 * width + 2 * width)
+	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
 FedForward(normed Numbers) Slow(Numbers)
 	Tiny.FedForward(Input).Length is 4864
 	let expanded = Batch(expansion, Layer.Unbiased).Sums(Convrot(normed).Rotated)
