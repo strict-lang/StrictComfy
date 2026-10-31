@@ -1,6 +1,6 @@
 # StrictComfy
 
-ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): `MossImage.exe` and `H3Video.exe` make images and videos with sound from a prompt file on their own (no Python or ComfyUI, only the model files), the Strict Moss Sampler and Strict H3 Sampler nodes sample in Strict inside a ComfyUI workflow. Pending work is in [Plan.md](Plan.md), measurements in [Performance.md](Performance.md), Spectrum forecasting in [Spectrum.md](Spectrum.md).
+ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): `MossImage.exe` and `H3Video.exe` make images and videos with sound from a prompt file on their own (no Python or ComfyUI, only the model files), the Strict Moss Sampler and Strict H3 Sampler nodes sample in Strict inside a ComfyUI workflow. Pending work is in [Plan.md](Plan.md), Spectrum forecasting in [Spectrum.md](Spectrum.md).
 
 ## Build
 
@@ -41,7 +41,7 @@ What the node does: it reads the checkpoint path from the MODEL, turns the LoRA 
 - `cfg` above 1 guides away from a zero prompt (Strict's CFG), there is no negative input; every step then runs the model twice.
 - `spectrum`: `off` or `spectrum<steps>_w<warmup>p<period>`, `spectrum8_w3p3` forecasts 3 of 8 steps.
 - Only plain LoRA up/down patches are used, other MODEL patches (LoKR, model sampling, attention patches) are rejected or ignored; the latent input only gives the size (no img2img).
-- Speed on the RTX 3080 at 720x1280, 8 steps, DMD merged: a queued prompt with an already loaded backend takes sampling + 1.5 s (VAE decode and handoff), the first one also loads the model (3-4 s). See Performance.md for the current sampling time.
+- Speed on the RTX 3080 at 720x1280, 8 steps, DMD merged: a queued prompt with an already loaded backend takes sampling + 1.5 s (VAE decode and handoff), the first one also loads the model (3-4 s).
 - The resident backend keeps the Moss weights on the GPU between runs, so a changed prompt encodes with less free GPU memory in ComfyUI.
 
 ## Command line: MossImage.exe
@@ -129,7 +129,7 @@ One `quality` setting picks the speed and the quality, where ComfyUI needs a mod
 
 With the same model and steps the node is 1.7x (`best` against ComfyUI's 8 turbo steps, 1.5x against the 125.6 s of 2026-10-27) and 1.9x (`fastest4steps` against 4 turbo steps) faster. The turbo presets use the 768p turbo 8-step checkpoint, almost as good as the 600 EMA larry turbo LoRA that wins most 8-step comparisons; a `model` input (Load Diffusion Model with any turbo LoRA through LoraLoaderModelOnly) replaces the checkpoint at the same speed, the presets add no turbo LoRA of their own on top (only `fastest2steps` adds TaoMate).
 
-ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint, [Performance.md](Performance.md)): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
+ComfyUI's attention speed-ups per step of a 10 s clip (243 frames, the turbo checkpoint): default attention 9.62-9.73 s, SageAttention 6.37-6.42 s, comfy_kitchen int8 5.24-5.29 s (the one that keeps the quality), Sol-Attn 3.34-3.49 s; Strict `best` 5.99-6.09 s, `fast` 3.68-3.74 s (routed attention like Sol-Attn). ComfyUI's Spectrum node failed on this ComfyUI.
 
 ## Command line: H3Video.exe
 
@@ -154,7 +154,7 @@ C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --last_imag
 | `fastest4steps` | turbo | 4 | routed | 6.6 s, 12.5 s | 13.3 s, 24.3 s |
 | `fastest2steps` | base + TaoMate 3-step LoRA (strength 1) | 2 | routed | 4.2 s, 10.0 s | 9.4 s, 20.1 s |
 
-A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge) and the VAEs (2-3 s): 23.7 s (`faster`) to 36.3 s (`best`) for 5 s, 37.5 to 58.6 s for 10 s. A new prompt adds the text encoder (29 s to load, 7 s per prompt). Every preset runs with `--skip 5:45` (below). ComfyUI's default H3 workflow (Image to Video (MiniMax H3) with its Lightning LoRA: the base model with the turbo 8-step LoRA, 8 `res_multistep` steps) takes 38.5 s per 5 s video and 118.4 s per 10 s video ([Performance.md](Performance.md)).
+A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge) and the VAEs (2-3 s): 23.7 s (`faster`) to 36.3 s (`best`) for 5 s, 37.5 to 58.6 s for 10 s. A new prompt adds the text encoder (29 s to load, 7 s per prompt). Every preset runs with `--skip 5:45` (below). ComfyUI's default H3 workflow (Image to Video (MiniMax H3) with its Lightning LoRA: the base model with the turbo 8-step LoRA, 8 `res_multistep` steps) takes 38.5 s per 5 s video and 118.4 s per 10 s video.
 
 `--help` lists every option with its default and description (the options are the members of `H3Options` and `H3Files`, parsed by Strict's generated `Parsed`):
 
@@ -208,4 +208,4 @@ Arguments after the executable: `dumps model name loras steps shift period warmu
 - `routing`: `--routing` (0 attends densely), `first` and `last`: the blocks of `--skip` (0 and 0 for none).
 - `sampler`: 0 `euler`, 1 `res_multistep`, 2 `er_sde`, 3 `euler_ancestral`, 4 `dpmpp_2m_sde`, 5 `gradient_estimation`, 6 `lcm` (the noise of 2, 3, 4 and 6 in the job as `video.noise.<step>` and `audio.noise.<step>`, none is no noise), `scheduler`: 0 `simple`, 1 `sgm_uniform`, 2 `normal`, 3 `beta`, 4 `beta57`, 5 `linear_quadratic`, 6 `hyperflow` (8 steps only).
 
-Loading the 21 GB model takes 14-20 s, merging adds about 20 s for TaoMate (rank 4-21) and 80 s for the turbo 8-step LoRA (rank 128-384). The first step of a fresh process uploads all weights once (about 12 s more), the H3 reference folder hides that in its per-layer comparison before sampling. Timings and quality numbers are in [Performance.md](Performance.md).
+Loading the 21 GB model takes 14-20 s, merging adds about 20 s for TaoMate (rank 4-21) and 80 s for the turbo 8-step LoRA (rank 128-384). The first step of a fresh process uploads all weights once (about 12 s more), the H3 reference folder hides that in its per-layer comparison before sampling.

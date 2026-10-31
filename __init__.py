@@ -120,9 +120,9 @@ class StrictMossSampler:
 		turbos = [] if turbo == 'off' else generate.selected_loras(args, Path(folder_paths.models_dir), metadata)
 		loras = [(path, strength) for path, strength in turbos if not generate.turbo_patched(model.patches, path)]
 		loras += [(patches, 1.0)] if patches else []
+		comfy.model_management.unload_all_models()
 		released(model, prompt, unique_id)
 		loaded, adapter = generate.lora_model(args, checkpointed, loras)
-		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		progress = comfy.utils.ProgressBar(batch)
 		latents = []
@@ -182,9 +182,9 @@ class StrictH3Sampler:
 		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', args.model))
 		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
 		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
+		comfy.model_management.unload_all_models()
 		released(model, prompt, unique_id)
 		loaded, adapter = generate.lora_model(args, chosen, loras)
-		comfy.model_management.unload_all_models()
 		comfy.model_management.soft_empty_cache()
 		decoder = tiny_decoder()
 		if decoder:
