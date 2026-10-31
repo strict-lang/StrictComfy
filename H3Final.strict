@@ -19,7 +19,7 @@ Output(hidden Numbers, curves Numbers, layout H3Layout, sigma Number) Slow(Numbe
 	let seen = Unpatched(video.Sums(Safetensors.Part(normed, first + count, normed.Length - first - count, 1)), layout)
 	let heard = Unpacked(audio.Sums(Safetensors.Part(normed, first, count, 1)), layout)
 	for seen + heard
-		0 - value
+		-value
 Unpatched(rows Numbers, layout H3Layout) Slow(Numbers)
 	Tiny.Unpatched((1, 2, 3, 4, 5, 6, 7, 8), H3Layout(List(Number), List(Number), 0, 1, 2, 4)) is (1, 2, 5, 6, 3, 4, 7, 8)
 	let width = layout.width

@@ -42,12 +42,12 @@ Sinusoid(time Number, count Number) Numbers
 	Moss.Sinusoid(1, 4)(3).IsNearlyEqual(0.0099998)
 	let half = count / 2
 	for count
-		let angle = Degrees(Radians(time * (0 - 10000.Logarithm * (index % half) / half).Exponential) to Degrees)
+		let angle = Degrees(Radians(time * (-(index % half) * 10000.Logarithm / half).Exponential) to Degrees)
 		index < half then angle.Cos else angle.Sin
 Silu(values Numbers) Numbers
 	Moss.Silu((0, 1)) is (0, 0.7310585786300049)
 	for values
-		value / (1 + (0 - value).Exponential)
+		value / (1 + (-value).Exponential)
 Brain(number Number) Number
 	Moss.Brain(750) is 752
 	Moss.Brain(0.9722222) is 0.97265625

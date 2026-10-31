@@ -55,13 +55,13 @@ Sine(radians Number) Number
 	mutable term = reduced
 	mutable sum = reduced
 	for 12
-		term = 0 - term * reduced * reduced / ((2 * index + 2) * (2 * index + 3))
+		term = -term * reduced * reduced / ((2 * index + 2) * (2 * index + 3))
 		sum = sum + term
-	turns % 2 is 0 then sum else 0 - sum
+	turns % 2 is 0 then sum else -sum
 Fixed(raw Numbers) Numbers
 	Lanczos.Fixed((1, 3)) is (1048576, 3145728)
 	Lanczos.Fixed((-1, 3)) is (-2097152, 6291456)
 	let total = raw.Sum
 	for raw
 		let share = value / total * 4194304
-		share < 0 then 0 - (0.5 - share).Floor else (share + 0.5).Floor
+		share < 0 then -(0.5 - share).Floor else (share + 0.5).Floor

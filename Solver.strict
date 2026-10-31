@@ -51,7 +51,7 @@ Multistep(step Number) Numbers
 	let sigma = sigmas(step)
 	let size = (sigma / sigmas(step + 1)).Logarithm
 	let ratio = (sigma / sigmas(step - 1)).Logarithm / size
-	let first = (1 - (0 - size).Exponential) / size
+	let first = (1 - (-size).Exponential) / size
 	let second = (1 - first) / size
 	(sigmas(step + 1) / sigma, size * (first - second / ratio), size * second / ratio, 0)
 Ancestral(step Number) Numbers
@@ -67,10 +67,10 @@ Midpoint(step Number) Numbers
 	Midway.Stepped((0.025149838, -0.775300178), 1, 0, (0.5, -1)).latent(0).IsNearlyEqual(0.616050576)
 	let size = (Lambda(step) / Lambda(step + 1)).Logarithm
 	let following = sigmas(step + 1)
-	let fading = (0 - 2 * size).Exponential
+	let fading = (-2 * size).Exponential
 	let taken = (1 - following) * (1 - fading)
 	let corrected = denoised.Length is 0 then 0 else 0.5 * taken * size / (Lambda(step - 1) / Lambda(step)).Logarithm
-	(following / sigmas(step) * fading.SquareRoot, taken + corrected, 0 - corrected, following * (1 - fading).SquareRoot)
+	(following / sigmas(step) * fading.SquareRoot, taken + corrected, -corrected, following * (1 - fading).SquareRoot)
 Estimated(output Numbers, step Number, start Number) Numbers
 	Solver(Toy, kind = 5).Stepped((0.25, -1.25), 0).latent is (0.984375, -1.921875)
 	Solver(Toy, kind = 5).Stepped((0.25, -1.25), 0).Stepped((0.275, -1.275), 1).latent(1).IsNearlyEqual(-1.786458308)

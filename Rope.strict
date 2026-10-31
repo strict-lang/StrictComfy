@@ -23,7 +23,7 @@ Turned(at Number, angle Degrees) Number
 	let within = at % head
 	if within >= 2 * half
 		return at < head then 1 else 0
-	at < head then angle.Cos else (within < half then 0 - angle.Sin else angle.Sin)
+	at < head then angle.Cos else (within < half then -angle.Sin else angle.Sin)
 Still(tokens Number) Numbers
 	Video.Still(17).Length is 4352
 	Video.Still(17)(129) is 0

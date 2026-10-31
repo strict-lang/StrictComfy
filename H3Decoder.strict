@@ -62,7 +62,7 @@ Frequencies Slow(Numbers)
 	Tiny.Frequencies(1).IsNearlyEqual(0.5623413)
 	Tiny.Frequencies.Length is 8
 	for H3DecoderBlock.Decoding.half / 3
-		100 ^ (0 - index / (H3DecoderBlock.Decoding.half / 3))
+		100 ^ (-index / (H3DecoderBlock.Decoding.half / 3))
 Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 	Tiny.Coordinates(7, 2, 2)(0).IsNearlyEqual(-0.857143)
 	Tiny.Coordinates(7, 2, 2)(4) is -0.5

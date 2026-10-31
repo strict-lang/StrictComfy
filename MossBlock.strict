@@ -103,7 +103,7 @@ Rotations(height Number, width Number, text Number, size Number) Slow(Numbers)
 		let pair = at % (size / 2)
 		let position = Position((index / (2 * size)).Floor, (pair / (size / 8)).Floor, height, width, text)
 		let angle = Degrees(Radians(position * 10000 ^ (-(pair % (size / 8)) / (size / 8))) to Degrees)
-		at < size then angle.Cos else (at < size * 3 / 2 then 0 - angle.Sin else angle.Sin)
+		at < size then angle.Cos else (at < size * 3 / 2 then -angle.Sin else angle.Sin)
 Position(token Number, axis Number, height Number, width Number, text Number) Number
 	MossBlock.Position(0, 2, 4, 4, 3) is -1.5
 	MossBlock.Position(17, 1, 4, 4, 3) is 1
@@ -117,8 +117,8 @@ Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(1, 0) is 0
 	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
-	let squashed = 4 * (2 / (1 + (0 - gate / 2).Exponential) - 1) / (1 + (0 - gate).Exponential)
-	squashed * 25 * (2 / (1 + (0 - hidden * 2 / 25).Exponential) - 1)
+	let squashed = 4 * (2 / (1 + (-gate / 2).Exponential) - 1) / (1 + (-gate).Exponential)
+	squashed * 25 * (2 / (1 + (-hidden * 2 / 25).Exponential) - 1)
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s
 	let size = weights.Length
 	let half = size / 2

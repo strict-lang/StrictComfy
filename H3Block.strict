@@ -104,7 +104,7 @@ Activated(expanded Numbers, width Number) Slow(BFloat16s)
 	for expanded.Length / 2
 		let first = (index / width).Floor * 2 * width + index % width
 		let gate = expanded(first)
-		gate / (1 + (0 - gate).Exponential) * expanded(first + width)
+		gate / (1 + (-gate).Exponential) * expanded(first + width)
 Normalized(input Numbers, weights Numbers) Slow(Numbers)
 	Tiny.Normalized((3, 4), (1, 2))(1).IsNearlyEqual(2.262742)
 	let width = weights.Length
