@@ -11,6 +11,8 @@ constant Lowered = Moss.Loaded("tinymoss.safetensors", "tinylora.safetensors")
 constant Words = MossLora.Lowered.TextEmbedded(Moss.Context, 3)
 constant Output = MossLora.Lowered.Output(Latent, 0.75, Words, MossBlock.Rotation)
 constant None = MossLora(List(Number), List(Number), 0, 0)
+constant Fours = MossBlock.Loaded(Safetensors("tinymossint4.safetensors"), "layers.0.", "")
+constant FoursOutput = Fours.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
 Loaded(path Text, prefix Text, strength = 1) Slow(MossLora)
 	Tiny.rank is 8
 	Tiny.columns is 256

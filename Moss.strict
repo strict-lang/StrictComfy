@@ -17,6 +17,7 @@ Loaded(path Text, lora Text) Slow(Moss)
 	Tiny.layers.Length is 2
 	Tiny.texts.Length is 2
 	Moss.Loaded("tinymoss.gguf", "").layers.Length is 2
+	Moss.Loaded("tinymossint4.safetensors", "").layers.Length is 2
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
 	let model = Safetensors(path, 16)
@@ -25,7 +26,7 @@ Loaded(path Text, lora Text) Slow(Moss)
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
 Layers(model Safetensors, lora Text) Slow(List(MossBlock))
 	Tiny.Layers(Model, "").Length is 2
-	for TensorFile.Header(model.path).Split(".proj.q.comfy_quant").Length - 1
+	for TensorFile.Header(model.path).Split(".proj.q.weight\"").Length - 1
 		MossBlock.Loaded(model, "layers." + index + ".", lora)
 Texts(model Safetensors) Slow(List(MossText))
 	Tiny.Texts(Model).Length is 2

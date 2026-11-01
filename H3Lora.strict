@@ -65,9 +65,10 @@ Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
 	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
 	MossImage(Logger).Error(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
+	MossImage(Logger).Error(MossLora.FoursOutput, MossBlock.Layered) < 0.1
 	let lora = Stacked(prefix + name + ".")
 	if lora.rank is 0
-		return rows.Quantized(name)
+		return rows.Entry(name + ".weight").IndexOf("\"I4\"") >= 0 then rows.Quantized(name, 4) else rows.Quantized(name)
 	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
 Dense(weights Safetensors, name Text) Slow(Batch)
 	H3Lora("").Dense(H3Block.Model, "video_patch_proj") is MossText.Dense(H3Block.Model, "video_patch_proj")
