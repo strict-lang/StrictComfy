@@ -76,3 +76,4 @@ prompt*.txt
 *.mp4
 *.rgb
 Tests.test-*
+*.log
