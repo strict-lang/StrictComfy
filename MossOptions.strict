@@ -55,6 +55,10 @@ Span MossSpan
 Loras Text
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
 	MossOptions.Parsed(("--models", ".")).Loras is Error("FileNotFound:moss/dmd_turbo_lora.safetensors")
+	MossOptions.Parsed(("--model", "tinymoss.gguf", "--models", ".")).Loras is ""
+	MossOptions.Parsed(("--model", "a.gguf", "--lora", "b")).Loras is Error("LorasNeedSafetensorsModel")
+	if files.model.EndsWith(".gguf")
+		return lora.Length is 0 then "" else Error("LorasNeedSafetensorsModel")
 	let specs = Specs
 	let turbo = (Evaluated <= 8) and (Text.Combine(specs, ";").IndexOf("dmd_turbo_lora.safetensors") < 0)
 	let added = turbo then List(Text) + (files.Located("moss/dmd_turbo_lora.safetensors", "loras") + "=1") else List(Text)
