@@ -1,6 +1,6 @@
 # StrictComfy
 
-ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): `MossImage.exe` and `H3Video.exe` make images and videos with sound from a prompt file on their own (no Python or ComfyUI, only the model files), the Strict Moss Sampler and Strict H3 Sampler nodes sample in Strict inside a ComfyUI workflow. Pending work is in [Plan.md](Plan.md), Spectrum forecasting in [Spectrum.md](Spectrum.md).
+ComfyUI's Moss (image DiT) and MiniMax H3 (video and audio DiT) running in [Strict](../Strict): `MossImage.exe` and `H3Video.exe` make images and videos with sound from a prompt file on their own (no Python or ComfyUI, only the model files), the Strict Moss Sampler and Strict H3 Sampler nodes sample in Strict inside a ComfyUI workflow. Spectrum forecasting is in [Spectrum.md](Spectrum.md).
 
 ## Build
 
