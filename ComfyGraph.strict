@@ -1,0 +1,115 @@
+has nodes Jsons
+has links Jsons
+has known Texts
+constant Values = ("PrimitiveInt", "PrimitiveFloat", "PrimitiveString", "PrimitiveStringMultiline", "PrimitiveBoolean", "DPRandomGenerator", "ComfyMathExpression", "ResolutionSelector", "UnifiedResizeImageMask")
+constant Tiny = ComfyGraph.Read("tinyh3workflow.json", H3Workflow.Known)
+Read(path Text, supported Texts) Slow(ComfyGraph)
+	Tiny.nodes.Length is 26
+	Tiny.links.Length is 29
+	let workflow = Json.Read(path)
+	ComfyGraph(workflow("nodes").Elements, workflow("links").Elements, supported)
+Node(id Number) Json
+	Tiny.Type(Tiny.Node(15)) is "MiniMaxH3ImageToVideo"
+	Tiny.Node(99) is Error("NodeNotFound:99")
+	for nodes
+		if (value("id") to Number) is id
+			return value
+	Error("NodeNotFound:" + id)
+Type(node Json) Text
+	Tiny.Type(Tiny.Node(1)) is "UNETLoader"
+	node("type") to Text
+Active(types Texts) Jsons
+	Tiny.Active(List(Text) + "LoraLoaderModelOnly").Length is 0
+	Tiny.Active(("UNETLoader", "KSamplerSelect")).Length is 2
+	for nodes
+		if ((value("mode") to Number) is 0) and (Type(value) is in types)
+			value
+Widget(node Json, name Text, position Number) Json
+	Tiny.Widget(Tiny.Node(1), "unet_name", 0) to Text is "tinyh3.safetensors"
+	Tiny.Widget(Tiny.Node(11), "noise_seed", 1) to Number is 42
+	Tiny.Widget(Tiny.Node(27), "filename_prefix", 0) to Text is "tiny"
+	let named = "widgets_values_named" is in node.Keys then node("widgets_values_named") else Json("{}")
+	if name is in named.Keys
+		return named(name)
+	let widgets = node("widgets_values")
+	name is in widgets.Keys then widgets(name) else widgets.Elements(position)
+Inputs(node Json) Jsons
+	Tiny.Inputs(Tiny.Node(15)).Length is 8
+	Tiny.Inputs(Json("{\"id\": 1}")).Length is 0
+	"inputs" is in node.Keys then node("inputs").Elements else List(Json)
+Input(node Json, name Text) Json
+	Tiny.Input(Tiny.Node(9), "model").Elements(0) to Number is 8
+	Tiny.Input(Tiny.Node(15), "last_frame").text is ""
+	for Inputs(node)
+		if ((value("name") to Text) is name) and ((value("link") to Text) is not "null")
+			return Linking(value("link") to Number)
+	Json("")
+Linking(id Number) Json
+	Tiny.Linking(14).Elements(1) to Number is 15
+	Tiny.Linking(99) is Error("LinkNotFound:99")
+	for links
+		if (value.Elements(0) to Number) is id
+			return value
+	Error("LinkNotFound:" + id)
+Origin(link Json) Json
+	Tiny.Type(Tiny.Origin(Tiny.Linking(14))) is "MiniMaxH3ImageToVideo"
+	Node(link.Elements(1) to Number)
+Producer(link Json) Json
+	Tiny.Producer(Tiny.Linking(7)).Elements(0) to Number is 5
+	Tiny.Producer(Tiny.Linking(16)).Elements(0) to Number is 20
+	Tiny.Producer(Tiny.Linking(2)).Elements(0) to Number is 3
+	let origin = Origin(link)
+	let type = Type(origin)
+	if ((origin("mode") to Number) is 0) and ((type is in known) or (type is in Values))
+		return link
+	Producer(Passed(origin, link.Elements(5) to Text))
+Passed(node Json, type Text) Json
+	Tiny.Passed(Tiny.Node(4), "STRING").Elements(0) to Number is 3
+	Tiny.Passed(Tiny.Node(5), "INT") is Error("UnsupportedNode:RandomNumber")
+	for Inputs(node)
+		if (value("link") to Text) is not "null"
+			let link = Linking(value("link") to Number)
+			let linked = link.Elements(5) to Text
+			if (linked is type) or (linked is "*") or (type is "*")
+				return link
+	Error("UnsupportedNode:" + Type(node).Replace(" ", "_"))
+Skipped Texts
+	Tiny.Skipped.Length is 6
+	Tiny.Skipped(4) is "easy imageInsetCrop"
+	mutable skipped = List(Text)
+	for nodes
+		let type = Type(value)
+		let isKnown = (type is in known) or (type is in Values)
+		if ((value("mode") to Number) is 0) and (isKnown is false) and (type is not in skipped)
+			skipped = skipped + type
+	skipped
+Text(node Json, name Text, position Number) Text
+	Tiny.Text(Tiny.Node(15), "prompt", 0) is "a {red|blue} fox"
+	Tiny.Text(Tiny.Node(15), "length", 3) is "124"
+	Tiny.Text(Tiny.Node(15), "width", 1) is "480"
+	Tiny.Text(Tiny.Node(12), "sampler_name", 0) is "res_multistep"
+	let link = Input(node, name)
+	link.text is "" then Widget(node, name, position) to Text else Value(Producer(link))
+Value(link Json) Text
+	Tiny.Value(Tiny.Linking(23)) is "5"
+	Tiny.Value(Tiny.Linking(18)) is "832"
+	Produced(Origin(link), link.Elements(2) to Number)
+Produced(node Json, slot Number) Text
+	Tiny.Produced(Tiny.Node(3), 0).StartsWith("[{")
+	Tiny.Produced(Tiny.Node(23), 0) is Error("UnsupportedValue:EnhancementUtils_ImageLoadWithSubfolders")
+	let type = Type(node)
+	if type is "ComfyMathExpression"
+		return Expressed(node, slot) to Text
+	if type is in ("ResolutionSelector", "UnifiedResizeImageMask")
+		return ComfySize(ComfyGraph(nodes, links, known), node).Sized(slot) to Text
+	if type is not in Values
+		return Error("UnsupportedValue:" + type.Replace(" ", "_"))
+	Widget(node, type is "DPRandomGenerator" then "text" else "value", 0) to Text
+Expressed(node Json, slot Number) Number
+	Tiny.Expressed(Tiny.Node(20), 1) is 124
+	mutable values = List(Number)
+	for Inputs(node)
+		if (value("name") to Text).StartsWith("values.") and ((value("link") to Text) is not "null")
+			values = values + (Value(Producer(Linking(value("link") to Number))) to Number)
+	let result = MathExpression(Widget(node, "expression", 0) to Text, values).Result
+	slot is 1 then result.Truncated else result

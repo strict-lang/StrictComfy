@@ -1,0 +1,68 @@
+has graph ComfyGraph
+has node Json
+constant Selector = ComfySize(ComfyGraph.Tiny, Json("{\"type\": \"ResolutionSelector\", \"widgets_values\": [\"9:16 (Portrait Widescreen)\", 0.2, 32]}"))
+constant Total = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(19))
+constant Shorter = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(18))
+Sized(slot Number) Number
+	Selector.Sized(0) is 352
+	Total.Sized(2) is 480
+	Total.Sized(3) is 832
+	Shorter.Sized(3) is 1344
+	graph.Type(node) is "ResolutionSelector" then Selected(slot) else Resized(slot - 2)
+Selected(dimension Number) Number
+	Selector.Selected(0) is 352
+	Selector.Selected(1) is 608
+	let ratio = Ratio(Widget("aspect_ratio", 0))
+	let multiple = Widget("multiple", 2) to Number
+	let scale = ((Widget("megapixels", 1) to Number) * 1024 * 1024 / (ratio(0) * ratio(1))).SquareRoot
+	(ratio(dimension) * scale / multiple).Counted("Even") * multiple
+Ratio(name Text) Numbers
+	Selector.Ratio("9:16 (Portrait Widescreen)") is (9, 16)
+	Selector.Ratio("Auto (Input Image)") is Error("UnsupportedAspectRatio:Auto")
+	let parts = name.Split(" ").First.Split(":")
+	parts.Length is 2 then (parts(0) to Number, parts(1) to Number) else Error("UnsupportedAspectRatio:" + parts(0))
+Resized(dimension Number) Number
+	Total.Resized(0) is 480
+	Shorter.Resized(1) is 1344
+	let size = Scaled(Widget("scale_mode", 0))
+	Snapped(size, Widget("divisible_by", 10) to Number, Widget("maintain_aspect", 11) is "true")(dimension)
+Scaled(mode Text) Numbers
+	Total.Scaled("Total Pixels (MP)") is (480, 854)
+	Total.Scaled("Dimensions (W x H)") is (1024, 1024)
+	if mode.StartsWith("Dimensions")
+		return (Widget("width", 4) to Number, Widget("height", 5) to Number)
+	let ratio = Ratio(Widget("aspect_ratio", 1))
+	if mode.StartsWith("Total Pixels") is false
+		return Sides(mode, ratio)
+	let area = (Widget("megapixels", 7) to Number) * 1000000
+	let width = (area * ratio(0) / ratio(1)).SquareRoot.Counted("Even")
+	(width, (area / width).Counted("Even"))
+Sides(mode Text, ratio Numbers) Numbers
+	Shorter.Sides("Shorter Side", (9, 16)) is (768, 1365)
+	Shorter.Sides("Longer Side", (9, 16)) is (576, 1024)
+	Shorter.Sides("Multiplier", (9, 16)) is (9, 16)
+	let shorter = (Widget("short_side_target", 3) to Number) / (ratio(0) < ratio(1) then ratio(0) else ratio(1))
+	let longer = (Widget("long_side_target", 2) to Number) / (ratio(0) > ratio(1) then ratio(0) else ratio(1))
+	let multiplied = Widget("multiplier", 6) to Number
+	let scale = mode is "Shorter Side" then shorter else mode is "Longer Side" then longer else multiplied
+	((ratio(0) * scale).Counted("Even"), (ratio(1) * scale).Counted("Even"))
+Snapped(size Numbers, divisor Number, keepsAspect Boolean) Numbers
+	Total.Snapped((480, 854), 32, false) is (480, 832)
+	Total.Snapped((480, 854), 32, true) is (448, 832)
+	Total.Snapped((854, 480), 32, true) is (832, 448)
+	if keepsAspect is false
+		return (Snap(size(0), divisor), Snap(size(1), divisor))
+	let aspect = size(0) / size(1)
+	let wide = Snap(size(0), divisor)
+	let tall = Snap(size(1), divisor)
+	let narrow = Snap((tall * aspect).Counted("Even"), divisor)
+	size(0) >= size(1) then (wide, Snap((wide / aspect).Counted("Even"), divisor)) else (narrow, tall)
+Snap(size Number, divisor Number) Number
+	Total.Snap(854, 32) is 832
+	Total.Snap(10, 32) is 32
+	let snapped = (size.Floor / divisor).Floor * divisor
+	snapped > divisor then snapped else divisor
+Widget(name Text, position Number) Text
+	Total.Widget("crop", 9) is "center"
+	Shorter.Widget("scale_mode", 0) is "Shorter Side"
+	graph.Widget(node, name, position) to Text

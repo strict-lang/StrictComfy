@@ -142,6 +142,7 @@ C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality faster --count 4 --
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fastest2steps --length 243 --seed 7
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fast --skip off --scheduler beta
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --last_image last.jpg
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --workflow h3_hyperflow_8step_2026-10-02.json --count 10
 ```
 
 `--quality <preset>` picks the model, steps, attention and Spectrum in one go, `--steps`, `--skip` and `--lora` change a preset (`--quality faster --steps 10` samples 10 steps with every other one forecast), the LoRAs of a preset come before the given ones. Per video at 480x832 on the RTX 4090, warm (the second video of `--count 2` with a cached prompt; the video adds the VAE decode and the mp4 to the sampling):
@@ -172,7 +173,17 @@ A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge)
 | `--width`, `--height` | 480, 832 (multiples of 16) |
 | `--length` | 124 frames at 24 fps (5.2 s), snapped up to 17k+5 like ComfyUI |
 | `--image`, `--last_image` | none; png or jpg first and last frame for image to video |
+| `--crop` | off; crops the first image to the video aspect like the last one instead of stretching it |
 | `--output` | `H3Video.mp4` numbered `H3Video0001.mp4`, ...; never overwrites |
+| `--workflow` | none; a ComfyUI image to video workflow whose settings the run uses, below |
+
+`--workflow` takes a workflow `.json` as ComfyUI saves it (a path, or a name in `user/default/workflows` of the ComfyUI folder above the models folder) and makes its videos in H3Video, the other options change its settings (`--count 10`, `--quality faster`, `--prompt`, more `--lora`). Starting at the one active SamplerCustomAdvanced or Strict H3 Sampler (`ComfyGraph`, `H3Workflow`) it reads:
+- the model: Load Diffusion Model, LoraLoaderModelOnly and the LTX LoRA loader stack as `--lora`, ApplyHyperFlowH3 as its LoRA from `models/hyperflow` with `--scheduler hyperflow --skip off`;
+- the seed (`randomize` draws new ones), KSamplerSelect and BasicScheduler, or the Strict node's quality, skip, sampler and scheduler;
+- MiniMax H3 Image to Video's prompt (Dynamic Prompts' `{a|b}` choices are picked per video like `--prompt`), width, height and length, its first and last frame from Load Image in ComfyUI's `input` (`--crop` when a Unified Resize crops the first one to the center);
+- the Video Combine or Save Video prefix as `--output` in ComfyUI's `output`.
+
+Values come through primitives, Math Expression (`MathExpression.strict`: `+ - * / // %`, `max`, `min`, `sum`, `round`, `abs`, `floor`, `ceil`, `sqrt`), Resolution Selector and Unified Resize (`ComfySize`). Every other node is passed through like a bypassed one (its first input of the same type: a switch gives its first input) and listed as skipped (inset crops, upscalers like RTX Video Super Resolution, previews, attention patches, VRAM tools); H3Video's text encoder and VAEs replace CLIPLoader and VAELoader. A value no node passes on (a random number as the size, a subgraph, reference to video) stops the run with the node's name: such workflows stay in ComfyUI with the Strict H3 Sampler.
 
 Strict does everything in one process: it expands the prompt choices, draws the seeds and the noise (MersenneTwister reproduces torch's generator: ComfyUI's noise for the same seed whenever the video latent holds a multiple of 16 numbers, the per step noise of `er_sde`, `euler_ancestral`, `dpmpp_2m_sde` and `lcm` comes from its own seeds), encodes the uncached prompts with `H3Encoder` (Qwen3-VL 32B NVFP4) before the model loads (cached per prompt, encoder and images under `artifacts/h3`, the same states and token tags as ComfyUI's H3 node), samples every video with one model load, decodes the video and the audio of every video after the last one (`H3Vae`, `H3Audio`) and writes the numbered `.mp4` files with the installed ffmpeg (libx264 crf 18 and aac 192k). `--image` and `--last_image` make image to video like ComfyUI's MiniMax H3 Image to Video node: the first image is stretched to the video size, the last one cropped to its aspect first, both with Pillow's Lanczos (`Lanczos.strict`, the same bytes), `H3Picture` encodes them with the video VAE before the model loads, every video gets them as noise augmented keyframe rows at its first and last frame (seeded like ComfyUI's) and the images go into the Qwen3-VL context like ComfyUI's (`<Picture 1>: ` and `<Picture 2>: ` before the prompt, about 16 s more encoding for two images).
 

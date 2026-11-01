@@ -1,7 +1,9 @@
 has logger
 has options H3Options
 has pictured List(Numbers) = List(Numbers)
+has prompt = ""
 constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
+constant Workflowed = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 Completed Number
 	let problem = options.Problem
@@ -11,7 +13,7 @@ Completed Number
 	let started = Process.Elapsed
 	let batch = PromptBatch(logger, "Video")
 	let seeds = batch.Seeds(options.seed, options.count)
-	let prompts = batch.Prompts(batch.Template(options.prompt), seeds)
+	let prompts = batch.Prompts(prompt is "" then batch.Template(options.prompt) else prompt, seeds)
 	let unique = prompts.Unique
 	let made = H3Batch(logger, options, Pictured).Videos(seeds, prompts, unique, Conditions(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " videos")
@@ -109,4 +111,16 @@ Pictured Slow(List(Numbers))
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.Decoder, 32)), H3Tiles.Real)
 	for (options.files.image, options.files.lastImage)
 		if value is not ""
-			picture.Encoded(picture.Frame(value, size, index is 1), size)
+			picture.Encoded(picture.Frame(value, size, options.files.Cropped(index)), size)
+Expanded(arguments Texts) Slow(H3Batch)
+	Sample.Expanded(List(Text)).prompt is ""
+	Workflowed.Expanded(("--models", ".", "--length", "22")).options.length is 22
+	Workflowed.Expanded(("--models", ".", "--length", "22")).prompt is "a fox"
+	if options.files.workflow is ""
+		return H3Batch(logger, options)
+	let workflow = H3Workflow(ComfyGraph.Read(options.files.Workflow, H3Workflow.Known), options.files.ComfyUI)
+	let settings = workflow.Arguments
+	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
+	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(workflow.graph.Skipped, ", "))
+	let prompted = "--prompt" is in arguments then "" else workflow.Prompt
+	H3Batch(logger, H3Options.Parsed(settings + arguments), pictured, prompted)

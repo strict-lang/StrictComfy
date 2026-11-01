@@ -1,0 +1,117 @@
+has graph ComfyGraph
+has comfyui Text
+constant Known = ("UNETLoader", "LoraLoaderModelOnly", "LTX_lora_loader", "ApplyHyperFlowH3", "StrictH3Sampler", "StrictH3LatentSampler", "SamplerCustomAdvanced", "RandomNoise", "KSamplerSelect", "BasicScheduler", "BasicGuider", "MiniMaxH3ImageToVideo", "LoadImage", "EnhancementUtils_ImageLoadWithSubfolders", "CLIPLoader", "VAELoader", "VAEDecode", "VAEDecodeAudio", "CreateVideo", "VHS_VideoCombine", "SaveVideo", "Note", "MarkdownNote")
+constant Samplers = ("SamplerCustomAdvanced", "StrictH3Sampler", "StrictH3LatentSampler")
+constant Tiny = H3Workflow(ComfyGraph.Tiny, ".")
+constant Strict = H3Workflow(ComfyGraph.Read("tinyh3strictworkflow.json", Known), ".")
+Arguments Texts
+	Tiny.Arguments.Length is 25
+	Tiny.Arguments.Last is "./output/tiny_.mp4"
+	Strict.Arguments.Length is 20
+	Strict.Arguments(5) is "fastest2steps"
+	let sampler = Sampler
+	let custom = graph.Type(sampler) is "SamplerCustomAdvanced"
+	let model = custom then Source(graph.Origin(Source(sampler, "guider")), "model") else Source(sampler, "model")
+	Model(model) + (custom then Sampling(sampler) else Preset(sampler)) + Video(Latent) + Output
+Sampler Json
+	Tiny.graph.Type(Tiny.Sampler) is "SamplerCustomAdvanced"
+	Strict.graph.Type(Strict.Sampler) is "StrictH3Sampler"
+	let samplers = graph.Active(Samplers)
+	if samplers.Length is 1
+		return samplers(0)
+	Error(samplers.Length is 0 then "NoH3SamplerFound" else "SeveralH3Samplers")
+Latent Json
+	Tiny.graph.Type(Tiny.Latent) is "MiniMaxH3ImageToVideo"
+	Strict.Latent.text is Strict.graph.Node(4).text
+	let sampler = Sampler
+	graph.Origin(Source(sampler, graph.Type(sampler) is "SamplerCustomAdvanced" then "latent_image" else "latent"))
+Source(node Json, input Text) Json
+	Tiny.Source(Tiny.graph.Node(8), "model").Elements(0) to Number is 5
+	Tiny.Source(Tiny.graph.Node(15), "last_frame").text is ""
+	let link = graph.Input(node, input)
+	link.text is "" then link else graph.Producer(link)
+Model(link Json) Texts
+	Tiny.Model(Tiny.Source(Tiny.graph.Node(9), "model")).Length is 6
+	Tiny.Model(Tiny.Source(Tiny.graph.Node(9), "model"))(3) is "h3/tinylora.safetensors:0.5"
+	Strict.Model(Strict.Source(Strict.Sampler, "model"))(1) is "tinyh3.safetensors"
+	Strict.Model(Strict.Source(Strict.Sampler, "model"))(3) is "h3/tinylora.safetensors:0.66"
+	Strict.Model(Json("")).Length is 0
+	if link.text is ""
+		return List(Text)
+	let node = graph.Origin(link)
+	if graph.Type(node) is "UNETLoader"
+		return ("--model", graph.Text(node, "unet_name", 0))
+	Model(Source(node, "model")) + Loras(node)
+Loras(node Json) Texts
+	Tiny.Loras(Tiny.graph.Node(8)) is ("--lora", "./models/hyperflow/hyperflow.safetensors:1")
+	Strict.Loras(Strict.graph.Node(2)) is ("--lora", "h3/tinylora.safetensors:0.66")
+	let type = graph.Type(node)
+	if type is "LTX_lora_loader"
+		return Stack(graph.Text(node, "stack_data", 1))
+	let flow = type is "ApplyHyperFlowH3"
+	let folder = flow then comfyui + "/models/hyperflow/" else ""
+	let named = folder + graph.Text(node, flow then "hyperflow_file" else "lora_name", 0)
+	let strength = graph.Text(node, flow then "strength" else "strength_model", 1) to Number
+	("--lora", named.Replace("\\", "/") + ":" + strength)
+Stack(text Text) Texts
+	Tiny.Stack("[{\"on\": true, \"lora\": \"h3\\\\a\", \"str\": 1.0}, {\"on\": false}]") is ("--lora", "h3/a:1")
+	Tiny.Stack("[]").Length is 0
+	mutable loras = List(Text)
+	for Json(text).Elements
+		if (value("on") to Text) is "true"
+			let named = (value("lora") to Text).Replace("\\", "/")
+			loras = loras + "--lora" + (named + ":" + (value("str") to Number))
+	loras
+Sampling(sampler Json) Texts
+	Tiny.Sampling(Tiny.Sampler).Length is 8
+	Tiny.Sampling(Tiny.Sampler)(3) is "res_multistep"
+	let noise = graph.Origin(Source(sampler, "noise"))
+	let chosen = ("--sampler", graph.Text(graph.Origin(Source(sampler, "sampler")), "sampler_name", 0))
+	Seed(noise, "noise_seed", 0) + chosen + Sigmas(graph.Origin(Source(sampler, "sigmas")))
+Preset(sampler Json) Texts
+	Strict.Preset(Strict.Sampler) is ("--quality", "fastest2steps", "--skip", "5:45")
+	Strict.Preset(Json("{\"widgets_values\": [\"best\", 1, \"fixed\", \"off\", \"lcm\", \"beta\"]}"))(5) is "lcm"
+	let widgets = sampler("widgets_values").Elements
+	let quality = ("--quality", graph.Text(sampler, "quality", 0), "--skip", graph.Text(sampler, "skip", 3))
+	if widgets.Length <= 5
+		return quality + Seed(sampler, "seed", 1)
+	quality + "--sampler" + (widgets(4) to Text) + "--scheduler" + (widgets(5) to Text) + Seed(sampler, "seed", 1)
+Seed(node Json, name Text, position Number) Texts
+	Tiny.Seed(Tiny.graph.Node(11), "noise_seed", 0) is ("--seed", "42")
+	Strict.Seed(Strict.Sampler, "seed", 1).Length is 0
+	let random = (graph.Widget(node, "control_after_generate", position + 1) to Text) is "randomize"
+	random then List(Text) else ("--seed", graph.Text(node, name, position))
+Sigmas(node Json) Texts
+	Tiny.Sigmas(Tiny.graph.Node(8)) is ("--scheduler", "hyperflow", "--skip", "off")
+	Tiny.Sigmas(Json("{\"type\": \"BasicScheduler\", \"widgets_values\": [\"beta\", 6, 1]}"))(3) is "6"
+	if graph.Type(node) is "ApplyHyperFlowH3"
+		return ("--scheduler", "hyperflow", "--skip", "off")
+	("--scheduler", graph.Text(node, "scheduler", 0), "--steps", graph.Text(node, "steps", 1))
+Video(node Json) Texts
+	Tiny.Video(Tiny.Latent).Length is 9
+	Tiny.Video(Tiny.Latent)(3) is "832"
+	Strict.Video(Strict.Latent)(5) is "73"
+	let sizes = ("--width", graph.Text(node, "width", 1), "--height", graph.Text(node, "height", 2))
+	let pictures = Picture(Source(node, "first_frame"), "--image") + Picture(Source(node, "last_frame"), "--last_image")
+	sizes + "--length" + graph.Text(node, "length", 3) + pictures
+Picture(link Json, option Text) Texts
+	Tiny.Picture(Tiny.Source(Tiny.Latent, "first_frame"), "--image") is ("--crop", "--image", "./input/tinyframe.png")
+	Tiny.Picture(Tiny.Source(Tiny.Latent, "first_frame"), "--last_image") is ("--last_image", "./input/tinyframe.png")
+	Tiny.Picture(Json(""), "--image").Length is 0
+	if link.text is ""
+		return List(Text)
+	let node = graph.Origin(link)
+	if graph.Type(node) is not "UnifiedResizeImageMask"
+		return (option, comfyui + "/input/" + graph.Text(node, "image", 0))
+	let cropped = (option is "--image") and (graph.Text(node, "crop", 9) is "center")
+	(cropped then List(Text) + "--crop" else List(Text)) + Picture(Source(node, "image"), option)
+Output Texts
+	Tiny.Output is ("--output", "./output/tiny_.mp4")
+	Strict.Output is ("--output", "./output/video/tiny_.mp4")
+	let saved = graph.Active(("VHS_VideoCombine", "SaveVideo"))
+	let prefix = saved.Length is 0 then "H3Video" else graph.Text(saved(0), "filename_prefix", 0)
+	("--output", comfyui + "/output/" + prefix + "_.mp4")
+Prompt Text
+	Tiny.Prompt is "a {red|blue} fox"
+	Strict.Prompt is "a fox"
+	graph.Text(Latent, "prompt", 0)

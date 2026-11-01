@@ -14,7 +14,7 @@ Run(arguments Texts) Number
 		logger.Log(H3Options.Usage)
 		return 0
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
-		return H3Batch(logger, H3Options.Parsed(arguments)).Completed
+		return H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).Completed
 	if arguments.Length < 2
 		logger.Log("--help or: " + Positional)
 		return 2
