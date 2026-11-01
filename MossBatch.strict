@@ -19,7 +19,7 @@ Contexts(prompts Texts) Slow(List(Numbers))
 	let tokens = Gpt2Tokens.Folder(options.files.Tokenizer)
 	let path = options.files.Encoder
 	let file = Safetensors(path, 32, "model.language_model.")
-	let encoder = path.EndsWith(".gguf") then Qwen3.Loaded(path, 4) else QwenSafetensors(file, 64).Loaded(10000000)
+	let encoder = path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else QwenSafetensors(file, 64).Loaded(10000000)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	for prompts
 		let hidden = encoder.Prefilled(tokens.Encoded(Template.Replace("{prompt}", value)), 0).hidden
