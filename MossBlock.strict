@@ -29,6 +29,8 @@ Loaded(model Safetensors, prefix Text, loras Text) Slow(MossBlock)
 Qkv(rows Safetensors, lora H3Lora) Slow(List(Numbers))
 	Tiny.attention.Length is 768
 	Tiny.Qkv(Safetensors(Model.path, 32, "layers.0.proj."), H3Lora("")) is Tiny.attention
+	if rows.Entry("qkv.weight") is not ""
+		return lora.Merged(rows, "qkv", rows.prefix)
 	lora.Merged(rows, "q", rows.prefix) + lora.Merged(rows, "k", rows.prefix) + lora.Merged(rows, "v", rows.prefix)
 Heads Slow(Number)
 	Tiny.Heads is 2

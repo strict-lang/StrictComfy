@@ -76,6 +76,10 @@ Interleaved(first Numbers, second Numbers, firstRank Number, secondRank Number) 
 Third(part Number) MossLora
 	MossLora(List(Number), (1, 2, 3, 4, 5, 6), 2, 1).Third(1).up is (3, 4)
 	MossLora(down, up.Slice(part * up.Length / 3, up.Length / 3), rank, columns)
+Placed(part Number) MossLora
+	MossLora(List(Number), (1, 2), 1, 1).Placed(1).up is (0, 0, 1, 2, 0, 0)
+	None.Placed(2).rank is 0
+	MossLora(down, Layer.Zeros(part * up.Length) + up + Layer.Zeros((2 - part) * up.Length), rank, columns)
 Repeated(number Number, count Number) Numbers
 	MossLora.Repeated(2, 3) is (2, 2, 2)
 	for count

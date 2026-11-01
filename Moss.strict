@@ -18,6 +18,7 @@ Loaded(path Text, lora Text) Slow(Moss)
 	Tiny.texts.Length is 2
 	Moss.Loaded("tinymoss.gguf", "").layers.Length is 2
 	Moss.Loaded("tinymossint4.safetensors", "").layers.Length is 2
+	Moss.Loaded("tinymossqkv.safetensors", "tinylora.safetensors").layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
 	let model = Safetensors(path, 16)
@@ -26,10 +27,10 @@ Loaded(path Text, lora Text) Slow(Moss)
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
 Layers(model Safetensors, lora Text) Slow(List(MossBlock))
 	Tiny.Layers(Model, "").Length is 2
-	Tiny.Layers(Safetensors("tinyvae.safetensors"), "") is Error("NoSeparateQkvMossLayers:tinyvae.safetensors")
-	let count = TensorFile.Header(model.path).Split(".proj.q.weight\"").Length - 1
+	Tiny.Layers(Safetensors("tinyvae.safetensors"), "") is Error("NoMossLayersFound:tinyvae.safetensors")
+	let count = TensorFile.Header(model.path).Split(".proj.o.weight\"").Length - 1
 	if count is 0
-		return Error("NoSeparateQkvMossLayers:" + Path(model.path).FileName.text)
+		return Error("NoMossLayersFound:" + Path(model.path).FileName.text)
 	for count
 		MossBlock.Loaded(model, "layers." + index + ".", lora)
 Texts(model Safetensors) Slow(List(MossText))

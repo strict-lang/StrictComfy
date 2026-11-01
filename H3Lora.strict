@@ -46,9 +46,18 @@ Found(path Text, name Text, strength Number) Slow(MossLora)
 	let prefix = Prefixed(header, name)
 	if prefix is not ""
 		return Swapped(MossLora.Loaded(path, prefix, strength), name.EndsWith("mlp.fc1.") and IsFlipped(header))
+	if name.EndsWith(".qkv.")
+		return Fused(path, name, strength)
 	let part = (".q.", ".k.", ".v.").Index(name.Substring(name.Length - 3, 3))
 	let fused = part < 0 then "" else Prefixed(header, name.Substring(0, name.Length - 2) + "qkv.")
 	fused is "" then MossLora.None else MossLora.Loaded(path, fused, strength).Third(part)
+Fused(path Text, name Text, strength Number) Slow(MossLora)
+	Half.Fused("tinylora.safetensors", "layers.0.proj.qkv.", 1).rank is 24
+	Half.Fused("tinylora.safetensors", "layers.0.proj.qkv.", 1).up.Length is 768 * 24
+	let base = name.Substring(0, name.Length - 4)
+	let query = Found(path, base + "q.", strength).Placed(0)
+	let key = Found(path, base + "k.", strength).Placed(1)
+	query.Stacked(key).Stacked(Found(path, base + "v.", strength).Placed(2))
 IsFlipped(header Text) Boolean
 	Half.IsFlipped("\"hyperflow\":\"true\"")
 	Half.IsFlipped("\"hyperflow\":\"true\",\"hyperflow_fc1_layout\":\"gate_value\"") is false
