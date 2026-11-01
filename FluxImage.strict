@@ -1,6 +1,6 @@
 has logger
 constant Expected = Safetensors("tinyvae.safetensors", 32, "reference.").Values("image")
-Run(dumps Text, model Text)
+Run(dumps = "Content", model = "Content/flux2-vae.safetensors")
 	let decoder = FluxDecoder.Loaded(model, 32)
 	let steps = Safetensors(dumps + "/steps.safetensors")
 	logger.Log("loaded in " + Process.Elapsed.Round(2) + " s")

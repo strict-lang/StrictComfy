@@ -77,3 +77,4 @@ prompt*.txt
 *.rgb
 Tests.test-*
 *.log
+Content/
