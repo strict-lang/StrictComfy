@@ -1,0 +1,15 @@
+has graph ComfyGraph
+constant Tiny = ComfyInputs(ComfyGraph.Tiny)
+Source(node Json, input Text) Json
+	Tiny.Source(Tiny.graph.Node(8), "model").Elements(0) to Number is 5
+	Tiny.Source(Tiny.graph.Node(15), "last_frame").text is ""
+	let link = graph.Input(node, input)
+	link.text is "" then link else graph.Producer(link)
+Seed(node Json, name Text, position Number) Texts
+	Tiny.Seed(Tiny.graph.Node(11), "noise_seed", 0) is ("--seed", "42")
+	Tiny.Seed(Json("{\"widgets_values\": [7, \"randomize\"]}"), "seed", 0).Length is 0
+	let random = (graph.Widget(node, "control_after_generate", position + 1) to Text) is "randomize"
+	random then List(Text) else ("--seed", graph.Text(node, name, position))
+Lora(name Text, strength Number) Texts
+	Tiny.Lora("moss\a.safetensors", 0.5) is ("--lora", "moss/a.safetensors:0.5")
+	("--lora", name.Replace("\\", "/") + ":" + strength)

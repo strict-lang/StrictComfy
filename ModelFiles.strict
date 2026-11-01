@@ -25,3 +25,10 @@ Spec(text Text) Text
 	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
 	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
+ComfyUI Text
+	ModelFiles(".").ComfyUI is "./.."
+	Folder + "/.."
+Workflow(name Text) Text
+	ModelFiles(".").Workflow("tinymossworkflow.json") is "tinymossworkflow.json"
+	ModelFiles(".").Workflow("a.json") is "./../user/default/workflows/a.json"
+	File(name).Exists then name else ComfyUI + "/user/default/workflows/" + name

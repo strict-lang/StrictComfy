@@ -31,11 +31,11 @@ Images Texts
 			value
 ComfyUI Text
 	Local.ComfyUI is "./.."
-	ModelFiles(models).Folder + "/.."
+	ModelFiles(models).ComfyUI
 Workflow Text
 	H3Files.Parsed(("--workflow", "tinyh3workflow.json")).Workflow is "tinyh3workflow.json"
 	H3Files.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
-	File(workflow).Exists then workflow else ComfyUI + "/user/default/workflows/" + workflow
+	ModelFiles(models).Workflow(workflow)
 Cropped(index Number) Boolean
 	H3Files.Parsed(List(Text)).Cropped(1)
 	H3Files.Parsed(List(Text)).Cropped(0) is false
