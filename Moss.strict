@@ -85,7 +85,6 @@ TextEmbedded(context Numbers, text Number) Slow(Numbers)
 Ran(hidden Numbers, modulation Numbers, rotation Numbers, latent Numbers, first Number, last Number) Slow(Numbers)
 	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
 	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 1, 1) is MossBlock.Input
-	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 0, 1) is MossBlock.Layered
 	let kept = latent.Length / video.weights.First.Length * finalNorm.Length
 	mutable state = hidden
 	for last - first

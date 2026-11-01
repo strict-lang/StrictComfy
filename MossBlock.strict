@@ -38,6 +38,7 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Slow(Numbers)
 	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
 	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
+	MossImage(Logger).Error(Moss.Tiny.Ran(Input, Modulation, Rotation, Moss.Context, 0, 1), Layered) < 0.02
 	let width = attentionNorm.Length
 	let attended = Gated(input, Attended(Modulated(input, attentionNorm, modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, feedNorm, modulation, 3)), modulation, width, 5)

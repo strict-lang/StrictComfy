@@ -75,3 +75,4 @@ prompt*.txt
 *.nativecache
 *.mp4
 *.rgb
+Tests.test-*
