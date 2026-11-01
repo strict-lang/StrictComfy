@@ -24,6 +24,7 @@ Served(moss Moss, mode Text) Number
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
+		GpuMemory.Evicted
 		dumps = Process.InputLine
 	0
 Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
