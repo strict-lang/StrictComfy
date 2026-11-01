@@ -13,7 +13,7 @@ Completed Number
 	let started = Process.Elapsed
 	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
 	let template = prompted is "" then PromptBatch(logger, "Image").Template(options.prompt) else prompted
-	let prompts = PromptBatch(logger, "Image").Prompts(template, seeds)
+	let prompts = PromptBatch(logger, "Image").Prompts(List(Text) + template, seeds)
 	let unique = prompts.Unique
 	Images(seeds, prompts, unique, Contexts(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")

@@ -146,6 +146,7 @@ C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality faster --count 4 --
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fastest2steps --length 243 --seed 7
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --quality fast --skip off --scheduler beta
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image first.png --last_image last.jpg
+C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --image starts --prompt prompts --length 49
 C:\code\GitHub\strict-lang\StrictComfy\H3Video.exe --workflow h3_hyperflow_8step_2026-10-02.json --count 10
 ```
 
@@ -167,18 +168,18 @@ A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge)
 |---|---|
 | `--model`, `--vae`, `--audio_vae`, `--text_encoder` | the model of `--quality`, `minimax_h3_video_vae_int8_convrot.safetensors`, `minimax_h3_audio_vae_fp32.safetensors`, `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`: a path, or a name in the models folder |
 | `--models` | `D:` or `C:/ComfyUI_windows_portable/ComfyUI/models`, for files and LoRAs given by name |
-| `--prompt` | `prompt.txt`; `{a\|b\|}` picks one alternative per video (the empty one too), nesting works |
+| `--prompt` | `prompt.txt`; `{a\|b\|}` picks one alternative per video (the empty one too), nesting works; a folder of `.txt` prompts gives an `--image` folder's image the prompt of its name (`frame12.png` takes `frame12.txt`), else the prompts in sorted order, repeated when there are fewer; without an image folder every prompt is one video |
 | `--quality` | `best`, see the table above |
 | `--steps`, `--skip` | from `--quality`; `--skip` below |
 | `--sampler`, `--scheduler` | `euler`, `simple`: ComfyUI's `sampler_name` and `scheduler`, below |
 | `--lora` | repeat as `path[:strength]` (relative paths under the models folder's `loras`), merged at load |
-| `--count` | 1; videos per run with one model load, each with its own seed and prompt choices |
+| `--count` | 1, or every image of an `--image` folder (every prompt of a `--prompt` folder); videos per run with one model load, each with its own seed and prompt choices; with a folder `--count N` picks N random images (by the seed) |
 | `--seed` | -1 (random); the first video's seed, the others follow from it (reproduces a whole batch) |
 | `--width`, `--height` | 480, 832 (multiples of 16) |
 | `--length` | 124 frames at 24 fps (5.2 s), snapped up to 17k+5 like ComfyUI |
-| `--image`, `--last_image` | none; png or jpg first and last frame for image to video |
+| `--image`, `--last_image` | none; png or jpg first and last frame for image to video; `--image` takes a folder too, one video per image |
 | `--crop` | off; crops the first image to the video aspect like the last one instead of stretching it |
-| `--output` | `H3Video.mp4` numbered `H3Video0001.mp4`, ...; never overwrites |
+| `--output` | `H3Video.mp4` numbered `H3Video0001.mp4`, ...; never overwrites; with an `--image` folder named after the image, `H3Video-frame12-0001.mp4` |
 | `--workflow` | none; a ComfyUI image to video workflow whose settings the run uses, below |
 
 `--workflow` takes a workflow `.json` as ComfyUI saves it (a path, or a name in `user/default/workflows` of the ComfyUI folder above the models folder) and makes its videos in H3Video, the other options change its settings (`--count 10`, `--quality faster`, `--prompt`, more `--lora`). Starting at the one active SamplerCustomAdvanced or Strict H3 Sampler (`ComfyGraph`, `H3Workflow`) it reads:

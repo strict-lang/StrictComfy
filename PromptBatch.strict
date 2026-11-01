@@ -13,10 +13,15 @@ Template(path Text) Text
 	if File(path).Exists is false
 		return Error("FileNotFound:" + path.Replace(" ", "_"))
 	Text.Combine(File(path).ReadLines, "\n").Trim
-Prompts(template Text, seeds Numbers) Texts
-	Sample.Prompts("a {b|c}", (1, 2)).Length is 2
+Templates(paths Texts, prompt Text) Texts
+	Sample.Templates(List(Text) + "missing.txt", "a fox") is List(Text) + "a fox"
+	Sample.Templates(List(Text) + "PromptBatch.strict", "").First.StartsWith("has logger")
+	for paths
+		prompt is "" then Template(value) else prompt
+Prompts(templates Texts, seeds Numbers) Texts
+	Sample.Prompts(List(Text) + "a", (1, 2)) is ("a", "a")
 	for seeds
-		let prompt = Expanded(template, value)
+		let prompt = Expanded(templates(index % templates.Length), value)
 		logger.Log(noun + " " + (index + 1) + "/" + seeds.Length + ", seed " + value + "\nPrompt: " + prompt)
 		prompt
 Expanded(template Text, seed Number) Text

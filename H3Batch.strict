@@ -6,89 +6,97 @@ constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length",
 constant Workflowed = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 Completed Number
-	let problem = options.Problem
+	let inputs = H3Inputs(options)
+	let problem = inputs.Problem
 	if problem is not ""
 		logger.Log(problem)
 		return 2
 	let started = Process.Elapsed
-	let batch = PromptBatch(logger, "Video")
-	let seeds = batch.Seeds(options.seed, options.count)
-	let prompts = batch.Prompts(prompt is "" then batch.Template(options.prompt) else prompt, seeds)
-	let unique = prompts.Unique
-	let made = H3Batch(logger, options, Pictured).Videos(seeds, prompts, unique, Conditions(unique))
-	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " videos")
+	let seeds = PromptBatch(logger, "Video").Seeds(options.seed, inputs.Count)
+	let made = Made(seeds, inputs.Chosen(inputs.Paired, seeds))
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + seeds.Length + " videos")
 	made
-Conditions(prompts Texts) Slow(List(Safetensors))
-	let paths = Cached(prompts)
-	if Missing(paths)
-		Encoded(prompts, paths)
-	else
+Made(seeds Numbers, chosen List(Texts)) Slow(Number)
+	let inputs = H3Inputs(options)
+	let batch = PromptBatch(logger, "Video")
+	let images = inputs.Column(chosen, 0)
+	let prompts = batch.Prompts(batch.Templates(inputs.Column(chosen, 1), prompt), seeds)
+	let paths = Cached(prompts, images)
+	H3Batch(logger, options, Pictured(images)).Videos(seeds, images, paths, Conditions(prompts, images, paths))
+Conditions(prompts Texts, images Texts, paths Texts) Slow(List(Safetensors))
+	let missing = Missing(paths)
+	let inputs = H3Inputs(options)
+	if missing.Length is 0
 		logger.Log("Using cached prompt conditioning")
-	if Missing(paths)
+	else
+		Encoded(inputs.Picked(prompts, missing), inputs.Picked(images, missing), inputs.Picked(paths, missing))
+	if Missing(paths).Length > 0
 		return Error("TextEncoderFailed")
-	for paths
+	for paths.Unique
 		Safetensors(value, 32)
-Cached(prompts Texts) Texts
-	Sample.Cached(List(Text) + "a").First.EndsWith(".safetensors")
-	Sample.Cached(("a", "b")).First is not Sample.Cached(("a", "b")).Last
+Cached(prompts Texts, images Texts) Texts
+	Sample.Cached(List(Text) + "a", List(Text) + "").First.EndsWith(".safetensors")
+	Sample.Cached(("a", "b"), ("", "")).First is not Sample.Cached(("a", "b"), ("", "")).Last
+	Sample.Cached(("a", "a"), ("", "tinyframe.png")).First is not Sample.Cached(("a", "a"), ("", "tinyframe.png")).Last
 	let named = options.files.textEncoder is "" then Encoder else options.files.textEncoder
-	let identity = named + Text.Combine(Pictures, "") + "\n"
 	for prompts
+		let identity = named + Text.Combine(Pictures(images(index)), "") + "\n"
 		Folder + "/context-" + HashCode(identity + value).number + "-" + value.Length + ".safetensors"
-Pictures Texts
-	Sample.Pictures.Length is 0
-	H3Batch(Logger, H3Options.Parsed(("--image", "H3Batch.strict"))).Pictures.First.StartsWith(" H3Batch.strict ")
-	for options.files.Images
-		" " + value + " " + File(value).Length + " " + options.width + "x" + options.height
-Missing(paths Texts) Boolean
-	Sample.Missing(List(Text) + "H3Batch.strict") is false
-	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors"))
+Pictures(image Text) Texts
+	Sample.Pictures("").Length is 0
+	Sample.Pictures("H3Batch.strict").First.StartsWith(" H3Batch.strict ")
+	for (image, options.files.lastImage)
+		if value is not ""
+			" " + value + " " + File(value).Length + " " + options.width + "x" + options.height
+Missing(paths Texts) Numbers
+	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0
+	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors", "H3BatchMissing.safetensors")) is (1)
 	for paths
-		if File(value).Exists is false
-			return true
-	false
-Encoded(prompts Texts, paths Texts) Slow(Number)
+		if (File(value).Exists is false) and (paths.Index(value) is index)
+			index
+Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let encoder = H3Encoder(logger, options.files, (options.height, options.width))
 	Directory.Create(Root + "/artifacts")
 	Directory.Create(Folder)
-	encoder.Encoded(prompts, paths)
-Videos(seeds Numbers, prompts Texts, unique Texts, conditions List(Safetensors)) Slow(Number)
+	encoder.Encoded(prompts, images, paths)
+Videos(seeds Numbers, images Texts, paths Texts, conditions List(Safetensors)) Slow(Number)
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let texts = H3Refiner.Loaded(options.Checkpoint, options.Loras).Texts(conditions)
-	let outputs = PromptBatch(logger, "Video").Outputs(options.output, seeds.Length)
 	let latents = Latents(seeds.Length)
 	for seeds
 		let before = Process.Elapsed
-		let at = unique.Index(prompts(index))
-		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value))
+		let at = paths.Unique.Index(paths(index))
+		let keyframes = H3Inputs(options).Keyframes(pictured, images(index), images)
+		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes))
 		GpuMemory.Released
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	GpuMemory.Evicted
-	Decoded(latents, outputs)
-Generated(h3 H3, condition Safetensors, text Numbers, seed Number) Slow(Numbers)
+	Decoded(latents, images)
+Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes List(Numbers)) Slow(Numbers)
 	let shapes = options.Shapes
 	let count = 24 * shapes(0) * shapes(1) * shapes(2)
 	let noise = MersenneTwister.Seeded(seed).Normals(count + 64 * shapes(3))
 	let audio = noise.Slice(count, noise.Length - count)
 	let shape = (24, shapes(0), shapes(1), shapes(2))
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
-	let keyed = H3Job(job, rows = job.Keyed(pictured, (24, 1, shapes(1), shapes(2)), seed), keyframes = Indices)
+	let rows = job.Keyed(keyframes, (24, 1, shapes(1), shapes(2)), seed)
+	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Latents(count Number) Texts
 	Sample.Latents(2).Last.EndsWith("/latent-1.safetensors")
 	for count
 		Folder + "/latent-" + index + ".safetensors"
-Decoded(latents Texts, outputs Texts) Slow(Number)
+Decoded(latents Texts, images Texts) Slow(Number)
 	let decoding = H3Video(logger).Decoding(options.files.Decoder, options.files.Sound)
 	for latents
-		Saved(decoding, Safetensors(value, 32).Values("latent"), outputs(index))
+		Saved(decoding, Safetensors(value, 32).Values("latent"), H3Inputs(options).Output(images(index)))
 	0
 Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)
 	let before = Process.Elapsed
 	let shapes = options.Shapes
 	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
-	let path = PromptBatch(logger, "Video").Saving(output, options.output)
+	let path = PromptBatch(logger, "Video").Reserved(output)
 	H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), path)
 Folder Text
 	Sample.Folder.EndsWith("/artifacts/h3")
@@ -96,23 +104,18 @@ Folder Text
 Root Text
 	Sample.Root.Length > 0
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
-Indices Numbers
-	Sample.Indices.Length is 0
-	H3Batch(Logger, H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
-	let last = (options.Shapes(0) - 2) / 5 * 17 + 4
-	let first = options.files.image is "" then List(Number) else List(Number) + 0
-	options.files.lastImage is "" then first else first + last
-Pictured Slow(List(Numbers))
-	Sample.Pictured.Length is 0
-	let images = options.files.Images
-	if images.Length is 0
+Pictured(images Texts) Slow(List(Numbers))
+	Sample.Pictured(List(Text) + "").Length is 0
+	let firsts = H3Inputs(options).Firsts(images)
+	let count = firsts.Length + (options.files.lastImage is "" then 0 else 1)
+	if count is 0
 		return List(Numbers)
 	let size = (options.height, options.width)
-	logger.Log("Encoding " + images.Length + " keyframe images")
+	logger.Log("Encoding " + count + " keyframe images")
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.Decoder, 32)), H3Tiles.Real)
-	for (options.files.image, options.files.lastImage)
+	for firsts + options.files.lastImage
 		if value is not ""
-			picture.Encoded(picture.Frame(value, size, options.files.Cropped(index)), size)
+			picture.Encoded(picture.Frame(value, size, options.files.Cropped(index < firsts.Length then 0 else 1)), size)
 Expanded(arguments Texts) Slow(H3Batch)
 	Sample.Expanded(List(Text)).prompt is ""
 	Workflowed.Expanded(("--models", ".", "--length", "22")).options.length is 22

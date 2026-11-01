@@ -1,0 +1,83 @@
+has options H3Options
+constant Sample = H3Inputs(H3Options.Parsed(List(Text)))
+constant Folder = H3Inputs(H3Options.Parsed(("--image", ".", "--count", "2")))
+constant Both = H3Inputs(H3Options.Parsed(("--image", ".", "--last_image", "a.png")))
+constant Pairs = (("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
+Problem Text
+	Sample.Problem is ""
+	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
+	H3Inputs(H3Options.Parsed(("--prompt", "web"))).Problem is "--prompt web has no txt files"
+	if Images.Length is 0
+		return "--image " + options.files.image + " has no png or jpg files"
+	if Prompts.Length is 0
+		return "--prompt " + options.prompt + " has no txt files"
+	options.Problem
+Images Texts
+	Sample.Images is List(Text) + ""
+	Folder.Images.Last.EndsWith("tinyframe.png")
+	Listed(options.files.image, ("png", "jpg", "jpeg")).Sorted
+Prompts Texts
+	Sample.Prompts is List(Text) + "prompt.txt"
+	Listed(options.prompt, List(Text) + "txt").Sorted
+Listed(path Text, extensions Texts) Texts
+	Sample.Listed("H3Inputs.strict", List(Text) + "txt") is List(Text) + "H3Inputs.strict"
+	Sample.Listed(".", List(Text) + "png").Length is 1
+	if Directory.Exists(path) is false
+		return List(Text) + path
+	for Directory.Files(path)
+		if value.Lower.Split(".").Last is in extensions
+			value
+Count Number
+	Sample.Count is 1
+	Folder.Count is 2
+	options.count > 0 then options.count else Paired.Length
+Paired List(Texts)
+	Sample.Paired is List(Texts) + ("", "prompt.txt")
+	Folder.Paired.Last.First.EndsWith("tinyframe.png")
+	let images = Images
+	let prompts = Prompts
+	for Directory.Exists(options.files.image) then images.Length else prompts.Length
+		Matched(images(index % images.Length), prompts, index)
+Matched(image Text, prompts Texts, position Number) Texts
+	Sample.Matched("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
+	Sample.Matched("a/x.png", ("b/frame1.txt", "b/frame12.txt"), 3) is ("a/x.png", "b/frame12.txt")
+	let stem = Path(image).FileName.RemoveExtension
+	for prompts
+		if Path(value).FileName.RemoveExtension is stem
+			return (image, value)
+	(image, prompts(position % prompts.Length))
+Chosen(pairs List(Texts), seeds Numbers) List(Texts)
+	Sample.Chosen(Pairs, (7, 8, 9, 10, 11)).Last is ("a", "1")
+	Folder.Chosen(Pairs, (1, 5)) is (("c", "3"), ("b", "2"))
+	let order = options.count > 0 then pairs.Shuffled(PseudoRandom(seeds.First)) else pairs
+	for seeds
+		order(index % order.Length)
+Column(pairs List(Texts), position Number) Texts
+	Sample.Column(Pairs, 1) is ("1", "2", "3", "4")
+	for pairs
+		value(position)
+Picked(texts Texts, indices Numbers) Texts
+	Sample.Picked(("a", "b", "c"), (2, 0)) is ("c", "a")
+	for indices
+		texts(value)
+Firsts(images Texts) Texts
+	Sample.Firsts(("", "a.png", "a.png", "b.png")) is ("a.png", "b.png")
+	for images.Unique
+		if value is not ""
+			value
+Keyframes(pictured List(Numbers), image Text, images Texts) List(Numbers)
+	Sample.Keyframes(List(Numbers), "", List(Text) + "").Length is 0
+	Both.Keyframes(((1, 1), (2, 2), (3, 3)), "b.png", ("a.png", "b.png")) is ((2, 2), (3, 3))
+	let first = image is "" then List(Numbers) else List(Numbers) + pictured(Firsts(images).Index(image))
+	options.files.lastImage is "" then first else first + pictured.Last
+Indices Numbers
+	Sample.Indices.Length is 0
+	H3Inputs(H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
+	let last = (options.Shapes(0) - 2) / 5 * 17 + 4
+	let first = options.files.image is "" then List(Number) else List(Number) + 0
+	options.files.lastImage is "" then first else first + last
+Output(image Text) Text
+	Sample.Output("") is "H3Video.mp4"
+	Folder.Output("./frame12.png") is "H3Video-frame12-.mp4"
+	let named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
+	Directory.Exists(options.files.image) then named else options.output

@@ -1,27 +1,33 @@
 has logger
 has files H3Files
 has frame Numbers = (832, 480)
+has visions List(QwenVision) = List(QwenVision)
 constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
 constant Both = H3Encoder(Logger, H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
-Encoded(prompts Texts, paths Texts) Slow(Number)
+Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let before = Process.Elapsed
 	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 	let encoder = Loaded
+	let loaded = H3Encoder(logger, files, frame, Visions)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	let count = Contexts(encoder, Tokens(tokens, prompts), paths, Pictures(Labels(tokens))).Length
+	let count = loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 	GpuMemory.Evicted
 	count
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2
 	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0).Loaded(5000000)
-Contexts(encoder Qwen3, chosen List(Numbers), paths Texts, pictures List(Numbers)) Slow(Numbers)
-	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + Written, List(Numbers)) is (195)
+Visions Slow(List(QwenVision))
+	Tiny.Visions.Length is 0
+	for files.Images.Length.Clamp(0, 1)
+		QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, (8, 16, 24))
+Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, pictures List(Numbers)) Slow(Numbers)
+	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + "", List(Text) + Written, List(Numbers)) is (195)
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
 	Safetensors(Written).Values("tags") is (1, 1, 1)
 	for paths
 		let texts = Texts(pictures, chosen(index))
-		let hidden = Hidden(encoder, texts)
+		let hidden = Hidden(encoder, texts, images(index))
 		logger.Log("Encoded prompt " + (index + 1) + "/" + paths.Length)
 		let tags = Tags(texts, hidden.Length / encoder.norm.Length)
 		Safetensors(value).Written(("context", "tags"), (hidden, tags))
@@ -29,16 +35,16 @@ Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	Tiny.Texts(List(Numbers), (1, 2)) is List(Numbers) + (1, 2)
 	Tiny.Texts(List(Numbers) + (5, 151652), (1, 2)) is ((5, 151652), (151653, 1, 2))
 	pictures.Length is 0 then List(Numbers) + chosen else pictures + (List(Number) + 151653 + chosen)
-Hidden(encoder Qwen3, texts List(Numbers)) Slow(Numbers)
-	Tiny.Hidden(Tiny.Loaded, List(Numbers) + (1, 2, 3)).Length is 192
+Hidden(encoder Qwen3, texts List(Numbers), image Text) Slow(Numbers)
+	Tiny.Hidden(Tiny.Loaded, List(Numbers) + (1, 2, 3), "").Length is 192
 	if texts.Length is 1
 		return encoder.Prefilled(texts.First, 0).hidden
-	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, (8, 16, 24))
-	Qwen3Images(encoder, vision).Prefilled(texts, Frames, frame(0), frame(1)).hidden
-Frames Slow(List(Numbers))
-	Tiny.Frames.Length is 0
-	for files.Images
-		H3Picture.Frame(value, frame, files.lastImage is not "" and index is files.Images.Length - 1)
+	Qwen3Images(encoder, visions.First).Prefilled(texts, Frames(image), frame(0), frame(1)).hidden
+Frames(image Text) Slow(List(Numbers))
+	Tiny.Frames("").Length is 0
+	for (image, files.lastImage)
+		if value is not ""
+			H3Picture.Frame(value, frame, index is 1)
 Pictures(labels List(Numbers)) List(Numbers)
 	Both.Pictures(((1, 2), (3, 4)))(1) is (151653, 3, 4, 151652)
 	for labels
