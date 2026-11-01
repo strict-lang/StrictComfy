@@ -1,6 +1,8 @@
 has logger
 has options MossOptions
+has prompted = ""
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
+constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Completed Number
 	let problem = options.Problem
@@ -10,7 +12,8 @@ Completed Number
 	options.Located
 	let started = Process.Elapsed
 	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
-	let prompts = PromptBatch(logger, "Image").Prompts(PromptBatch(logger, "Image").Template(options.prompt), seeds)
+	let template = prompted is "" then PromptBatch(logger, "Image").Template(options.prompt) else prompted
+	let prompts = PromptBatch(logger, "Image").Prompts(template, seeds)
 	let unique = prompts.Unique
 	Images(seeds, prompts, unique, Contexts(unique))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
@@ -80,3 +83,15 @@ Described(seed Number, prompt Text) Text
 	let settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
 	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
+Expanded(arguments Texts) Slow(MossBatch)
+	Sample.Expanded(List(Text)).prompted is ""
+	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
+	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
+	if options.files.workflow is ""
+		return MossBatch(logger, options)
+	let graph = ComfyGraph.Read(options.files.Workflow, MossWorkflow.Known)
+	let workflow = MossWorkflow(graph, ModelFiles(options.files.models).ComfyUI)
+	let settings = workflow.Arguments
+	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
+	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(graph.Skipped, ", "))
+	MossBatch(logger, MossOptions.Parsed(settings + arguments), "--prompt" is in arguments then "" else workflow.Prompt)

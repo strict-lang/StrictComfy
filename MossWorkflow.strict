@@ -1,0 +1,71 @@
+has graph ComfyGraph
+has comfyui Text
+constant Known = ("UNETLoader", "LoraLoaderModelOnly", "Lora Loader Stack (rgthree)", "KSampler", "StrictMossSampler", "CLIPTextEncode", "EmptyFlux2LatentImage", "EmptySD3LatentImage", "EmptyLatentImage", "CLIPLoader", "VAELoader", "VAEDecode", "SaveImage", "Note", "MarkdownNote")
+constant Samplers = ("KSampler", "StrictMossSampler")
+constant Tiny = MossWorkflow(ComfyGraph.Read("tinymossworkflow.json", Known), ".")
+constant Strict = Json("{\"widgets_values\": [7, \"fixed\", 8, 1, \"off\", \"merged\", \"auto\", \"fast\", \"6:36\"]}")
+Arguments Texts
+	Tiny.Arguments.Length is 24
+	Tiny.Arguments(3) is "moss/tinylora.safetensors:0.5"
+	Tiny.Arguments.Last is "./output/tinymoss_.png"
+	let sampler = Sampler
+	let latent = graph.Origin(ComfyInputs(graph).Source(sampler, "latent_image"))
+	Model(ComfyInputs(graph).Source(sampler, "model")) + Sampling(sampler) + Size(latent) + Files + Output
+Sampler Json
+	Tiny.graph.Node(5).text is Tiny.Sampler.text
+	let samplers = graph.Active(Samplers)
+	if samplers.Length is 1
+		return samplers(0)
+	Error(samplers.Length is 0 then "NoMossSamplerFound" else "SeveralMossSamplers")
+Model(link Json) Texts
+	Tiny.Model(ComfyInputs(Tiny.graph).Source(Tiny.Sampler, "model")).Length is 6
+	Tiny.Model(Json("")).Length is 0
+	if link.text is ""
+		return List(Text)
+	let node = graph.Origin(link)
+	if graph.Type(node) is "UNETLoader"
+		return ("--model", graph.Text(node, "unet_name", 0))
+	Model(ComfyInputs(graph).Source(node, "model")) + Loras(node)
+Loras(node Json) Texts
+	Tiny.Loras(Tiny.graph.Node(2)) is ("--lora", "moss/tinylora.safetensors:0.5")
+	Tiny.Loras(Tiny.graph.Node(3)) is ("--lora", "moss/a.safetensors:0.25")
+	if graph.Type(node) is "LoraLoaderModelOnly"
+		return ComfyInputs(graph).Lora(graph.Text(node, "lora_name", 0), graph.Text(node, "strength_model", 1) to Number)
+	mutable loras = List(Text)
+	for 4
+		let name = graph.Text(node, "lora_0" + (index + 1), 2 * index)
+		let strength = graph.Text(node, "strength_0" + (index + 1), 2 * index + 1) to Number
+		if (name is not "None") and (strength is not 0)
+			loras = loras + ComfyInputs(graph).Lora(name, strength)
+	loras
+Sampling(sampler Json) Texts
+	Tiny.Sampling(Tiny.Sampler) is ("--seed", "42", "--steps", "6", "--guidance", "1.5")
+	Tiny.Sampling(Strict) is ("--seed", "7", "--quality", "fast", "--skip", "6:36")
+	let seed = ComfyInputs(graph).Seed(sampler, "seed", 0)
+	let steps = ("--steps", graph.Text(sampler, "steps", 2), "--guidance", graph.Text(sampler, "cfg", 3))
+	if graph.Type(sampler) is "KSampler"
+		return seed + steps
+	let quality = graph.Text(sampler, "quality", 7)
+	let custom = steps + "--spectrum" + graph.Text(sampler, "spectrum", 4)
+	let chosen = quality is "custom" then custom else ("--quality", quality)
+	seed + chosen + "--skip" + graph.Text(sampler, "skip", 8)
+Size(latent Json) Texts
+	Tiny.Size(Tiny.graph.Node(9)) is ("--width", "480", "--height", "1280", "--count", "2")
+	let sizes = ("--width", graph.Text(latent, "width", 0), "--height", graph.Text(latent, "height", 1))
+	sizes + "--count" + graph.Text(latent, "batch_size", 2)
+Files Texts
+	Tiny.Files is ("--text_encoder", "qwen3.5_9b_int8_convrot.safetensors", "--vae", "flux2-vae.safetensors")
+	Loader("CLIPLoader", "clip_name", "--text_encoder") + Loader("VAELoader", "vae_name", "--vae")
+Loader(type Text, name Text, option Text) Texts
+	Tiny.Loader("VAELoader", "vae_name", "--vae") is ("--vae", "flux2-vae.safetensors")
+	Tiny.Loader("UpscaleModelLoader", "model_name", "--upscale").Length is 0
+	let loaders = graph.Active(List(Text) + type)
+	loaders.Length is 1 then (option, graph.Text(loaders(0), name, 0)) else List(Text)
+Output Texts
+	Tiny.Output is ("--output", "./output/tinymoss_.png")
+	let saved = graph.Active(List(Text) + "SaveImage")
+	let prefix = saved.Length is 0 then "MossImage" else graph.Text(saved(0), "filename_prefix", 0)
+	("--output", comfyui + "/output/" + prefix + "_.png")
+Prompt Text
+	Tiny.Prompt is "a {red|blue} fox"
+	graph.Text(graph.Origin(ComfyInputs(graph).Source(Sampler, "positive")), "text", 0)

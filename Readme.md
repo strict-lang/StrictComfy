@@ -50,6 +50,7 @@ From any folder with a UTF-8 `prompt.txt`, without ComfyUI or Python (only the m
 
 ```powershell
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --count 10
+C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --workflow moss_2026-10-18.json --count 4
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --lora moss/lenovo_moss.safetensors:0.5 --lora moss/cndamiph_Candid_Amateur_iPhone_MOSS_v1.safetensors:0.31 --spectrum spectrum8_w3p3
 C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --vae flux2-vae.safetensors --text_encoder qwen3.5_9b_int8_convrot.safetensors
 ```
@@ -82,6 +83,9 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --
 | `--width`, `--height` | 720, 1280 (multiples of 16) |
 | `--output` | `MossImage.jpg` numbered `MossImage0001.jpg`, ...; never overwrites; `.jpg` (quality 85) or `.png` |
 | `--json_output` | off; writes a `.json` sidecar with seed, prompt, steps, guidance, Spectrum, model and LoRAs per image |
+| `--workflow` | none; a ComfyUI image workflow whose settings the run uses, below |
+
+`--workflow` takes a workflow `.json` as ComfyUI saves it (a path, or a name in `user/default/workflows` of the ComfyUI folder above the models folder) and makes its images in MossImage, options after it change its settings (`--count 10`, `--quality fast`, `--prompt`, `--model`, more `--lora`). Starting at the one active KSampler or Strict Moss Sampler (`ComfyGraph`, `MossWorkflow`) it reads the Load Diffusion Model, LoraLoaderModelOnly and rgthree Lora Loader Stack LoRAs, the seed (`randomize` draws new ones), steps and cfg (or the Strict node's quality, custom steps, cfg, Spectrum and skip), the positive CLIPTextEncode prompt (Dynamic Prompts' `{a|b}` choices are picked per image), width, height and batch size of the empty latent, Load CLIP and Load VAE, and the Save Image prefix as `--output` (`.png` in ComfyUI's `output`). Values come through primitives, Dynamic Prompts, Math Expression, Resolution Selector and Unified Resize like for H3Video; every other node is passed through like a bypassed one and listed as skipped (ModelSamplingSD3 and Spectrum or skip layer patches, MossImage samples like the Strict node). The negative prompt is not used (cfg above 1 guides away from an empty prompt). Checkpoints with fused `qkv` rows stop with `NoSeparateQkvMossLayers` (the ComfyUI node converts them), pass another `--model` for those.
 
 Strict does everything in one process: it encodes every distinct prompt with its Qwen3.5 encoder (then frees it), merges the LoRAs, makes the noise like `torch.randn` of the seed, samples, decodes with its Flux 2 VAE port and writes the image. Loading takes about 3 s for the encoder and 3 s for Moss plus the LoRA merge (on the CPU for now, about 14 s with the turbo LoRA). `MossImage.exe dumps model lora vae` is the diagnostic mode comparing every layer and step against a `dump.py moss` folder.
 
