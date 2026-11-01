@@ -42,18 +42,28 @@ Chosen(text Text, draw Number) Text
 Reserved(base Text) Text
 	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
 	Sample.Reserved("artifacts/PromptBatchTest.png") is "artifacts/PromptBatchTest0001.png"
-	let dot = base.LastIndexOf(".")
-	let stem = base.Substring(0, dot)
-	let extension = base.Substring(dot, base.Length - dot)
-	mutable number = 1
-	for as long as IsTaken(Numbered(stem, number) + extension)
-		number = number + 1
-	Numbered(stem, number) + extension
-Outputs(base Text, count Number) Slow(Texts)
+	Named(base, Free(base, 1))
+Outputs(base Text, count Number) Texts
+	Sample.Outputs("PromptBatchTest.jpg", 2) is ("PromptBatchTest0001.jpg", "PromptBatchTest0002.jpg")
+	File("PromptBatchTest0001.jpg").Exists is false
+	mutable number = 0
 	for count
-		let path = Reserved(base)
-		File(path).Write(List(Text))
-		path
+		number = Free(base, number + 1)
+		Named(base, number)
+Saving(planned Text, base Text) Text
+	Sample.Saving("PromptBatchTest0001.jpg", "PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
+	Sample.Saving("PromptBatch.strict", "PromptBatch.strict") is "PromptBatch0001.strict"
+	IsTaken(planned) then Reserved(base) else planned
+Free(base Text, first Number) Number
+	Sample.Free("PromptBatchTest.jpg", 3) is 3
+	mutable number = first
+	for as long as IsTaken(Named(base, number))
+		number = number + 1
+	number
+Named(base Text, number Number) Text
+	Sample.Named("a.jpg", 7) is "a0007.jpg"
+	let dot = base.LastIndexOf(".")
+	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
 IsTaken(path Text) Boolean
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false

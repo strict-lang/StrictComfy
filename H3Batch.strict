@@ -88,7 +88,8 @@ Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)
 	let shapes = options.Shapes
 	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
-	H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), output)
+	let path = PromptBatch(logger, "Video").Saving(output, options.output)
+	H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), path)
 Folder Text
 	Sample.Folder.EndsWith("/artifacts/h3")
 	Root + "/artifacts/h3"

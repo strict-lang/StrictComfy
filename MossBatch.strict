@@ -66,8 +66,9 @@ Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Te
 	let latent = sampling.Sampled(moss, noise, context, label)
 	GpuMemory.Released
 	latent
-Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text, path Text) Slow(Text)
+Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text, planned Text) Slow(Text)
 	let before = Process.Elapsed
+	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
 	let image = decoder.Decoded(latent, options.width / 16)
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
