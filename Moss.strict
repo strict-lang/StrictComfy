@@ -16,6 +16,9 @@ constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "
 Loaded(path Text, lora Text) Slow(Moss)
 	Tiny.layers.Length is 2
 	Tiny.texts.Length is 2
+	Moss.Loaded("tinymoss.gguf", "").layers.Length is 2
+	if path.EndsWith(".gguf")
+		return MossGguf(path).Loaded
 	let model = Safetensors(path, 16)
 	let dense = Dense(model)
 	let normed = model.Values("final_norm_video.weight")
