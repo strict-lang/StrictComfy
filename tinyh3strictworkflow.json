@@ -1,0 +1,18 @@
+{
+	"nodes": [
+		{"id": 1, "type": "UNETLoader", "mode": 0, "inputs": [], "widgets_values": ["tinyh3.safetensors", "default"], "widgets_values_named": {"unet_name": "tinyh3.safetensors", "weight_dtype": "default"}},
+		{"id": 2, "type": "LoraLoaderModelOnly", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 1}], "widgets_values": ["h3\\tinylora.safetensors", 0.66], "widgets_values_named": {"lora_name": "h3\\tinylora.safetensors", "strength_model": 0.66}},
+		{"id": 3, "type": "StrictH3Sampler", "mode": 0, "inputs": [{"name": "positive", "type": "CONDITIONING", "link": 2}, {"name": "latent", "type": "LATENT", "link": 3}, {"name": "model", "type": "MODEL", "link": 4}], "widgets_values": ["fastest2steps", 7, "randomize", "5:45"], "widgets_values_named": {"quality": "fastest2steps", "seed": 7, "control_after_generate": "randomize", "skip": "5:45"}},
+		{"id": 4, "type": "MiniMaxH3ImageToVideo", "mode": 0, "inputs": [{"name": "first_frame", "type": "IMAGE", "link": 5}, {"name": "last_frame", "type": "IMAGE", "link": 6}, {"name": "width", "type": "INT", "widget": {"name": "width"}, "link": 7}, {"name": "height", "type": "INT", "widget": {"name": "height"}, "link": 8}, {"name": "length", "type": "INT", "widget": {"name": "length"}, "link": null}], "widgets_values": ["a fox", 1344, 768, 73]},
+		{"id": 5, "type": "LoadImage", "mode": 0, "inputs": [], "widgets_values": ["tinyframe.png", "image"]},
+		{"id": 6, "type": "ResolutionSelector", "mode": 0, "inputs": [], "widgets_values": ["9:16 (Portrait Widescreen)", 0.2, 32], "widgets_values_named": {"aspect_ratio": "9:16 (Portrait Widescreen)", "megapixels": 0.2, "multiple": 32}},
+		{"id": 7, "type": "CreateVideo", "mode": 0, "inputs": [{"name": "images", "type": "IMAGE", "link": 9}, {"name": "audio", "type": "AUDIO", "link": 10}], "widgets_values": [24]},
+		{"id": 8, "type": "SaveVideo", "mode": 0, "inputs": [{"name": "video", "type": "VIDEO", "link": 11}], "widgets_values": ["video/tiny", "auto", "auto"]},
+		{"id": 9, "type": "SamplerCustomAdvanced", "mode": 4, "inputs": [], "widgets_values": null}
+	],
+	"links": [
+		[1, 1, 0, 2, 0, "MODEL"], [2, 4, 0, 3, 0, "CONDITIONING"], [3, 4, 1, 3, 1, "LATENT"], [4, 2, 0, 3, 2, "MODEL"],
+		[5, 5, 0, 4, 0, "IMAGE"], [6, 5, 0, 4, 1, "IMAGE"], [7, 6, 0, 4, 2, "INT"], [8, 6, 1, 4, 3, "INT"],
+		[9, 3, 0, 7, 0, "IMAGE"], [10, 3, 1, 7, 1, "AUDIO"], [11, 7, 0, 8, 0, "VIDEO"]
+	]
+}

@@ -1,0 +1,40 @@
+{
+	"nodes": [
+		{"id": 1, "type": "UNETLoader", "mode": 0, "inputs": [], "widgets_values": ["tinyh3.safetensors", "default"]},
+		{"id": 2, "type": "LTX_lora_loader", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 1}, {"name": "clip", "type": "CLIP", "link": null}, {"name": "stack_data", "type": "STRING", "widget": {"name": "stack_data"}, "link": 2}], "widgets_values": ["minimax", "[]", ""], "widgets_values_named": {"mode": "minimax", "stack_data": "[]", "lora_ui": ""}},
+		{"id": 3, "type": "PrimitiveStringMultiline", "mode": 0, "inputs": [], "widgets_values": ["[{\"on\": true, \"lora\": \"h3\\\\tinylora.safetensors\", \"str\": 0.5, \"v\": 1.0}, {\"on\": false, \"lora\": \"off.safetensors\", \"str\": 1}]"]},
+		{"id": 4, "type": "ImpactSwitch", "mode": 0, "inputs": [{"name": "input1", "type": "INT", "link": 3}, {"name": "select", "type": "INT", "widget": {"name": "select"}, "link": 4}], "widgets_values": [1, false]},
+		{"id": 5, "type": "RandomNumber", "mode": 0, "inputs": [], "widgets_values": [1, 24, 7, "randomize"]},
+		{"id": 6, "type": "LoraLoaderModelOnly", "mode": 4, "inputs": [{"name": "model", "type": "MODEL", "link": 5}], "widgets_values": ["bypassed.safetensors", 1]},
+		{"id": 7, "type": "ModelAttentionBackend", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 6}], "widgets_values": ["comfy kitchen attention"]},
+		{"id": 8, "type": "ApplyHyperFlowH3", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 7}], "widgets_values": ["hyperflow.safetensors", 1, "merge", "auto", false, false, false], "widgets_values_named": {"hyperflow_file": "hyperflow.safetensors", "strength": 1, "lora_mode": "merge", "variant": "auto"}},
+		{"id": 9, "type": "BasicGuider", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 8}, {"name": "conditioning", "type": "CONDITIONING", "link": 9}], "widgets_values": null},
+		{"id": 10, "type": "SamplerCustomAdvanced", "mode": 0, "inputs": [{"name": "noise", "type": "NOISE", "link": 10}, {"name": "guider", "type": "GUIDER", "link": 11}, {"name": "sampler", "type": "SAMPLER", "link": 12}, {"name": "sigmas", "type": "SIGMAS", "link": 13}, {"name": "latent_image", "type": "LATENT", "link": 14}], "widgets_values": null},
+		{"id": 11, "type": "RandomNoise", "mode": 0, "inputs": [], "widgets_values": [42, "fixed"], "widgets_values_named": {"noise_seed": 42, "control_after_generate": "fixed"}},
+		{"id": 12, "type": "KSamplerSelect", "mode": 0, "inputs": [], "widgets_values": ["res_multistep"]},
+		{"id": 15, "type": "MiniMaxH3ImageToVideo", "mode": 0, "inputs": [{"name": "clip", "type": "CLIP", "link": null}, {"name": "vae", "type": "VAE", "link": null}, {"name": "first_frame", "type": "IMAGE", "link": 15}, {"name": "last_frame", "type": "IMAGE", "link": null}, {"name": "prompt", "type": "STRING", "widget": {"name": "prompt"}, "link": 16}, {"name": "width", "type": "INT", "widget": {"name": "width"}, "link": 17}, {"name": "height", "type": "INT", "widget": {"name": "height"}, "link": 18}, {"name": "length", "type": "INT", "widget": {"name": "length"}, "link": 19}], "widgets_values": ["stale prompt", 1344, 768, 73]},
+		{"id": 16, "type": "PreviewAny", "mode": 0, "inputs": [{"name": "source", "type": "*", "link": 20}], "widgets_values": []},
+		{"id": 17, "type": "DPRandomGenerator", "mode": 0, "inputs": [], "widgets_values": ["a {red|blue} fox", 0, "No"]},
+		{"id": 18, "type": "UnifiedResizeImageMask", "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 21}, {"name": "mask", "type": "MASK", "link": null}], "widgets_values": ["Shorter Side", "9:16 (Portrait Widescreen)", 1024, 768, 1024, 1024, 1, 1, "lanczos", "center", 32, false, ""]},
+		{"id": 19, "type": "UnifiedResizeImageMask", "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 22}, {"name": "mask", "type": "MASK", "link": null}], "widgets_values": ["Total Pixels (MP)", "9:16 (Portrait Widescreen)", 1024, 736, 1024, 1024, 1, 0.41, "nearest-exact", "center", 32, false, ""], "widgets_values_named": {"scale_mode": "Total Pixels (MP)", "aspect_ratio": "9:16 (Portrait Widescreen)", "long_side_target": 1024, "short_side_target": 736, "width": 1024, "height": 1024, "multiplier": 1, "megapixels": 0.41, "upscale_method": "nearest-exact", "crop": "center", "divisible_by": 32, "maintain_aspect": false}},
+		{"id": 20, "type": "ComfyMathExpression", "mode": 0, "inputs": [{"name": "values.a", "type": "FLOAT,INT,BOOLEAN", "link": 23}, {"name": "values.b", "type": "FLOAT,INT,BOOLEAN", "link": null}], "widgets_values": ["max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"]},
+		{"id": 21, "type": "easy imageInsetCrop", "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 24}], "widgets_values": ["Percentage", 5, 5, 5, 5]},
+		{"id": 22, "type": "PrimitiveFloat", "mode": 0, "inputs": [], "widgets_values": [5]},
+		{"id": 23, "type": "EnhancementUtils_ImageLoadWithSubfolders", "mode": 0, "inputs": [], "widgets_values": ["tinyframe.png", "", "", "image"]},
+		{"id": 24, "type": "VAEDecode", "mode": 0, "inputs": [{"name": "samples", "type": "LATENT", "link": 25}], "widgets_values": null},
+		{"id": 25, "type": "VAEDecodeAudio", "mode": 0, "inputs": [{"name": "samples", "type": "LATENT", "link": 26}], "widgets_values": null},
+		{"id": 26, "type": "RTXVideoSuperResolution", "mode": 0, "inputs": [{"name": "images", "type": "IMAGE", "link": 27}], "widgets_values": ["scale by multiplier", 2, "ULTRA"]},
+		{"id": 27, "type": "VHS_VideoCombine", "mode": 0, "inputs": [{"name": "images", "type": "IMAGE", "link": 28}, {"name": "audio", "type": "AUDIO", "link": 29}], "widgets_values": {"frame_rate": 24, "filename_prefix": "tiny", "format": "video/h264-mp4"}},
+		{"id": 28, "type": "MarkdownNote", "mode": 0, "inputs": [], "widgets_values": ["Notes"]}
+	],
+	"links": [
+		[1, 1, 0, 2, 0, "MODEL"], [2, 4, 0, 2, 2, "STRING"], [3, 3, 0, 4, 0, "STRING"], [4, 5, 0, 4, 1, "INT"],
+		[5, 2, 0, 6, 0, "MODEL"], [6, 6, 0, 7, 0, "MODEL"], [7, 7, 0, 8, 0, "MODEL"], [8, 8, 0, 9, 0, "MODEL"],
+		[9, 15, 0, 9, 1, "CONDITIONING"], [10, 11, 0, 10, 0, "NOISE"], [11, 9, 0, 10, 1, "GUIDER"], [12, 12, 0, 10, 2, "SAMPLER"],
+		[13, 8, 1, 10, 3, "SIGMAS"], [14, 15, 1, 10, 4, "LATENT"], [15, 18, 0, 15, 2, "IMAGE"], [16, 16, 0, 15, 4, "STRING"],
+		[17, 19, 2, 15, 5, "INT"], [18, 19, 3, 15, 6, "INT"], [19, 20, 1, 15, 7, "INT"], [20, 17, 0, 16, 0, "STRING"],
+		[21, 21, 0, 18, 0, "IMAGE"], [22, 21, 0, 19, 0, "IMAGE"], [23, 22, 0, 20, 0, "FLOAT"], [24, 23, 0, 21, 0, "IMAGE"],
+		[25, 10, 0, 24, 0, "LATENT"], [26, 10, 0, 25, 0, "LATENT"], [27, 24, 0, 26, 0, "IMAGE"], [28, 26, 0, 27, 0, "IMAGE"],
+		[29, 25, 0, 27, 1, "AUDIO"]
+	]
+}

@@ -1,0 +1,131 @@
+has expression Text
+has values Numbers
+constant Tiny = MathExpression("", List(Number))
+constant Length = MathExpression("max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17", List(Number) + 5)
+constant Digits = "0123456789."
+constant Letters = "abcdefghijklmnopqrstuvwxyz_"
+constant Operators = (("+", "-"), ("*", "/", "//", "%"))
+constant Functions = ("max", "min", "sum", "round", "abs", "floor", "ceil", "sqrt")
+constant Invalid = 1000000
+Result Number
+	Length.Result is 124
+	MathExpression("a / 4", List(Number) + 124).Result is 31
+	MathExpression("-7 // 2 + -7 % 3 * b + 0.5", (0, 2)).Result is 0.5
+	MathExpression("1 +", List(Number)).Result is Error("InvalidExpression:1+")
+	MathExpression("2 ** 3", List(Number)).Result is Error("InvalidExpression:2**3")
+	MathExpression("round(3.5) + sqrt(16) + floor(-0.5)", List(Number)).Result is 7
+	let tokens = Tokens
+	let parsed = Chained(tokens, 0, 0)
+	parsed(1) is tokens.Length then parsed(0) else Error("InvalidExpression:" + expression.Replace(" ", ""))
+Tokens Texts
+	MathExpression("max(a,2.5)//3", List(Number)).Tokens is ("max", "(", "a", ",", "2.5", ")", "//", "3")
+	MathExpression(" 1 ", List(Number)).Tokens is ("1")
+	mutable tokens = List(Text)
+	mutable at = 0
+	for as long as at < expression.Length
+		let length = TokenLength(at)
+		if expression.Substring(at, 1) is not " "
+			tokens = tokens + expression.Substring(at, length)
+		at = at + length
+	tokens
+TokenLength(at Number) Number
+	MathExpression("ab1+22.5//", List(Number)).TokenLength(0) is 3
+	MathExpression("ab1+22.5//", List(Number)).TokenLength(4) is 4
+	MathExpression("ab1+22.5//", List(Number)).TokenLength(8) is 2
+	MathExpression("ab1+22.5/", List(Number)).TokenLength(8) is 1
+	let first = expression.Substring(at, 1)
+	let allowed = first is in Digits then Digits else first is in Letters then Letters + Digits else ""
+	if allowed is ""
+		return (at + 1 < expression.Length) and (expression.Substring(at, 2) is in ("//", "**")) then 2 else 1
+	mutable finish = at + 1
+	for as long as (finish < expression.Length) and (expression.Substring(finish, 1) is in allowed)
+		finish = finish + 1
+	finish - at
+Chained(tokens Texts, at Number, level Number) Numbers
+	Tiny.Chained(("2", "*", "3", "+", "1"), 0, 0) is (7, 5)
+	Tiny.Chained(("8", "-", "2", "-", "1"), 0, 0) is (5, 5)
+	Tiny.Chained(("8", "/", "2", "+", "1"), 0, 1) is (4, 3)
+	mutable result = Operand(tokens, at, level)
+	for as long as Token(tokens, result(1)) is in Operators(level)
+		let right = Operand(tokens, result(1) + 1, level)
+		result = (Operated(result(0), Token(tokens, result(1)), right(0)), right(1))
+	result
+Operand(tokens Texts, at Number, level Number) Numbers
+	Tiny.Operand(("2", "*", "3"), 0, 0) is (6, 3)
+	Tiny.Operand(("2", "*", "3"), 0, 1) is (2, 1)
+	level is 0 then Chained(tokens, at, 1) else Unary(tokens, at)
+Unary(tokens Texts, at Number) Numbers
+	Tiny.Unary(("-", "-", "2"), 0) is (2, 3)
+	Tiny.Unary(("-", "2"), 0) is (-2, 2)
+	if Token(tokens, at) is not in ("-", "+")
+		return Atom(tokens, at)
+	let inner = Unary(tokens, at + 1)
+	(tokens(at) is "-" then -inner(0) else inner(0), inner(1))
+Atom(tokens Texts, at Number) Numbers
+	Tiny.Atom(("(", "1", ")"), 0) is (1, 3)
+	Tiny.Atom(("(", "1"), 0)(1) is Invalid
+	Tiny.Atom(("max", "(", "1", ",", "4", ")"), 0) is (4, 6)
+	Tiny.Atom(("int", "(", "1", ")"), 0)(1) is Invalid
+	Tiny.Atom(List(Text), 0)(1) is Invalid
+	if Token(tokens, at) is "("
+		let inner = Chained(tokens, at + 1, 0)
+		return (inner(0), Token(tokens, inner(1)) is ")" then inner(1) + 1 else Invalid)
+	if (Token(tokens, at + 1) is not "(") or (Token(tokens, at) is not in Functions)
+		return Named(Token(tokens, at), at)
+	let listed = Listed(tokens, at + 2)
+	(Called(tokens(at), listed.Slice(0, listed.Length - 1)), listed.Last)
+Listed(tokens Texts, at Number) Numbers
+	Tiny.Listed(("1", ",", "2", ")"), 0) is (1, 2, 4)
+	Tiny.Listed(("1", ","), 0).Last is Invalid
+	mutable argument = Chained(tokens, at, 0)
+	mutable found = List(Number) + argument(0)
+	for as long as Token(tokens, argument(1)) is ","
+		argument = Chained(tokens, argument(1) + 1, 0)
+		found = found + argument(0)
+	found + (Token(tokens, argument(1)) is ")" then argument(1) + 1 else Invalid)
+Called(name Text, arguments Numbers) Number
+	Tiny.Called("max", (5, 7.5, 6)) is 7.5
+	Tiny.Called("round", List(Number) + 2.5) is 2
+	Tiny.Called("abs", List(Number) + -2) is 2
+	Tiny.Called("ceil", List(Number) + 1.2) is 2
+	if name is in ("max", "min", "sum")
+		return Combined(name, arguments)
+	let first = arguments(0)
+	let rounded = name is "round" then first.Counted("Even") else first.Absolute
+	if name is in ("round", "abs")
+		return rounded
+	name is "floor" then first.Floor else name is "ceil" then first.Ceiling else first.SquareRoot
+Combined(name Text, arguments Numbers) Number
+	Tiny.Combined("min", (5, 7.5, 3)) is 3
+	Tiny.Combined("sum", (1, 2, 3)) is 6
+	mutable result = name is "sum" then 0 else arguments(0)
+	for arguments
+		let larger = value > result then value else result
+		let smaller = value < result then value else result
+		result = name is "sum" then result + value else name is "max" then larger else smaller
+	result
+Operated(left Number, operator Text, right Number) Number
+	Tiny.Operated(-7, "//", 2) is -4
+	Tiny.Operated(-7, "%", 3) is 2
+	Tiny.Operated(7, "/", 2) is 3.5
+	Tiny.Operated(7, "-", 2) is 5
+	if operator is "+"
+		return left + right
+	if operator is "-"
+		return left - right
+	if operator is "*"
+		return left * right
+	let floored = (left / right).Floor
+	operator is "/" then left / right else operator is "//" then floored else left - right * floored
+Named(token Text, at Number) Numbers
+	Length.Named("a", 3) is (5, 4)
+	Length.Named("2.5", 0) is (2.5, 1)
+	Length.Named("q", 0)(1) is Invalid
+	if (token is not "") and (token.Substring(0, 1) is in Digits)
+		return (token to Number, at + 1)
+	let variable = token.Length is 1 then Letters.IndexOf(token) else -1
+	(variable >= 0) and (variable < values.Length) then (values(variable), at + 1) else (0, Invalid)
+Token(tokens Texts, at Number) Text
+	Tiny.Token(("a", "b"), 1) is "b"
+	Tiny.Token(("a", "b"), Invalid) is ""
+	at < tokens.Length then tokens(at) else ""

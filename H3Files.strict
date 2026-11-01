@@ -5,7 +5,9 @@ has textEncoder = ""
 has models = ""
 has image = ""
 has lastImage = ""
-constant Help = ("H3 int8 Convrot model file, a name in models/diffusion_models or a path, empty for the one of --quality", "video VAE file, a name in models/vae or a path, empty for minimax_h3_video_vae_int8_convrot.safetensors", "audio VAE file, a name in models/vae or a path, empty for minimax_h3_audio_vae_fp32.safetensors", "Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models", "first frame image (png or jpg) for image to video, stretched to the video size", "last frame image (png or jpg), cropped to the video aspect and resized")
+has workflow = ""
+has crop = false
+constant Help = ("H3 int8 Convrot model file, a name in models/diffusion_models or a path, empty for the one of --quality", "video VAE file, a name in models/vae or a path, empty for minimax_h3_video_vae_int8_convrot.safetensors", "audio VAE file, a name in models/vae or a path, empty for minimax_h3_audio_vae_fp32.safetensors", "Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models", "first frame image (png or jpg) for image to video, stretched to the video size (cropped with --crop)", "last frame image (png or jpg), cropped to the video aspect and resized", "ComfyUI workflow (.json saved in ComfyUI, a path or a name in user/default/workflows) whose model, LoRAs, prompt, images, size, length and sampler settings this run uses, options after it change them", "crop the first frame image to the video aspect like the last one instead of stretching it")
 constant Local = H3Files.Parsed(("--models", "."))
 Checkpoint(base Boolean) Text
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Checkpoint(false) is "tinyh3.safetensors"
@@ -30,3 +32,12 @@ Images Texts
 ComfyUI Text
 	Local.ComfyUI is "./.."
 	ModelFiles(models).Folder + "/.."
+Workflow Text
+	H3Files.Parsed(("--workflow", "tinyh3workflow.json")).Workflow is "tinyh3workflow.json"
+	H3Files.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
+	File(workflow).Exists then workflow else ComfyUI + "/user/default/workflows/" + workflow
+Cropped(index Number) Boolean
+	H3Files.Parsed(List(Text)).Cropped(1)
+	H3Files.Parsed(List(Text)).Cropped(0) is false
+	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
+	crop or (index is 1)
