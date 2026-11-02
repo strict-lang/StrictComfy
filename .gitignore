@@ -77,6 +77,7 @@ prompt*.txt
 *.rgb
 Tests.test-*
 *.log
-Content/
+Content/*
+!Content/defaultprompt.safetensors
 Dumps/
 MossWebStats/

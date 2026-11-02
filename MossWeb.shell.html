@@ -96,6 +96,8 @@
 		console.log(text);
 		const download = text.match(/^Downloading (\S+): ([\d.]+) of ([\d.]+) MB/);
 		if (download)
+			bar.style.width = (100 * download[2] / download[3]) + "%";
+		if (download)
 			return show("Downloading " + download[1] + ": " + Math.round(download[2]) + " of " + Math.round(download[3]) + " MB, kept for the next visit");
 		log.textContent += text + "\n";
 		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
@@ -110,6 +112,7 @@
 			bar.style.width = "10%";
 			show("Model loaded after " + seconds() + ", sampling " + steps() + " steps");
 		} else if (text.startsWith("Sampled in")) {
+			began.sampled = parseFloat(text.slice(11));
 			bar.style.width = "90%";
 			show("Decoding the image after " + seconds());
 		} else if (text.startsWith("Workflow settings:"))
@@ -158,7 +161,7 @@
 		bar.style.width = "100%";
 		show("Done in " + seconds() + " (seed " + began.seed + ")");
 		const model = steps() > 4 ? "moss_image_sft_dmd_int4_convrot" : "moss_image_sft_4step_int4_convrot";
-		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: "", seconds: (performance.now() - began.time) / 1000 });
+		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: "", seconds: began.sampled });
 		start.textContent = "Generate locally";
 		enabled(true);
 		randomSeed();
@@ -198,7 +201,7 @@
 				return failed("This browser has no WebGPU, use a current Chrome or Edge");
 			enabled(true);
 			start.textContent = "Generate locally";
-			show("The text encoder (4.5 GB) and the merged Moss model (3 GB) stream in when you generate, kept for the next visit");
+			show("The merged Moss model (3 GB) streams in when you generate, the text encoder (4.5 GB) only for your own prompt, both kept for the next visit");
 			if (parameters.has("start")) start.click();
 		},
 		onAbort: what => failed("Error: " + what),
@@ -213,7 +216,7 @@
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
 		bar.style.width = "0";
-		show(isFirst ? "Streaming in the text encoder" : "Sampling " + steps() + " steps");
+		show(isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps");
 		begin();
 		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + began.prompt);
 	};
