@@ -30,7 +30,7 @@ Entered(latent Numbers, width Number) Slow(FeatureMap)
 	let channels = entry.weights.Length / entry.biases.Length / 9
 	let clamped = Clamped(FluxDecoder.Unpatchified(latent, width, channels))
 	let map = FeatureMap(clamped, 2 * width, channels, Layer.Zeros(channels))
-	Taef2Block.Rectified(entry.Applied(map, map.Identity, false))
+	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
 Clamped(values Numbers) Numbers
 	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
 	for values
@@ -40,7 +40,7 @@ Decoded(latent Numbers, width Number) Slow(Numbers)
 	Tiny.Decoded(Latent, 2)(1).IsNearlyEqual(0.68325, 0.001)
 	Tiny.Decoded(Latent, 2)(4607).IsNearlyEqual(0.52472, 0.001)
 	let upsampled = Upsampled(Entered(latent, width))
-	let output = exit.Applied(upsampled, upsampled.Identity, false)
+	let output = exit.Applied(upsampled, upsampled.Identity, Activation.Linear)
 	for output.Completed
 		value.Clamp
 Upsampled(map FeatureMap) Slow(FeatureMap)
