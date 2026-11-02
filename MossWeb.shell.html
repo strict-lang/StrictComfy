@@ -31,8 +31,8 @@
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
 	#frame { flex: 1; min-height: 0; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; }
-	#gallery { display: flex; gap: 8px; align-items: center; justify-content: center; font-size: 13px; color: #8b97a5; }
-	#caption { min-width: 180px; text-align: center; }
+	#gallery { display: flex; gap: 8px; align-items: center; align-self: stretch; font-size: 13px; color: #8b97a5; }
+	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	#stats { position: absolute; left: 12px; top: 6px; font-size: 12px; color: #6b7785; }
 	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
 	footer a { color: inherit; }
@@ -90,7 +90,7 @@
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
 	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
-		"a {young|middle-aged|elderly} {woman|man} walking on a busy street in {New York|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, shallow depth of field",
+		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo",
 		"a {young|confident} {woman|man} with {short silver hair|long dark curls|a buzz cut} on the cover of a {fashion|lifestyle|tech} magazine, bold masthead and headlines, studio lighting, glossy print",
 		"a {woman|man} in a {red trench coat|denim jacket|white suit} crossing a crowded crosswalk in {Shibuya|Times Square|Piccadilly Circus}, motion blur, photo",
 		"black-and-white film noir: a detective in a {fedora|trench coat} under venetian blinds, cigarette smoke, hard shadows",
@@ -110,7 +110,7 @@
 	prompt.value = examples[1];
 	element("random").onclick = event => {
 		event.preventDefault();
-		if (!prompt.disabled) prompt.value = examples[Math.floor(Math.random() * examples.length)];
+		prompt.value = examples[Math.floor(Math.random() * examples.length)];
 	};
 	const loras = [];
 	const listed = () => {
@@ -142,8 +142,7 @@
 		element("files").value = "";
 		listed();
 	};
-	const controls = [start, seed, size, quality, decoder, prompt];
-	const enabled = isEnabled => controls.forEach(control => control.disabled = !isEnabled);
+	const enabled = isEnabled => start.disabled = !isEnabled;
 	const failed = message => { show(message, true); start.textContent = "Failed"; began.isRunning = false; };
 	const printed = original => {
 		console.log(original);
@@ -157,6 +156,9 @@
 		const text = original.replace(/\b(\d+) ms\b/g, (match, milliseconds) => (milliseconds / 1000).toFixed(3) + " s");
 		log.textContent += text + "\n";
 		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
+		const encoded = original.match(/^Encoded prompt \d+\/\d+: (.*)/);
+		if (encoded)
+			began.encoded = encoded[1];
 		const step = text.match(/^Step (\d+)\/(\d+)/), sampled = original.match(/sampled in (\d+) ms/);
 		if (sampled)
 			began.sampled = sampled[1] / 1000;
@@ -266,8 +268,8 @@
 		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
 		const model = steps() > 4 ? "moss_image_sft_dmd_int4_convrot" : "moss_image_sft_4step_int4_convrot";
 		const used = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
-		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: used, seconds: began.sampled });
-		kept(source, { seed: began.seed, prompt: began.prompt, size: size.value, quality: quality.value, decoder: decoder.value,
+		counted("generated", { prompt: began.encoded, model, vae: decoder.value, loras: used, seconds: began.sampled });
+		kept(source, { seed: began.seed, prompt: began.encoded, size: size.value, quality: quality.value, decoder: decoder.value,
 			loras: used, sampled: began.sampled }).catch(() => pictured(source, "seed " + began.seed));
 		start.textContent = "Generate locally";
 		enabled(true);
@@ -295,7 +297,7 @@
 			"qwen35_tokenizer/tokenizer_config.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/tokenizer_config.json",
 			"taef2.safetensors": "https://huggingface.co/madebyollin/taef2/resolve/bd244ebfe4398c84fbf312a2f1c868c676b500e3/taef2.safetensors",
 			"flux2-small-vae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/a3efc24f613ef42d9428af62fdbd6f5fd8856c4a/full_encoder_small_decoder.safetensors",
-			"flux2-vae.safetensors": "https://huggingface.co/Comfy-Org/Flux-2-Dev/resolve/9630c1b4b6e690497ae0c19bb6b1b35d4ebedcb7/split_files/vae/flux2-vae.safetensors"
+			"flux2-vae.safetensors": "https://huggingface.co/Comfy-Org/flux2-klein/resolve/5b3abca5c0dc1ecd4eaf3340868d09063fc1c965/split_files/vae/flux2-vae.safetensors"
 		},
 		print: printed,
 		printErr: printed,

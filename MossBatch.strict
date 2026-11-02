@@ -26,7 +26,7 @@ Contexts(prompts Texts) Slow(List(Numbers))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	for prompts
 		let hidden = encoder.Prefilled(tokens.Encoded(Template.Replace("{prompt}", value)), 0).hidden
-		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length)
+		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + value)
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
 Produced(seeds Numbers, prompts Texts, unique Texts) Slow(Number)
 	let contexts = Contexts(unique)
