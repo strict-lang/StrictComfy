@@ -3,11 +3,12 @@ constant FourSteps = "moss_image_sft_4step_int4_convrot.safetensors"
 constant Distilled = "moss_image_sft_dmd_int4_convrot.safetensors"
 constant Encoder = ("--models", ".", "--text_encoder", "qwen3.5_9b_int4_convrot.safetensors")
 constant Sample = "7 480 848 fastest taef2\ta {red|red} fox"
+constant Qualities = ("best", "best", "best", "fast", "faster", "fastest", "fastest2steps")
 Run
 	let previewer = Taef2Decoder.Loaded("taef2.safetensors")
 	mutable line = Process.InputLine
 	for as long as line is not ""
-		line = Session(previewer, line)
+		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
 Session(previewer Taef2Decoder, first Text) Slow(Text)
 	let context = Encoded(Prompt(first))
 	let moss = Loaded(Model(first))
@@ -24,7 +25,22 @@ Prompt(line Text) Text
 	PromptBatch(logger, "Image").Expanded(line.Split("\t").Last, Settings(line)(0) to Number)
 Setup(line Text) Text
 	MossWeb(Logger).Setup(Sample) is FourSteps + "\ta red fox"
-	Model(line) + "\t" + Prompt(line)
+	MossWeb(Logger).Setup("workflow a.json") is "workflow a.json"
+	line.StartsWith("workflow ") then line else Model(line) + "\t" + Prompt(line)
+Workflow(line Text) Slow(Text)
+	let path = line.Split(" ").Last
+	let batch = MossBatch(logger, MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
+	let options = batch.options
+	let settings = options.seed + " " + options.width + " " + options.height + " " + Quality(options)
+	logger.Log("Workflow: " + settings + "\t" + batch.prompted)
+	Process.InputLine
+Quality(options MossOptions) Text
+	MossWeb(Logger).Quality(MossOptions.Parsed(("--quality", "faster"))) is "faster"
+	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "3"))) is "fastest"
+	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "6"))) is "best"
+	if options.steps is 0
+		return Qualities(options.quality)
+	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
 Model(line Text) Text
 	MossWeb(Logger).Model("7 480 848 best taef2\ta fox") is Distilled
 	MossWeb(Logger).Model("7 480 848 fastest flux2-vae\ta fox") is FourSteps

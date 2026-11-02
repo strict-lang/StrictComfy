@@ -33,7 +33,7 @@
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
-		<label>Prompt <a href="#" id="random">random</a><textarea id="prompt">a red fox sitting in a snowy forest, photo</textarea></label>
+		<label>Prompt <span><a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden></span><textarea id="prompt">a red fox sitting in a snowy forest, photo</textarea></label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
@@ -107,7 +107,40 @@
 		} else if (text.startsWith("Sampled in")) {
 			bar.style.width = "90%";
 			show("Decoding the image after " + seconds());
-		} else if (text.startsWith("Error")) failed(text);
+		} else if (text.startsWith("Workflow settings:"))
+			began.hasLoras = text.includes("--lora ");
+		else if (text.startsWith("Workflow: "))
+			applied(text.slice(10).split("\t"));
+		else if (text.startsWith("Error")) failed(text);
+	};
+	const applied = ([settings, workflowPrompt]) => {
+		const [workflowSeed, width, height, workflowQuality] = settings.split(" ");
+		if (workflowSeed !== "-1") seed.value = workflowSeed;
+		const value = width + " " + height;
+		if (![...size.options].some(option => option.value === value)) size.add(new Option(width + "x" + height + " (workflow)", value));
+		size.value = value;
+		size.onchange();
+		quality.value = workflowQuality;
+		prompt.value = workflowPrompt;
+		show("Workflow loaded" + (began.hasLoras ? ", its LoRAs are not applied yet" : ""));
+	};
+	const begin = () => {
+		if (began.isStarted)
+			return;
+		began.isStarted = true;
+		setTimeout(() => Module.callMain([]), 0);
+	};
+	element("load").onclick = event => {
+		event.preventDefault();
+		if (!start.disabled) element("workflow").click();
+	};
+	element("workflow").onchange = async () => {
+		const file = element("workflow").files[0];
+		if (!file) return;
+		Module.strictFile("workflow.json", await file.arrayBuffer());
+		element("workflow").value = "";
+		begin();
+		Module.strictInput("workflow workflow.json");
 	};
 	const shown = (source, name) => {
 		frame.textContent = "";
@@ -165,7 +198,7 @@
 		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
 	};
 	start.onclick = () => {
-		const isFirst = began.time === 0;
+		const isFirst = !began.isStarted;
 		enabled(false);
 		start.textContent = "Generating locally...";
 		began.time = performance.now();
@@ -173,8 +206,7 @@
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		bar.style.width = "0";
 		show(isFirst ? "Streaming in the text encoder" : "Sampling " + steps() + " steps");
-		if (isFirst)
-			setTimeout(() => Module.callMain([]), 0);
+		begin();
 		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + prompt.value.replace(/\s+/g, " ").trim());
 	};
 	window.addEventListener("error", event => failed(event.message));
