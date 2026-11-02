@@ -7,25 +7,33 @@
 <style>
 	html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
 	body { display: flex; flex-direction: column; }
-	main { flex: 1; min-height: 0; display: flex; gap: 24px; justify-content: center; padding: 20px 24px 8px; box-sizing: border-box; }
-	section { width: min(440px, 46vw); display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+	main { flex: 1; min-height: 0; display: flex; gap: 24px; justify-content: center; padding: 24px 24px 8px; box-sizing: border-box; }
+	section { width: min(440px, 46vw); display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 	h1 { margin: 0; font-size: 24px; font-weight: 600; }
-	label a { color: #5fb3f6; font-size: 12px; }
+	label a, .links a { color: #5fb3f6; font-size: 12px; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
 	textarea { resize: none; height: 96px; }
 	.row { display: flex; gap: 10px; }
 	.row label { flex: 1; min-width: 0; }
+	#loras { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+	.lora { display: flex; gap: 8px; align-items: center; }
+	.lora span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.lora input { width: 64px; padding: 4px; }
+	.missing { color: #e8b383; }
 	button { font: inherit; font-size: 18px; padding: 12px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
 	button:disabled { background: #2b3540; color: #6b7785; cursor: default; }
+	.small { font-size: 14px; padding: 4px 10px; background: #1f2933; color: #d8dee9; }
 	#progress { height: 6px; background: #1f2933; border-radius: 3px; overflow: hidden; flex: none; }
 	#bar { width: 0; height: 100%; background: #5fb3f6; transition: width 0.3s; }
 	#status { min-height: 1.4em; color: #8b97a5; }
 	#status.error { color: #e88388; }
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
-	#frame { height: 100%; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
+	#frame { flex: 1; min-height: 0; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; }
-	#stats { position: absolute; left: 12px; top: 8px; font-size: 12px; color: #6b7785; }
+	#gallery { display: flex; gap: 8px; align-items: center; justify-content: center; font-size: 13px; color: #8b97a5; }
+	#caption { min-width: 180px; text-align: center; }
+	#stats { position: absolute; left: 12px; top: 6px; font-size: 12px; color: #6b7785; }
 	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
 	footer a { color: inherit; }
 </style>
@@ -35,7 +43,7 @@
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
-		<label>Prompt <span><a href="https://mossimage.org/prompts/rainy-convenience-store/" target="_blank" rel="noopener">official image of this example</a> � <a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden></span><textarea id="prompt">A cinematic, photorealistic nighttime scene of a small neighborhood convenience store on a quiet, rain-soaked street. The warmly illuminated storefront occupies the right half of the frame, while the street recedes into soft mist on the left. A lone young adult wearing a charcoal coat stands just outside the entrance beneath a transparent umbrella, seen in three-quarter rear view, gazing through the glass. Amber light reveals shelves inside and spills across the sidewalk, mingling with muted teal neon reflections in shallow puddles. Individual raindrops bead on the umbrella and catch the storefront light; fine streaks of rain remain visible against the darker street. A slightly weathered bicycle leans beside the entrance. Distant apartment windows and a few out-of-focus streetlights add depth without distracting from the figure. Eye-level wide shot, 35mm lens aesthetic, natural perspective, balanced negative space, restrained teal-and-amber color grading, realistic wet asphalt and glass textures, soft highlight bloom, subtle film grain, and gentle atmospheric depth. Quiet, intimate, and nostalgic rather than dramatic; believable lighting, with the figure clearly silhouetted against the warm window. No prominent readable lettering, logos, or watermarks.</textarea></label>
+		<label>Prompt <span><a href="https://mossimage.org/prompts/rainy-convenience-store/" target="_blank" rel="noopener">official image of this example</a> · <a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden></span><textarea id="prompt">A cinematic, photorealistic nighttime scene of a small neighborhood convenience store on a quiet, rain-soaked street. The warmly illuminated storefront occupies the right half of the frame, while the street recedes into soft mist on the left. A lone young adult wearing a charcoal coat stands just outside the entrance beneath a transparent umbrella, seen in three-quarter rear view, gazing through the glass. Amber light reveals shelves inside and spills across the sidewalk, mingling with muted teal neon reflections in shallow puddles. Individual raindrops bead on the umbrella and catch the storefront light; fine streaks of rain remain visible against the darker street. A slightly weathered bicycle leans beside the entrance. Distant apartment windows and a few out-of-focus streetlights add depth without distracting from the figure. Eye-level wide shot, 35mm lens aesthetic, natural perspective, balanced negative space, restrained teal-and-amber color grading, realistic wet asphalt and glass textures, soft highlight bloom, subtle film grain, and gentle atmospheric depth. Quiet, intimate, and nostalgic rather than dramatic; believable lighting, with the figure clearly silhouetted against the warm window. No prominent readable lettering, logos, or watermarks.</textarea></label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
@@ -57,13 +65,15 @@
 			</select></label>
 			<label>Seed<input id="seed" type="number" min="0" max="4294967295"></label>
 		</div>
+		<label>LoRAs <span class="links"><a href="#" id="add">add Moss LoRA (.safetensors)</a><input type="file" id="files" accept=".safetensors" multiple hidden></span><div id="loras"></div></label>
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
 		<div id="status">Downloading the page</div>
 		<pre id="log"></pre>
 	</section>
 	<section style="width: auto; align-items: center">
-		<div id="frame">The image appears here</div>
+		<div id="frame"><img src="MossWebExample.jpg" alt="The example prompt with seed 42"></div>
+		<div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example, seed 42</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div>
 	</section>
 </main>
 <footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 (c), runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster.</footer>
@@ -78,48 +88,96 @@
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
-	const seconds = () => ((performance.now() - began.time) / 1000).toFixed(1) + " s";
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
-	const controls = [start, seed, size, quality, decoder, prompt];
 	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
+		"a {young|middle-aged|elderly} {woman|man} walking on a busy street in {New York|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, shallow depth of field",
+		"a {young|confident} {woman|man} with {short silver hair|long dark curls|a buzz cut} on the cover of a {fashion|lifestyle|tech} magazine, bold masthead and headlines, studio lighting, glossy print",
+		"a {woman|man} in a {red trench coat|denim jacket|white suit} crossing a crowded crosswalk in {Shibuya|Times Square|Piccadilly Circus}, motion blur, photo",
+		"black-and-white film noir: a detective in a {fedora|trench coat} under venetian blinds, cigarette smoke, hard shadows",
+		"a {knight|queen|dancer} carved as a Renaissance marble statue in a {museum hall|sunlit courtyard}, soft light on polished stone",
+		"a paper-cut pop-up book page showing {a dragon over the sea|a castle in the clouds|a forest festival}, layered paper, warm desk lamp",
+		"a chalkboard with a paragraph of neat English handwriting about {photosynthesis|the moon landing|gravity}, chalk dust, classroom light",
+		"an eight-panel comic strip of a {cat|robot|grandma} spending a {lazy|chaotic} weekend, clean line art, flat colors",
+		"a bold video thumbnail: a {surprised|excited} creator pointing at a giant headline \"I {solved 722 math problems|built a tiny house|ran 100 km}!\"",
+		"a bent roadside sign covered in a full handwritten essay, overgrown {desert road|mountain pass}, late afternoon light",
+		"a gym with a {woman|man} doing heavy squats, motivational slogan posters on the walls, dramatic overhead lights, photo",
+		"a phone screenshot of a livestream with a {singer|painter|chef} in traditional clothing, chat messages and gift icons overlaid",
 		"portrait of a {young|old} {fisherman|baker|astronaut} with {freckles|a beard}, {soft window light|golden hour}, photo",
 		"a {tiny|cozy} {cabin|lighthouse|tea house} on a {cliff|lake shore} under {northern lights|a starry sky}, photo",
 		"{a vintage car|a red bicycle|a food truck} on a rainy {Tokyo|Paris|New York} street at night, neon reflections, photo",
+		"a {golden retriever|tabby cat|corgi} wearing {sunglasses|a tiny crown|a raincoat} on a {beach|sofa|skateboard}, photo",
 		"macro photo of a {dewdrop on a leaf|ladybug on a flower|frost crystal}, {morning light|backlit}"];
 	element("random").onclick = event => {
 		event.preventDefault();
 		if (!prompt.disabled) prompt.value = examples[Math.floor(Math.random() * examples.length)];
 	};
+	const loras = [];
+	const listed = () => {
+		element("loras").replaceChildren(...loras.map((lora, index) => {
+			const row = document.createElement("div"), name = document.createElement("span"), strength = document.createElement("input");
+			const remove = document.createElement("a");
+			row.className = "lora";
+			name.textContent = lora.name + (lora.isUploaded ? "" : " (missing, add the file)");
+			name.className = lora.isUploaded ? "" : "missing";
+			strength.type = "number";
+			strength.step = "0.05";
+			strength.value = lora.strength;
+			strength.onchange = () => lora.strength = Number(strength.value) || 0;
+			remove.href = "#";
+			remove.textContent = "remove";
+			remove.onclick = event => { event.preventDefault(); loras.splice(index, 1); listed(); };
+			row.append(name, strength, remove);
+			return row;
+		}));
+	};
+	const loraLine = () => loras.filter(lora => lora.isUploaded && lora.strength).map(lora => "loras/" + lora.name + "=" + lora.strength).join(";");
+	element("add").onclick = event => { event.preventDefault(); if (!start.disabled) element("files").click(); };
+	element("files").onchange = async () => {
+		for (const file of element("files").files) {
+			Module.strictFile("loras/" + file.name, await file.arrayBuffer());
+			const known = loras.find(lora => lora.name === file.name);
+			if (known) known.isUploaded = true; else loras.push({ name: file.name, strength: 1, isUploaded: true });
+		}
+		element("files").value = "";
+		listed();
+	};
+	const controls = [start, seed, size, quality, decoder, prompt];
 	const enabled = isEnabled => controls.forEach(control => control.disabled = !isEnabled);
 	const failed = message => { show(message, true); start.textContent = "Failed"; began.isRunning = false; };
-	const printed = text => {
-		console.log(text);
-		const download = text.match(/^Downloading (\S+): ([\d.]+) of ([\d.]+) MB/);
-		if (download)
+	const printed = original => {
+		console.log(original);
+		const download = original.match(/^Downloading (\S+): ([\d.]+) of ([\d.]+) MB/);
+		if (download) {
 			bar.style.width = (100 * download[2] / download[3]) + "%";
-		if (download)
 			return show("Downloading " + download[1] + ": " + Math.round(download[2]) + " of " + Math.round(download[3]) + " MB, kept for the next visit");
+		}
+		if (original.startsWith("Workflow: "))
+			return applied(original.slice(10).split("\t"));
+		const text = original.replace(/\b(\d+) ms\b/g, (match, milliseconds) => (milliseconds / 1000).toFixed(3) + " s");
 		log.textContent += text + "\n";
 		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
-		const step = text.match(/^Step (\d+)\/(\d+)/);
+		const step = text.match(/^Step (\d+)\/(\d+)/), sampled = original.match(/sampled in (\d+) ms/);
+		if (sampled)
+			began.sampled = sampled[1] / 1000;
 		if (step) {
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
-			show("Sampling step " + step[1] + " of " + step[2] + " done after " + seconds());
+			show("Sampling step " + step[1] + " of " + step[2]);
 		} else if (text.startsWith("Text encoder loaded")) {
 			bar.style.width = "4%";
-			show("Encoding the prompt after " + seconds());
+			show("Encoding the prompt");
 		} else if (text.startsWith("Moss loaded")) {
 			bar.style.width = "10%";
-			show("Model loaded after " + seconds() + ", sampling " + steps() + " steps");
+			show("Model loaded, sampling " + steps() + " steps");
 		} else if (text.startsWith("Sampled in")) {
-			began.sampled = parseFloat(text.slice(11));
 			bar.style.width = "90%";
-			show("Decoding the image after " + seconds());
-		} else if (text.startsWith("Workflow settings:"))
-			began.hasLoras = text.includes("--lora ");
-		else if (text.startsWith("Workflow: "))
-			applied(text.slice(10).split("\t"));
-		else if (text.startsWith("Error")) failed(text);
+			show("Decoding the image");
+		} else if (text.startsWith("Workflow settings:")) {
+			for (const [, name, strength] of text.matchAll(/--lora (\S+?)(?::([\d.]+))?(?=\s|$)/g)) {
+				const file = name.split("/").pop();
+				if (!loras.some(lora => lora.name === file)) loras.push({ name: file, strength: Number(strength || 1), isUploaded: false });
+			}
+			listed();
+		} else if (text.startsWith("Error")) failed(text);
 	};
 	const applied = ([settings, workflowPrompt]) => {
 		const [workflowSeed, width, height, workflowQuality] = settings.split(" ");
@@ -130,7 +188,8 @@
 		size.onchange();
 		quality.value = workflowQuality;
 		prompt.value = workflowPrompt;
-		show("Workflow loaded" + (began.hasLoras ? ", its LoRAs are not applied yet" : ""));
+		const missing = loras.filter(lora => !lora.isUploaded).map(lora => lora.name);
+		show("Workflow loaded" + (missing.length ? ", add these LoRAs: " + missing.join(", ") : ""), missing.length > 0);
 	};
 	const begin = () => {
 		if (began.isStarted)
@@ -150,18 +209,65 @@
 		begin();
 		Module.strictInput("workflow workflow.json");
 	};
-	const shown = (source, name) => {
-		frame.textContent = "";
+	const gallery = { names: [], index: -1 };
+	const folder = () => navigator.storage.getDirectory().then(root => root.getDirectoryHandle("gallery", { create: true }));
+	const pictured = (source, caption) => {
 		const image = document.createElement("img");
 		image.src = source;
-		frame.append(image);
+		frame.replaceChildren(image);
+		element("caption").textContent = caption;
+	};
+	const browsed = async index => {
+		gallery.index = Math.max(-1, Math.min(gallery.names.length - 1, index));
+		if (gallery.index < 0)
+			return pictured("MossWebExample.jpg", "Example, seed 42");
+		const directory = await folder(), name = gallery.names[gallery.index];
+		const image = await (await directory.getFileHandle(name + ".jpg")).getFile();
+		const details = JSON.parse(await (await (await directory.getFileHandle(name + ".json")).getFile()).text());
+		pictured(URL.createObjectURL(image), (gallery.index + 1) + " / " + gallery.names.length + ", seed " + details.seed +
+			", sampled in " + details.sampled.toFixed(1) + " s");
+		element("caption").title = details.prompt;
+	};
+	const collected = async () => {
+		const directory = await folder(), names = [];
+		for await (const name of directory.keys())
+			if (name.endsWith(".jpg")) names.push(name.slice(0, -4));
+		gallery.names = names.sort();
+	};
+	const kept = async (source, details) => {
+		const directory = await folder(), name = String(Date.now());
+		const writable = async (file, content) => {
+			const stream = await (await directory.getFileHandle(file, { create: true })).createWritable();
+			await stream.write(content);
+			await stream.close();
+		};
+		await writable(name + ".jpg", await (await fetch(source)).blob());
+		await writable(name + ".json", JSON.stringify(details));
+		await collected();
+		browsed(gallery.names.length - 1);
+	};
+	element("back").onclick = () => browsed(gallery.index - 1);
+	element("forward").onclick = () => browsed(gallery.index + 1);
+	element("delete").onclick = async () => {
+		if (gallery.index < 0) return;
+		const directory = await folder(), name = gallery.names[gallery.index];
+		await directory.removeEntry(name + ".jpg");
+		await directory.removeEntry(name + ".json");
+		await collected();
+		browsed(gallery.index);
+	};
+	collected().catch(() => element("gallery").style.display = "none");
+	const shown = (source, name) => {
 		if (name.startsWith("MossWebStep") || !began.isRunning)
-			return;
+			return pictured(source, "Step " + name.slice(11, -4) + " preview");
 		began.isRunning = false;
 		bar.style.width = "100%";
-		show("Done in " + seconds() + " (seed " + began.seed + ")");
+		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
 		const model = steps() > 4 ? "moss_image_sft_dmd_int4_convrot" : "moss_image_sft_4step_int4_convrot";
-		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: "", seconds: began.sampled });
+		const used = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
+		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: used, seconds: began.sampled });
+		kept(source, { seed: began.seed, prompt: began.prompt, size: size.value, quality: quality.value, decoder: decoder.value,
+			loras: used, sampled: began.sampled }).catch(() => pictured(source, "seed " + began.seed));
 		start.textContent = "Generate locally";
 		enabled(true);
 		randomSeed();
@@ -180,9 +286,10 @@
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
-			"qwen3.5_9b_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/qwen3.5_9b_int4_convrot.safetensors",
-			"moss_image_sft_4step_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/moss_image_sft_4step_int4_convrot.safetensors",
-			"moss_image_sft_dmd_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/moss_image_sft_dmd_int4_convrot.safetensors",
+			"defaultprompt.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/defaultprompt.safetensors",
+			"qwen3.5_9b_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/qwen3.5_9b_int4_convrot.safetensors",
+			"moss_image_sft_4step_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_4step_int4_convrot.safetensors",
+			"moss_image_sft_dmd_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_dmd_int4_convrot.safetensors",
 			"qwen35_tokenizer/vocab.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/vocab.json",
 			"qwen35_tokenizer/merges.txt": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/merges.txt",
 			"qwen35_tokenizer/tokenizer_config.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/tokenizer_config.json",
@@ -208,17 +315,18 @@
 		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
 	};
 	start.onclick = () => {
-		const isFirst = !began.isStarted;
+		const isFirst = !began.isStarted, missing = loras.filter(lora => !lora.isUploaded).length;
 		enabled(false);
 		start.textContent = "Generating locally...";
 		began.time = performance.now();
 		began.isRunning = true;
+		began.sampled = 0;
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
 		bar.style.width = "0";
-		show(isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps");
+		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
-		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + began.prompt);
+		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
