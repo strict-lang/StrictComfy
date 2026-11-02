@@ -10,11 +10,14 @@ Run
 	for as long as line is not ""
 		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
 Session(previewer Taef2Decoder, first Text) Slow(Text)
-	let context = Encoded(Prompt(first))
-	GpuMemory.Evicted
+	mutable prompt = Prompt(first)
+	mutable context = Encoded(prompt)
 	let moss = Loaded(Model(first))
 	mutable line = first
 	for as long as (line is not "") and (Setup(line) is Setup(first))
+		if Prompt(line) is not prompt
+			prompt = Prompt(line)
+			context = Encoded(prompt)
 		Generated(moss, previewer, context, line)
 		line = Process.InputLine
 	line
@@ -25,9 +28,10 @@ Prompt(line Text) Text
 	MossWeb(Logger).Prompt(Sample) is "a red fox"
 	PromptBatch(logger, "Image").Expanded(line.Split("\t").Last, Settings(line)(0) to Number)
 Setup(line Text) Text
-	MossWeb(Logger).Setup(Sample) is FourSteps + "\ta red fox"
+	MossWeb(Logger).Setup(Sample) is FourSteps
+	MossWeb(Logger).Setup("7 480 848 fastest taef2\tan owl") is FourSteps
 	MossWeb(Logger).Setup("workflow a.json") is "workflow a.json"
-	line.StartsWith("workflow ") then line else Model(line) + "\t" + Prompt(line)
+	line.StartsWith("workflow ") then line else Model(line)
 Workflow(line Text) Slow(Text)
 	let path = line.Split(" ").Last
 	let batch = MossBatch(logger, MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
@@ -48,7 +52,9 @@ Model(line Text) Text
 	MossWeb(Logger).Model("7 480 848 fastest2steps taef2\ta fox") is FourSteps
 	MossOptions.Parsed(("--quality", Settings(line)(3))).Evaluated > 4 then Distilled else FourSteps
 Encoded(prompt Text) Slow(Numbers)
-	MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
+	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
+	GpuMemory.Evicted
+	context
 Loaded(model Text) Slow(Moss)
 	let started = Process.Elapsed
 	let moss = Moss.Loaded(model, "")
