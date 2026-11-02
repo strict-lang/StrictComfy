@@ -1,0 +1,12 @@
+has logger
+constant Sized = ("--width", "480", "--height", "848", "--output", "MossWeb.png")
+Run(prompt = "prompt.safetensors", model = "moss_image_sft_dmd_int4_convrot.safetensors", vae = "Content/flux2-vae.safetensors")
+	let options = MossOptions.Parsed(("--quality", "fastest") + Sized)
+	let batch = MossBatch(logger, options)
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model, "")
+	logger.Log("Moss loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	let sampled = Process.Elapsed
+	let latent = batch.Sampled(moss, options.Sampling(logger), 42, Safetensors(prompt, 32).Values("context"), "Image")
+	logger.Log("Sampled in " + (Process.Elapsed - sampled).Round(1) + " s")
+	batch.Saved(latent, FluxDecoder.Loaded(vae, 32), 42, "", "MossWeb.png")
