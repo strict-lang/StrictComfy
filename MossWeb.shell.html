@@ -66,6 +66,7 @@
 			</select></label>
 			<label>Seed<input id="seed" type="number" min="0" max="4294967295"></label>
 		</div>
+		<label style="flex-direction: row; align-items: center"><input id="varied" type="checkbox">new prompt variation for every seed (encodes the prompt again)</label>
 		<label>LoRAs <span class="links"><a href="#" id="add">add Moss LoRA (.safetensors)</a><input type="file" id="files" accept=".safetensors" multiple hidden></span><div id="loras"></div></label>
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
@@ -332,7 +333,8 @@
 		bar.style.width = "0";
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
-		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
+		Module.strictInput([began.seed, size.value, quality.value, decoder.value, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
