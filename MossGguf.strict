@@ -49,7 +49,7 @@ Block(model Gguf, prefix Text) Slow(MossBlock)
 	let reduced = model.Rows(rows + "ffn_down.weight")
 	let output = model.Rows(rows + "o.weight")
 	let attended = model.Rows(rows + "qkv.weight")
-	MossBlock(norms(0), norms(1), headNorms(0), headNorms(1), attended, output, expanded, reduced, false)
+	MossBlock((norms(0), norms(1), headNorms(0), headNorms(1)), attended, output, expanded, reduced, false)
 Norms(model Gguf, prefix Text, first Text, second Text) Slow(List(Numbers))
 	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "q_norm", "k_norm").First.Length is 128
 	(model.Values(prefix + first + ".weight"), model.Values(prefix + second + ".weight"))
