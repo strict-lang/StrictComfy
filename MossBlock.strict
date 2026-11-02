@@ -94,7 +94,7 @@ Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Numb
 	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
 	for update.Length
 		input(index) + update(index) * modulation(part * width + index % width)
-Rotations(height Number, width Number, text Number, size Number) Slow(Numbers)
+Rotations(height Number, width Number, text Number, size Number) Slow(Float32s)
 	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
 	MossBlock.Rotations(4, 4, 3, 128)(16).IsNearlyEqual(-0.9899925)
 	MossBlock.Rotations(4, 4, 3, 128)(144).IsNearlyEqual(-0.14112)

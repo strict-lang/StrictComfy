@@ -69,7 +69,7 @@ Output(latent Numbers, sigma Number, text Numbers, rotation Numbers) Slow(Number
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)
 	let vector = TimeEmbedded(sigma)
 	Head(Features(latent, text, rotation, vector), vector)
-Rotation(latent Numbers, text Numbers, width Number) Slow(Numbers)
+Rotation(latent Numbers, text Numbers, width Number) Slow(Float32s)
 	Tiny.Rotation(Model.Values("reference.x"), Tiny.TextEmbedded(Context, 3), 4) is MossBlock.Rotation
 	let count = latent.Length / video.weights.First.Length
 	MossBlock.Rotations(count / width, width, text.Length / finalNorm.Length, 128)
