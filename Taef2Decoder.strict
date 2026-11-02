@@ -1,0 +1,53 @@
+has entry Convolution
+has blocks List(Taef2Block)
+has upsamples List(Convolution)
+has exit Convolution
+constant Tiny = Taef2Decoder.Loaded("tinytaef2.safetensors")
+constant Latent = Safetensors("tinytaef2.safetensors").Values("latent")
+constant Layers = (2, 3, 4, 7, 8, 9, 12, 13, 14, 17)
+constant None = Taef2Decoder(Taef2Block.Unused, List(Taef2Block), List(Convolution), Taef2Block.Unused)
+Loaded(path Text) Slow(Taef2Decoder)
+	Tiny.blocks.Length is 10
+	Tiny.upsamples(2).biases is Layer.Zeros(8)
+	let model = Safetensors(path, 32, "decoder.layers.")
+	Taef2Decoder(FluxResnet.Convolved(model, "0"), Blocks(model), Upsamples(model), FluxResnet.Convolved(model, "18"))
+Is(path Text) Boolean
+	Taef2Decoder.Is("tinytaef2.safetensors")
+	Taef2Decoder.Is("tinyvae.safetensors") is false
+	Safetensors(path).Entry("decoder.layers.0.weight") is not ""
+Blocks(model Safetensors) Slow(List(Taef2Block))
+	Tiny.Blocks(Taef2Block.Model)(9).convolutions.Length is 3
+	for Layers
+		Taef2Block.Loaded(model, (value to Text) + ".")
+Upsamples(model Safetensors) Slow(List(Convolution))
+	Tiny.Upsamples(Taef2Block.Model).Length is 3
+	for (6, 11, 16)
+		let upsample = FluxResnet.Convolved(model, value to Text)
+		Convolution(upsample.Folds, upsample.biases)
+Entered(latent Numbers, width Number) Slow(FeatureMap)
+	Tiny.Entered(Latent, 2).values(0).IsNearlyEqual(0.53169, 0.0001)
+	Tiny.Entered(Latent, 2).values(191).IsNearlyEqual(0.11273, 0.0001)
+	let channels = entry.weights.Length / entry.biases.Length / 9
+	let clamped = Clamped(FluxDecoder.Unpatchified(latent, width, channels))
+	let map = FeatureMap(clamped, 2 * width, channels, Layer.Zeros(channels))
+	Taef2Block.Rectified(entry.Applied(map, map.Identity, false))
+Clamped(values Numbers) Numbers
+	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
+	for values
+		3 * Activation.Tanh.Output(value / 3)
+Decoded(latent Numbers, width Number) Slow(Numbers)
+	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.42635, 0.001)
+	Tiny.Decoded(Latent, 2)(1).IsNearlyEqual(0.68325, 0.001)
+	Tiny.Decoded(Latent, 2)(4607).IsNearlyEqual(0.52472, 0.001)
+	let upsampled = Upsampled(Entered(latent, width))
+	let output = exit.Applied(upsampled, upsampled.Identity, false)
+	for output.Completed
+		value.Clamp
+Upsampled(map FeatureMap) Slow(FeatureMap)
+	Tiny.Upsampled(Tiny.Entered(Latent, 2)).width is 32
+	mutable state = map
+	for blocks
+		state = value.Output(state)
+		if index % 3 is 2 and index < 9
+			state = upsamples((index / 3).Floor).Doubled(state)
+	state

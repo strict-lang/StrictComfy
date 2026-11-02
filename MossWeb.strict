@@ -3,12 +3,12 @@ constant Sized = ("--width", "480", "--height", "848", "--output", "MossWeb.jpg"
 Run(prompt = "prompt.safetensors", model = "moss_image_sft_4step_int4_convrot.safetensors", vae = "flux2-small-vae.safetensors")
 	let options = MossOptions.Parsed(("--quality", "fastest") + Sized)
 	let batch = MossBatch(logger, options)
-	let started = Process.Elapsed
 	let moss = Moss.Loaded(model, "")
-	logger.Log("Moss loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	logger.Log("Moss loaded in " + Process.Elapsed.Round(1) + " s")
 	let sampled = Process.Elapsed
-	let previewer = FluxTiny.Loaded("taef2.safetensors")
-	let sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep", previewer = previewer)
+	let configured = options.Sampling(logger)
+	let sampling = MossSampling(configured, preview = "MossWebStep", previewer = Taef2Decoder.Loaded("taef2.safetensors"))
 	let latent = batch.Sampled(moss, sampling, 42, Safetensors(prompt, 32).Values("context"), "Image")
 	logger.Log("Sampled in " + (Process.Elapsed - sampled).Round(1) + " s")
-	batch.Saved(latent, FluxDecoder.Loaded(vae, 32), 42, "", "MossWeb.jpg")
+	let decoded = Process.Elapsed
+	batch.Saved(FluxDecoder.Loaded(vae, 32).Decoded(latent, 30), decoded, 42, "", "MossWeb.jpg")

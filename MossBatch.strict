@@ -63,25 +63,26 @@ Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Num
 		let label = "Image " + (index + 1) + "/" + seeds.Length + " " + Path(outputs(index)).FileName.text
 		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))), label)
 Decoded(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
-	let decoder = FluxDecoder.Loaded(options.files.Decoder, 32)
-	for seeds
-		Saved(latents(index), decoder, value, prompts(index), outputs(index))
+	let path = options.files.Decoder
+	logger.Log("Decoding with " + path)
+	let batch = MossBatch(logger, options, prompted)
+	if Taef2Decoder.Is(path)
+		return MossDecoding(batch, Taef2Decoder.Loaded(path)).Saved(latents, seeds, prompts, outputs)
+	MossDecoding(batch, FluxDecoder.Loaded(path, 32)).Saved(latents, seeds, prompts, outputs)
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	let latent = sampling.Sampled(moss, noise, context, label)
 	GpuMemory.Released
 	latent
-Saved(latent Numbers, decoder FluxDecoder, seed Number, prompt Text, planned Text) Slow(Text)
-	let before = Process.Elapsed
+Saved(image Numbers, started Number, seed Number, prompt Text, planned Text) Slow(Text)
 	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
-	let image = decoder.Decoded(latent, options.width / 16)
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
 	else
 		ImageCodec.SaveJpeg(path, image, options.width, 85)
 	if options.JsonOutput
 		File(path + ".json").Write(List(Text) + Described(seed, prompt))
-	logger.Log("Saved " + path + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms")
 	path
 Described(seed Number, prompt Text) Text
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")

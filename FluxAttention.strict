@@ -20,7 +20,7 @@ Output(map FeatureMap) Slow(FeatureMap)
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.39508, 0.0005)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(1.27711, 0.0001)
 	let size = map.channels
-	let mixed = combined.Projected(map.Applied(norm.Affine(map), false))
+	let mixed = combined.Projected(map.Applied(norm.Affine(map), Activation.Linear))
 	let attended = FeatureMap(Attended(mixed), map.width, size, Safetensors.Part(combined.biases, 2 * size, size, 1))
 	map.Plus(projection.Projected(attended))
 Attended(mixed FeatureMap) Slow(Numbers)

@@ -7,7 +7,7 @@ has warmup Number = 8
 has period Number = 2
 has span MossSpan = MossSpan.Off
 has preview = ""
-has previewer = FluxTiny.None
+has previewer = Taef2Decoder.None
 constant Presets = ((8, 1, 0, 2), (25, 2, 0, 2), (50, 2, 0, 2), (8, 1, 3, 3), (8, 1, 2, 3), (4, 1, 2, 2), (2, 1, 0, 2))
 constant Spanned = MossSpectrum(MossSpectrum.Tiny, span = MossSpan(MossSpan(6, 36), reused = 2))
 constant Forecasting = MossSpectrum(MossSpectrum.Tiny, forecasts = 3)
