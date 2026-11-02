@@ -78,8 +78,8 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --
 | `--steps`, `--guidance`, `--spectrum` | from `--quality`; 8 steps or fewer add `moss/dmd_turbo_lora.safetensors` unless a DMD entry is given (`:0` disables it); `spectrum8_w3p3` forecasts three of eight steps |
 | `--skip` | `off`; `first:last` layers (of 41) every other evaluated step from step 2 on (never the last) reuses from the last full evaluation (MossSpan): `--quality best25steps --skip 6:36` samples in 12.3 instead of 17.9 s with slightly different colors |
 | `--lora` | repeat as `path[:strength]`, merged into the int8 weights at load (stochastic rounding like ComfyUI) |
-| `--count` | 1; images per run, each with its own seed and prompt choices |
-| `--seed` | -1 (random); the first image's seed, the others follow from it |
+| `--count` | 1; images per run, each with its own random seed and prompt choices unless `--seed` is given |
+| `--seed` | -1 (random per image); a given seed is used for every image (same `{a\|b}` choices too), for comparisons |
 | `--width`, `--height` | 720, 1280 (multiples of 16) |
 | `--output` | `MossImage.jpg` numbered `MossImage0001.jpg`, ...; never overwrites; `.jpg` (quality 85) or `.png` |
 | `--json_output` | off; writes a `.json` sidecar with seed, prompt, steps, guidance, Spectrum, model and LoRAs per image |
@@ -173,8 +173,8 @@ A run of one video also loads the model (6-11 s, 14-22 s with the TaoMate merge)
 | `--steps`, `--skip` | from `--quality`; `--skip` below |
 | `--sampler`, `--scheduler` | `euler`, `simple`: ComfyUI's `sampler_name` and `scheduler`, below |
 | `--lora` | repeat as `path[:strength]` (relative paths under the models folder's `loras`), merged at load |
-| `--count` | 1, or every image of an `--image` folder (every prompt of a `--prompt` folder); videos per run with one model load, each with its own seed and prompt choices; with a folder `--count N` picks N random images (by the seed) |
-| `--seed` | -1 (random); the first video's seed, the others follow from it (reproduces a whole batch) |
+| `--count` | 1, or every image of an `--image` folder (every prompt of a `--prompt` folder); videos per run with one model load, each with its own random seed and prompt choices unless `--seed` is given; with a folder `--count N` picks N random images (by the seed) |
+| `--seed` | -1 (random per video); a given seed is used for every video (same `{a\|b}` choices too), for comparisons |
 | `--width`, `--height` | 480, 832 (multiples of 16) |
 | `--length` | 124 frames at 24 fps (5.2 s), snapped up to 17k+5 like ComfyUI |
 | `--image`, `--last_image` | none; png or jpg first and last frame for image to video; `--image` takes a folder too, one video per image |

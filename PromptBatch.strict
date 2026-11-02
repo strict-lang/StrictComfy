@@ -2,12 +2,10 @@ has logger
 has noun Text
 constant Sample = PromptBatch(Logger, "Image")
 Seeds(seed Number, count Number) Numbers
-	Sample.Seeds(7, 3).First is 7
-	Sample.Seeds(7, 3)(1) is 976413892
-	let first = seed >= 0 then seed else 4294967296.Random.Floor
-	let following = MersenneTwister.Seeded(first).Uints(count)
+	Sample.Seeds(7, 2) is (7, 7)
+	Sample.Seeds(-1, 3).Unique.Length is 3
 	for count
-		index is 0 then first else following(index)
+		seed >= 0 then seed else 4294967296.Random.Floor
 Template(path Text) Text
 	Sample.Template("a red fox") is Error("FileNotFound:a_red_fox")
 	if File(path).Exists is false
