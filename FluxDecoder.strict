@@ -56,11 +56,17 @@ Unpatchified(latent Numbers, width Number) Slow(Numbers)
 	let channels = means.Length / 4
 	let height = latent.Length / means.Length / width
 	for latent.Length
-		let position = (index / channels).Floor
-		let row = (position / (2 * width)).Floor
-		let source = (index % channels) * 4 + (row % 2) * 2 + position % 2
-		let at = (source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor
+		let at = Patched(index, channels, width, height)
+		let source = (at / (height * width)).Floor
 		latent(at) * deviations(source) + means(source)
+Patched(index Number, channels Number, width Number, height Number) Number
+	FluxDecoder.Patched(1, 32, 3, 2) is 24
+	FluxDecoder.Patched(32, 32, 3, 2) is 6
+	FluxDecoder.Patched(32 * 6, 32, 3, 2) is 12
+	let position = (index / channels).Floor
+	let row = (position / (2 * width)).Floor
+	let source = (index % channels) * 4 + (row % 2) * 2 + position % 2
+	(source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor
 Entered(latent Numbers, width Number) Slow(FeatureMap)
 	Tiny.Entered(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
 	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
