@@ -19,15 +19,27 @@ Completed Number
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
+	let ids = Tokenized(prompts)
+	let encoder = Encoder(Picked(ids))
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	for ids
+		let hidden = encoder.Prefilled(value, 0).hidden
+		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + prompts(index))
+		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
+Tokenized(prompts Texts) Slow(List(Numbers))
 	let tokens = Gpt2Tokens.Folder(options.files.Tokenizer)
+	for prompts
+		tokens.Encoded(Template.Replace("{prompt}", value))
+Picked(ids List(Numbers)) Numbers
+	Sample.Picked(((1, 2), (3, 4))) is (1, 2, 3, 4)
+	mutable picked = List(Number)
+	for ids
+		picked = picked + value
+	picked
+Encoder(picked Numbers) Slow(Qwen3)
 	let path = options.files.Encoder
 	let file = Safetensors(path, 32, "model.language_model.")
-	let encoder = path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else QwenSafetensors(file, 64).Loaded(10000000)
-	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	for prompts
-		let hidden = encoder.Prefilled(tokens.Encoded(Template.Replace("{prompt}", value)), 0).hidden
-		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + value)
-		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
+	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else QwenSafetensors(file, 64).Loaded(10000000, picked)
 Produced(seeds Numbers, prompts Texts, unique Texts) Slow(Number)
 	let contexts = Contexts(unique)
 	if options.output.EndsWith(".safetensors")
