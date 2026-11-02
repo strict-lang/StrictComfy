@@ -36,7 +36,7 @@
 		<div class="row">
 			<label>Size<select disabled><option>480 x 848</option></select></label>
 			<label>Quality<select disabled><option>fastest (4 steps)</option></select></label>
-			<label>Seed<input value="42" readonly></label>
+			<label>Seed<input id="seed" type="number" min="0" value="42"></label>
 		</div>
 		<label>Model<input value="Moss int4 with the 4-step LoRA, Flux2 VAE" readonly></label>
 		<button id="start" disabled>Loading...</button>
@@ -53,7 +53,9 @@
 <script>
 	const start = document.getElementById("start"), bar = document.getElementById("bar"), status = document.getElementById("status");
 	const log = document.getElementById("log"), frame = document.getElementById("frame"), download = document.getElementById("download");
-	const steps = 4, began = { time: 0 };
+	const steps = 4, began = { time: 0 }, seed = document.getElementById("seed");
+	const parameters = new URLSearchParams(location.search);
+	if (parameters.get("seed")) seed.value = parameters.get("seed");
 	const seconds = () => ((performance.now() - began.time) / 1000).toFixed(1) + " s";
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
 	const failed = message => { show(message, true); start.textContent = "Failed"; };
@@ -85,7 +87,10 @@
 		download.style.display = "block";
 		bar.style.width = "100%";
 		show("Done in " + seconds());
-		start.textContent = "Done";
+		start.textContent = "Generate again";
+		start.disabled = false;
+		seed.disabled = false;
+		start.onclick = again;
 	};
 	let pending = "";
 	new MutationObserver(changes => changes.forEach(change => change.addedNodes.forEach(node => {
@@ -111,7 +116,7 @@
 			start.disabled = false;
 			start.textContent = "Generate";
 			show("Ready: the model (3 GB) streams in when you press Generate");
-			if (location.search.includes("start")) start.click();
+			if (parameters.has("start")) start.click();
 		},
 		onAbort: what => failed("Error: " + what),
 		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
@@ -121,7 +126,14 @@
 		start.textContent = "Generating...";
 		began.time = performance.now();
 		show("Loading the model");
-		setTimeout(() => Module.callMain([]), 0);
+		seed.disabled = true;
+		began.seed = seed.value;
+		setTimeout(() => Module.callMain([String(Math.max(0, Math.floor(Number(seed.value) || 0)))]), 0);
+	};
+	const again = () => {
+		if (seed.value === began.seed)
+			seed.value = Math.floor(Math.random() * 4294967296);
+		location.search = "?start&seed=" + seed.value;
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
