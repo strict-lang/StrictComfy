@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moss in the browser</title>
+<style>
+	html, body { margin: 0; min-height: 100%; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
+	main { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; padding: 24px; }
+	section { width: min(420px, 92vw); display: flex; flex-direction: column; gap: 14px; }
+	h1 { margin: 0; font-size: 26px; font-weight: 600; }
+	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
+	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
+	textarea { resize: none; height: 72px; }
+	.row { display: flex; gap: 10px; }
+	.row label { flex: 1; }
+	button { font: inherit; font-size: 18px; padding: 12px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
+	button:disabled { background: #2b3540; color: #6b7785; cursor: default; }
+	#progress { height: 6px; background: #1f2933; border-radius: 3px; overflow: hidden; }
+	#bar { width: 0; height: 100%; background: #5fb3f6; transition: width 0.3s; }
+	#status { min-height: 1.4em; color: #8b97a5; }
+	#status.error { color: #e88388; }
+	#log { font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; max-height: 160px; overflow: auto; margin: 0; }
+	#frame { width: min(480px, 92vw); aspect-ratio: 480 / 848; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
+	#frame img { width: 100%; height: 100%; object-fit: contain; }
+	#download { display: none; color: #5fb3f6; }
+	#made { font-size: 13px; color: #6b7785; }
+	#made a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+	<section>
+		<h1>Moss in the browser</h1>
+		<label>Prompt<textarea readonly>a red fox sitting in a snowy forest, photo</textarea></label>
+		<div class="row">
+			<label>Size<select disabled><option>480 x 848</option></select></label>
+			<label>Quality<select disabled><option>fastest (4 steps)</option></select></label>
+			<label>Seed<input value="42" readonly></label>
+		</div>
+		<label>Model<input value="Moss int4 with the 4-step LoRA, Flux2 VAE" readonly></label>
+		<button id="start" disabled>Loading...</button>
+		<div id="progress"><div id="bar"></div></div>
+		<div id="status">Downloading the page data</div>
+		<pre id="log"></pre>
+		<div id="made">Made with <a href="https://github.com/strict-lang/Strict">Strict</a> and the <a href="https://deltaengine.net">Delta Engine</a>, runs on WebGPU</div>
+	</section>
+	<section style="width: auto">
+		<div id="frame">The image appears here</div>
+		<a id="download">Download the image</a>
+	</section>
+</main>
+<script>
+	const start = document.getElementById("start"), bar = document.getElementById("bar"), status = document.getElementById("status");
+	const log = document.getElementById("log"), frame = document.getElementById("frame"), download = document.getElementById("download");
+	const steps = 4, began = { time: 0 };
+	const seconds = () => ((performance.now() - began.time) / 1000).toFixed(1) + " s";
+	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
+	const failed = message => { show(message, true); start.textContent = "Failed"; };
+	const printed = text => {
+		console.log(text);
+		log.textContent += text + "\n";
+		log.scrollTop = log.scrollHeight;
+		const step = text.match(/^Step (\d+)\/(\d+)/);
+		if (step) {
+			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
+			show("Sampling step " + step[1] + " of " + step[2] + " done after " + seconds());
+		} else if (text.startsWith("Moss loaded")) {
+			bar.style.width = "10%";
+			show("Model loaded after " + seconds() + ", sampling " + steps + " steps");
+		} else if (text.startsWith("Sampled in")) {
+			bar.style.width = "90%";
+			show("Decoding the image after " + seconds());
+		} else if (text.startsWith("Error")) failed(text);
+	};
+	const shown = (source, name) => {
+		frame.textContent = "";
+		const image = document.createElement("img");
+		image.src = source;
+		frame.append(image);
+		if (name.startsWith("MossWebStep"))
+			return;
+		download.href = source;
+		download.download = name;
+		download.style.display = "block";
+		bar.style.width = "100%";
+		show("Done in " + seconds());
+		start.textContent = "Done";
+	};
+	let pending = "";
+	new MutationObserver(changes => changes.forEach(change => change.addedNodes.forEach(node => {
+		if (node.tagName === "A" && node.download) {
+			pending = node.download;
+			node.remove();
+		} else if (node.tagName === "IMG" && node.src.startsWith("blob:")) {
+			shown(node.src, pending);
+			node.remove();
+		}
+	}))).observe(document.body, { childList: true });
+	var Module = {
+		noInitialRun: true,
+		print: printed,
+		printErr: printed,
+		setStatus: text => {
+			const loaded = text.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
+			if (loaded) show("Downloading the page data " + (100 * loaded[1] / loaded[2]).toFixed(0) + " %");
+		},
+		onRuntimeInitialized: () => {
+			if (!navigator.gpu)
+				return failed("This browser has no WebGPU, use a current Chrome or Edge");
+			start.disabled = false;
+			start.textContent = "Generate";
+			show("Ready: the model (3 GB) streams in when you press Generate");
+			if (location.search.includes("start")) start.click();
+		},
+		onAbort: what => failed("Error: " + what),
+		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
+	};
+	start.onclick = () => {
+		start.disabled = true;
+		start.textContent = "Generating...";
+		began.time = performance.now();
+		show("Loading the model");
+		setTimeout(() => Module.callMain([]), 0);
+	};
+	window.addEventListener("error", event => failed(event.message));
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
