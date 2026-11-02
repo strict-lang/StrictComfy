@@ -29,7 +29,8 @@
 	#status { min-height: 1.4em; color: #8b97a5; }
 	#status.error { color: #e88388; }
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
-	#frame { flex: 1; min-height: 0; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; position: relative; margin-bottom: 40px; display: flex; align-items: center; justify-content: center; color: #4b5663; }
+	#view { flex: 1; min-width: 0; container-type: size; flex-direction: row; justify-content: center; align-items: flex-start; }
+	#frame { flex: none; min-height: 0; width: min(100cqw, (100cqh - 40px) * var(--aspect, 480 / 848)); aspect-ratio: var(--aspect, 480 / 848); background: #141b23; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
 	#gallery { position: absolute; left: 0; right: 0; top: 100%; margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8b97a5; }
 	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -71,7 +72,7 @@
 		<div id="status">Downloading the page</div>
 		<pre id="log"></pre>
 	</section>
-	<section style="width: auto; align-items: center">
+	<section id="view">
 		<div id="frame"><img src="MossWebExample.jpg" alt="The example prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
 	</section>
 </main>
