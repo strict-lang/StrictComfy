@@ -3,7 +3,7 @@ constant FourSteps = "moss_image_sft_4step_int4_convrot.safetensors"
 constant Distilled = "moss_image_sft_dmd_int4_convrot.safetensors"
 constant Encoder = ("--models", ".", "--text_encoder", "qwen3.5_9b_int4_convrot.safetensors")
 constant Sample = "7 480 848 fastest taef2\ta {red|red} fox"
-constant DefaultPrompt = "a red fox sitting in a snowy forest, photo"
+constant DefaultPrompt = "A cinematic, photorealistic nighttime scene of a small neighborhood convenience store on a quiet, rain-soaked street. The warmly illuminated storefront occupies the right half of the frame, while the street recedes into soft mist on the left. A lone young adult wearing a charcoal coat stands just outside the entrance beneath a transparent umbrella, seen in three-quarter rear view, gazing through the glass. Amber light reveals shelves inside and spills across the sidewalk, mingling with muted teal neon reflections in shallow puddles. Individual raindrops bead on the umbrella and catch the storefront light; fine streaks of rain remain visible against the darker street. A slightly weathered bicycle leans beside the entrance. Distant apartment windows and a few out-of-focus streetlights add depth without distracting from the figure. Eye-level wide shot, 35mm lens aesthetic, natural perspective, balanced negative space, restrained teal-and-amber color grading, realistic wet asphalt and glass textures, soft highlight bloom, subtle film grain, and gentle atmospheric depth. Quiet, intimate, and nostalgic rather than dramatic; believable lighting, with the figure clearly silhouetted against the warm window. No prominent readable lettering, logos, or watermarks."
 constant Qualities = ("best", "best", "best", "fast", "faster", "fastest", "fastest2steps")
 Run
 	let previewer = Taef2Decoder.Loaded("taef2.safetensors")
@@ -53,7 +53,7 @@ Model(line Text) Text
 	MossWeb(Logger).Model("7 480 848 fastest2steps taef2\ta fox") is FourSteps
 	MossOptions.Parsed(("--quality", Settings(line)(3))).Evaluated > 4 then Distilled else FourSteps
 Encoded(prompt Text) Slow(Numbers)
-	MossWeb(Logger).Encoded(DefaultPrompt).Length is 20 * 4096
+	MossWeb(Logger).Encoded(DefaultPrompt).Length is 251 * 4096
 	if prompt is DefaultPrompt
 		return Safetensors("Content/defaultprompt.safetensors", 32).Values("context")
 	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
