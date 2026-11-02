@@ -1,6 +1,5 @@
 has logger
 constant FourSteps = "moss_image_sft_4step_int4_convrot.safetensors"
-constant Distilled = "moss_image_sft_dmd_int4_convrot.safetensors"
 constant Encoder = ("--models", ".", "--text_encoder", "qwen3.5_9b_int4_convrot.safetensors")
 constant Sample = "7 480 848 fastest taef2 7\ta {red|red} fox"
 constant Qualities = ("best", "best", "best", "fast", "faster", "fastest", "fastest2steps")
@@ -12,7 +11,7 @@ Run
 Session(previewer Taef2Decoder, first Text) Slow(Text)
 	mutable prompt = Prompt(first)
 	mutable context = Encoded(prompt)
-	let moss = Loaded(Model(first), Loras(first))
+	let moss = Loaded(Loras(first))
 	let decoders = Decoders(Settings(first)(4))
 	mutable line = first
 	for as long as (line is not "") and (Setup(line) is Setup(first))
@@ -36,11 +35,12 @@ Loras(line Text) Text
 	let parts = line.Split("\t")
 	parts.Length > 2 then parts(2) else ""
 Setup(line Text) Text
-	MossWeb(Logger).Setup(Sample) is FourSteps + "\t\ttaef2"
-	MossWeb(Logger).Setup("7 480 848 fastest flux2-vae\tan owl") is FourSteps + "\t\tflux2-vae"
-	MossWeb(Logger).Setup(Sample + "\tloras/a.safetensors=0.5") is FourSteps + "\tloras/a.safetensors=0.5\ttaef2"
+	MossWeb(Logger).Setup(Sample) is "\ttaef2"
+	MossWeb(Logger).Setup("7 480 848 best taef2 7\tan owl") is MossWeb(Logger).Setup(Sample)
+	MossWeb(Logger).Setup("7 480 848 fastest flux2-vae\tan owl") is "\tflux2-vae"
+	MossWeb(Logger).Setup(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5\ttaef2"
 	MossWeb(Logger).Setup("workflow a.json") is "workflow a.json"
-	line.StartsWith("workflow ") then line else Model(line) + "\t" + Loras(line) + "\t" + Settings(line)(4)
+	line.StartsWith("workflow ") then line else Loras(line) + "\t" + Settings(line)(4)
 Workflow(line Text) Slow(Text)
 	let path = line.Split(" ").Last
 	let batch = MossBatch(logger, MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
@@ -55,18 +55,13 @@ Quality(options MossOptions) Text
 	if options.steps is 0
 		return Qualities(options.quality)
 	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
-Model(line Text) Text
-	MossWeb(Logger).Model("7 480 848 best taef2\ta fox") is Distilled
-	MossWeb(Logger).Model("7 480 848 fastest flux2-vae\ta fox") is FourSteps
-	MossWeb(Logger).Model("7 480 848 fastest2steps taef2\ta fox") is FourSteps
-	MossOptions.Parsed(("--quality", Settings(line)(3))).Evaluated > 4 then Distilled else FourSteps
 Encoded(prompt Text) Slow(Numbers)
 	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
 	GpuMemory.Evicted
 	context
-Loaded(model Text, loras Text) Slow(Moss)
+Loaded(loras Text) Slow(Moss)
 	let started = Process.Elapsed
-	let moss = Moss.Loaded(model, loras)
+	let moss = Moss.Loaded(FourSteps, loras)
 	logger.Log("Moss loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	moss
 Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context Numbers, line Text) Slow(Text)

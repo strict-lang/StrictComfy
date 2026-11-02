@@ -270,7 +270,7 @@
 		began.isRunning = false;
 		bar.style.width = "100%";
 		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
-		const model = steps() > 4 ? "moss_image_sft_dmd_int4_convrot" : "moss_image_sft_4step_int4_convrot";
+		const model = "moss_image_sft_4step_int4_convrot";
 		const used = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
 		counted("generated", { prompt: began.encoded, model, vae: decoder.value, loras: used, seconds: began.sampled });
 		kept(source, { seed: began.seed, prompt: began.encoded, size: size.value, quality: quality.value, decoder: decoder.value,
@@ -302,7 +302,6 @@
 		strictFiles: {
 			"qwen3.5_9b_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/qwen3.5_9b_int4_convrot.safetensors",
 			"moss_image_sft_4step_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_4step_int4_convrot.safetensors",
-			"moss_image_sft_dmd_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_dmd_int4_convrot.safetensors",
 			"qwen35_tokenizer/vocab.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/vocab.json",
 			"qwen35_tokenizer/merges.txt": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/merges.txt",
 			"qwen35_tokenizer/tokenizer_config.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/tokenizer_config.json",
