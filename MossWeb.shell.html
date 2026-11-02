@@ -79,6 +79,9 @@
 	const failed = message => { show(message, true); start.textContent = "Failed"; began.isRunning = false; };
 	const printed = text => {
 		console.log(text);
+		const download = text.match(/^Downloading (\S+): ([\d.]+) of ([\d.]+) MB/);
+		if (download)
+			return show("Downloading " + download[1] + ": " + Math.round(download[2]) + " of " + Math.round(download[3]) + " MB, kept for the next visit");
 		log.textContent += text + "\n";
 		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
 		const step = text.match(/^Step (\d+)\/(\d+)/);
@@ -120,6 +123,11 @@
 	size.onchange = () => frame.style.setProperty("--aspect", size.value.replace(" ", " / "));
 	var Module = {
 		noInitialRun: true,
+		strictFiles: {
+			"taef2.safetensors": "https://huggingface.co/madebyollin/taef2/resolve/bd244ebfe4398c84fbf312a2f1c868c676b500e3/taef2.safetensors",
+			"flux2-small-vae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/a3efc24f613ef42d9428af62fdbd6f5fd8856c4a/full_encoder_small_decoder.safetensors",
+			"flux2-vae.safetensors": "https://huggingface.co/Comfy-Org/Flux-2-Dev/resolve/9630c1b4b6e690497ae0c19bb6b1b35d4ebedcb7/split_files/vae/flux2-vae.safetensors"
+		},
 		print: printed,
 		printErr: printed,
 		setStatus: text => {
