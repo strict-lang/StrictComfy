@@ -43,7 +43,7 @@
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
-		<label>Prompt <span><a href="https://mossimage.org/prompts/rainy-convenience-store/" target="_blank" rel="noopener">official image of this example</a> · <a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden></span><textarea id="prompt">A cinematic, photorealistic nighttime scene of a small neighborhood convenience store on a quiet, rain-soaked street. The warmly illuminated storefront occupies the right half of the frame, while the street recedes into soft mist on the left. A lone young adult wearing a charcoal coat stands just outside the entrance beneath a transparent umbrella, seen in three-quarter rear view, gazing through the glass. Amber light reveals shelves inside and spills across the sidewalk, mingling with muted teal neon reflections in shallow puddles. Individual raindrops bead on the umbrella and catch the storefront light; fine streaks of rain remain visible against the darker street. A slightly weathered bicycle leans beside the entrance. Distant apartment windows and a few out-of-focus streetlights add depth without distracting from the figure. Eye-level wide shot, 35mm lens aesthetic, natural perspective, balanced negative space, restrained teal-and-amber color grading, realistic wet asphalt and glass textures, soft highlight bloom, subtle film grain, and gentle atmospheric depth. Quiet, intimate, and nostalgic rather than dramatic; believable lighting, with the figure clearly silhouetted against the warm window. No prominent readable lettering, logos, or watermarks.</textarea></label>
+		<label>Prompt <span><a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden> · <a href="https://mossimage.org/prompts/" target="_blank" rel="noopener">official Moss image prompts</a></span><textarea id="prompt"></textarea></label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
@@ -72,11 +72,11 @@
 		<pre id="log"></pre>
 	</section>
 	<section style="width: auto; align-items: center">
-		<div id="frame"><img src="MossWebExample.jpg" alt="The example prompt with seed 42"></div>
-		<div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example, seed 42</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div>
+		<div id="frame"><img src="MossWebExample.jpg" alt="The example prompt"></div>
+		<div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div>
 	</section>
 </main>
-<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 (c), runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster.</footer>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 ©, runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster.</footer>
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
@@ -107,6 +107,7 @@
 		"{a vintage car|a red bicycle|a food truck} on a rainy {Tokyo|Paris|New York} street at night, neon reflections, photo",
 		"a {golden retriever|tabby cat|corgi} wearing {sunglasses|a tiny crown|a raincoat} on a {beach|sofa|skateboard}, photo",
 		"macro photo of a {dewdrop on a leaf|ladybug on a flower|frost crystal}, {morning light|backlit}"];
+	prompt.value = examples[1];
 	element("random").onclick = event => {
 		event.preventDefault();
 		if (!prompt.disabled) prompt.value = examples[Math.floor(Math.random() * examples.length)];
@@ -220,7 +221,7 @@
 	const browsed = async index => {
 		gallery.index = Math.max(-1, Math.min(gallery.names.length - 1, index));
 		if (gallery.index < 0)
-			return pictured("MossWebExample.jpg", "Example, seed 42");
+			return pictured("MossWebExample.jpg", "Example");
 		const directory = await folder(), name = gallery.names[gallery.index];
 		const image = await (await directory.getFileHandle(name + ".jpg")).getFile();
 		const details = JSON.parse(await (await (await directory.getFileHandle(name + ".json")).getFile()).text());
@@ -286,7 +287,6 @@
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
-			"defaultprompt.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/defaultprompt.safetensors",
 			"qwen3.5_9b_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/qwen3.5_9b_int4_convrot.safetensors",
 			"moss_image_sft_4step_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_4step_int4_convrot.safetensors",
 			"moss_image_sft_dmd_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/4515528bcdce145155b91f06f906852893cd8017/moss_image_sft_dmd_int4_convrot.safetensors",
