@@ -162,6 +162,7 @@
 		if (sampled)
 			began.sampled = sampled[1] / 1000;
 		if (step) {
+			began.step = Number(step[1]);
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
 			show("Sampling step " + step[1] + " of " + step[2]);
 		} else if (text.startsWith("Text encoder loaded")) {
@@ -216,7 +217,9 @@
 	const pictured = (source, caption) => {
 		const image = document.createElement("img");
 		image.src = source;
-		frame.querySelector("img").replaceWith(image);
+		const old = frame.querySelector("img");
+		if (old.src.startsWith("blob:")) URL.revokeObjectURL(old.src);
+		old.replaceWith(image);
 		element("caption").textContent = caption;
 	};
 	const browsed = async index => {
@@ -260,8 +263,8 @@
 	};
 	collected().catch(() => element("gallery").style.display = "none");
 	const shown = (source, name) => {
-		if (name.startsWith("MossWebStep") || !began.isRunning)
-			return pictured(source, "Step " + name.slice(11, -4) + " preview");
+		if (name === "MossWebStep.jpg" || !began.isRunning)
+			return pictured(source, "Step " + (began.step + 1) + " preview");
 		began.isRunning = false;
 		bar.style.width = "100%";
 		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
@@ -269,7 +272,7 @@
 		const used = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
 		counted("generated", { prompt: began.encoded, model, vae: decoder.value, loras: used, seconds: began.sampled });
 		kept(source, { seed: began.seed, prompt: began.encoded, size: size.value, quality: quality.value, decoder: decoder.value,
-			loras: used, sampled: began.sampled }).catch(() => pictured(source, "seed " + began.seed));
+			loras: used, sampled: began.sampled }).then(() => URL.revokeObjectURL(source), () => pictured(source, "seed " + began.seed));
 		start.textContent = "Generate locally";
 		enabled(true);
 		randomSeed();
@@ -322,6 +325,7 @@
 		began.time = performance.now();
 		began.isRunning = true;
 		began.sampled = 0;
+		began.step = 0;
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
 		bar.style.width = "0";

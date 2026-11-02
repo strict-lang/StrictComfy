@@ -40,7 +40,7 @@ Progressed(step Number, started Number, previous Number, latent Numbers, output 
 	GpuMemory.Finished
 	if preview is not ""
 		let pixels = previewer.Decoded(Denoised(latent, output, sigma), width)
-		ImageCodec.SaveJpeg(preview + (step + 1) + ".jpg", pixels, width * 16, 85)
+		ImageCodec.SaveJpeg(preview, pixels, width * 16, 85)
 	let now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
 	now
