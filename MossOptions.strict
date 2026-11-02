@@ -12,7 +12,7 @@ has width = 720
 has height = 1280
 has output = "MossImage.jpg"
 has JsonOutput = false
-constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA, 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten", "write the settings of every image next to it as .json")
+constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA (4 or fewer moss/moss_image_sft_4step_v2.0.safetensors when installed), 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten", "write the settings of every image next to it as .json")
 Sampling(logger Logger) MossSampling
 	MossOptions.Parsed(List(Text)).Sampling(Logger).steps is 8
 	MossOptions.Parsed(List(Text)).Sampling(Logger).mode is "off"
@@ -61,10 +61,23 @@ Loras Text
 	if files.model.EndsWith(".gguf")
 		return lora.Length is 0 then "" else Error("LorasNeedSafetensorsModel")
 	let specs = Specs
-	let given = Text.Combine(specs, ";").IndexOf("dmd_turbo_lora.safetensors") >= 0
-	let turbo = (Evaluated <= 8) and (files.model.Lower.IndexOf("dmd") < 0) and (given is false)
-	let added = turbo then List(Text) + (files.Located("moss/dmd_turbo_lora.safetensors", "loras") + "=1") else List(Text)
-	Text.Combine(added + specs, ";")
+	if (Evaluated > 8) or (files.model.Lower.IndexOf("dmd") >= 0) or Distilled(specs)
+		return Text.Combine(specs, ";")
+	let installed = File(files.Folder + "/loras/" + MossFiles.FourSteps).Exists
+	Text.Combine(List(Text) + (files.Located(Turbo(installed), "loras") + "=1") + specs, ";")
+Turbo(installed Boolean) Text
+	MossOptions.Parsed(("--steps", "4")).Turbo(true) is MossFiles.FourSteps
+	MossOptions.Parsed(("--quality", "fastest2steps")).Turbo(true) is MossFiles.FourSteps
+	MossOptions.Parsed(("--steps", "4")).Turbo(false) is MossFiles.Dmd
+	MossOptions.Parsed(List(Text)).Turbo(true) is MossFiles.Dmd
+	(Evaluated <= 4) and installed then MossFiles.FourSteps else MossFiles.Dmd
+Distilled(specs Texts) Boolean
+	MossOptions.Parsed(List(Text)).Distilled(("x/moss_image_sft_4step_v2.0.safetensors=1", "a=1"))
+	MossOptions.Parsed(List(Text)).Distilled(("x/dmd_turbo_lora.safetensors=0"))
+	MossOptions.Parsed(List(Text)).Distilled(("tinylora.safetensors=1")) is false
+	let combined = Text.Combine(specs, ";")
+	let dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
+	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
 Located Texts
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is Error("FileNotFound:a_b.safetensors")
 	(files.Checkpoint, Loras, files.Decoder, files.Encoder, files.Tokenizer)

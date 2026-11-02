@@ -77,14 +77,15 @@ class StrictMossSampler:
 			'latent_image': ('LATENT', {'tooltip': 'Empty Flux 2 Latent: width, height and batch size'}),
 			'vae': ('VAE',),
 			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True}),
-			'steps': ('INT', {'default': 8, 'min': 1, 'max': 200, 'tooltip': 'quality custom only: 8 or fewer add the DMD turbo LoRA, '
-				"use cfg 1 then, without it (turbo off and no turbo LoraLoader) 25-50 steps with cfg 2-3 (4 overbakes against Strict's zero prompt)"}),
+			'steps': ('INT', {'default': 8, 'min': 1, 'max': 200, 'tooltip': 'quality custom only: 8 or fewer add a turbo LoRA '
+				"(DMD, 4 or fewer the installed 4-step LoRA), use cfg 1 then, without it (turbo off and no turbo LoraLoader) 25-50 steps with cfg 2-3 (4 overbakes against Strict's zero prompt)"}),
 			'cfg': ('FLOAT', {'default': 1.0, 'min': 0.0, 'max': 30.0, 'step': 0.1, 'round': 0.01,
 				'tooltip': 'quality custom only: above 1 guides away from an empty (zero) prompt, every step then runs the model twice'}),
 			'spectrum': ('STRING', {'default': 'off', 'tooltip': 'quality custom only: off or spectrum<steps>_w<warmup>p<period>, '
 				'like spectrum8_w3p3: forecasts steps'}),
 			'lora_mode': (['merged', 'runtime'], {'tooltip': 'merged: cached int8 merge of the LoRAs (fast), runtime: floating adapters'}),
-			'turbo': (['auto', 'off'], {'tooltip': 'auto: adds loras/moss/dmd_turbo_lora.safetensors at 8 steps or fewer unless a LoraLoader or '
+			'turbo': (['auto', 'off'], {'tooltip': 'auto: adds loras/moss/dmd_turbo_lora.safetensors at 8 steps or fewer '
+				'(at 4 or fewer moss_image_sft_4step_v2.0.safetensors next to it when installed) unless a LoraLoader or '
 				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'}),
 			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum (sampling '
 				'times for 720x1280 on a 3080): ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
