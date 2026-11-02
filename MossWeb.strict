@@ -1,20 +1,40 @@
 has logger
-constant Sized = ("--width", "480", "--height", "848", "--output", "MossWeb.jpg")
-Run(prompt = "prompt.safetensors", model = "moss_image_sft_4step_int4_convrot.safetensors", vae = "flux2-small-vae.safetensors")
-	let options = MossOptions.Parsed(("--quality", "fastest") + Sized)
-	let moss = Moss.Loaded(model, "")
-	logger.Log("Moss loaded in " + Process.Elapsed.Round(1) + " s")
+constant FourSteps = "moss_image_sft_4step_int4_convrot.safetensors"
+constant Distilled = "moss_image_sft_dmd_int4_convrot.safetensors"
+Run(prompt = "prompt.safetensors")
 	let previewer = Taef2Decoder.Loaded("taef2.safetensors")
-	let sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep", previewer = previewer)
 	let context = Safetensors(prompt, 32).Values("context")
-	let decoder = FluxDecoder.Loaded(vae, 32)
 	mutable line = Process.InputLine
+	mutable model = Model(line)
+	mutable moss = Loaded(model)
 	for as long as line is not ""
-		Generated(MossBatch(logger, options), moss, sampling, context, decoder, line to Number)
+		if Model(line) is not model
+			model = Model(line)
+			moss = Loaded(model)
+		Generated(moss, previewer, context, line)
 		line = Process.InputLine
-Generated(batch MossBatch, moss Moss, sampling MossSampling, context Numbers, decoder FluxDecoder, seed Number) Slow(Text)
+Model(line Text) Text
+	MossWeb(Logger).Model("7 480 848 best taef2") is Distilled
+	MossWeb(Logger).Model("7 480 848 fastest flux2-vae") is FourSteps
+	MossWeb(Logger).Model("7 480 848 fastest2steps taef2") is FourSteps
+	MossOptions.Parsed(("--quality", line.Split(" ")(3))).Evaluated > 4 then Distilled else FourSteps
+Loaded(model Text) Slow(Moss)
+	let started = Process.Elapsed
+	let moss = Moss.Loaded(model, "")
+	logger.Log("Moss loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	moss
+Generated(moss Moss, previewer Taef2Decoder, context Numbers, line Text) Slow(Text)
+	let words = line.Split(" ")
+	let sized = ("--width", words(1), "--height", words(2), "--output", "MossWeb.jpg")
+	let options = MossOptions.Parsed(("--quality", words(3)) + sized)
+	let batch = MossBatch(logger, options)
+	let sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep", previewer = previewer)
 	let sampled = Process.Elapsed
-	let latent = batch.Sampled(moss, sampling, seed, context, "Image")
+	let latent = batch.Sampled(moss, sampling, words(0) to Number, context, "Image")
 	logger.Log("Sampled in " + (Process.Elapsed - sampled).Round(1) + " s")
 	let decoded = Process.Elapsed
-	batch.Saved(decoder.Decoded(latent, 30), decoded, seed, "", "MossWeb.jpg")
+	batch.Saved(Decoded(latent, options.width / 16, words(4), previewer), decoded, words(0) to Number, "", "MossWeb.jpg")
+Decoded(latent Numbers, width Number, decoder Text, previewer Taef2Decoder) Slow(Numbers)
+	if decoder is "taef2"
+		return previewer.Decoded(latent, width)
+	FluxDecoder.Loaded(decoder + ".safetensors", 32).Decoded(latent, width)

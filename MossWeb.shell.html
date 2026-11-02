@@ -5,27 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moss in the browser</title>
 <style>
-	html, body { margin: 0; min-height: 100%; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
-	main { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; padding: 24px; }
-	section { width: min(420px, 92vw); display: flex; flex-direction: column; gap: 14px; }
-	h1 { margin: 0; font-size: 26px; font-weight: 600; }
+	html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
+	body { display: flex; flex-direction: column; }
+	main { flex: 1; min-height: 0; display: flex; gap: 24px; justify-content: center; padding: 20px 24px 8px; box-sizing: border-box; }
+	section { width: min(440px, 46vw); display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+	h1 { margin: 0; font-size: 24px; font-weight: 600; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
-	textarea { resize: none; height: 72px; }
+	textarea { resize: none; height: 64px; }
 	.row { display: flex; gap: 10px; }
-	.row label { flex: 1; }
+	.row label { flex: 1; min-width: 0; }
 	button { font: inherit; font-size: 18px; padding: 12px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
 	button:disabled { background: #2b3540; color: #6b7785; cursor: default; }
-	#progress { height: 6px; background: #1f2933; border-radius: 3px; overflow: hidden; }
+	#progress { height: 6px; background: #1f2933; border-radius: 3px; overflow: hidden; flex: none; }
 	#bar { width: 0; height: 100%; background: #5fb3f6; transition: width 0.3s; }
 	#status { min-height: 1.4em; color: #8b97a5; }
 	#status.error { color: #e88388; }
-	#log { font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; max-height: 160px; overflow: auto; margin: 0; }
-	#frame { width: min(480px, 92vw); aspect-ratio: 480 / 848; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
+	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
+	#frame { height: 100%; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; }
-	#download { display: none; color: #5fb3f6; }
-	#made { font-size: 13px; color: #6b7785; }
-	#made a { color: inherit; }
+	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
+	footer a { color: inherit; }
 </style>
 </head>
 <body>
@@ -34,42 +34,60 @@
 		<h1>Moss in the browser</h1>
 		<label>Prompt<textarea readonly>a red fox sitting in a snowy forest, photo</textarea></label>
 		<div class="row">
-			<label>Size<select disabled><option>480 x 848</option></select></label>
-			<label>Quality<select disabled><option>fastest (4 steps)</option></select></label>
-			<label>Seed<input id="seed" type="number" min="0" value="42"></label>
+			<label>Size<select id="size">
+				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
+				<option value="320 576">320p portrait</option><option value="576 320">320p landscape</option>
+				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
+				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
+				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
+			</select></label>
+			<label>Quality<select id="quality">
+				<option value="best">best (8 steps)</option><option value="fast">fast (8 steps)</option>
+				<option value="faster">faster (8 steps)</option><option value="fastest" selected>fastest (4 steps)</option>
+				<option value="fastest2steps">fastest2steps (2 steps)</option>
+			</select></label>
 		</div>
-		<label>Model<input value="Moss int4 with the 4-step LoRA, Flux2 VAE" readonly></label>
+		<div class="row">
+			<label>Decoder<select id="decoder">
+				<option value="taef2" selected>taef2 (fastest)</option><option value="flux2-small-vae">flux2-small-vae (faster)</option>
+				<option value="flux2-vae">flux2-vae (standard)</option>
+			</select></label>
+			<label>Seed<input id="seed" type="number" min="0" max="4294967295"></label>
+		</div>
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
-		<div id="status">Downloading the page data</div>
+		<div id="status">Downloading the page</div>
 		<pre id="log"></pre>
-		<div id="made">Made with <a href="https://github.com/strict-lang/Strict">Strict</a> and the <a href="https://deltaengine.net">Delta Engine</a>, runs on WebGPU</div>
 	</section>
-	<section style="width: auto">
+	<section style="width: auto; align-items: center">
 		<div id="frame">The image appears here</div>
-		<a id="download">Download the image</a>
 	</section>
 </main>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 (c), runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster.</footer>
 <script>
-	const start = document.getElementById("start"), bar = document.getElementById("bar"), status = document.getElementById("status");
-	const log = document.getElementById("log"), frame = document.getElementById("frame"), download = document.getElementById("download");
-	const steps = 4, began = { time: 0 }, seed = document.getElementById("seed");
-	const parameters = new URLSearchParams(location.search);
-	if (parameters.get("seed")) seed.value = parameters.get("seed");
+	const element = id => document.getElementById(id);
+	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
+	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder");
+	const parameters = new URLSearchParams(location.search), began = { time: 0, isRunning: false };
+	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
+	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
+	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
 	const seconds = () => ((performance.now() - began.time) / 1000).toFixed(1) + " s";
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
-	const failed = message => { show(message, true); start.textContent = "Failed"; };
+	const controls = [start, seed, size, quality, decoder];
+	const enabled = isEnabled => controls.forEach(control => control.disabled = !isEnabled);
+	const failed = message => { show(message, true); start.textContent = "Failed"; began.isRunning = false; };
 	const printed = text => {
 		console.log(text);
 		log.textContent += text + "\n";
-		log.scrollTop = log.scrollHeight;
+		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
 		const step = text.match(/^Step (\d+)\/(\d+)/);
 		if (step) {
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
 			show("Sampling step " + step[1] + " of " + step[2] + " done after " + seconds());
 		} else if (text.startsWith("Moss loaded")) {
 			bar.style.width = "10%";
-			show("Model loaded after " + seconds() + ", sampling " + steps + " steps");
+			show("Model loaded after " + seconds() + ", sampling " + steps() + " steps");
 		} else if (text.startsWith("Sampled in")) {
 			bar.style.width = "90%";
 			show("Decoding the image after " + seconds());
@@ -80,16 +98,14 @@
 		const image = document.createElement("img");
 		image.src = source;
 		frame.append(image);
-		if (name.startsWith("MossWebStep"))
+		if (name.startsWith("MossWebStep") || !began.isRunning)
 			return;
-		download.href = source;
-		download.download = name;
-		download.style.display = "block";
+		began.isRunning = false;
 		bar.style.width = "100%";
-		show("Done in " + seconds());
-		start.textContent = "Generate again";
-		start.disabled = false;
-		seed.disabled = false;
+		show("Done in " + seconds() + " (seed " + began.seed + ")");
+		start.textContent = "Generate locally";
+		enabled(true);
+		randomSeed();
 	};
 	let pending = "";
 	new MutationObserver(changes => changes.forEach(change => change.addedNodes.forEach(node => {
@@ -101,39 +117,38 @@
 			node.remove();
 		}
 	}))).observe(document.body, { childList: true });
+	size.onchange = () => frame.style.setProperty("--aspect", size.value.replace(" ", " / "));
 	var Module = {
 		noInitialRun: true,
 		print: printed,
 		printErr: printed,
 		setStatus: text => {
 			const loaded = text.match(/\((\d+(?:\.\d+)?)\/(\d+)\)/);
-			if (loaded) show("Downloading the page data " + (100 * loaded[1] / loaded[2]).toFixed(0) + " %");
+			if (loaded) show("Downloading the page " + (100 * loaded[1] / loaded[2]).toFixed(0) + " %");
 		},
 		onRuntimeInitialized: () => {
 			if (!navigator.gpu)
 				return failed("This browser has no WebGPU, use a current Chrome or Edge");
-			start.disabled = false;
-			start.textContent = "Generate";
-			show("Ready: the model (3 GB) streams in when you press Generate");
+			enabled(true);
+			start.textContent = "Generate locally";
+			show("The merged Moss model (3 GB) streams in when you generate");
 			if (parameters.has("start")) start.click();
 		},
 		onAbort: what => failed("Error: " + what),
 		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
 	};
 	start.onclick = () => {
-		const isFirst = began.seed === undefined;
-		if (!isFirst && seed.value === began.seed)
-			seed.value = Math.floor(Math.random() * 4294967296);
-		start.disabled = true;
-		start.textContent = "Generating...";
-		seed.disabled = true;
+		const isFirst = began.time === 0;
+		enabled(false);
+		start.textContent = "Generating locally...";
 		began.time = performance.now();
-		began.seed = seed.value;
-		bar.style.width = isFirst ? "0" : "10%";
-		show(isFirst ? "Loading the model" : "Sampling " + steps + " steps");
+		began.isRunning = true;
+		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
+		bar.style.width = "0";
+		show(isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps");
 		if (isFirst)
 			setTimeout(() => Module.callMain([]), 0);
-		Module.strictInput(String(Math.max(0, Math.floor(Number(seed.value) || 0))));
+		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" "));
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
