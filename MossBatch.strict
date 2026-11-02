@@ -3,6 +3,7 @@ has options MossOptions
 has prompted = ""
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
 constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
+constant Example = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Completed Number
 	let problem = options.Problem
@@ -12,11 +13,16 @@ Completed Number
 	options.Located
 	let started = Process.Elapsed
 	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
-	let template = prompted is "" then PromptBatch(logger, "Image").Template(options.prompt) else prompted
+	let template = prompted is "" then Templated else prompted
 	let prompts = PromptBatch(logger, "Image").Prompts(List(Text) + template, seeds)
 	let unique = prompts.Unique
 	Produced(seeds, prompts, unique)
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
+Templated Text
+	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
+	if (options.prompt is "prompt.txt") and (File(options.prompt).Exists is false)
+		return Example
+	PromptBatch(logger, "Image").Template(options.prompt)
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
 	let ids = Tokenized(prompts)
