@@ -10,6 +10,7 @@
 	main { flex: 1; min-height: 0; display: flex; gap: 24px; justify-content: center; padding: 20px 24px 8px; box-sizing: border-box; }
 	section { width: min(440px, 46vw); display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 	h1 { margin: 0; font-size: 24px; font-weight: 600; }
+	label a { color: #5fb3f6; font-size: 12px; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
 	textarea { resize: none; height: 64px; }
@@ -32,7 +33,7 @@
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
-		<label>Prompt<textarea readonly>a red fox sitting in a snowy forest, photo</textarea></label>
+		<label>Prompt <a href="#" id="random">random</a><textarea id="prompt">a red fox sitting in a snowy forest, photo</textarea></label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
@@ -67,14 +68,23 @@
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
-	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder");
+	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder"), prompt = element("prompt");
 	const parameters = new URLSearchParams(location.search), began = { time: 0, isRunning: false };
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
 	const seconds = () => ((performance.now() - began.time) / 1000).toFixed(1) + " s";
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
-	const controls = [start, seed, size, quality, decoder];
+	const controls = [start, seed, size, quality, decoder, prompt];
+	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
+		"portrait of a {young|old} {fisherman|baker|astronaut} with {freckles|a beard}, {soft window light|golden hour}, photo",
+		"a {tiny|cozy} {cabin|lighthouse|tea house} on a {cliff|lake shore} under {northern lights|a starry sky}, photo",
+		"{a vintage car|a red bicycle|a food truck} on a rainy {Tokyo|Paris|New York} street at night, neon reflections, photo",
+		"macro photo of a {dewdrop on a leaf|ladybug on a flower|frost crystal}, {morning light|backlit}"];
+	element("random").onclick = event => {
+		event.preventDefault();
+		if (!prompt.disabled) prompt.value = examples[Math.floor(Math.random() * examples.length)];
+	};
 	const enabled = isEnabled => controls.forEach(control => control.disabled = !isEnabled);
 	const failed = message => { show(message, true); start.textContent = "Failed"; began.isRunning = false; };
 	const printed = text => {
@@ -88,6 +98,9 @@
 		if (step) {
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
 			show("Sampling step " + step[1] + " of " + step[2] + " done after " + seconds());
+		} else if (text.startsWith("Text encoder loaded")) {
+			bar.style.width = "4%";
+			show("Encoding the prompt after " + seconds());
 		} else if (text.startsWith("Moss loaded")) {
 			bar.style.width = "10%";
 			show("Model loaded after " + seconds() + ", sampling " + steps() + " steps");
@@ -124,6 +137,12 @@
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
+			"qwen3.5_9b_int4_convrot.safetensors": "qwen3.5_9b_int4_convrot.safetensors",
+			"moss_image_sft_4step_int4_convrot.safetensors": "moss_image_sft_4step_int4_convrot.safetensors",
+			"moss_image_sft_dmd_int4_convrot.safetensors": "moss_image_sft_dmd_int4_convrot.safetensors",
+			"qwen35_tokenizer/vocab.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/vocab.json",
+			"qwen35_tokenizer/merges.txt": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/merges.txt",
+			"qwen35_tokenizer/tokenizer_config.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/tokenizer_config.json",
 			"taef2.safetensors": "https://huggingface.co/madebyollin/taef2/resolve/bd244ebfe4398c84fbf312a2f1c868c676b500e3/taef2.safetensors",
 			"flux2-small-vae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/a3efc24f613ef42d9428af62fdbd6f5fd8856c4a/full_encoder_small_decoder.safetensors",
 			"flux2-vae.safetensors": "https://huggingface.co/Comfy-Org/Flux-2-Dev/resolve/9630c1b4b6e690497ae0c19bb6b1b35d4ebedcb7/split_files/vae/flux2-vae.safetensors"
@@ -139,7 +158,7 @@
 				return failed("This browser has no WebGPU, use a current Chrome or Edge");
 			enabled(true);
 			start.textContent = "Generate locally";
-			show("The merged Moss model (3 GB) streams in when you generate");
+			show("The text encoder (4.5 GB) and the merged Moss model (3 GB) stream in when you generate, kept for the next visit");
 			if (parameters.has("start")) start.click();
 		},
 		onAbort: what => failed("Error: " + what),
@@ -153,10 +172,10 @@
 		began.isRunning = true;
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		bar.style.width = "0";
-		show(isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps");
+		show(isFirst ? "Streaming in the text encoder" : "Sampling " + steps() + " steps");
 		if (isFirst)
 			setTimeout(() => Module.callMain([]), 0);
-		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" "));
+		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + prompt.value.replace(/\s+/g, " ").trim());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
