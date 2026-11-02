@@ -15,7 +15,7 @@ Completed Number
 	let template = prompted is "" then PromptBatch(logger, "Image").Template(options.prompt) else prompted
 	let prompts = PromptBatch(logger, "Image").Prompts(List(Text) + template, seeds)
 	let unique = prompts.Unique
-	Images(seeds, prompts, unique, Contexts(unique))
+	Produced(seeds, prompts, unique)
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
@@ -28,6 +28,11 @@ Contexts(prompts Texts) Slow(List(Numbers))
 		let hidden = encoder.Prefilled(tokens.Encoded(Template.Replace("{prompt}", value)), 0).hidden
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length)
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
+Produced(seeds Numbers, prompts Texts, unique Texts) Slow(Number)
+	let contexts = Contexts(unique)
+	if options.output.EndsWith(".safetensors")
+		return Safetensors(options.output).Written("context", contexts.First)
+	Images(seeds, prompts, unique, contexts)
 Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
 	GpuMemory.Evicted
 	let moss = Loaded

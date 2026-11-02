@@ -12,7 +12,7 @@ has width = 720
 has height = 1280
 has output = "MossImage.jpg"
 has JsonOutput = false
-constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA, 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten", "write the settings of every image next to it as .json")
+constant Help = ("UTF-8 prompt file, {a|b|c} picks one of them per image", "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s", "sampling steps, 8 or fewer add the DMD turbo LoRA, 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality", "off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none", "LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image", "width in pixels, a multiple of 16", "height in pixels, a multiple of 16", "numbered output base (.jpg or .png), never overwritten, or a .safetensors that gets the encoded prompt (context) for the browser page instead of an image", "write the settings of every image next to it as .json")
 Sampling(logger Logger) MossSampling
 	MossOptions.Parsed(List(Text)).Sampling(Logger).steps is 8
 	MossOptions.Parsed(List(Text)).Sampling(Logger).mode is "off"
@@ -75,9 +75,11 @@ Problem Text
 	MossOptions.Parsed(List(Text)).Problem is ""
 	MossOptions.Parsed(("--width", "500")).Problem is "--width and --height must be positive multiples of 16"
 	MossOptions.Parsed(("--count", "0")).Problem is "--count must be at least 1"
-	MossOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg or .png"
+	MossOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg, .png or .safetensors"
+	MossOptions.Parsed(("--output", "prompt.safetensors")).Problem is ""
 	if (width < 16) or (height < 16) or (width % 16 is not 0) or (height % 16 is not 0)
 		return "--width and --height must be positive multiples of 16"
 	if count < 1
 		return "--count must be at least 1"
-	output.EndsWith(".jpg") or output.EndsWith(".png") then "" else "--output must end with .jpg or .png"
+	let valid = output.EndsWith(".jpg") or output.EndsWith(".png") or output.EndsWith(".safetensors")
+	valid then "" else "--output must end with .jpg, .png or .safetensors"
