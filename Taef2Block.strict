@@ -1,0 +1,37 @@
+has convolutions List(Convolution)
+has expand Convolution
+has norm GroupNorm
+has contract Convolution
+constant Unused = Convolution(List(Number), List(Number))
+constant Unnormed = GroupNorm(List(Number), List(Number), 1)
+constant Model = Safetensors("tinytaef2.safetensors", 32, "decoder.layers.")
+constant Pooling = Taef2Block.Loaded(Model, "2.")
+constant Plain = Taef2Block.Loaded(Model, "7.")
+constant Entered = FeatureMap(Safetensors("tinytaef2.safetensors").Values("reference.entered"), 4, 8, Layer.Zeros(8))
+Loaded(model Safetensors, prefix Text) Slow(Taef2Block)
+	Pooling.convolutions.Length is 3
+	Pooling.norm.groups is 4
+	Plain.expand.weights.Length is 0
+	let block = Safetensors(model.path, 32, model.prefix + prefix)
+	if block.Entry("pool.0.weight") is ""
+		return Taef2Block(Convolutions(block), Unused, Unnormed, Unused)
+	let pooled = GroupNorm(block.Values("pool.1.weight"), block.Values("pool.1.bias"), 4)
+	Taef2Block(Convolutions(block), FluxResnet.Convolved(block, "pool.0"), pooled, FluxResnet.Convolved(block, "pool.3"))
+Convolutions(block Safetensors) Slow(List(Convolution))
+	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
+	for (0, 2, 4)
+		FluxResnet.Convolved(block, "conv." + value)
+Output(map FeatureMap) Slow(FeatureMap)
+	Pooling.Output(Entered).values(0).IsNearlyEqual(1.2786, 0.001)
+	Pooling.Output(Entered).values(1).IsNearlyEqual(0.02821, 0.001)
+	let input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
+	let first = Rectified(convolutions(0).Applied(input, input.Identity, false))
+	let second = Rectified(convolutions(1).Applied(first, first.Identity, false))
+	Rectified(convolutions(2).Applied(second, second.Identity, false).Plus(input))
+Rectified(map FeatureMap) FeatureMap
+	Pooling.Rectified(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
+	map.Applied(map.Identity, Activation.Relu)
+Pooled(map FeatureMap) Slow(FeatureMap)
+	Pooling.Pooled(Entered).values.Length is 192
+	let expanded = expand.Projected(map)
+	contract.Projected(expanded.Applied(norm.Affine(expanded), Activation.Relu))

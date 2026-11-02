@@ -49,23 +49,28 @@ Present(model Safetensors, first Text, last Text) Slow(Number)
 	for 8
 		if model.Entry(first + index + last) is not ""
 			1
-Unpatchified(latent Numbers, width Number) Slow(Numbers)
-	Tiny.Unpatchified(Latent, 2)(0).IsNearlyEqual(1.23467, 0.0001)
-	Tiny.Unpatchified(Latent, 2)(32).IsNearlyEqual(-0.06728, 0.0001)
-	Tiny.Unpatchified(Latent, 2)(95).IsNearlyEqual(0.56166, 0.0001)
-	let channels = means.Length / 4
-	let height = latent.Length / means.Length / width
+Denormalized(latent Numbers) Slow(Numbers)
+	Tiny.Denormalized(Latent)(0).IsNearlyEqual(1.23467, 0.0001)
+	Tiny.Denormalized(Latent)(95).IsNearlyEqual(0.56166, 0.0001)
+	let size = latent.Length / means.Length
+	for latent
+		value * deviations((index / size).Floor) + means((index / size).Floor)
+Unpatchified(latent Numbers, width Number, channels Number) Slow(Numbers)
+	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(0).IsNearlyEqual(1.23467, 0.0001)
+	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(32).IsNearlyEqual(-0.06728, 0.0001)
+	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(95).IsNearlyEqual(0.56166, 0.0001)
+	let height = latent.Length / channels / 4 / width
 	for latent.Length
 		let position = (index / channels).Floor
 		let row = (position / (2 * width)).Floor
 		let source = (index % channels) * 4 + (row % 2) * 2 + position % 2
-		let at = (source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor
-		latent(at) * deviations(source) + means(source)
+		latent((source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor)
 Entered(latent Numbers, width Number) Slow(FeatureMap)
 	Tiny.Entered(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
 	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
 	let channels = means.Length / 4
-	let patches = FeatureMap(Unpatchified(latent, width), 2 * width, channels, Layer.Zeros(channels))
+	let unpatchified = Unpatchified(Denormalized(latent), width, channels)
+	let patches = FeatureMap(unpatchified, 2 * width, channels, Layer.Zeros(channels))
 	let quantized = convolutions(0).Projected(patches)
 	convolutions(1).Applied(quantized, quantized.Identity, false)
 Decoded(latent Numbers, width Number) Slow(Numbers)
@@ -78,8 +83,8 @@ Decoded(latent Numbers, width Number) Slow(Numbers)
 	for output.Completed
 		((value + 1) / 2).Clamp
 Upsampled(map FeatureMap) Slow(FeatureMap)
-	Last.Applied(Tiny.normOut.Affine(Last), false).values(0).IsNearlyEqual(0.38452, 0.02)
-	Last.Applied(Tiny.normOut.Affine(Last), false).values(767).IsNearlyEqual(-0.17288, 0.02)
+	Last.Applied(Tiny.normOut.Affine(Last), Activation.Linear).values(0).IsNearlyEqual(0.38452, 0.02)
+	Last.Applied(Tiny.normOut.Affine(Last), Activation.Linear).values(767).IsNearlyEqual(-0.17288, 0.02)
 	let perLevel = blocks.Length / (upsamples.Length + 1)
 	mutable state = map
 	for blocks

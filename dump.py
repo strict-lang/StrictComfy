@@ -6,6 +6,7 @@
   python_embeded\\python.exe dump.py tinymoss   (tinymoss.safetensors here, for MossBlock.strict and the other Moss tests)
   python_embeded\\python.exe dump.py tinylora   (tinylora.safetensors here, rank-8 LoRA for tinymoss + outputs with it, for MossLora.strict)
   python_embeded\\python.exe dump.py tinyint8   (..\\Strict\\NeuralNetworks\\tinyint8.safetensors, generic int8 rows)
+  python_embeded\\python.exe dump.py tinytaef2 (tinytaef2.safetensors here, for the TAEF2 decoder Taef2Decoder.strict)
   python_embeded\\python.exe dump.py tinyh3     (tinyh3.safetensors here, for H3Block.strict and the other H3 tests)
   python_embeded\\python.exe dump.py tinyh3vae  (tinyh3vae.safetensors here, for the H3 video VAE decoder)
   python_embeded\\python.exe dump.py tinyh3encoder  (tinyh3encoder.safetensors here, for the H3 video VAE encoder)
@@ -25,7 +26,7 @@ COMFY = os.environ.get("COMFYUI", r"D:\ComfyUI_windows_portable\ComfyUI")
 sys.path.insert(0, COMFY)
 sys.argv = sys.argv[:1] + [a for a in sys.argv[1:]]
 arguments = argparse.ArgumentParser()
-arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinyh3", "tinyh3vae", "tinyh3encoder", "tinyh3audio", "tinyh3lora"])
+arguments.add_argument("model", choices=["moss", "h3", "h3decode", "tinymoss", "tinylora", "tinyint8", "tinyvae", "tinytaef2", "tinyh3", "tinyh3vae", "tinyh3encoder", "tinyh3audio", "tinyh3lora"])
 arguments.add_argument("--out", default=None)
 arguments.add_argument("--prompt", default=None, help="default: prompt.txt next to this script")
 arguments.add_argument("--width", type=int, default=None)
@@ -871,6 +872,46 @@ def tinyh3audio():
 	saved({**tensors, **{"reference." + name: value for name, value in stages.items()}, "reference.stage.0": first[0]}, out)
 
 
+def tinytaef2():
+	"""A tiny TAEF2 decoder with ComfyUI's TAESD blocks (8 channels instead of 64, 4 latent channels packed as 16 instead of
+	32 as 128), random weights named like taef2.safetensors (decoder.layers.N is ComfyUI's index N + 1, after its Clamp), a
+	16x3x2 latent and reference.* outputs channel last (height, width, channels) in float32 on the CPU."""
+	from comfy.taesd.taesd import Block, Clamp, conv
+	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "tinytaef2.safetensors")
+	torch.manual_seed(0)
+	size, packed = 8, 4
+
+	def upsampled():
+		return [torch.nn.Upsample(scale_factor=2), conv(size, size, bias=False)]
+	pooled = [Block(size, size, True) for _ in range(3)]
+	plain = [Block(size, size) for _ in range(7)]
+	decoder = torch.nn.Sequential(Clamp(), conv(packed, size), torch.nn.ReLU(), *pooled, *upsampled(), *plain[:3], *upsampled(),
+		*plain[3:6], *upsampled(), plain[6], conv(size, 3)).eval()
+	state, weights = {}, {}
+	for name, value in decoder.state_dict().items():
+		layer, rest = name.split(".", 1)
+		if rest.startswith("pool.1.") and rest.endswith("weight"):
+			value = 1 + 0.2 * torch.randn(value.shape)
+		elif rest.endswith("weight"):
+			value = torch.randn(value.shape) * (value[0].numel() ** -0.5)
+		else:
+			value = 0.1 * torch.randn(value.shape) + (0.5 if layer == "19" else 0)
+		state[name] = value.float()
+		weights[f"decoder.layers.{int(layer) - 1}.{rest}"] = state[name]
+	decoder.load_state_dict(state)
+	latent = torch.randn(1, packed * 4, 3, 2)
+	references = {}
+	for index, name in ((2, "entered"), (3, "pooled"), (7, "upsampled"), (18, "last")):
+		decoder[index].register_forward_hook(lambda module, args, output, name=name: references.update(
+			{"reference." + name: output[0].permute(1, 2, 0).clone()}))
+	unpatchified = latent.reshape(1, packed, 2, 2, 3, 2).permute(0, 1, 4, 2, 5, 3).reshape(1, packed, 6, 4)
+	with torch.no_grad():
+		output = decoder(unpatchified)
+	references["reference.unpatchified"] = unpatchified[0].permute(1, 2, 0)
+	references["reference.image"] = output.clamp(0, 1)[0].permute(1, 2, 0)
+	saved({**weights, "latent": latent, **references}, out)
+
+
 def tinyint8():
 	"""An int8 matrix with an F32 scale per row and its comfy_quant bytes, for the generic tests in Strict/NeuralNetworks."""
 	out = options.out or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Strict", "NeuralNetworks", "tinyint8.safetensors")
@@ -880,4 +921,4 @@ def tinyint8():
 
 
 if __name__ == "__main__":
-	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae, "tinyh3encoder": tinyh3encoder, "tinyh3audio": tinyh3audio, "tinyh3lora": tinyh3lora}[options.model]()
+	{"moss": moss, "h3": h3, "h3decode": h3decode, "tinymoss": tinymoss, "tinylora": tinylora, "tinyint8": tinyint8, "tinyvae": tinyvae, "tinytaef2": tinytaef2, "tinyh3": tinyh3, "tinyh3vae": tinyh3vae, "tinyh3encoder": tinyh3encoder, "tinyh3audio": tinyh3audio, "tinyh3lora": tinyh3lora}[options.model]()

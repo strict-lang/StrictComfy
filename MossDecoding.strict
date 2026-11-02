@@ -1,0 +1,7 @@
+has batch MossBatch
+has decoder Generic
+Saved(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
+	for seeds
+		let started = Process.Elapsed
+		let image = decoder.Decoded(latents(index), batch.options.width / 16)
+		batch.Saved(image, started, value, prompts(index), outputs(index))
