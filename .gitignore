@@ -79,3 +79,4 @@ Tests.test-*
 *.log
 Content/
 Dumps/
+MossWebStats/

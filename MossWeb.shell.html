@@ -25,11 +25,13 @@
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
 	#frame { height: 100%; aspect-ratio: var(--aspect, 480 / 848); max-width: 46vw; background: #141b23; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; }
+	#stats { position: absolute; left: 12px; top: 8px; font-size: 12px; color: #6b7785; }
 	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
 	footer a { color: inherit; }
 </style>
 </head>
 <body>
+<div id="stats"></div>
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
@@ -70,6 +72,9 @@
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
 	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder"), prompt = element("prompt");
 	const parameters = new URLSearchParams(location.search), began = { time: 0, isRunning: false };
+	const counted = (action, sent) => fetch("stats/" + action, sent ? { method: "POST", body: JSON.stringify(sent) } : { method: "POST" })
+		.then(response => response.ok ? response.text() : "").then(text => element("stats").textContent = text, () => {});
+	counted("visit");
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
@@ -152,6 +157,8 @@
 		began.isRunning = false;
 		bar.style.width = "100%";
 		show("Done in " + seconds() + " (seed " + began.seed + ")");
+		const model = steps() > 4 ? "moss_image_sft_dmd_int4_convrot" : "moss_image_sft_4step_int4_convrot";
+		counted("generated", { prompt: began.prompt, model, vae: decoder.value, loras: "", seconds: (performance.now() - began.time) / 1000 });
 		start.textContent = "Generate locally";
 		enabled(true);
 		randomSeed();
@@ -170,9 +177,9 @@
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
-			"qwen3.5_9b_int4_convrot.safetensors": "qwen3.5_9b_int4_convrot.safetensors",
-			"moss_image_sft_4step_int4_convrot.safetensors": "moss_image_sft_4step_int4_convrot.safetensors",
-			"moss_image_sft_dmd_int4_convrot.safetensors": "moss_image_sft_dmd_int4_convrot.safetensors",
+			"qwen3.5_9b_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/qwen3.5_9b_int4_convrot.safetensors",
+			"moss_image_sft_4step_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/moss_image_sft_4step_int4_convrot.safetensors",
+			"moss_image_sft_dmd_int4_convrot.safetensors": "https://huggingface.co/DeltaEngine/MossInt4/resolve/c829c66fde96084a9c1ab6884437c5d3fcdf5cc7/moss_image_sft_dmd_int4_convrot.safetensors",
 			"qwen35_tokenizer/vocab.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/vocab.json",
 			"qwen35_tokenizer/merges.txt": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/merges.txt",
 			"qwen35_tokenizer/tokenizer_config.json": "https://huggingface.co/Qwen/Qwen3.5-9B/resolve/c202236235762e1c871ad0ccb60c8ee5ba337b9a/tokenizer_config.json",
@@ -204,10 +211,11 @@
 		began.time = performance.now();
 		began.isRunning = true;
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
+		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
 		bar.style.width = "0";
 		show(isFirst ? "Streaming in the text encoder" : "Sampling " + steps() + " steps");
 		begin();
-		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + prompt.value.replace(/\s+/g, " ").trim());
+		Module.strictInput([began.seed, size.value, quality.value, decoder.value].join(" ") + "\t" + began.prompt);
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
