@@ -11,6 +11,7 @@ Run
 		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
 Session(previewer Taef2Decoder, first Text) Slow(Text)
 	let context = Encoded(Prompt(first))
+	GpuMemory.Evicted
 	let moss = Loaded(Model(first))
 	mutable line = first
 	for as long as (line is not "") and (Setup(line) is Setup(first))
