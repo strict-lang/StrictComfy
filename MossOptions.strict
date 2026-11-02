@@ -61,10 +61,16 @@ Loras Text
 	if files.model.EndsWith(".gguf")
 		return lora.Length is 0 then "" else Error("LorasNeedSafetensorsModel")
 	let specs = Specs
-	if (Evaluated > 8) or (files.model.Lower.IndexOf("dmd") >= 0) or Distilled(specs)
+	if (Evaluated > 8) or Baked or Distilled(specs)
 		return Text.Combine(specs, ";")
 	let installed = File(files.Folder + "/loras/" + MossFiles.FourSteps).Exists
 	Text.Combine(List(Text) + (files.Located(Turbo(installed), "loras") + "=1") + specs, ";")
+Baked Boolean
+	MossOptions.Parsed(("--model", "moss_image_sft_4step_int4_convrot.safetensors")).Baked
+	MossOptions.Parsed(("--model", "moss-image-sft-dit-int8-convrot-dmd.safetensors")).Baked
+	MossOptions.Parsed(List(Text)).Baked is false
+	let name = files.model.Lower
+	(name.IndexOf("dmd") >= 0) or (name.IndexOf("4step") >= 0)
 Turbo(installed Boolean) Text
 	MossOptions.Parsed(("--steps", "4")).Turbo(true) is MossFiles.FourSteps
 	MossOptions.Parsed(("--quality", "fastest2steps")).Turbo(true) is MossFiles.FourSteps

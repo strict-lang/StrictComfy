@@ -1,6 +1,6 @@
 has logger
 constant Sized = ("--width", "480", "--height", "848", "--output", "MossWeb.png")
-Run(prompt = "prompt.safetensors", model = "moss_image_sft_dmd_int4_convrot.safetensors", vae = "Content/flux2-vae.safetensors")
+Run(prompt = "prompt.safetensors", model = "moss_image_sft_4step_int4_convrot.safetensors", vae = "Content/flux2-vae.safetensors")
 	let options = MossOptions.Parsed(("--quality", "fastest") + Sized)
 	let batch = MossBatch(logger, options)
 	let started = Process.Elapsed
