@@ -85,11 +85,10 @@ Activated(expanded Numbers, width Number) Slow(BFloat16s)
 Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Slow(BFloat16s)
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
+	let scales = Qwen3Block.Scales(input, width, Qwen3Block.Epsilon)
 	for input.Length
 		let channel = index % width
-		let squared = Normalization.Squared(input, (index / width).Floor * width, width)
-		let scale = Normalization.Scale(squared, width, Qwen3Block.Epsilon)
-		let factor = scale * weights(channel) * (1 + modulation((part + 1) * width + channel))
+		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation((part + 1) * width + channel))
 		input(index) * factor + modulation(part * width + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) Slow(BFloat16s)
 	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
@@ -125,13 +124,13 @@ Situ(hidden Number, gate Number) Number
 	squashed * 25 * (2 / (1 + (-hidden * 2 / 25).Exponential) - 1)
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s
 	let size = weights.Length
-	let half = size / 2
 	let heads = width / size
+	let scales = Qwen3Block.HeadScales(combined, start, combined.Length / 3, size, rotation.Length)
 	for combined.Length / 3
 		let token = ((index / size).Floor / heads).Floor
 		let within = index % size
 		let first = index - within + token * 2 * width + start
-		let scale = Normalization.Scale(Normalization.Squared(combined, first, size), size, Qwen3Block.Epsilon)
-		let partner = (within + half) % size
+		let partner = (within + size / 2) % size
 		let own = combined(first + within) * weights(within) * rotation(token * 2 * size + within)
-		(own + combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)) * scale
+		let other = combined(first + partner) * weights(partner) * rotation((token * 2 + 1) * size + within)
+		(own + other) * scales((index / size).Floor)
