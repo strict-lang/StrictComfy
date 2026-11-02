@@ -21,7 +21,7 @@ Loaded(path Text, lora Text) Slow(Moss)
 	Moss.Loaded("tinymossqkv.safetensors", "tinylora.safetensors").layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
-	let model = Safetensors(path, 16)
+	let model = Safetensors(path, 17)
 	let dense = Dense(model)
 	let normed = model.Values("final_norm_video.weight")
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
