@@ -286,6 +286,21 @@ class GenerationCommandTests(unittest.TestCase):
 			args.lora = [str(path) + ':0.5']
 			self.assertEqual(module.selected_loras(args, models), [(path.resolve(), 0.5)])
 
+	def test_installed_four_step_lora_replaces_dmd_up_to_four_steps(self):
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			models = Path(temporary)
+			dmd, four = (models / 'loras/moss' / name for name in ('dmd_turbo_lora.safetensors', 'moss_image_sft_4step_v2.0.safetensors'))
+			dmd.parent.mkdir(parents=True)
+			dmd.touch()
+			four.touch()
+			args = module.arguments(['--steps', '4'])
+			self.assertEqual(module.selected_loras(args, models), [(four.resolve(), 1)])
+			args.steps = 8
+			self.assertEqual(module.selected_loras(args, models), [(dmd.resolve(), 1)])
+			args.steps, args.lora = 2, [str(dmd) + ':0.5']
+			self.assertEqual(module.selected_loras(args, models), [(dmd.resolve(), 0.5)])
+
 	def test_runtime_stack_preserves_small_deltas_and_base_file(self):
 		import torch
 		from safetensors.torch import save_file

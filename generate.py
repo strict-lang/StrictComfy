@@ -35,7 +35,8 @@ QUALITIES = {
 	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 7 s'),
 	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 6.4 s'),
 	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, 4.5 s')}
-# Moss quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add the DMD turbo LoRA
+# Moss quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add a turbo LoRA
+TURBO_LORAS = ('dmd_turbo_lora.safetensors', 'moss_image_sft_4step_v2.0.safetensors')
 MOSS_QUALITIES = {
 	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
 	'best25steps': (25, 2, '', 'without the turbo LoRA, 25 steps with cfg 2, 18 s'),
@@ -142,12 +143,14 @@ def baked_loras(metadata):
 
 
 def selected_loras(args, models, metadata=None):
+	"""The given LoRAs, after the turbo LoRA at 8 steps or fewer: akhaliq's 4-step one at 4 or fewer when installed, else DMD."""
 	selected = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
-	has_turbo = any(Path(str(path).replace('\\', '/')).name == 'dmd_turbo_lora.safetensors' and strength != 0
+	has_turbo = any(Path(str(path).replace('\\', '/')).name in TURBO_LORAS and strength != 0
 		for path, strength in baked_loras(metadata))
-	explicit_turbo = any(path.name == 'dmd_turbo_lora.safetensors' for path, strength in selected)
+	explicit_turbo = any(path.name in TURBO_LORAS for path, strength in selected)
 	if args.family == 'moss' and args.steps <= 8 and not has_turbo and not explicit_turbo:
-		turbo = located('moss/dmd_turbo_lora.safetensors', models / 'loras')
+		four = models / 'loras/moss' / TURBO_LORAS[1]
+		turbo = four.resolve() if args.steps <= 4 and four.is_file() else located('moss/' + TURBO_LORAS[0], models / 'loras')
 		selected.insert(0, (turbo, 1.0))
 	return selected
 

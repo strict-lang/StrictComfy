@@ -26,7 +26,7 @@ Workflow, everything except the sampler is a standard ComfyUI node:
 | Node | Settings |
 |---|---|
 | Load Diffusion Model (UNETLoader) | a Moss checkpoint: int8 Convrot like `moss-image-sft-dit-int8-convrot.safetensors`, or fp8, bf16, fp16 or fused qkv ones (converted once, cached) |
-| LoraLoaderModelOnly, chained for a stack, optional | style LoRAs (the DMD turbo LoRA is added by `turbo` `auto`, a LoraLoader with it is recognized and not added twice) |
+| LoraLoaderModelOnly, chained for a stack, optional | style LoRAs (a turbo LoRA is added by `turbo` `auto`, a LoraLoader with it is recognized and not added twice) |
 | Load CLIP | `qwen3.5_9b_int8_convrot.safetensors`, type `moss_image` |
 | CLIP Text Encode | the prompt, into `positive` |
 | Empty Flux 2 Latent | width, height (multiples of 16), batch size |
@@ -37,7 +37,7 @@ Workflow, everything except the sampler is a standard ComfyUI node:
 What the node does: it reads the checkpoint path from the MODEL, turns the LoRA patches of the LoraLoader nodes into one adapter (cached by content in `artifacts/moss`), merges it into a cached int8 checkpoint (`merged`, first time about 15 s, then reused; the 3 most recently used merges stay in the cache, 5.4 GB each) or applies it as floating adapters (`runtime`, slower per image), unloads ComfyUI's models from the GPU and sends the run to a resident `MossImage.exe`, which keeps the model loaded until the model, LoRAs or Spectrum change (or ComfyUI exits), then decodes the latents with the connected VAE. Image `i` of a batch uses seed `seed + i` with the same noise as a ComfyUI sampler at batch size 1.
 
 - `quality` picks steps, `cfg` and `spectrum` like `MossImage.exe --quality` below, `custom` uses the `steps`, `cfg` and `spectrum` inputs instead (workflows saved before `quality` existed load with `best`, set `custom` to keep their steps).
-- 8 steps or fewer need the DMD turbo LoRA and `cfg` 1: `turbo` `auto` adds `loras/moss/dmd_turbo_lora.safetensors` at 8 steps or fewer unless a LoraLoader or the checkpoint's merge metadata already has it. Use `off` for checkpoints with a turbo LoRA baked in by someone else, and 25-50 steps with `cfg` 4 without turbo (turbo at 25 or 50 steps gives broken images).
+- 8 steps or fewer need a turbo LoRA and `cfg` 1: `turbo` `auto` adds `loras/moss/dmd_turbo_lora.safetensors` at 8 steps or fewer, at 4 or fewer akhaliq's [4-step LoRA](https://huggingface.co/akhaliq/MOSS-Image-SFT-4-steps/resolve/main/moss_image_sft_4step_v2.0.safetensors) `loras/moss/moss_image_sft_4step_v2.0.safetensors` instead when it is installed (DMD at 4 steps comes out a bit undercooked, the 4-step LoRA a bit overcooked and much better in every comparison), unless a LoraLoader or the checkpoint's merge metadata already has one of them. Use `off` for checkpoints with a turbo LoRA baked in by someone else, and 25-50 steps with `cfg` 4 without turbo (turbo at 25 or 50 steps gives broken images).
 - `cfg` above 1 guides away from a zero prompt (Strict's CFG), there is no negative input; every step then runs the model twice.
 - `spectrum`: `off` or `spectrum<steps>_w<warmup>p<period>`, `spectrum8_w3p3` forecasts 3 of 8 steps.
 - Only plain LoRA up/down patches are used, other MODEL patches (LoKR, model sampling, attention patches) are rejected or ignored; the latent input only gives the size (no img2img).
@@ -64,8 +64,8 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --
 | `best50steps` | 50, no turbo LoRA | cfg 2 | 37 s |
 | `fast` | 8, turbo | `spectrum8_w3p3` (5 of 8 steps evaluated) | 2.0 s |
 | `faster` | 8, turbo | `spectrum8_w2p3` (4 of 8 evaluated) | 1.6 s |
-| `fastest` | 4, turbo | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 0.93 s |
-| `fastest2steps` | 2, turbo | off (softer, about half the images usable; 3 steps are no faster than fastest) | 0.77 s (480x848: 0.32 s) |
+| `fastest` | 4, 4-step LoRA (DMD when not installed) | `spectrum4_w2p2` (3 of 4 evaluated; 3 of 6 or 8 steps oversaturate or add noise) | 0.93 s |
+| `fastest2steps` | 2, 4-step LoRA (DMD when not installed) | off (softer, about half the images usable; 3 steps are no faster than fastest) | 0.77 s (480x848: 0.32 s) |
 
 `--help` lists every option with its default and description (the options are the members of `MossFiles` and `MossOptions`, parsed by Strict's generated `Parsed`):
 
@@ -75,7 +75,7 @@ C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe --model moss.safetensors --
 | `--models` | `D:/ComfyUI_windows_portable/ComfyUI/models` (or C:), for files and LoRAs given by name |
 | `--prompt` | `prompt.txt`; `{a woman\|a man\|}` picks one alternative per image (the empty one too), nesting works |
 | `--quality` | `best`, see the table above |
-| `--steps`, `--guidance`, `--spectrum` | from `--quality`; 8 steps or fewer add `moss/dmd_turbo_lora.safetensors` unless a DMD entry is given (`:0` disables it); `spectrum8_w3p3` forecasts three of eight steps |
+| `--steps`, `--guidance`, `--spectrum` | from `--quality`; 8 steps or fewer add `moss/dmd_turbo_lora.safetensors`, 4 or fewer `moss/moss_image_sft_4step_v2.0.safetensors` instead when installed, unless one of them is given (`:0` disables it); `spectrum8_w3p3` forecasts three of eight steps |
 | `--skip` | `off`; `first:last` layers (of 41) every other evaluated step from step 2 on (never the last) reuses from the last full evaluation (MossSpan): `--quality best25steps --skip 6:36` samples in 12.3 instead of 17.9 s with slightly different colors |
 | `--lora` | repeat as `path[:strength]`, merged into the int8 weights at load (stochastic rounding like ComfyUI) |
 | `--count` | 1; images per run, each with its own random seed and prompt choices unless `--seed` is given |
