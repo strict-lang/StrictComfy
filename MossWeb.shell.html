@@ -90,7 +90,6 @@
 		start.textContent = "Generate again";
 		start.disabled = false;
 		seed.disabled = false;
-		start.onclick = again;
 	};
 	let pending = "";
 	new MutationObserver(changes => changes.forEach(change => change.addedNodes.forEach(node => {
@@ -122,18 +121,19 @@
 		onExit: code => { if (code !== 0) failed("Exited with code " + code); }
 	};
 	start.onclick = () => {
+		const isFirst = began.seed === undefined;
+		if (!isFirst && seed.value === began.seed)
+			seed.value = Math.floor(Math.random() * 4294967296);
 		start.disabled = true;
 		start.textContent = "Generating...";
-		began.time = performance.now();
-		show("Loading the model");
 		seed.disabled = true;
+		began.time = performance.now();
 		began.seed = seed.value;
-		setTimeout(() => Module.callMain([String(Math.max(0, Math.floor(Number(seed.value) || 0)))]), 0);
-	};
-	const again = () => {
-		if (seed.value === began.seed)
-			seed.value = Math.floor(Math.random() * 4294967296);
-		location.search = "?start&seed=" + seed.value;
+		bar.style.width = isFirst ? "0" : "10%";
+		show(isFirst ? "Loading the model" : "Sampling " + steps + " steps");
+		if (isFirst)
+			setTimeout(() => Module.callMain([]), 0);
+		Module.strictInput(String(Math.max(0, Math.floor(Number(seed.value) || 0))));
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
