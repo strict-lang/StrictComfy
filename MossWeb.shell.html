@@ -48,7 +48,7 @@
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
-				<option value="320 576">320p portrait</option><option value="576 320">320p landscape</option>
+				<option value="360 640">360p portrait</option><option value="640 360">360p landscape</option>
 				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
 				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
 				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
@@ -73,10 +73,10 @@
 		<pre id="log"></pre>
 	</section>
 	<section style="width: auto">
-		<div id="frame"><img src="MossWebExample.jpg" alt="The example prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
+		<div id="frame"><img alt="An example image of the prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
 	</section>
 </main>
-<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 ©, runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster.</footer>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 ©, runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster and better quality (int4 is the only thing that fits into WebGPU limits, int8 on desktop is way better and faster).</footer>
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
@@ -90,7 +90,7 @@
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[began.quality] || 8;
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
 	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
-		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, {gives thumbs up|shows the peace sign|shows love sign with her fingers|smirking|hinting|shows victory sign|}",
+		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|korean|nordic|germanic|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, {gives thumbs up|shows the peace sign|shows finger heart|shows hand heart|smirking|hinting|shows victory sign|}",
 		"a {young|confident} {woman|man} with {short silver hair|long dark curls|a buzz cut} on the cover of a {fashion|lifestyle|tech} magazine, bold masthead and headlines, studio lighting, glossy print",
 		"a {woman|man} in a {red trench coat|denim jacket|white suit} crossing a crowded crosswalk in {Shibuya|Times Square|Piccadilly Circus}, motion blur, photo",
 		"black-and-white film noir: a detective in a {fedora|trench coat} under venetian blinds, cigarette smoke, hard shadows",
@@ -213,7 +213,7 @@
 		begin();
 		Module.strictInput("workflow workflow.json");
 	};
-	const gallery = { names: [], index: -1 };
+	const exampleImages = 9, gallery = { names: [], index: 0 };
 	const folder = () => navigator.storage.getDirectory().then(root => root.getDirectoryHandle("gallery", { create: true }));
 	const pictured = (source, caption) => {
 		const image = document.createElement("img");
@@ -224,14 +224,16 @@
 		element("caption").textContent = caption;
 	};
 	const browsed = async index => {
-		gallery.index = Math.max(-1, Math.min(gallery.names.length - 1, index));
-		if (gallery.index < 0)
-			return pictured("MossWebExample.jpg", "Example");
-		const directory = await folder(), name = gallery.names[gallery.index];
+		gallery.index = Math.max(0, Math.min(exampleImages + gallery.names.length - 1, index));
+		const position = (gallery.index + 1) + " / " + (exampleImages + gallery.names.length);
+		element("caption").title = "";
+		element("delete").disabled = gallery.index < exampleImages;
+		if (gallery.index < exampleImages)
+			return pictured("MossWebExample" + (gallery.index + 1) + ".jpg", position + ", example");
+		const directory = await folder(), name = gallery.names[gallery.index - exampleImages];
 		const image = await (await directory.getFileHandle(name + ".jpg")).getFile();
 		const details = JSON.parse(await (await (await directory.getFileHandle(name + ".json")).getFile()).text());
-		pictured(URL.createObjectURL(image), (gallery.index + 1) + " / " + gallery.names.length + ", seed " + details.seed +
-			", sampled in " + details.sampled.toFixed(1) + " s");
+		pictured(URL.createObjectURL(image), position + ", seed " + details.seed + ", sampled in " + details.sampled.toFixed(1) + " s");
 		element("caption").title = details.prompt;
 	};
 	const collected = async () => {
@@ -250,19 +252,20 @@
 		await writable(name + ".jpg", await (await fetch(source)).blob());
 		await writable(name + ".json", JSON.stringify(details));
 		await collected();
-		browsed(gallery.names.length - 1);
+		browsed(exampleImages + gallery.names.length - 1);
 	};
 	element("back").onclick = () => browsed(gallery.index - 1);
 	element("forward").onclick = () => browsed(gallery.index + 1);
 	element("delete").onclick = async () => {
-		if (gallery.index < 0) return;
-		const directory = await folder(), name = gallery.names[gallery.index];
+		if (gallery.index < exampleImages) return;
+		const directory = await folder(), name = gallery.names[gallery.index - exampleImages];
 		await directory.removeEntry(name + ".jpg");
 		await directory.removeEntry(name + ".json");
 		await collected();
 		browsed(gallery.index);
 	};
-	collected().catch(() => element("gallery").style.display = "none");
+	collected().then(() => browsed(gallery.names.length ? exampleImages + gallery.names.length - 1 : Math.floor(Math.random() * exampleImages)),
+		() => browsed(Math.floor(Math.random() * exampleImages)));
 	const shown = (source, name) => {
 		if (name === "MossWebStep.jpg" || !began.isRunning)
 			return pictured(source, "Step " + (began.step + 1) + " preview");
