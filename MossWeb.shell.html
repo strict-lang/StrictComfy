@@ -26,7 +26,7 @@
 	.small { font-size: 14px; padding: 4px 10px; background: #1f2933; color: #d8dee9; }
 	#progress { height: 6px; background: #1f2933; border-radius: 3px; overflow: hidden; flex: none; }
 	#bar { width: 0; height: 100%; background: #5fb3f6; transition: width 0.3s; }
-	#status { min-height: 1.4em; color: #8b97a5; }
+	#status { min-height: 1.4em; color: #8b97a5; font-size: 13px; }
 	#status.error { color: #e88388; }
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
 	#frame { flex: none; background: #141b23; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; color: #4b5663; }
@@ -52,7 +52,6 @@
 				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
 				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
 				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
-				<option value="1088 1920">1080p portrait</option><option value="1920 1088">1080p landscape</option>
 			</select></label>
 			<label>Quality<select id="quality">
 				<option value="best">best (8 steps)</option><option value="fast">fast (8 steps)</option>
@@ -91,7 +90,7 @@
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
 	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
-		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo",
+		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, {gives thumbs up|shows the peace sign|shows love sign with her fingers|smirking|hinting|shows victory sign|}",
 		"a {young|confident} {woman|man} with {short silver hair|long dark curls|a buzz cut} on the cover of a {fashion|lifestyle|tech} magazine, bold masthead and headlines, studio lighting, glossy print",
 		"a {woman|man} in a {red trench coat|denim jacket|white suit} crossing a crowded crosswalk in {Shibuya|Times Square|Piccadilly Circus}, motion blur, photo",
 		"black-and-white film noir: a detective in a {fedora|trench coat} under venetian blinds, cigarette smoke, hard shadows",
