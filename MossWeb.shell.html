@@ -87,7 +87,7 @@
 	counted("visit");
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
-	const steps = () => ({ fastest: 4, fastest2steps: 2 })[quality.value] || 8;
+	const steps = () => ({ fastest: 4, fastest2steps: 2 })[began.quality] || 8;
 	const show = (text, isError) => { status.textContent = text; status.classList.toggle("error", !!isError); };
 	const examples = ["a {red fox|snow leopard|white owl} in a snowy {forest|mountain valley} at {dawn|dusk}, photo",
 		"closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo, {gives thumbs up|shows the peace sign|shows love sign with her fingers|smirking|hinting|shows victory sign|}",
@@ -270,10 +270,9 @@
 		bar.style.width = "100%";
 		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
 		const model = "moss_image_sft_4step_int4_convrot";
-		const used = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
-		counted("generated", { prompt: began.encoded, model, vae: decoder.value, loras: used, seconds: began.sampled });
-		kept(source, { seed: began.seed, prompt: began.encoded, size: size.value, quality: quality.value, decoder: decoder.value,
-			loras: used, sampled: began.sampled }).then(() => URL.revokeObjectURL(source), () => pictured(source, "seed " + began.seed));
+		counted("generated", { prompt: began.encoded, model, vae: began.decoder, loras: began.loras, seconds: began.sampled });
+		kept(source, { seed: began.seed, prompt: began.encoded, size: began.size, quality: began.quality, decoder: began.decoder,
+			loras: began.loras, sampled: began.sampled }).then(() => URL.revokeObjectURL(source), () => pictured(source, "seed " + began.seed));
 		start.textContent = "Generate locally";
 		enabled(true);
 		randomSeed();
@@ -288,14 +287,19 @@
 			node.remove();
 		}
 	}))).observe(document.body, { childList: true });
-	size.onchange = () => {
-		const [width, height] = size.value.split(" ").map(Number), main = document.querySelector("main");
+	let framed = size.value;
+	const fitted = () => {
+		const [width, height] = framed.split(" ").map(Number), main = document.querySelector("main");
 		const scale = Math.min((main.clientWidth - 48 - document.querySelector("section").offsetWidth - 24) / width, (main.clientHeight - 32 - 40) / height);
 		frame.style.width = width * scale + "px";
 		frame.style.height = height * scale + "px";
 	};
-	addEventListener("resize", size.onchange);
-	size.onchange();
+	size.onchange = () => {
+		if (!began.isRunning) framed = size.value;
+		fitted();
+	};
+	addEventListener("resize", fitted);
+	fitted();
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
@@ -335,11 +339,15 @@
 		began.step = 0;
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
+		[began.size, began.quality, began.decoder] = [size.value, quality.value, decoder.value];
+		began.loras = loras.filter(lora => lora.isUploaded && lora.strength).map(lora => lora.name + ":" + lora.strength).join(", ");
+		framed = began.size;
+		fitted();
 		bar.style.width = "0";
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
 		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
-		Module.strictInput([began.seed, size.value, quality.value, decoder.value, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
