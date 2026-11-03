@@ -33,13 +33,12 @@
 	#frame img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
 	#gallery { position: absolute; left: 0; right: 0; top: 100%; margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8b97a5; }
 	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	#stats { position: absolute; left: 12px; top: 6px; font-size: 12px; color: #6b7785; }
+	#stats:not(:empty)::before { content: " · "; }
 	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
 	footer a { color: inherit; }
 </style>
 </head>
 <body>
-<div id="stats"></div>
 <main>
 	<section>
 		<h1>Moss in the browser</h1>
@@ -76,7 +75,7 @@
 		<div id="frame"><img alt="An example image of the prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
 	</section>
 </main>
-<footer>Made with <a href="https://strict-lang.org">Strict</a> 2026-11-02 ©, runs 100% locally with WebGPU on your device. The <a href="https://github.com/strict-lang/StrictComfy">downloadable GitHub version</a> is up to 10x faster and better quality (int4 is the only thing that fits into WebGPU limits, int8 on desktop is way better and faster).</footer>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> © 2026 · runs 100% locally with WebGPU · the <a href="https://github.com/strict-lang/StrictComfy">desktop version</a> is up to 10x faster with int8 quality<span id="stats"></span></footer>
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
