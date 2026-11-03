@@ -1,5 +1,4 @@
-// Visit and image counters for MossWeb.html: run with node next to the page, IIS forwards /stats/* to http://localhost:PORT
-// (URL Rewrite + ARR). Lines go to MossWebStats/visits.txt and generated.txt, visitors as salted hashes of their IP.
+// Visit and image counters for MossWeb.html
 const crypto = require("crypto"), fs = require("fs"), http = require("http"), path = require("path");
 const folder = process.env.STATS_FOLDER || path.join(__dirname, "MossWebStats");
 const port = Number(process.env.PORT || 8790);
@@ -46,7 +45,7 @@ http.createServer(async (request, response) => {
 			if (!(seconds > 0 && seconds < 3600))
 				return answer(response, 400, "seconds must be between 0 and 3600");
 			const entry = { time: new Date().toISOString(), visitor: visitor(request), seconds: Math.round(seconds * 10) / 10,
-				model: text(sent.model, 200), vae: text(sent.vae, 200), loras: text(sent.loras, 1000), prompt: text(sent.prompt, 2000) };
+				model: text(sent.model, 200), vae: text(sent.vae, 200), loras: text(sent.loras, 1000), prompt: text(sent.prompt, 20) };
 			fs.appendFileSync(file("generated.txt"), JSON.stringify(entry) + "\n");
 			stats.generated++;
 			stats.seconds += entry.seconds;

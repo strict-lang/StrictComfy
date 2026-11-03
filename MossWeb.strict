@@ -56,6 +56,7 @@ Quality(options MossOptions) Text
 		return Qualities(options.quality)
 	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
 Encoded(prompt Text) Slow(Numbers)
+	GpuMemory.Evicted
 	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
 	GpuMemory.Evicted
 	context

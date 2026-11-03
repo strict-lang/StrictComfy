@@ -28,14 +28,32 @@
 	#bar { width: 0; height: 100%; background: #5fb3f6; transition: width 0.3s; }
 	#status { min-height: 1.4em; color: #8b97a5; font-size: 13px; }
 	#status.error { color: #e88388; }
+	#sizenote { color: #e8b383; font-size: 13px; }
+	#sizenote:empty { display: none; }
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
 	#frame { flex: none; background: #141b23; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; color: #4b5663; }
 	#frame img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
 	#gallery { position: absolute; left: 0; right: 0; top: 100%; margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8b97a5; }
 	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	#stats:not(:empty)::before { content: " · "; }
-	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; }
+	footer { text-align: center; font-size: 13px; color: #6b7785; padding: 8px 24px 12px; background: #0b0f14; position: relative; z-index: 1; }
 	footer a { color: inherit; }
+	@media (max-width: 720px) {
+		html, body { height: auto; overflow: auto; font-size: 12px; }
+		main { flex-direction: column; gap: 8px; padding: 8px; }
+		section { width: 100%; gap: 6px; }
+		section:last-of-type { order: -1; align-items: center; padding-bottom: 28px; }
+		h1 { font-size: 16px; }
+		label, #status, #sizenote, #gallery, footer { font-size: 11px; }
+		label > span { flex-wrap: wrap; gap: 2px 8px; }
+		textarea, input, select { padding: 4px 6px; }
+		textarea { height: 64px; }
+		.row { gap: 6px; }
+		button { font-size: 14px; padding: 7px; }
+		.small { font-size: 11px; padding: 2px 8px; }
+		#log { flex: none; max-height: 120px; font-size: 10px; }
+		footer { padding: 6px 8px 8px; }
+	}
 </style>
 </head>
 <body>
@@ -46,6 +64,7 @@
 		<label style="flex-direction: row; align-items: center"><input id="varied" type="checkbox">new prompt variation for every seed (encodes the prompt again)</label>
 		<div class="row">
 			<label>Size<select id="size">
+				<option value="160 288">160p portrait</option><option value="288 160">160p landscape</option>
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
 				<option value="368 640">368p portrait</option><option value="640 368">368p landscape</option>
 				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
@@ -59,6 +78,7 @@
 				<option value="fastest2steps">fastest2steps (2 steps)</option>
 			</select></label>
 		</div>
+		<div id="sizenote"></div>
 		<div class="row">
 			<label>Decoder<select id="decoder">
 				<option value="taef2" selected>taef2 (fastest)</option><option value="flux2-small-vae">flux2-small-vae (faster)</option>
@@ -70,8 +90,7 @@
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
 		<div id="status">Downloading the page</div>
-		<pre id="log">Moss runs completely on your own GPU with WebGPU. The models are downloaded once from Hugging Face as heavily compressed int4 Convrot .safetensors (Moss 3 GB, text encoder 4.3 GB) and kept in your browser. A browser page can only use about 4 GB, so the quality is lower than with int8 in the desktop version. Your images never leave your device, they are only kept in this browser's storage. For the visit counter the page reports the prompt, settings and sampling time of each image.
-
+		<pre id="log">Moss runs completely on your own GPU with WebGPU. The models are downloaded once from Hugging Face as heavily compressed int4 Convrot .safetensors (Moss 3 GB, text encoder 4.3 GB) and kept in your browser. A browser page can only use about 4 GB, so the quality is lower than with int8 in the desktop version. Tested in Chrome, Edge and Firefox on the desktop and Chrome on Android phones, all with WebGPU enabled; the GPU needs 4 GB of memory or more. WebGPU limits the speed, for really fast image generation use the desktop version. You can add any moss lora (e.g. from civitai.com or huggingface.com) on top or even import your whole ComfyUI workflow here. Your images never leave your device, they are only kept in this browser's storage together with any models and loras, next time you visit everything is still here till you kill your browser cache. For the visit counter and sampling time of each image it calls stats/, you can download this site and run it completely locally yourself as well.
 </pre>
 	</section>
 	<section style="width: auto">
@@ -84,6 +103,8 @@
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
 	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder"), prompt = element("prompt");
 	const parameters = new URLSearchParams(location.search), began = { time: 0, isRunning: false };
+	const isMobile = /Android|iPhone|iPad|Mobi/.test(navigator.userAgent);
+	if (isMobile) size.value = "160 288";
 	const counted = (action, sent) => fetch("stats/" + action, sent ? { method: "POST", body: JSON.stringify(sent) } : { method: "POST" })
 		.then(response => response.ok ? response.text() : "").then(text => element("stats").textContent = text, () => {});
 	counted("visit");
@@ -161,11 +182,15 @@
 		const encoded = original.match(/^Encoded prompt \d+\/\d+: (.*)/);
 		if (encoded)
 			began.encoded = encoded[1];
-		const step = text.match(/^Step (\d+)\/(\d+)/), sampled = original.match(/sampled in (\d+) ms/);
-		if (sampled)
-			began.sampled = sampled[1] / 1000;
+		const step = original.match(/^Step (\d+)\/(\d+) in (\d+) ms/), sampled = original.match(/sampled in (\d+) ms/);
+		if (sampled) {
+			const [first = 0, second = first] = began.stepTimes;
+			began.sampled = (sampled[1] - first + second) / 1000;
+		}
 		if (step) {
 			began.step = Number(step[1]);
+			began.stepTimes.push(Number(step[3]));
+			if (began.isPreviewed) element("caption").textContent = previewed(step[1] + "/" + step[2] + " in " + (step[3] / 1000).toFixed(1) + "s");
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
 			show("Sampling step " + step[1] + " of " + step[2]);
 		} else if (text.startsWith("Text encoder loaded")) {
@@ -228,7 +253,7 @@
 	};
 	const browsed = async index => {
 		gallery.index = Math.max(0, Math.min(exampleImages + gallery.names.length - 1, index));
-		const position = (gallery.index + 1) + " / " + (exampleImages + gallery.names.length);
+		const position = (gallery.index + 1) + "/" + (exampleImages + gallery.names.length);
 		element("caption").title = "";
 		element("delete").disabled = gallery.index < exampleImages;
 		if (gallery.index < exampleImages)
@@ -236,7 +261,7 @@
 		const directory = await folder(), name = gallery.names[gallery.index - exampleImages];
 		const image = await (await directory.getFileHandle(name + ".jpg")).getFile();
 		const details = JSON.parse(await (await (await directory.getFileHandle(name + ".json")).getFile()).text());
-		pictured(URL.createObjectURL(image), position + ", seed " + details.seed + ", sampled in " + details.sampled.toFixed(1) + " s");
+		pictured(URL.createObjectURL(image), position + ", sampled in " + details.sampled.toFixed(1) + "s, seed: " + details.seed);
 		element("caption").title = details.prompt;
 	};
 	const collected = async () => {
@@ -269,9 +294,13 @@
 	};
 	collected().then(() => browsed(gallery.names.length ? exampleImages + gallery.names.length - 1 : Math.floor(Math.random() * exampleImages)),
 		() => browsed(Math.floor(Math.random() * exampleImages)));
+	const previewed = step => { const next = exampleImages + gallery.names.length + 1; return next + "/" + next + " sampled step " + step; };
 	const shown = (source, name) => {
-		if (name === "MossWebStep.jpg" || !began.isRunning)
-			return pictured(source, "Step " + (began.step + 1) + " preview");
+		if (name === "MossWebStep.jpg" || !began.isRunning) {
+			began.isPreviewed = true;
+			return pictured(source, previewed((began.step + 1) + "/" + steps()));
+		}
+		began.isPreviewed = false;
 		began.isRunning = false;
 		bar.style.width = "100%";
 		show("Done, sampled in " + began.sampled.toFixed(3) + " s (seed " + began.seed + ")");
@@ -296,16 +325,19 @@
 	let framed = size.value;
 	const fitted = () => {
 		const [width, height] = framed.split(" ").map(Number), main = document.querySelector("main");
-		const scale = Math.min((main.clientWidth - 48 - document.querySelector("section").offsetWidth - 24) / width, (main.clientHeight - 32 - 40) / height);
+		const scale = matchMedia("(max-width: 720px)").matches ? (main.clientWidth - (height > width ? 48 : 16)) / width :
+			Math.min((main.clientWidth - 48 - document.querySelector("section").offsetWidth - 24) / width, (main.clientHeight - 32 - 40) / height);
 		frame.style.width = width * scale + "px";
 		frame.style.height = height * scale + "px";
 	};
 	size.onchange = () => {
 		if (!began.isRunning) framed = size.value;
+		const side = Math.min(...size.value.split(" ").map(Number));
+		element("sizenote").textContent = !isMobile || side <= 240 ? "" : "Above 240p a phone takes a minute or more per image and can run out of memory, mostly in the last step: reloading the page or closing other apps helps.";
 		fitted();
 	};
 	addEventListener("resize", fitted);
-	fitted();
+	size.onchange();
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {
@@ -326,7 +358,7 @@
 		},
 		onRuntimeInitialized: () => {
 			if (!navigator.gpu)
-				return failed("This browser has no WebGPU, use a current Chrome or Edge");
+				return failed("This browser has no WebGPU, use a current Chrome, Edge or Firefox");
 			enabled(true);
 			start.textContent = "Generate locally";
 			show("Ready: streams in the Moss model (3 GB) and text encoder (4.5 GB) once");
@@ -343,6 +375,7 @@
 		began.isRunning = true;
 		began.sampled = 0;
 		began.step = 0;
+		began.stepTimes = [];
 		began.seed = Math.max(0, Math.min(4294967295, Math.floor(Number(seed.value) || 0)));
 		began.prompt = prompt.value.replace(/\s+/g, " ").trim();
 		[began.size, began.quality, began.decoder] = [size.value, quality.value, decoder.value];
