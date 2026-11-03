@@ -70,7 +70,9 @@
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
 		<div id="status">Downloading the page</div>
-		<pre id="log"></pre>
+		<pre id="log">Moss runs completely on your own GPU with WebGPU. The models are downloaded once from Hugging Face as heavily compressed int4 Convrot .safetensors (Moss 3 GB, text encoder 4.3 GB) and kept in your browser. A browser page can only use about 4 GB, so the quality is lower than with int8 in the desktop version. Your images never leave your device, they are only kept in this browser's storage. For the visit counter the page reports the prompt, settings and sampling time of each image.
+
+</pre>
 	</section>
 	<section style="width: auto">
 		<div id="frame"><img alt="An example image of the prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
