@@ -44,10 +44,11 @@
 		<h1>Moss in the browser</h1>
 		<label><span style="display: flex; justify-content: space-between">Prompt<span><a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden> · <a href="https://mossimage.org/prompts/" target="_blank" rel="noopener">official Moss image prompts</a></span></span><textarea id="prompt"></textarea></label>
 		<label style="flex-direction: row; align-items: center"><input id="varied" type="checkbox">new prompt variation for every seed (encodes the prompt again)</label>
+		<label style="flex-direction: row; align-items: center"><input id="previews" type="checkbox">show a preview after every step (about 10 % slower)</label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
-				<option value="360 640">360p portrait</option><option value="640 360">360p landscape</option>
+				<option value="368 640">360p portrait</option><option value="640 368">360p landscape</option>
 				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
 				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
 				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
@@ -76,7 +77,7 @@
 		<div id="frame"><img alt="An example image of the prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
 	</section>
 </main>
-<footer>Made with <a href="https://strict-lang.org">Strict</a> © 2026 · runs 100% locally with WebGPU · the <a href="https://github.com/strict-lang/StrictComfy">desktop version</a> is up to 10x faster with int8 quality<span id="stats"></span></footer>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> © 2026 · runs 100% locally with WebGPU · the <a href="https://github.com/strict-lang/StrictComfy">desktop version</a> is up to 5x faster with int8 quality<span id="stats"></span></footer>
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
@@ -184,7 +185,8 @@
 		} else if (text.startsWith("Error")) failed(text);
 	};
 	const applied = ([settings, workflowPrompt]) => {
-		const [workflowSeed, width, height, workflowQuality] = settings.split(" ");
+		const [workflowSeed, wanted, tall, workflowQuality] = settings.split(" ");
+		const [width, height] = [wanted, tall].map(pixels => Math.max(16, Math.round(pixels / 16) * 16));
 		if (workflowSeed !== "-1") seed.value = workflowSeed;
 		const value = width + " " + height;
 		if (![...size.options].some(option => option.value === value)) size.add(new Option(width + "x" + height + " (workflow)", value));
@@ -350,7 +352,7 @@
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
 		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
-		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed, element("previews").checked ? 1 : 0].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
