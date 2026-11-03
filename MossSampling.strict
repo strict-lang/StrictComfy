@@ -46,11 +46,11 @@ Progressed(step Number, started Number, previous Number, latent Numbers, output 
 	now
 Previewing(step Number) Boolean
 	MossSampling(Logger, steps = 8).Previewing(0) and MossSampling(Logger, steps = 8).Previewing(2)
-	MossSampling(Logger, steps = 8).Previewing(4) and (MossSampling(Logger, steps = 8).Previewing(6) is false)
-	MossSampling(Logger, steps = 8).Previewing(1) is false
+	MossSampling(Logger, steps = 8).Previewing(5) and (MossSampling(Logger, steps = 8).Previewing(6) is false)
+	(MossSampling(Logger, steps = 8).Previewing(1) is false) and (MossSampling(Logger, steps = 8).Previewing(4) is false)
 	MossSampling(Logger, steps = 4).Previewing(1) and (MossSampling(Logger, steps = 4).Previewing(2) is false)
 	MossSampling(Logger, steps = 2).Previewing(0) and (MossSampling(Logger, steps = 2).Previewing(1) is false)
-	(step is 0) or ((step < steps - 2) and (step * 4 % steps is 0))
+	(step is 0) or ((step < steps - 2) and ((step is (steps / 3).Floor) or (step is (2 * steps / 3).Floor)))
 Progress(step Number, last Number, average Number) Text
 	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
 	"Step " + (step + 1) + "/" + steps + " in " + (last * 1000).Round + " ms, average " + (average * 1000).Round + " ms"
