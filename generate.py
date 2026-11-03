@@ -14,13 +14,12 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent
 FAMILIES = {
-	'moss': {'backend': 'MossImage.exe', 'width': 720, 'height': 1280, 'linear': 'layers.0.proj.q'},
-	'h3': {'backend': 'H3Video.exe', 'width': 480, 'height': 832, 'linear': 'blocks.0.attn.qkv_proj'}}
+	'moss': {'backend': 'MossImage', 'width': 720, 'height': 1280, 'linear': 'layers.0.proj.q'},
+	'h3': {'backend': 'H3Video', 'width': 480, 'height': 832, 'linear': 'blocks.0.attn.qkv_proj'}}
 SPECTRUM = re.compile(r'spectrum(\d+)_w(\d+)p(\d+)')
 SKIP = re.compile(r'(\d+):(\d+)')
-# H3 skip: the blocks every other evaluated step after the first two reuses, how much faster 8 routed steps of a 10 s
-# clip got on a 4090
-SKIPS = {'5:45': 26, '10:40': 19, '15:35': 11, 'off': 0}
+# H3 skip: the blocks every other evaluated step after the first two reuses, wider spans are faster
+SKIPS = ['5:45', '10:40', '15:35', 'off']
 # H3 sampler_name and scheduler like ComfyUI's (beta57 from RES4LYF), H3Video.exe gets their index; NOISY samplers add new
 # noise every step but the last
 SAMPLERS = ['euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm']
@@ -28,23 +27,23 @@ SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linea
 	'dpmpp_2m_sde', 'lcm'}
 H3_TURBO, H3_BASE = 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
-# H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, 124 frames on a 4090
+# H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, description
 QUALITIES = {
-	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps, 14 s'),
-	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn, 11 s'),
-	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated), 7 s'),
-	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps, 6.4 s'),
-	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, 4.5 s')}
-# Moss quality: steps, guidance, Spectrum warmup and period, 720x1280 on a 3080; 8 steps or fewer add a turbo LoRA
+	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps'),
+	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn'),
+	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated)'),
+	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps'),
+	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, lowest quality')}
+# Moss quality: steps, guidance, Spectrum warmup and period, description; 8 steps or fewer add a turbo LoRA
 TURBO_LORAS = ('dmd_turbo_lora.safetensors', 'moss_image_sft_4step_v2.0.safetensors')
 MOSS_QUALITIES = {
-	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps, 3.2 s'),
-	'best25steps': (25, 2, '', 'without the turbo LoRA, 25 steps with cfg 2, 18 s'),
-	'best50steps': (50, 2, '', 'without the turbo LoRA, 50 steps with cfg 2, 37 s'),
-	'fast': (8, 1, 'w3p3', 'best with Spectrum (5 of 8 steps evaluated), 2.0 s'),
-	'faster': (8, 1, 'w2p3', 'best with Spectrum (4 of 8 steps evaluated), 1.6 s'),
-	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated), 1.2 s'),
-	'fastest2steps': (2, 1, '', '2 turbo steps, softer and about half the images usable, 0.77 s (480x848 0.32 s)')}
+	'best': (8, 1, '', 'the DMD turbo LoRA, 8 steps'),
+	'best25steps': (25, 2, '', 'without the turbo LoRA, 25 steps with cfg 2'),
+	'best50steps': (50, 2, '', 'without the turbo LoRA, 50 steps with cfg 2'),
+	'fast': (8, 1, 'w3p3', 'best with Spectrum (5 of 8 steps evaluated)'),
+	'faster': (8, 1, 'w2p3', 'best with Spectrum (4 of 8 steps evaluated)'),
+	'fastest': (4, 1, 'w2p2', '4 turbo steps with Spectrum (3 evaluated)'),
+	'fastest2steps': (2, 1, '', '2 turbo steps, softer and about half the images usable')}
 
 
 def lora_spec(text):
@@ -483,15 +482,22 @@ def h3_rows(latents, seed):
 	return torch.cat(rows)
 
 
+def executable(family):
+	"""The family's backend in Release/Windows (.exe) or Release/Linux (no extension)."""
+	name = FAMILIES[family]['backend']
+	windows = sys.platform == 'win32'
+	return str(ROOT / 'Release' / ('Windows' if windows else 'Linux') / (name + '.exe' if windows else name))
+
+
 def backend(args, model, adapter):
 	"""The resident backend command, it reads one job folder per input line (H3Video.exe decodes jobs with decode)."""
 	mode, warmup, period = spectrum_config(args)
 	if args.family == 'h3':
-		return [str(ROOT / 'H3Video.exe'), '-', str(model), 'strict', adapter, str(args.steps), '12',
+		return [executable(args.family), '-', str(model), 'strict', adapter, str(args.steps), '12',
 			str(period if mode == 'on' else 0), str(warmup if mode == 'on' else 1), '1', f'{args.routing:g}',
 			*map(str, skipped_blocks(args)), str(SAMPLERS.index(args.sampler)), str(SCHEDULERS.index(args.scheduler)),
 			str(args.vae), str(args.audio_vae)]
-	return [str(ROOT / 'MossImage.exe'), '-', str(model), adapter, mode]
+	return [executable(args.family), '-', str(model), adapter, mode]
 
 
 def prepared(args, contexts, plan, folder):
@@ -518,6 +524,11 @@ def prepared(args, contexts, plan, folder):
 
 
 def started(args, command):
+	if not Path(command[0]).is_file():
+		raise FileNotFoundError(command[0] + ' is missing, reinstall StrictComfy or build it with: strict build ' +
+			Path(command[0]).stem + '.strict ' + Path(command[0]).parent.name.lower())
+	if not os.access(command[0], os.X_OK):
+		Path(command[0]).chmod(Path(command[0]).stat().st_mode | 0o111)
 	environment = dict(os.environ, STRICT_GPU='all', CUDA_CACHE_PATH=str(args.cache / 'cuda'), CUDA_CACHE_MAXSIZE='4294967296')
 	(args.cache / 'cuda').mkdir(exist_ok=True)
 	return subprocess.Popen(command, cwd=ROOT, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

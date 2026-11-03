@@ -62,8 +62,6 @@ bld/
 *.lib
 *.res
 .output.txt
-.junie/
-.grok/
 .claude/
 # libraries strict builds from the C sources of a native package
 **/native/*.dll
@@ -77,6 +75,10 @@ prompt*.txt
 *.rgb
 Tests.test-*
 *.log
-Content/
 Dumps/
-MossWebStats/
+!Release/
+Release/*
+!Release/Windows/
+!Release/Linux/
+!Release/Windows/**
+!Release/Linux/**

@@ -87,12 +87,11 @@ class StrictMossSampler:
 			'turbo': (['auto', 'off'], {'tooltip': 'auto: adds loras/moss/dmd_turbo_lora.safetensors at 8 steps or fewer '
 				'(at 4 or fewer moss_image_sft_4step_v2.0.safetensors next to it when installed) unless a LoraLoader or '
 				'the checkpoint already has it, off for checkpoints with another turbo LoRA baked in'}),
-			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum (sampling '
-				'times for 720x1280 on a 3080): ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
+			'quality': (list(generate.MOSS_QUALITIES) + ['custom'], {'tooltip': 'presets of steps, cfg and spectrum: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.MOSS_QUALITIES.items()) +
 				'; custom: the steps, cfg and spectrum above'}),
 			'skip': ('STRING', {'default': 'off', 'tooltip': 'off or first:last layers (of 42, last at most 41) that every other '
 				'evaluated step from step 2 on (never the last) reuses from the last full evaluation, like --skip of MossImage.exe '
-				'(changes the result): best25steps with 6:36 samples 31 % faster; the turbo presets have only one such step '
+				'(faster, changes the result): the turbo presets have only one such step '
 				'with Spectrum (fast: step 2, faster: step 4), fastest none'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
 	RETURN_TYPES = ('IMAGE',)
@@ -146,13 +145,11 @@ class StrictH3Sampler:
 			'positive': ('CONDITIONING', {'tooltip': 'MiniMax H3 Image to Video (text to video, or with first and last frames)'}),
 			'latent': ('LATENT', {'tooltip': 'The video and audio latent of MiniMax H3 Image to Video or Empty MiniMax H3 AV '
 				'Latent: width, height, length and batch size'}),
-			'quality': (list(generate.QUALITIES), {'default': 'fast', 'tooltip': 'Model, steps, attention and Spectrum; sampling '
-				'times for 124 frames on a 4090: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.QUALITIES.items())}),
+			'quality': (list(generate.QUALITIES), {'default': 'fast', 'tooltip': 'Model, steps, attention and Spectrum: ' + '; '.join(name + ': ' + preset[-1] for name, preset in generate.QUALITIES.items())}),
 			'seed': ('INT', {'default': 0, 'min': 0, 'max': 2 ** 63 - 1, 'control_after_generate': True}),
 			'skip': (list(generate.SKIPS), {'default': '5:45', 'tooltip': 'Blocks first:last (of 50) that every other '
 				'evaluated step after the first two reuses from the last full step instead of computing them (changes the '
-				'result), faster for 8 routed steps of a 10 s clip on a 4090: ' +
-				', '.join(f'{name} {faster} %' for name, faster in generate.SKIPS.items())})},
+				'result), wider spans are faster'})},
 			'optional': {'sampler_name': (generate.SAMPLERS, {'default': 'euler', 'tooltip': 'res_multistep is the default of '
 				'the H3 workflows, ' + ', '.join(sorted(generate.NOISY)) + ' add new noise every step; the same speed for each'}),
 				'scheduler': (generate.SCHEDULERS, {'default': 'simple', 'tooltip': 'beta57 is beta with alpha 0.5 and beta 0.7 '

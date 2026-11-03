@@ -1,0 +1,15 @@
+[project]
+name = "strictcomfy"
+version = "1.0.0"
+description = "Strict Moss Sampler and Strict H3 Sampler: Moss images and MiniMax H3 videos with sound sampled by native Strict programs on NVIDIA GPUs, for Windows and Linux"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+classifiers = ["Operating System :: Microsoft :: Windows", "Operating System :: POSIX :: Linux", "Environment :: GPU :: NVIDIA CUDA"]
+
+[project.urls]
+Repository = "https://github.com/strict-lang/StrictComfy"
+
+[tool.comfy]
+PublisherId = "strict-lang"
+DisplayName = "StrictComfy"
+includes = ["Release/Windows", "Release/Linux"]

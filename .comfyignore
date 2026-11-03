@@ -1,0 +1,8 @@
+*.strict
+*.safetensors
+*.gguf
+tiny*
+test_generate.py
+MossWeb*
+.editorconfig
+.gitattributes

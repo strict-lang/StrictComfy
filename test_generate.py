@@ -31,7 +31,7 @@ class GenerationCommandTests(unittest.TestCase):
 		compile((ROOT / '__init__.py').read_text(encoding='utf-8'), '__init__.py', 'exec')
 
 	def test_executable_help(self):
-		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--help'], capture_output=True, text=True)
+		result = subprocess.run([self.module().executable('moss'), '--help'], capture_output=True, text=True)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		self.assertIn('--prompt', result.stdout)
 		self.assertIn('--lora', result.stdout)
@@ -163,7 +163,7 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertEqual(launch.call_count, 1)
 			self.assertIn('step 0 at 1.234', output.getvalue())
 			self.assertNotIn('evaluation ', output.getvalue())
-			self.assertEqual(launch.call_args.args[0], [str(module.ROOT / 'MossImage.exe'), '-', 'model', '', 'on'])
+			self.assertEqual(launch.call_args.args[0], [module.executable('moss'), '-', 'model', '', 'on'])
 			self.assertEqual([result[1].name for result in results], ['strict-on-0-latent.safetensors', 'strict-on-1-latent.safetensors'])
 			self.assertEqual([result[0] for result in results], [0, 1])
 			self.assertEqual(self.tensors(folder / 'generation.safetensors')['jobs'].item(), 2)
@@ -337,10 +337,35 @@ class GenerationCommandTests(unittest.TestCase):
 
 	def test_launcher_preserves_spaces(self):
 		name = 'missing model with spaces.safetensors'
-		result = subprocess.run([str(ROOT / 'MossImage.exe'), '--model', name],
+		result = subprocess.run([self.module().executable('moss'), '--model', name],
 			cwd=tempfile.gettempdir(), capture_output=True, text=True)
 		self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 		self.assertIn('FileNotFound:' + name.replace(' ', '_'), result.stdout)
+
+	def test_linux_backend_is_the_release_build_and_names_its_build_when_missing(self):
+		from unittest.mock import patch
+		module = self.module()
+		args = module.arguments(['--cache', tempfile.gettempdir()])
+		with tempfile.TemporaryDirectory() as empty, patch.object(module.sys, 'platform', 'linux'), \
+				patch.object(module, 'ROOT', Path(empty)):
+			command = module.backend(args, Path('model'), '')
+			self.assertEqual(command[0], str(Path(empty) / 'Release' / 'Linux' / 'MossImage'))
+			with self.assertRaisesRegex(FileNotFoundError, 'reinstall StrictComfy or build it with: strict build MossImage.strict linux'):
+				module.started(args, command)
+
+	@unittest.skipIf(sys.platform == 'win32', 'executable bits exist on Linux only')
+	def test_linux_backend_unpacked_without_executable_bit_still_starts(self):
+		import os
+		from unittest.mock import patch
+		module = self.module()
+		with tempfile.TemporaryDirectory() as folder:
+			backend = Path(folder) / 'MossImage'
+			backend.write_bytes(b'')
+			backend.chmod(0o644)
+			args = module.arguments(['--cache', folder])
+			with patch.object(module.subprocess, 'Popen'):
+				module.started(args, [str(backend), '-'])
+			self.assertTrue(os.access(backend, os.X_OK))
 
 	def test_weighted_lora_paths(self):
 		parse = self.module().lora_spec
@@ -384,7 +409,7 @@ class GenerationCommandTests(unittest.TestCase):
 
 
 	def test_h3_executable_help(self):
-		result = subprocess.run([str(ROOT / 'H3Video.exe'), '--help'], capture_output=True, text=True)
+		result = subprocess.run([self.module().executable('h3'), '--help'], capture_output=True, text=True)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		for option in ('--prompt', '--lora', '--length', '--count', '--skip', '--sampler', '--scheduler'):
 			self.assertIn(option, result.stdout)
@@ -550,7 +575,7 @@ class GenerationCommandTests(unittest.TestCase):
 					'style.safetensors=0.5'))
 			self.assertEqual(launch.call_count, 1)
 			command = launch.call_args.args[0]
-			self.assertEqual(Path(command[0]).name, 'H3Video.exe')
+			self.assertEqual(command[0], module.executable('h3'))
 			self.assertEqual(command[1:], ['-', 'model', 'strict', 'style.safetensors=0.5', '8', '12', '2', '1', '1', '1', '5',
 				'45', '1', '1', 'minimax_h3_video_vae_int8_convrot.safetensors', 'minimax_h3_audio_vae_fp32.safetensors'])
 			self.assertEqual([result[1].name for result in results], ['strict-0-decoded.rgb', 'strict-1-decoded.rgb'])
