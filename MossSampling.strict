@@ -11,6 +11,7 @@ has previewer = Taef2Decoder.None
 constant Presets = ((8, 1, 0, 2), (25, 2, 0, 2), (50, 2, 0, 2), (8, 1, 3, 3), (8, 1, 2, 3), (4, 1, 2, 2), (2, 1, 0, 2))
 constant Spanned = MossSpectrum(MossSpectrum.Tiny, span = MossSpan(MossSpan(6, 36), reused = 2))
 constant Forecasting = MossSpectrum(MossSpectrum.Tiny, forecasts = 3)
+constant Forecaster = MossSampling(Logger, mode = "on")
 Guided(positive Numbers, negative Numbers) Numbers
 	MossSampling(Logger, guidance = 3).Guided((2, 4), (1, 2)) is (4, 8)
 	MossSampling(Logger).Guided((2, 4), List(Number)) is (2, 4)
@@ -45,11 +46,15 @@ Progressed(step Number, started Number, previous Number, latent Numbers, output 
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
 	now
 Previewing(step Number) Boolean
-	MossSampling(Logger, steps = 8).Previewing(0) and MossSampling(Logger, steps = 8).Previewing(2)
-	MossSampling(Logger, steps = 8).Previewing(5) and (MossSampling(Logger, steps = 8).Previewing(6) is false)
-	(MossSampling(Logger, steps = 8).Previewing(1) is false) and (MossSampling(Logger, steps = 8).Previewing(4) is false)
-	MossSampling(Logger, steps = 4).Previewing(1) and (MossSampling(Logger, steps = 4).Previewing(2) is false)
+	Forecaster.Previewing(0) and Forecaster.Previewing(2) and Forecaster.Previewing(5)
+	(Forecaster.Previewing(1) is false) and (Forecaster.Previewing(4) is false) and (Forecaster.Previewing(6) is false)
+	MossSampling(Logger, steps = 4, mode = "on").Previewing(1)
+	MossSampling(Logger, steps = 4, mode = "on").Previewing(2) is false
+	MossSampling(Logger, steps = 8).Previewing(4) and MossSampling(Logger, steps = 8).Previewing(6)
+	MossSampling(Logger, steps = 8).Previewing(7) is false
 	MossSampling(Logger, steps = 2).Previewing(0) and (MossSampling(Logger, steps = 2).Previewing(1) is false)
+	if mode is "off"
+		return step < steps - 1
 	(step is 0) or ((step < steps - 2) and ((step is (steps / 3).Floor) or (step is (2 * steps / 3).Floor)))
 Progress(step Number, last Number, average Number) Text
 	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
