@@ -44,7 +44,6 @@
 		<h1>Moss in the browser</h1>
 		<label><span style="display: flex; justify-content: space-between">Prompt<span><a href="#" id="random">random</a> · <a href="#" id="load">load ComfyUI workflow</a><input type="file" id="workflow" accept=".json" hidden> · <a href="https://mossimage.org/prompts/" target="_blank" rel="noopener">official Moss image prompts</a></span></span><textarea id="prompt"></textarea></label>
 		<label style="flex-direction: row; align-items: center"><input id="varied" type="checkbox">new prompt variation for every seed (encodes the prompt again)</label>
-		<label style="flex-direction: row; align-items: center"><input id="previews" type="checkbox">show a preview after every step (about 10 % slower)</label>
 		<div class="row">
 			<label>Size<select id="size">
 				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
@@ -352,7 +351,7 @@
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
 		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
-		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed, element("previews").checked ? 1 : 0].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>

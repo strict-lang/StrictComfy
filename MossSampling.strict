@@ -38,12 +38,19 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 	latent
 Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number
 	GpuMemory.Finished
-	if preview is not ""
-		let pixels = previewer.Decoded(Denoised(latent, output, sigma), width)
-		ImageCodec.SaveJpeg(preview, pixels, width * 16, 85)
+	if (preview is not "") and Previewing(step)
+		let pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
+		ImageCodec.SaveJpeg(preview, pixels, width * 8, 85)
 	let now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
 	now
+Previewing(step Number) Boolean
+	MossSampling(Logger, steps = 8).Previewing(0) and MossSampling(Logger, steps = 8).Previewing(2)
+	MossSampling(Logger, steps = 8).Previewing(4) and (MossSampling(Logger, steps = 8).Previewing(6) is false)
+	MossSampling(Logger, steps = 8).Previewing(1) is false
+	MossSampling(Logger, steps = 4).Previewing(1) and (MossSampling(Logger, steps = 4).Previewing(2) is false)
+	MossSampling(Logger, steps = 2).Previewing(0) and (MossSampling(Logger, steps = 2).Previewing(1) is false)
+	(step is 0) or ((step < steps - 2) and (step * 4 % steps is 0))
 Progress(step Number, last Number, average Number) Text
 	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
 	"Step " + (step + 1) + "/" + steps + " in " + (last * 1000).Round + " ms, average " + (average * 1000).Round + " ms"
