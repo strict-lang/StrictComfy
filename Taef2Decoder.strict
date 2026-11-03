@@ -32,7 +32,7 @@ Channels Number
 	Tiny.Channels is Tiny.entry.weights.Length / Tiny.entry.biases.Length / 9
 	entry.weights.Length / entry.biases.Length / 9
 Started(values Numbers, width Number) Slow(FeatureMap)
-	Tiny.Started(Tiny.Pooled(Latent, Tiny.Channels), 2).width is 2
+	Tiny.Started(FluxDecoder.Unpatchified(Latent, 2, Tiny.Channels), 4).width is 4
 	let map = FeatureMap(Clamped(values), width, Channels, Layer.Zeros(Channels))
 	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
 Clamped(values Numbers) Numbers
@@ -50,16 +50,37 @@ Finished(map FeatureMap) Slow(Numbers)
 	let output = exit.Applied(upsampled, upsampled.Identity, Activation.Linear)
 	for output.Completed
 		value.Clamp
-Pooled(latent Numbers, channels Number) Slow(Numbers)
-	Tiny.Pooled((1, 2, 3, 4, 5, 6, 7, 8), 2) is (2.5, 6.5)
-	Tiny.Pooled((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16), 2) is (4, 12, 5, 13)
-	let area = latent.Length / channels / 4
-	for area * channels
-		let first = (index % channels) * 4 * area + (index / channels).Floor
-		(latent(first) + latent(first + area) + latent(first + 2 * area) + latent(first + 3 * area)) / 4
+Shrunk(size Number) Number
+	Tiny.Shrunk(60) is 42
+	Tiny.Shrunk(106) is 75
+	(size * 0.7071).Round
+Blended(values Numbers, row Number, x Number, size Numbers, channels Number, channel Number) Number
+	Tiny.Blended((1, 3), 0, 0.5, (2, 1), 1, 0) is 2
+	Tiny.Blended((1, 3, 5, 7), 1, 0, (2, 2), 1, 0) is 5
+	Tiny.Blended((1, 10, 3, 30), 0, 0.5, (2, 1), 2, 1) is 20
+	let left = x.Floor
+	let right = (left + 1).Clamp(0, size(0) - 1)
+	let start = row * size(0)
+	let first = values((start + left) * channels + channel)
+	first + (values((start + right) * channels + channel) - first) * (x - left)
+Resampled(values Numbers, size Numbers, target Numbers, channels Number) Slow(Numbers)
+	Tiny.Resampled((1, 3), (2, 1), (1, 1), 1) is (2)
+	Tiny.Resampled((1, 2, 3, 4), (2, 2), (2, 2), 1) is (1, 2, 3, 4)
+	Tiny.Resampled((0, 4, 8, 12), (2, 2), (1, 1), 1) is (6)
+	for target(0) * target(1) * channels
+		let pixel = (index / channels).Floor
+		let x = ((pixel % target(0) + 0.5) * size(0) / target(0) - 0.5).Clamp(0, size(0) - 1)
+		let y = (((pixel / target(0)).Floor + 0.5) * size(1) / target(1) - 0.5).Clamp(0, size(1) - 1)
+		let top = y.Floor
+		let upper = Blended(values, top, x, size, channels, index % channels)
+		let lower = Blended(values, (top + 1).Clamp(0, size(1) - 1), x, size, channels, index % channels)
+		upper + (lower - upper) * (y - top)
 Previewed(latent Numbers, width Number) Slow(Numbers)
-	Tiny.Previewed(Latent, 2).Length is Tiny.Decoded(Latent, 2).Length / 4
-	Finished(Started(Pooled(latent, Channels), width))
+	Tiny.Previewed(Latent, 2).Length is 2304
+	let full = FluxDecoder.Unpatchified(latent, width, Channels)
+	let size = (2 * width, full.Length / Channels / (2 * width))
+	let target = (Shrunk(size(0)), Shrunk(size(1)))
+	Finished(Started(Resampled(full, size, target, Channels), target(0)))
 Upsampled(map FeatureMap) Slow(FeatureMap)
 	Tiny.Upsampled(Tiny.Entered(Latent, 2)).width is 32
 	mutable state = map
