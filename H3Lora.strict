@@ -118,9 +118,10 @@ Changed(module Text, suffix Text, base = List(Number)) Slow(Numbers)
 Prefixed(header Text, name Text, suffix = "lora_") Text
 	Half.Prefixed("\"diffusion_model.b.fc1.lora_A.weight\"", "b.fc1.") is "diffusion_model.b.fc1."
 	Half.Prefixed("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."
-	Half.Prefixed("\"b.fc1.lora_down.weight\"", "b.fc1.") is "b.fc1."
 	Half.Prefixed("\"b.fc1.alpha\"", "b.fc1.") is ""
 	Half.Prefixed("\"b.norm1.diff_b\"", "b.norm1.", "diff\"") is ""
+	if header.IndexOf(suffix) < 0
+		return ""
 	let kohya = "lora_unet_" + name.Substring(0, name.Length - 1).Replace(".", "_") + "."
 	for ("diffusion_model." + name, name, kohya)
 		if header.IndexOf("\"" + value + suffix) >= 0
