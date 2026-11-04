@@ -85,20 +85,23 @@ Dense(weights Safetensors, name Text) Slow(Batch)
 	let batch = MossText.Dense(weights, name)
 	if loras is ""
 		return batch
-	Batch(Weighted(batch.weights, name), MossText.Added(batch.biases, Changed(name, "diff_b", batch.biases.Length)))
+	let biases = MossText.Added(batch.biases, Changed(name, "diff_b", batch.biases.Length))
+	Batch(Weighted(weights, batch.weights, name), biases)
 Values(weights Safetensors, name Text) Slow(Numbers)
 	Half.Values(H3Block.Model, "blocks.1.norm1") is H3Block.Model.Values("blocks.1.norm1.weight")
 	Half.Values(H3Block.Model, "blocks.0.norm1") is not H3Block.Model.Values("blocks.0.norm1.weight")
 	let values = weights.Values(name + ".weight")
 	loras is "" then values else MossText.Added(values, Changed(name, "diff", values.Length))
-Weighted(rows List(Numbers), name Text) Slow(List(Numbers))
-	Half.Weighted(((1, 2), (3, 4)), "missing") is ((1, 2), (3, 4))
-	Half.Weighted(((1, 2), (3, 4)), "blocks.1.adaln_proj.linear") is ((1, 2), (3, 4))
+Weighted(weights Safetensors, rows List(Numbers), name Text) Slow(List(Numbers))
+	Half.Weighted(H3Block.Model, ((1, 2), (3, 4)), "missing") is ((1, 2), (3, 4))
+	Half.Weighted(H3Block.Model, H3Block.Tiny.adaln.weights, "blocks.0.adaln_proj.linear") is H3Block.Tiny.adaln.weights
 	let width = rows.First.Length
 	let lora = Stacked(name + ".")
 	let fits = lora.rank > 0 and lora.down.Length is lora.rank * width and lora.up.Length is lora.rank * rows.Length
 	let changes = Changed(name, "diff", rows.Length * width)
 	let delta = fits then MossText.Added(changes, lora.Dense) else changes
+	if name.EndsWith("adaln_proj.linear")
+		return TensorFile.Shaped(MossText.Added(weights.Values(name + ".weight"), delta), width)
 	for rows
 		MossText.Added(value, delta.Slice(index * width, width))
 Changed(module Text, suffix Text, size Number) Slow(Numbers)
