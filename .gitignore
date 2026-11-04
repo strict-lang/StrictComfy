@@ -78,7 +78,7 @@ Tests.test-*
 Dumps/
 !Release/
 Release/*
-!Release/Windows/
-!Release/Linux/
-!Release/Windows/**
-!Release/Linux/**
+#!Release/Windows/
+#!Release/Linux/
+#!Release/Windows/**
+#!Release/Linux/**

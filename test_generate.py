@@ -260,6 +260,20 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertTrue(module.turbo_patched({'diffusion_model.blocks.0.attn.out_proj.weight':
 				patch(down.clone())['diffusion_model.layers.0.proj.ffn_down.weight']}, h3))
 
+	def test_h3_preset_lora_is_found_in_the_h3_subfolder(self):
+		module = self.module()
+		with tempfile.TemporaryDirectory() as temporary:
+			models = Path(temporary)
+			name = 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'
+			nested = models / 'loras/h3' / name
+			nested.parent.mkdir(parents=True)
+			nested.touch()
+			args = module.arguments([], 'h3')
+			self.assertEqual(module.selected_loras(args, models), [(nested.resolve(), 1.0)])
+			root = models / 'loras' / name
+			root.touch()
+			self.assertEqual(module.selected_loras(args, models), [(root.resolve(), 1.0)])
+
 	def test_h3_turbo_lora_is_not_applied_twice(self):
 		module = self.module()
 		turbo = (Path('loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'), 1.0)

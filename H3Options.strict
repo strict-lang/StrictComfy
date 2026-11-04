@@ -79,7 +79,8 @@ Loras Text
 	if quality is H3Quality.Fastest2Steps
 		return Text.Combine(List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1") + given, ";")
 	let turbo = (files.model + Text.Combine(given, ";")).Lower.IndexOf("turbo") >= 0
-	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(H3Video.Turbo, "loras") + "=1")
+	let nested = File(local.Folder + "/loras/h3/" + H3Video.Turbo).Exists then "h3/" + H3Video.Turbo else H3Video.Turbo
+	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(nested, "loras") + "=1")
 	Text.Combine(added + given, ";")
 Shapes Numbers
 	H3Options.Parsed(List(Text)).Shapes is (37, 52, 30, 207)

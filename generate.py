@@ -144,7 +144,9 @@ def baked_loras(metadata):
 
 def selected_loras(args, models, metadata=None):
 	"""The given LoRAs, after the turbo LoRA at 8 steps or fewer: akhaliq's 4-step one at 4 or fewer when installed, else DMD."""
-	selected = [(located(path, models / 'loras'), strength) for path, strength in map(lora_spec, args.lora)]
+	loras = models / 'loras'
+	nested = lambda path: 'h3/' + path if args.family == 'h3' and not (loras / path).is_file() and (loras / 'h3' / path).is_file() else path
+	selected = [(located(nested(path), loras), strength) for path, strength in map(lora_spec, args.lora)]
 	has_turbo = any(Path(str(path).replace('\\', '/')).name in TURBO_LORAS and strength != 0
 		for path, strength in baked_loras(metadata))
 	explicit_turbo = any(path.name in TURBO_LORAS for path, strength in selected)
