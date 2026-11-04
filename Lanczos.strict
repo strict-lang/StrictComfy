@@ -28,10 +28,11 @@ Table(source Number, target Number) List(Numbers)
 	Lanczos.Table(1, 1) is List(Numbers) + (0, 1, 4194304)
 	let scale = source / target
 	let stretch = scale < 1 then 1 else scale
+	let reach = 3 * stretch
 	for target
 		let center = (index + 0.5) * scale
-		let first = (center - 3 * stretch + 0.5).Floor.Clamp(0, source)
-		let last = (center + 3 * stretch + 0.5).Floor.Clamp(0, source)
+		let first = (center - reach + 0.5).Floor.Clamp(0, source)
+		let last = (center + reach + 0.5).Floor.Clamp(0, source)
 		(first, last - first) + Fixed(Raw((first, last - first), center, stretch))
 Raw(span Numbers, center Number, stretch Number) Numbers
 	Lanczos.Raw((0, 1), 0.5, 1) is (1)

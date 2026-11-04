@@ -78,14 +78,17 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Slow(
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
 	let scales = Qwen3Block.Scales(input, width, Qwen3Block.Epsilon)
+	let shifts = part * width
+	let scaling = shifts + width
 	for input.Length
 		let channel = index % width
-		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation((part + 1) * width + channel))
-		input(index) * factor + modulation(part * width + channel)
+		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation(scaling + channel))
+		input(index) * factor + modulation(shifts + channel)
 Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) Slow(BFloat16s)
 	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
+	let start = part * width
 	for update.Length
-		input(index) + update(index) * modulation(part * width + index % width)
+		input(index) + update(index) * modulation(start + index % width)
 Rotations(height Number, width Number, text Number, size Number) Slow(Float32s)
 	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
 	MossBlock.Rotations(4, 4, 3, 128)(16).IsNearlyEqual(-0.9899925)

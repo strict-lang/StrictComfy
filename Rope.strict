@@ -28,8 +28,9 @@ Still(tokens Number) Numbers
 	Video.Still(17).Length is 4352
 	Video.Still(17)(129) is 0
 	Video.Still(17)(257) is 1
-	for tokens * 2 * head
-		index % (2 * head) < head then 1 else 0
+	let period = 2 * head
+	for tokens * period
+		index % period < head then 1 else 0
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) Slow(BFloat16s)
 	Video.Rotated(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, Turning, Turning, Turning).Length is 8704
 	for combined.Length / 3

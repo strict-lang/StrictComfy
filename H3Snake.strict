@@ -35,9 +35,11 @@ Raised(signal Numbers, channels Number) Slow(Numbers)
 Rising(signal Numbers, filter Numbers, channels Number, channel Number, position Number, length Number) Slow(Number)
 	Single.Rising((1, 1, 1, 1), Single.up, 1, 0, 3, 4).IsNearlyEqual(0.5, 0.01)
 	mutable sum = 0
+	let shifted = position + Offset
+	let phase = shifted % 2
 	for filter.Length / 2
-		let tap = (position + Offset) % 2 + 2 * index
-		let source = ((position + Offset - tap) / 2 - Padding).Clamp(0, length - 1)
+		let tap = phase + 2 * index
+		let source = ((shifted - tap) / 2 - Padding).Clamp(0, length - 1)
 		sum = sum + filter(tap) * signal(source * channels + channel)
 	sum
 Snaked(raised Numbers, channels Number) Slow(Numbers)
@@ -53,8 +55,9 @@ Lowered(snaked Numbers, channels Number) Slow(Numbers)
 Falling(snaked Numbers, filter Numbers, channels Number, channel Number, at Number, length Number) Slow(Number)
 	Single.Falling((1, 1, 1, 1), Single.down, 1, 0, 1, 4).IsNearlyEqual(1, 0.01)
 	mutable sum = 0
+	let start = 2 * at
 	for filter
-		sum = sum + value * snaked((2 * at + index - Padding).Clamp(0, length - 1) * channels + channel)
+		sum = sum + value * snaked((start + index - Padding).Clamp(0, length - 1) * channels + channel)
 	sum
 Snake(input Number, angle Degrees, beta Number) Slow(Number)
 	Tiny.Snake(1, Degrees(Radians.DegreesPerRadian), 1).IsNearlyEqual(1.708073)

@@ -45,8 +45,9 @@ Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count
 Transposed(values Numbers, size Number) BFloat16s
 	FluxAttention.Transposed((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 2) is (5, 11, 6, 12)
 	let positions = values.Length / (3 * size)
+	let offset = 2 * size
 	for values.Length / 3
-		values((index % positions) * 3 * size + 2 * size + (index / positions).Floor)
+		values((index % positions) * 3 * size + offset + (index / positions).Floor)
 Queries(values Numbers, biases Numbers) Slow(BFloat16s)
 	Middle.Queries((1, 2, 3), (0.5, 0, 0))(0).IsNearlyEqual(1.5)
 	let size = biases.Length / 3
