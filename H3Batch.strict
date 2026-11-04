@@ -87,7 +87,7 @@ Latents(count Number) Texts
 	for count
 		Folder + "/latent-" + index + ".safetensors"
 Decoded(latents Texts, images Texts) Slow(Number)
-	let decoding = H3Video(logger).Decoding(options.files.Decoder, options.files.Sound)
+	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
 	for latents
 		Saved(decoding, Safetensors(value, 32).Values("latent"), H3Inputs(options).Output(images(index)))
 	0
