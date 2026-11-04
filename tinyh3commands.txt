@@ -1,0 +1,4 @@
+# H3Video --commands tinyh3commands.txt: one batch of videos per line
+
+--length 5 --width 32 --height 32 --seed 7
+--length 5 --width 32 --height 32 --prompt "a b.txt"

@@ -13,9 +13,12 @@ Run(arguments Texts) Number
 	if "--help" is in arguments
 		logger.Log("H3Video.exe [options] makes H3 videos with sound, diagnostic arguments: " + Positional)
 		logger.Log(H3Options.Usage)
+		logger.Log("H3Video.exe --commands commands.txt [options] makes the videos of every line of commands.txt (its options after these, # for comments), loading the text encoder, H3 and the VAEs once for all of them")
 		return 0
 	if (arguments.Length > 1) and (arguments(0) is "encode")
 		return H3Encoding(logger, arguments).Encoded
+	if (arguments.Length > 1) and (arguments(0) is "--commands")
+		return H3Commands(logger, arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 		return H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).Completed
 	if arguments.Length < 2

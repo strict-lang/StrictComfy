@@ -31,5 +31,6 @@ Encoded Slow(Number)
 	let paths = arguments(1).Split(";")
 	let jobs = Jobs(paths)
 	let inputs = H3Inputs(options)
-	let encoder = H3Encoder(logger, options.files, (options.height, options.width))
+	let model = List(Text) + options.Checkpoint + H3Batch(logger, options).LoraFiles
+	let encoder = H3Encoder(logger, options.files, (options.height, options.width), List(QwenVision), model)
 	encoder.Encoded(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths)

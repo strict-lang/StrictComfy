@@ -1,0 +1,5 @@
+has batch H3Batch
+has seeds Numbers
+has images Texts
+has prompts Texts
+has paths Texts

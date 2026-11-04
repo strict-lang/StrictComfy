@@ -26,7 +26,11 @@ Loaded(path Text, prefix Text, strength = 1) Slow(MossLora)
 	MossLora(downs, ups, shape(0), shape(1))
 Packed(values Numbers, scale Number) BFloat16s
 	MossLora.Packed((0.5, -1.25), 2) is (1, -2.5)
-	scale is 1 then values else values * scale
+	MossLora.Packed((0.5, -1.25), 1) is (0.5, -1.25)
+	if scale is 1
+		return values
+	for values
+		value * scale
 DownProjected(input Numbers, total Number) Numbers
 	let tokens = input.Length / columns
 	Products(input, down, (1, tokens, columns, total), (0, 0, columns, 1, 0, 0, 1, columns)).Multiplied

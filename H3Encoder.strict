@@ -2,6 +2,7 @@ has logger
 has files H3Files
 has frame Numbers = (832, 480)
 has visions List(QwenVision) = List(QwenVision)
+has prefetched Texts = List(Text)
 constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
 constant Both = H3Encoder(Logger, H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
@@ -12,6 +13,9 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let encoder = Loaded
 	let loaded = H3Encoder(logger, files, frame, Visions)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
+	if reading is not ""
+		logger.Log(reading + " while encoding")
 	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2

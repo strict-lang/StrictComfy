@@ -30,6 +30,12 @@ Described(path Text) Text
 	ModelFiles("").Described("C:/models/missing.safetensors") is "missing.safetensors"
 	let name = Path(path).FileName.text
 	File(path).Exists then name + " (" + (File(path).Length / 1000000000).Round(1) + " GB)" else name
+Prefetching(paths Texts, what Text) Text
+	ModelFiles("").Prefetching(List(Text) + "missing.safetensors", "nothing") is ""
+	mutable bytes = 0
+	for paths
+		bytes = bytes + TensorFile.Prefetched(value)
+	bytes > 0 then "Reading " + what + " (" + (bytes / 1000000000).Round(1) + " GB) into the file cache in the background" else ""
 ComfyUI Text
 	ModelFiles(".").ComfyUI is "./.."
 	Folder + "/.."
