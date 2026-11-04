@@ -57,6 +57,7 @@ Missing(paths Texts) Numbers
 			index
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let encoding = H3Encoding(logger, commandLine)
+	logger.Log("Starting the text encoder in its own process for " + prompts.Length + (prompts.Length is 1 then " prompt" else " prompts"))
 	Directory.Create(Root + "/artifacts")
 	Directory.Create(Folder)
 	encoding.Started(prompts, images, paths)
@@ -66,6 +67,7 @@ Videos(seeds Numbers, images Texts, paths Texts, conditions List(Safetensors)) S
 	let latents = Latents(seeds.Length)
 	for seeds
 		let before = Process.Elapsed
+		logger.Log(Sampling(index, seeds.Length))
 		let at = paths.Unique.Index(paths(index))
 		let keyframes = H3Inputs(options).Keyframes(pictured, images(index), images)
 		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes))
@@ -73,6 +75,11 @@ Videos(seeds Numbers, images Texts, paths Texts, conditions List(Safetensors)) S
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	GpuMemory.Evicted
 	Decoded(latents, images)
+Sampling(index Number, count Number) Text
+	Sample.Sampling(0, 2) is "Sampling video 1/2 with 8 steps, the first one uploads H3 into GPU VRAM"
+	Sample.Sampling(1, 2) is "Sampling video 2/2 with 8 steps"
+	let sampling = "Sampling video " + (index + 1) + "/" + count + " with " + options.Evaluated + " steps"
+	index is 0 then sampling + ", the first one uploads H3 into GPU VRAM" else sampling
 Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes List(Numbers)) Slow(Numbers)
 	let shapes = options.Shapes
 	let count = 24 * shapes(0) * shapes(1) * shapes(2)
@@ -90,6 +97,7 @@ Latents(count Number) Texts
 Decoded(latents Texts, images Texts) Slow(Number)
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
 	for latents
+		logger.Log("Decoding video " + (index + 1) + "/" + latents.Length)
 		Saved(decoding, Safetensors(value, 32).Values("latent"), H3Inputs(options).Output(images(index)))
 	0
 Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)

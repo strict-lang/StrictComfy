@@ -44,8 +44,10 @@ Picked(ids List(Numbers)) Numbers
 	picked
 Encoder(picked Numbers) Slow(Qwen3)
 	let path = options.files.Encoder
+	logger.Log("Loading text encoder " + ModelFiles("").Described(path) + " from disk into memory")
 	let file = Safetensors(path, 32, "model.language_model.")
-	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else QwenSafetensors(file, 64).Loaded(10000000, picked)
+	let loading = QwenSafetensors(file, 64, 256, 1, "Loading text encoder")
+	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else loading.Loaded(10000000, picked)
 Produced(seeds Numbers, prompts Texts, unique Texts) Slow(Number)
 	let contexts = Contexts(unique)
 	if options.output.EndsWith(".safetensors")

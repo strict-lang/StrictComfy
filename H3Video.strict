@@ -55,6 +55,7 @@ Decoding(loaded List(H3Decoding), vaes Texts) Slow(List(H3Decoding))
 	if loaded.Length > 0
 		return loaded
 	let before = Process.Elapsed
+	logger.Log("Loading video VAE " + ModelFiles("").Described(vaes(0)) + " and audio VAE " + ModelFiles("").Described(vaes(1)))
 	let vae = H3Vae(H3Decoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
 	let decoding = H3Decoding(logger, vae, H3Audio.Loaded(Safetensors(vaes(1), 32)))
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
@@ -66,9 +67,20 @@ Numbered(arguments Texts) Numbers
 Loaded(model Text, loras Text) Slow(H3)
 	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2
 	let started = Process.Elapsed
+	logger.Log(Loading(model, loras))
 	let h3 = H3.Loaded(model, loras)
-	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
+	logger.Log("H3 loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
 	h3
+Loading(model Text, loras Text) Text
+	H3Video(Logger).Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
+	H3Video(Logger).Loading("tinyh3.safetensors", "a/b.safetensors=1;c.safetensors=0.5").EndsWith(" and applying the LoRAs b.safetensors, c.safetensors on the GPU")
+	let loading = "Loading H3 " + ModelFiles("").Described(model) + " from disk into memory"
+	if loras is ""
+		return loading
+	mutable names = List(Text)
+	for loras.Split(";")
+		names = names + Path(value.Split("=").First).FileName.text
+	loading + " and applying the LoRAs " + Text.Combine(names, ", ") + " on the GPU"
 Conditions(dumps Text) List(Safetensors)
 	H3Video(Logger).Conditions(".").Length is 1
 	let data = Safetensors(dumps + "/generation.safetensors", 32)
@@ -132,18 +144,39 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	mutable seen = solver
 	mutable heard = Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = job.Audio)
 	mutable state = spectrum
+	mutable stamps = List(Number) + GpuMemory.Stamped
+	mutable times = List(Number) + Process.Elapsed
+	mutable notes = List(Text)
+	mutable logged = 0
 	for spectrum.steps
-		let before = Process.Elapsed
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
 		seen = state.Stepped(seen, index, job)
 		heard = heard.Stepped(state.output, index, seen.latent.Length, job.Noise("audio", index))
-		logger.Log(Progress(job, index, state, seen.latent, heard.latent, before))
+		stamps = stamps + GpuMemory.Stamped
+		times = times + Process.Elapsed
+		notes = notes + Note(job, index, state, seen.latent, heard.latent)
+		logged = Logged(stamps, times, notes, logged, false)
+	logged = Logged(stamps, times, notes, logged, true)
 	seen.latent + heard.latent
-Progress(job H3Job, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
-	Tiny.Progress(H3Job.Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
-	GpuMemory.Finished
-	let took = ((Process.Elapsed - before) * 1000).Round
-	"step " + step + " " + took + " ms, forecasts " + state.forecasts + Errors(job, step + 1, state.steps, video, audio)
+Note(job H3Job, step Number, state H3Spectrum, video Numbers, audio Numbers) Slow(Text)
+	Tiny.Note(H3Job.Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4)) is ", forecasts 0"
+	", forecasts " + state.forecasts + Errors(job, step + 1, state.steps, video, audio)
+Logged(stamps Numbers, times Numbers, notes Texts, logged Number, waiting Boolean) Number
+	Tiny.Logged((-1, -1), (1, 1.5), List(Text) + ", forecasts 0", 0, true) is 1
+	Tiny.Logged((0, 1), (1, 1.5), List(Text) + ", forecasts 0", 1, true) is 1
+	mutable count = logged
+	for as long as count < notes.Length
+		let took = GpuMemory.Elapsed(stamps(count), stamps(count + 1))
+		let isRunning = (took is -1) and (stamps(count + 1) >= 0)
+		if isRunning and (waiting is false)
+			return count
+		if isRunning
+			Process.Wait(0.002)
+		else
+			let host = (times(count + 1) - times(count)) * 1000
+			logger.Log("step " + count + " " + (took < 0 then host else took).Round + " ms" + notes(count))
+			count = count + 1
+	count
 Errors(job H3Job, step Number, count Number, video Numbers, audio Numbers) Slow(Text)
 	H3Video(Logger).Errors(H3Job.Reference, 1, 1, (1, 2), (3, 4)) is ""
 	H3Video(Logger).Errors(H3Job.Noisy, 1, 1, (1, 2), (3, 4)) is ""

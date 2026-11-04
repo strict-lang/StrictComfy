@@ -18,15 +18,20 @@ Loaded(path Text, loras = "") Slow(H3)
 	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
 	let heard = H3Lora(loras).Dense(model, "audio_patch_proj")
 	let table = model.Values("adaln_t_table")
-	H3(patches, heard, table, model.Values("rope.inv_freq"), Blocks(model, "blocks.", loras), H3Final.Loaded(model, loras))
+	let blocks = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
+	H3(patches, heard, table, model.Values("rope.inv_freq"), blocks, H3Final.Loaded(model, loras))
 Weights(path Text, bits Number) Safetensors
 	H3.Weights("tinyh3.safetensors", 16).prefix is ""
 	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
 	Safetensors(path, bits, prefix)
-Blocks(model Safetensors, prefix Text, loras Text) Slow(List(H3Block))
+Blocks(model Safetensors, prefix Text, loras Text, label = "") Slow(List(H3Block))
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
-	for Named(TensorFile.Header(model.path), model.prefix + prefix).Length
-		H3Block.Loaded(model, prefix + index + ".", loras)
+	let count = Named(TensorFile.Header(model.path), model.prefix + prefix).Length
+	let completion = Completion(Logger, label, count, Process.Elapsed)
+	for count
+		let block = H3Block.Loaded(model, prefix + index + ".", loras)
+		completion.Report(index + 1)
+		block
 Named(header Text, prefix Text) Slow(Texts)
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
 	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2

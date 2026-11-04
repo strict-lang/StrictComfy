@@ -18,11 +18,14 @@ Decoded(latent Numbers, shape Numbers) Slow(Numbers)
 	let latents = decoder.Denormalized(latent)
 	mutable frames = List(Number)
 	mutable shared = List(Number)
-	for (shape(0) + Dropped) / Tokens - 1
+	let windows = (shape(0) + Dropped) / Tokens - 1
+	let completion = Completion(Logger, "Decoding video", windows, Process.Elapsed)
+	for windows
 		let window = decoder.Cut(latents, shape, (index * Tokens, Tokens + Shared, 0, shape(1), 0, shape(2)))
 		let canvas = Canvas(window, shape(1), shape(2))
 		frames = frames + Finished(canvas, shared, Padding, Tokens * Ratio - Padding)
 		shared = canvas
+		completion.Report(index + 1)
 	frames + Finished(shared, List(Number), Tokens * Ratio + Padding, Blended)
 Finished(canvas Numbers, previous Numbers, first Number, count Number) Slow(Numbers)
 	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean

@@ -25,6 +25,11 @@ Spec(text Text) Text
 	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
 	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
+Described(path Text) Text
+	ModelFiles("").Described("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
+	ModelFiles("").Described("C:/models/missing.safetensors") is "missing.safetensors"
+	let name = Path(path).FileName.text
+	File(path).Exists then name + " (" + (File(path).Length / 1000000000).Round(1) + " GB)" else name
 ComfyUI Text
 	ModelFiles(".").ComfyUI is "./.."
 	Folder + "/.."

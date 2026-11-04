@@ -7,6 +7,7 @@ constant Written = "artifacts/h3encoder.tmp"
 constant Both = H3Encoder(Logger, H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let before = Process.Elapsed
+	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
 	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 	let encoder = Loaded
 	let loaded = H3Encoder(logger, files, frame, Visions)
@@ -14,7 +15,7 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2
-	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0).Loaded(5000000)
+	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Loaded(5000000)
 Visions Slow(List(QwenVision))
 	Tiny.Visions.Length is 0
 	for files.Images.Length.Clamp(0, 1)
@@ -24,9 +25,12 @@ Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, picture
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
 	Safetensors(Written).Values("tags") is (1, 1, 1)
 	for paths
+		let before = Process.Elapsed
 		let texts = Texts(pictures, chosen(index))
-		let hidden = Hidden(encoder, texts, images(index))
-		logger.Log("Encoded prompt " + (index + 1) + "/" + paths.Length)
+		let prompt = "prompt " + (index + 1) + "/" + paths.Length
+		logger.Log("Encoding " + prompt + " on the GPU" + (index is 0 then ", uploading the text encoder into VRAM" else ""))
+		let hidden = Hidden(Qwen3(encoder, progress = "Encoding " + prompt), texts, images(index))
+		logger.Log("Encoded " + prompt + " in " + (Process.Elapsed - before).Round(1) + " s")
 		let tags = Tags(texts, hidden.Length / encoder.norm.Length)
 		Safetensors(value).Written(("context", "tags"), (hidden, tags))
 Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
