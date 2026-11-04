@@ -2,6 +2,7 @@ has logger
 has options H3Options
 has pictured List(Numbers) = List(Numbers)
 has prompt = ""
+has commandLine Texts = List(Text)
 constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
 constant Workflowed = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
@@ -55,10 +56,10 @@ Missing(paths Texts) Numbers
 		if (File(value).Exists is false) and (paths.Index(value) is index)
 			index
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
-	let encoder = H3Encoder(logger, options.files, (options.height, options.width))
+	let encoding = H3Encoding(logger, commandLine)
 	Directory.Create(Root + "/artifacts")
 	Directory.Create(Folder)
-	encoder.Encoded(prompts, images, paths)
+	encoding.Started(prompts, images, paths)
 Videos(seeds Numbers, images Texts, paths Texts, conditions List(Safetensors)) Slow(Number)
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let texts = H3Refiner.Loaded(options.Checkpoint, options.Loras).Texts(conditions)
@@ -121,10 +122,10 @@ Expanded(arguments Texts) Slow(H3Batch)
 	Workflowed.Expanded(("--models", ".", "--length", "22")).options.length is 22
 	Workflowed.Expanded(("--models", ".", "--length", "22")).prompt is "a fox"
 	if options.files.workflow is ""
-		return H3Batch(logger, options)
+		return H3Batch(logger, options, List(Numbers), "", arguments)
 	let workflow = H3Workflow(ComfyGraph.Read(options.files.Workflow, H3Workflow.Known), options.files.ComfyUI)
 	let settings = workflow.Arguments
 	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
 	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(workflow.graph.Skipped, ", "))
 	let prompted = "--prompt" is in arguments then "" else workflow.Prompt
-	H3Batch(logger, H3Options.Parsed(settings + arguments), pictured, prompted)
+	H3Batch(logger, H3Options.Parsed(settings + arguments), pictured, prompted, arguments)

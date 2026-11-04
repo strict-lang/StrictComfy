@@ -25,15 +25,16 @@ SKIPS = ['5:45', '10:40', '15:35', 'off']
 SAMPLERS = ['euler', 'res_multistep', 'er_sde', 'euler_ancestral', 'dpmpp_2m_sde', 'gradient_estimation', 'lcm']
 SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linear_quadratic', 'hyperflow'], {'er_sde', 'euler_ancestral',
 	'dpmpp_2m_sde', 'lcm'}
-H3_TURBO, H3_BASE = 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors', 'minimax_h3_fl2va_pruned_int8_convrot.safetensors'
+# the model and turbo LoRA of ComfyUI's H3 template (video_minimax_h3_t2v)
+H3_BASE, H3_TURBO = 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors:1'
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, description
 QUALITIES = {
-	'best': (H3_TURBO, 8, 0, '', [], 'the turbo model, 8 steps'),
-	'fast': (H3_TURBO, 8, 1, '', [], 'best with routed attention like Sol-Attn'),
-	'faster': (H3_TURBO, 8, 1, 'w1p2', [], 'fast with Spectrum (5 of 8 steps evaluated)'),
-	'fastest4steps': (H3_TURBO, 4, 1, '', [], '4 routed turbo steps'),
-	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the base model with the TaoMate 3-step LoRA, 2 routed steps, lowest quality')}
+	'best': (H3_BASE, 8, 0, '', [H3_TURBO], 'the turbo LoRA of the H3 template, 8 steps'),
+	'fast': (H3_BASE, 8, 1, '', [H3_TURBO], 'best with routed attention like Sol-Attn'),
+	'faster': (H3_BASE, 8, 1, 'w1p2', [H3_TURBO], 'fast with Spectrum (5 of 8 steps evaluated)'),
+	'fastest4steps': (H3_BASE, 4, 1, '', [H3_TURBO], '4 routed turbo steps'),
+	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the TaoMate 3-step LoRA instead, 2 routed steps, lowest quality')}
 # Moss quality: steps, guidance, Spectrum warmup and period, description; 8 steps or fewer add a turbo LoRA
 TURBO_LORAS = ('dmd_turbo_lora.safetensors', 'moss_image_sft_4step_v2.0.safetensors')
 MOSS_QUALITIES = {
@@ -362,14 +363,23 @@ def releasable(prompt, node):
 
 
 def turbo_patched(patches, turbo):
-	"""Whether a LoraLoader node already applied the turbo LoRA, recognized by its first lora_down tensor."""
+	"""Whether a LoraLoader node already applied the turbo LoRA, recognized by its first lora_down (lora_A) tensor."""
 	import torch
 	from safetensors import safe_open
-	key = 'diffusion_model.layers.0.proj.ffn_down.'
 	with safe_open(turbo, framework='pt') as file:
-		down = file.get_tensor(key + 'lora_down.weight').float()
+		name = min(key for key in file.keys() if key.endswith(('.lora_down.weight', '.lora_A.weight')))
+		down = file.get_tensor(name).float()
+	key = name.rsplit('.lora_', 1)[0]
+	key = key if key.startswith('diffusion_model.') else 'diffusion_model.' + key
 	return any(getattr(entry[1], 'name', '') == 'lora' and entry[1].weights[1].shape == down.shape and
-		torch.equal(entry[1].weights[1].float().cpu(), down) for entry in patches.get(key + 'weight', []))
+		torch.equal(entry[1].weights[1].float().cpu(), down) for entry in patches.get(key + '.weight', []))
+
+
+def unapplied(loras, checkpoint, patches):
+	"""The H3 quality LoRAs the model does not have yet: no turbo LoRA for a turbo checkpoint, none a LoraLoader applied."""
+	baked = 'turbo' in Path(checkpoint).name.lower()
+	return [(path, strength) for path, strength in loras if not (baked and 'turbo' in Path(path).name.lower()) and
+		not (patches and turbo_patched(patches, path))]
 
 
 def lora_model(args, model, loras):

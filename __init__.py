@@ -155,7 +155,8 @@ class StrictH3Sampler:
 				'scheduler': (generate.SCHEDULERS, {'default': 'simple', 'tooltip': 'beta57 is beta with alpha 0.5 and beta 0.7 '
 					'like RES4LYF, hyperflow the 8 step grid of the HyperFlow LoRA'}),
 				'model': ('MODEL', {'tooltip': 'Load Diffusion Model (optionally through LoraLoaderModelOnly) instead '
-					'of the model of the quality, the LoRAs of the quality still apply'})},
+					'of the model of the quality, the LoRAs of the quality still apply unless a LoraLoader already has them '
+					'(or the model is a turbo merge)'})},
 			'hidden': {'unique_id': 'UNIQUE_ID', 'prompt': 'PROMPT'}}
 	RETURN_TYPES = ('IMAGE', 'AUDIO')
 	FUNCTION = 'sample'
@@ -179,7 +180,8 @@ class StrictH3Sampler:
 		models = Path(folder_paths.models_dir)
 		chosen = checkpoint(model) if model else Path(folder_paths.get_full_path_or_raise('diffusion_models', args.model))
 		patches = None if model is None else generate.patched_adapter(args.cache, model.patches)
-		loras = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3')) + ([(patches, 1.0)] if patches else [])
+		presets = generate.selected_loras(args, models, generate.validate_model(chosen, 'h3'))
+		loras = generate.unapplied(presets, chosen, model and model.patches) + ([(patches, 1.0)] if patches else [])
 		comfy.model_management.unload_all_models()
 		released(model, prompt, unique_id)
 		loaded, adapter = generate.lora_model(args, chosen, loras)

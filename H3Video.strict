@@ -4,8 +4,9 @@ constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
 constant Tiny = H3Video(Logger)
 constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
-constant Turbo = "Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors"
 constant Base = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+constant Turbo = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+constant TaoMate = "h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors"
 constant Decoders = H3Video(Logger).Decoding(List(H3Decoding), ("tinyh3vae.safetensors", "tinyh3audio.safetensors")).First
 constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
@@ -13,6 +14,8 @@ Run(arguments Texts) Number
 		logger.Log("H3Video.exe [options] makes H3 videos with sound, diagnostic arguments: " + Positional)
 		logger.Log(H3Options.Usage)
 		return 0
+	if (arguments.Length > 1) and (arguments(0) is "encode")
+		return H3Encoding(logger, arguments).Encoded
 	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 		return H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).Completed
 	if arguments.Length < 2

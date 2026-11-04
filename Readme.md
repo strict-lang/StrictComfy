@@ -58,7 +58,7 @@ It replaces the sampler nodes and both VAE decodes of an H3 image to video workf
 | **Strict H3 Sampler** | `positive` and `latent` of MiniMax H3 Image to Video, `quality`, `seed` |
 | Create Video + Save Video | the images at 24 fps with the audio |
 
-Needed in `models`: `diffusion_models/Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors`, `vae/minimax_h3_video_vae_int8_convrot.safetensors`, `vae/minimax_h3_audio_vae_fp32.safetensors`. For `fastest2steps` also `diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors` and `loras/h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors`.
+Needed in `models`: the files of ComfyUI's MiniMax H3 template (Templates, Video, MiniMax H3 Text to Video downloads them): `diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors`, `loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors` (the turbo LoRA every quality but `fastest2steps` adds, left out when a LoraLoader on the `model` input already has it), `vae/minimax_h3_video_vae_int8_convrot.safetensors` and `vae/minimax_h3_audio_vae_fp32.safetensors`. For `fastest2steps` also `loras/h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors`.
 
 `quality`: `best` (same quality, just faster generation), `fast` (default, close and can be 30% faster), `faster`, `fastest4steps` (way faster, but not recommended for fast motion or detailed prompts), `fastest2steps` (fastest, lowest quality, for previews, low resolutions generate really fast in a couple of seconds). An optional `model` input (Load Diffusion Model with LoraLoaderModelOnly) replaces the preset's checkpoint. With `models/vae_approx/taeh3.safetensors` installed the node shows a preview of every step, so you can cancel a bad video early.
 

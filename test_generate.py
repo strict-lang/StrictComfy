@@ -255,6 +255,17 @@ class GenerationCommandTests(unittest.TestCase):
 			self.assertTrue(module.turbo_patched(patch(down.clone()), turbo))
 			self.assertFalse(module.turbo_patched(patch(torch.randn(2, 3)), turbo))
 			self.assertFalse(module.turbo_patched({}, turbo))
+			h3 = Path(temporary) / 'h3_turbo.safetensors'
+			save_file({'blocks.0.attn.out_proj.lora_A.weight': down}, str(h3))
+			self.assertTrue(module.turbo_patched({'diffusion_model.blocks.0.attn.out_proj.weight':
+				patch(down.clone())['diffusion_model.layers.0.proj.ffn_down.weight']}, h3))
+
+	def test_h3_turbo_lora_is_not_applied_twice(self):
+		module = self.module()
+		turbo = (Path('loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors'), 1.0)
+		merged = Path('Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors')
+		self.assertEqual(module.unapplied([turbo], Path('minimax_h3_fl2va_pruned_int8_convrot.safetensors'), None), [turbo])
+		self.assertEqual(module.unapplied([turbo], merged, None), [])
 
 	def test_wrong_checkpoint_is_rejected(self):
 		import torch
@@ -419,7 +430,8 @@ class GenerationCommandTests(unittest.TestCase):
 		module = self.module()
 		args = module.arguments([], 'h3')
 		self.assertEqual((args.width, args.height, args.length, args.steps, args.lora_mode), (480, 832, 124, 8, 'runtime'))
-		self.assertEqual(args.model, 'Minimax_H3_FL2VA_PRUNED_Turbo_8step_v1.0_768p_comfyui_INT8_.safetensors')
+		self.assertEqual((args.model, args.lora), ('minimax_h3_fl2va_pruned_int8_convrot.safetensors',
+			['minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors:1']))
 		self.assertEqual(args.cache, ROOT / 'artifacts' / 'h3')
 		self.assertFalse(hasattr(args, 'guidance'))
 		with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
@@ -456,7 +468,7 @@ class GenerationCommandTests(unittest.TestCase):
 		module = self.module()
 		best = module.arguments([], 'h3')
 		self.assertEqual((best.quality, best.steps, best.routing, best.spectrum, best.lora, best.sampler, best.scheduler),
-			('best', 8, 0, 'off', [], 'euler', 'simple'))
+			('best', 8, 0, 'off', ['minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors:1'], 'euler', 'simple'))
 		self.assertEqual(module.skipped_blocks(best), (5, 45))
 		self.assertEqual(module.skipped_blocks(module.arguments(['--skip', 'off'], 'h3')), (0, 0))
 		for skip in ('45:5', '5:51', '5-45'):
