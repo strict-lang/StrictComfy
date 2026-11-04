@@ -14329,6 +14329,100 @@ $L__BB36_11:
 	bra.uni 	$L__BB36_18;
                                         // -- End function
 }
+	// .globl	Layer_Zeros_1_gpu2      // -- Begin function Layer_Zeros_1_gpu2
+.visible .entry Layer_Zeros_1_gpu2(
+	.param .u64 Layer_Zeros_1_gpu2_param_0,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_1,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_2,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_3,
+	.param .u64 Layer_Zeros_1_gpu2_param_4,
+	.param .u64 Layer_Zeros_1_gpu2_param_5,
+	.param .u64 Layer_Zeros_1_gpu2_param_6
+)                                       // @Layer_Zeros_1_gpu2
+{
+	.reg .pred 	%p<4>;
+	.reg .b32 	%r<5>;
+	.reg .b64 	%rd<12>;
+
+// %bb.0:
+	ld.param.b64 	%rd4, [Layer_Zeros_1_gpu2_param_0];
+	ld.param.b64 	%rd5, [Layer_Zeros_1_gpu2_param_1];
+	cvta.to.global.u64 	%rd1, %rd5;
+	mov.u32 	%r1, %tid.x;
+	mov.u32 	%r2, %ctaid.x;
+	mov.u32 	%r3, %ntid.x;
+	mad.lo.s32 	%r4, %r2, %r3, %r1;
+	cvt.u64.u32 	%rd2, %r4;
+	setp.le.s64 	%p1, %rd4, %rd2;
+	@%p1 bra 	$L__BB37_6;
+// %bb.1:
+	ld.param.b64 	%rd3, [Layer_Zeros_1_gpu2_param_6];
+	setp.eq.b64 	%p2, %rd3, 17;
+	@%p2 bra 	$L__BB37_4;
+// %bb.2:
+	setp.ne.b64 	%p3, %rd3, 64;
+	@%p3 bra 	$L__BB37_5;
+// %bb.3:
+	shl.b64 	%rd8, %rd2, 3;
+	add.s64 	%rd9, %rd1, %rd8;
+	st.global.b64 	[%rd9], 0;
+	bra.uni 	$L__BB37_6;
+$L__BB37_4:
+	shl.b64 	%rd6, %rd2, 1;
+	add.s64 	%rd7, %rd1, %rd6;
+	st.global.b16 	[%rd7], 0x0000;
+	bra.uni 	$L__BB37_6;
+$L__BB37_5:
+	shl.b64 	%rd10, %rd2, 2;
+	add.s64 	%rd11, %rd1, %rd10;
+	st.global.b32 	[%rd11], 0;
+$L__BB37_6:                             // %strict_device_stored.exit
+	ret;
+                                        // -- End function
+}
+	// .globl	Layer_Zeros_1_gpu2s     // -- Begin function Layer_Zeros_1_gpu2s
+.visible .entry Layer_Zeros_1_gpu2s(
+	.param .u64 Layer_Zeros_1_gpu2s_param_0,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_1,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_2,
+	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_3,
+	.param .u64 Layer_Zeros_1_gpu2s_param_4,
+	.param .u64 Layer_Zeros_1_gpu2s_param_5,
+	.param .u64 Layer_Zeros_1_gpu2s_param_6
+)                                       // @Layer_Zeros_1_gpu2s
+{
+	.reg .pred 	%p<3>;
+	.reg .b32 	%r<5>;
+	.reg .b64 	%rd<10>;
+
+// %bb.0:
+	ld.param.b64 	%rd4, [Layer_Zeros_1_gpu2s_param_0];
+	ld.param.b64 	%rd5, [Layer_Zeros_1_gpu2s_param_1];
+	cvta.to.global.u64 	%rd1, %rd5;
+	mov.u32 	%r1, %tid.x;
+	mov.u32 	%r2, %ctaid.x;
+	mov.u32 	%r3, %ntid.x;
+	mad.lo.s32 	%r4, %r2, %r3, %r1;
+	cvt.u64.u32 	%rd2, %r4;
+	setp.le.s64 	%p1, %rd4, %rd2;
+	@%p1 bra 	$L__BB38_4;
+// %bb.1:
+	ld.param.b64 	%rd3, [Layer_Zeros_1_gpu2s_param_6];
+	setp.ne.b64 	%p2, %rd3, 17;
+	@%p2 bra 	$L__BB38_3;
+// %bb.2:
+	shl.b64 	%rd8, %rd2, 1;
+	add.s64 	%rd9, %rd1, %rd8;
+	st.global.b16 	[%rd9], 0x0000;
+	bra.uni 	$L__BB38_4;
+$L__BB38_3:
+	shl.b64 	%rd6, %rd2, 2;
+	add.s64 	%rd7, %rd1, %rd6;
+	st.global.b32 	[%rd7], 0;
+$L__BB38_4:                             // %strict_device_stored.exit
+	ret;
+                                        // -- End function
+}
 	// .globl	MossLora_Dense_0_gpu39  // -- Begin function MossLora_Dense_0_gpu39
 .visible .entry MossLora_Dense_0_gpu39(
 	.param .u64 MossLora_Dense_0_gpu39_param_0,
@@ -14357,44 +14451,44 @@ $L__BB36_11:
 	mad.lo.s32 	%r5, %r3, %r4, %r2;
 	cvt.u64.u32 	%rd3, %r5;
 	setp.le.s64 	%p1, %rd5, %rd3;
-	@%p1 bra 	$L__BB37_15;
+	@%p1 bra 	$L__BB39_15;
 // %bb.1:
 	ld.param.b64 	%rd8, [MossLora_Dense_0_gpu39_param_6];
 	ld.param.b64 	%rd7, [MossLora_Dense_0_gpu39_param_5];
 	add.s64 	%rd10, %rd7, -7;
 	setp.gt.u64 	%p2, %rd10, 25;
-	@%p2 bra 	$L__BB37_9;
+	@%p2 bra 	$L__BB39_9;
 // %bb.2:
 	cvt.u32.u64 	%r6, %rd10;
 	$L_brx_0: .branchtargets
-		$L__BB37_7,
-		$L__BB37_8,
-		$L__BB37_6,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_4,
-		$L__BB37_3,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_9,
-		$L__BB37_5;
+		$L__BB39_7,
+		$L__BB39_8,
+		$L__BB39_6,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_4,
+		$L__BB39_3,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_9,
+		$L__BB39_5;
 	brx.idx 	%r6, $L_brx_0;
-$L__BB37_7:
+$L__BB39_7:
 	{ // callseq 97, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
@@ -14405,8 +14499,8 @@ $L__BB37_7:
 	ld.param.b32 	%r8, [retval0];
 	} // callseq 97
 	cvt.f64.f32 	%rd34, %r8;
-	bra.uni 	$L__BB37_10;
-$L__BB37_6:
+	bra.uni 	$L__BB39_10;
+$L__BB39_6:
 	{ // callseq 96, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
@@ -14417,19 +14511,19 @@ $L__BB37_6:
 	ld.param.b32 	%r7, [retval0];
 	} // callseq 96
 	cvt.f64.f32 	%rd34, %r7;
-	bra.uni 	$L__BB37_10;
-$L__BB37_5:
+	bra.uni 	$L__BB39_10;
+$L__BB39_5:
 	shl.b64 	%rd20, %rd3, 2;
 	add.s64 	%rd21, %rd1, %rd20;
 	ld.global.b32 	%r10, [%rd21];
 	cvt.f64.f32 	%rd34, %r10;
-	bra.uni 	$L__BB37_10;
-$L__BB37_9:
+	bra.uni 	$L__BB39_10;
+$L__BB39_9:
 	shl.b64 	%rd26, %rd3, 3;
 	add.s64 	%rd27, %rd1, %rd26;
 	ld.global.b64 	%rd34, [%rd27];
-	bra.uni 	$L__BB37_10;
-$L__BB37_8:
+	bra.uni 	$L__BB39_10;
+$L__BB39_8:
 	add.s64 	%rd11, %rd1, %rd3;
 	ld.global.s8 	%rs1, [%rd11];
 	cvt.rn.f64.s16 	%rd12, %rs1;
@@ -14442,43 +14536,43 @@ $L__BB37_8:
 	ld.global.b32 	%r9, [%rd18];
 	cvt.f64.f32 	%rd19, %r9;
 	mul.rn.f64 	%rd34, %rd12, %rd19;
-	bra.uni 	$L__BB37_10;
-$L__BB37_4:
+	bra.uni 	$L__BB39_10;
+$L__BB39_4:
 	shl.b64 	%rd22, %rd3, 1;
 	add.s64 	%rd23, %rd1, %rd22;
 	ld.global.b16 	%rs2, [%rd23];
 	cvt.f64.f16 	%rd34, %rs2;
-	bra.uni 	$L__BB37_10;
-$L__BB37_3:
+	bra.uni 	$L__BB39_10;
+$L__BB39_3:
 	shl.b64 	%rd24, %rd3, 1;
 	add.s64 	%rd25, %rd1, %rd24;
 	ld.global.b16 	%rs3, [%rd25];
 	cvt.f32.bf16 	%r11, %rs3;
 	cvt.f64.f32 	%rd34, %r11;
-$L__BB37_10:                            // %strict_device_element.exit
+$L__BB39_10:                            // %strict_device_element.exit
 	mul.rn.f64 	%rd4, %rd34, 0d3F90000000000000;
 	setp.ne.b64 	%p3, %rd8, 64;
-	@%p3 bra 	$L__BB37_12;
+	@%p3 bra 	$L__BB39_12;
 // %bb.11:
 	shl.b64 	%rd32, %rd3, 3;
 	add.s64 	%rd33, %rd2, %rd32;
 	st.global.b64 	[%rd33], %rd4;
-	bra.uni 	$L__BB37_15;
-$L__BB37_12:
+	bra.uni 	$L__BB39_15;
+$L__BB39_12:
 	cvt.rn.f32.f64 	%r1, %rd4;
 	setp.ne.b64 	%p4, %rd8, 17;
-	@%p4 bra 	$L__BB37_14;
+	@%p4 bra 	$L__BB39_14;
 // %bb.13:
 	cvt.rn.bf16.f32 	%rs4, %r1;
 	shl.b64 	%rd30, %rd3, 1;
 	add.s64 	%rd31, %rd2, %rd30;
 	st.global.b16 	[%rd31], %rs4;
-	bra.uni 	$L__BB37_15;
-$L__BB37_14:
+	bra.uni 	$L__BB39_15;
+$L__BB39_14:
 	shl.b64 	%rd28, %rd3, 2;
 	add.s64 	%rd29, %rd2, %rd28;
 	st.global.b32 	[%rd29], %r1;
-$L__BB37_15:                            // %strict_device_stored.exit
+$L__BB39_15:                            // %strict_device_stored.exit
 	ret;
                                         // -- End function
 }
@@ -14510,54 +14604,54 @@ $L__BB37_15:                            // %strict_device_stored.exit
 	mad.lo.s32 	%r5, %r3, %r4, %r2;
 	cvt.u64.u32 	%rd3, %r5;
 	setp.le.s64 	%p1, %rd8, %rd3;
-	@%p1 bra 	$L__BB38_19;
+	@%p1 bra 	$L__BB40_19;
 // %bb.1:
 	ld.param.b64 	%rd11, [MossLora_Dense_0_gpu39s_param_6];
 	ld.param.b64 	%rd10, [MossLora_Dense_0_gpu39s_param_5];
 	setp.eq.b64 	%p2, %rd10, 16;
-	@%p2 bra 	$L__BB38_6;
+	@%p2 bra 	$L__BB40_6;
 // %bb.2:
 	setp.eq.b64 	%p3, %rd10, 17;
-	@%p3 bra 	$L__BB38_5;
+	@%p3 bra 	$L__BB40_5;
 // %bb.3:
 	setp.ne.b64 	%p4, %rd10, 32;
-	@%p4 bra 	$L__BB38_7;
+	@%p4 bra 	$L__BB40_7;
 // %bb.4:
 	shl.b64 	%rd17, %rd3, 2;
 	add.s64 	%rd18, %rd1, %rd17;
 	ld.global.b32 	%r68, [%rd18];
-	bra.uni 	$L__BB38_16;
-$L__BB38_5:
+	bra.uni 	$L__BB40_16;
+$L__BB40_5:
 	shl.b64 	%rd15, %rd3, 1;
 	add.s64 	%rd16, %rd1, %rd15;
 	ld.global.b16 	%rs2, [%rd16];
 	cvt.f32.bf16 	%r68, %rs2;
-	bra.uni 	$L__BB38_16;
-$L__BB38_6:
+	bra.uni 	$L__BB40_16;
+$L__BB40_6:
 	shl.b64 	%rd13, %rd3, 1;
 	add.s64 	%rd14, %rd1, %rd13;
 	ld.global.b16 	%rs1, [%rd14];
 	cvt.f32.f16 	%r68, %rs1;
-$L__BB38_16:                            // %strict_device_elements.exit
+$L__BB40_16:                            // %strict_device_elements.exit
 	mul.rn.f32 	%r1, %r68, 0f3C800000;
 	setp.ne.b64 	%p16, %rd11, 17;
-	@%p16 bra 	$L__BB38_18;
+	@%p16 bra 	$L__BB40_18;
 // %bb.17:
 	cvt.rn.bf16.f32 	%rs11, %r1;
 	shl.b64 	%rd88, %rd3, 1;
 	add.s64 	%rd89, %rd2, %rd88;
 	st.global.b16 	[%rd89], %rs11;
-	bra.uni 	$L__BB38_19;
-$L__BB38_18:
+	bra.uni 	$L__BB40_19;
+$L__BB40_18:
 	shl.b64 	%rd86, %rd3, 2;
 	add.s64 	%rd87, %rd2, %rd86;
 	st.global.b32 	[%rd87], %r1;
-$L__BB38_19:                            // %strict_device_stored.exit
+$L__BB40_19:                            // %strict_device_stored.exit
 	ret;
-$L__BB38_7:
+$L__BB40_7:
 	add.s64 	%rd31, %rd10, -3;
 	setp.gt.u64 	%p8, %rd31, 6;
-	@%p8 bra 	$L__BB38_15;
+	@%p8 bra 	$L__BB40_15;
 // %bb.8:
 	setp.eq.b64 	%p5, %rd10, 4;
 	setp.eq.b64 	%p6, %rd10, 6;
@@ -14580,15 +14674,15 @@ $L__BB38_7:
 	and.b64 	%rd7, %rd3, 31;
 	cvt.u32.u64 	%r6, %rd31;
 	$L_brx_0: .branchtargets
-		$L__BB38_10,
-		$L__BB38_13,
-		$L__BB38_15,
-		$L__BB38_14,
-		$L__BB38_12,
-		$L__BB38_9,
-		$L__BB38_11;
+		$L__BB40_10,
+		$L__BB40_13,
+		$L__BB40_15,
+		$L__BB40_14,
+		$L__BB40_12,
+		$L__BB40_9,
+		$L__BB40_11;
 	brx.idx 	%r6, $L_brx_0;
-$L__BB38_10:
+$L__BB40_10:
 	shr.u64 	%rd32, %rd3, 7;
 	and.b64 	%rd33, %rd3, 127;
 	mad.lo.s64 	%rd34, %rd32, 28, %rd1;
@@ -14629,8 +14723,8 @@ $L__BB38_10:
 	ld.global.b16 	%rs5, [%rd34+26];
 	cvt.f32.f16 	%r18, %rs5;
 	mul.rn.f32 	%r68, %r18, %r17;
-	bra.uni 	$L__BB38_16;
-$L__BB38_14:
+	bra.uni 	$L__BB40_16;
+$L__BB40_14:
 	mad.lo.s64 	%rd50, %rd5, 208, %rd1;
 	shr.u64 	%rd51, %rd6, 7;
 	and.b64 	%rd52, %rd3, 32;
@@ -14669,8 +14763,8 @@ $L__BB38_14:
 	cvt.f32.f16 	%r33, %rs7;
 	mul.rn.f32 	%r34, %r32, %r33;
 	mul.rn.f32 	%r68, %r34, %r31;
-	bra.uni 	$L__BB38_16;
-$L__BB38_11:
+	bra.uni 	$L__BB40_16;
+$L__BB40_11:
 	{ // callseq 98, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
@@ -14680,14 +14774,14 @@ $L__BB38_11:
 	call.uni (retval0), strict_device_byte_read, (param0, param1);
 	ld.param.b32 	%r68, [retval0];
 	} // callseq 98
-	bra.uni 	$L__BB38_16;
-$L__BB38_15:
+	bra.uni 	$L__BB40_16;
+$L__BB40_15:
 	shl.b64 	%rd83, %rd3, 3;
 	add.s64 	%rd84, %rd1, %rd83;
 	ld.global.b64 	%rd85, [%rd84];
 	cvt.rn.f32.f64 	%r68, %rd85;
-	bra.uni 	$L__BB38_16;
-$L__BB38_13:
+	bra.uni 	$L__BB40_16;
+$L__BB40_13:
 	mad.lo.s64 	%rd69, %rd5, 144, %rd1;
 	ld.global.v2.b16 	{%rs8, %rs9}, [%rd69];
 	cvt.f32.f16 	%r35, %rs8;
@@ -14732,8 +14826,8 @@ $L__BB38_13:
 	mul.rn.f32 	%r64, %r55, %r36;
 	mul.rn.f32 	%r65, %r63, %r62;
 	sub.rn.f32 	%r68, %r65, %r64;
-	bra.uni 	$L__BB38_16;
-$L__BB38_12:
+	bra.uni 	$L__BB40_16;
+$L__BB40_12:
 	{ // callseq 99, 0
 	.param .b64 	param0;
 	.param .b64 	param1;
@@ -14743,8 +14837,8 @@ $L__BB38_12:
 	call.uni (retval0), strict_device_float8_read, (param0, param1);
 	ld.param.b32 	%r68, [retval0];
 	} // callseq 99
-	bra.uni 	$L__BB38_16;
-$L__BB38_9:
+	bra.uni 	$L__BB40_16;
+$L__BB40_9:
 	add.s64 	%rd79, %rd1, %rd3;
 	ld.global.s8 	%rs10, [%rd79];
 	cvt.rn.f32.s16 	%r66, %rs10;
@@ -14753,101 +14847,7 @@ $L__BB38_9:
 	add.s64 	%rd82, %rd4, %rd81;
 	ld.global.b32 	%r67, [%rd82];
 	mul.rn.f32 	%r68, %r67, %r66;
-	bra.uni 	$L__BB38_16;
-                                        // -- End function
-}
-	// .globl	Layer_Zeros_1_gpu2      // -- Begin function Layer_Zeros_1_gpu2
-.visible .entry Layer_Zeros_1_gpu2(
-	.param .u64 Layer_Zeros_1_gpu2_param_0,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_1,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_2,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2_param_3,
-	.param .u64 Layer_Zeros_1_gpu2_param_4,
-	.param .u64 Layer_Zeros_1_gpu2_param_5,
-	.param .u64 Layer_Zeros_1_gpu2_param_6
-)                                       // @Layer_Zeros_1_gpu2
-{
-	.reg .pred 	%p<4>;
-	.reg .b32 	%r<5>;
-	.reg .b64 	%rd<12>;
-
-// %bb.0:
-	ld.param.b64 	%rd4, [Layer_Zeros_1_gpu2_param_0];
-	ld.param.b64 	%rd5, [Layer_Zeros_1_gpu2_param_1];
-	cvta.to.global.u64 	%rd1, %rd5;
-	mov.u32 	%r1, %tid.x;
-	mov.u32 	%r2, %ctaid.x;
-	mov.u32 	%r3, %ntid.x;
-	mad.lo.s32 	%r4, %r2, %r3, %r1;
-	cvt.u64.u32 	%rd2, %r4;
-	setp.le.s64 	%p1, %rd4, %rd2;
-	@%p1 bra 	$L__BB39_6;
-// %bb.1:
-	ld.param.b64 	%rd3, [Layer_Zeros_1_gpu2_param_6];
-	setp.eq.b64 	%p2, %rd3, 17;
-	@%p2 bra 	$L__BB39_4;
-// %bb.2:
-	setp.ne.b64 	%p3, %rd3, 64;
-	@%p3 bra 	$L__BB39_5;
-// %bb.3:
-	shl.b64 	%rd8, %rd2, 3;
-	add.s64 	%rd9, %rd1, %rd8;
-	st.global.b64 	[%rd9], 0;
-	bra.uni 	$L__BB39_6;
-$L__BB39_4:
-	shl.b64 	%rd6, %rd2, 1;
-	add.s64 	%rd7, %rd1, %rd6;
-	st.global.b16 	[%rd7], 0x0000;
-	bra.uni 	$L__BB39_6;
-$L__BB39_5:
-	shl.b64 	%rd10, %rd2, 2;
-	add.s64 	%rd11, %rd1, %rd10;
-	st.global.b32 	[%rd11], 0;
-$L__BB39_6:                             // %strict_device_stored.exit
-	ret;
-                                        // -- End function
-}
-	// .globl	Layer_Zeros_1_gpu2s     // -- Begin function Layer_Zeros_1_gpu2s
-.visible .entry Layer_Zeros_1_gpu2s(
-	.param .u64 Layer_Zeros_1_gpu2s_param_0,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_1,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_2,
-	.param .u64 .ptr .align 1 Layer_Zeros_1_gpu2s_param_3,
-	.param .u64 Layer_Zeros_1_gpu2s_param_4,
-	.param .u64 Layer_Zeros_1_gpu2s_param_5,
-	.param .u64 Layer_Zeros_1_gpu2s_param_6
-)                                       // @Layer_Zeros_1_gpu2s
-{
-	.reg .pred 	%p<3>;
-	.reg .b32 	%r<5>;
-	.reg .b64 	%rd<10>;
-
-// %bb.0:
-	ld.param.b64 	%rd4, [Layer_Zeros_1_gpu2s_param_0];
-	ld.param.b64 	%rd5, [Layer_Zeros_1_gpu2s_param_1];
-	cvta.to.global.u64 	%rd1, %rd5;
-	mov.u32 	%r1, %tid.x;
-	mov.u32 	%r2, %ctaid.x;
-	mov.u32 	%r3, %ntid.x;
-	mad.lo.s32 	%r4, %r2, %r3, %r1;
-	cvt.u64.u32 	%rd2, %r4;
-	setp.le.s64 	%p1, %rd4, %rd2;
-	@%p1 bra 	$L__BB40_4;
-// %bb.1:
-	ld.param.b64 	%rd3, [Layer_Zeros_1_gpu2s_param_6];
-	setp.ne.b64 	%p2, %rd3, 17;
-	@%p2 bra 	$L__BB40_3;
-// %bb.2:
-	shl.b64 	%rd8, %rd2, 1;
-	add.s64 	%rd9, %rd1, %rd8;
-	st.global.b16 	[%rd9], 0x0000;
-	bra.uni 	$L__BB40_4;
-$L__BB40_3:
-	shl.b64 	%rd6, %rd2, 2;
-	add.s64 	%rd7, %rd1, %rd6;
-	st.global.b32 	[%rd7], 0;
-$L__BB40_4:                             // %strict_device_stored.exit
-	ret;
+	bra.uni 	$L__BB40_16;
                                         // -- End function
 }
 	// .globl	H3Frames_Bytes_1_gpu2   // -- Begin function H3Frames_Bytes_1_gpu2
