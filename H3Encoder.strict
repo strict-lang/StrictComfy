@@ -11,9 +11,7 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let encoder = Loaded
 	let loaded = H3Encoder(logger, files, frame, Visions)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	let count = loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
-	GpuMemory.Evicted
-	count
+	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2
 	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0).Loaded(5000000)

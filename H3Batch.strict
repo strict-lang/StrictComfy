@@ -69,7 +69,7 @@ Videos(seeds Numbers, images Texts, paths Texts, conditions List(Safetensors)) S
 		let at = paths.Unique.Index(paths(index))
 		let keyframes = H3Inputs(options).Keyframes(pictured, images(index), images)
 		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes))
-		GpuMemory.Released
+		GpuMemory.Finished
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	GpuMemory.Evicted
 	Decoded(latents, images)

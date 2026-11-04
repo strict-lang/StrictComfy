@@ -141,6 +141,7 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	seen.latent + heard.latent
 Progress(job H3Job, step Number, state H3Spectrum, video Numbers, audio Numbers, before Number) Slow(Text)
 	Tiny.Progress(H3Job.Reference, 0, H3Spectrum.Tiny, (1, 2), (3, 4), Process.Elapsed).EndsWith(" ms, forecasts 0")
+	GpuMemory.Finished
 	let took = ((Process.Elapsed - before) * 1000).Round
 	"step " + step + " " + took + " ms, forecasts " + state.forecasts + Errors(job, step + 1, state.steps, video, audio)
 Errors(job H3Job, step Number, count Number, video Numbers, audio Numbers) Slow(Text)
