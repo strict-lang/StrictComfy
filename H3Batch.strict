@@ -67,8 +67,7 @@ Prefetched(paths Texts, what Text) Text
 	Sample.Prefetched(List(Text) + "missing.safetensors", "nothing") is ""
 	Sample.Prefetched(List(Text) + "tinyqkvlora.safetensors", "LoRA").StartsWith("Reading LoRA (0 GB) into")
 	let reading = ModelFiles("").Prefetching(paths, what)
-	if reading is not ""
-		logger.Log(reading)
+	logger.Log(reading)
 	reading
 Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean) Slow(Number)
 	let texts = refiner.Texts(conditions)
