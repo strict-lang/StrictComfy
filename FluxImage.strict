@@ -25,5 +25,6 @@ Psnr(values Numbers, expected Numbers) Number
 	10 * (expected.Length / sum).Logarithm / 10.Logarithm
 Colors(image Numbers) List(ColorValue)
 	FluxImage(Logger).Colors((0, 0.5, 1, 1, 1, 1)) is (ColorValue(0, 0.5, 1), ColorValue(1, 1, 1))
+	FluxImage(Logger).Colors((0, 0.5, 1, 0.25, 0.75, 0.125)) is (ColorValue(0, 0.5, 1), ColorValue(0.25, 0.75, 0.125))
 	for image.Length / 3
 		ColorValue(image(index * 3), image(index * 3 + 1), image(index * 3 + 2))

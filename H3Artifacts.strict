@@ -1,0 +1,43 @@
+has options H3Options
+constant Sample = H3Artifacts(H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
+constant Custom = H3Artifacts(H3Options.Parsed(("--models", ".", "--text_encoder", "x.safetensors")))
+Cached(prompts Texts, images Texts) Texts
+	Sample.Cached(List(Text) + "a", List(Text) + "").First.EndsWith(".safetensors")
+	Sample.Cached(("a", "b"), ("", "")).First is not Sample.Cached(("a", "b"), ("", "")).Last
+	Sample.Cached(("a", "a"), ("", "tinyframe.png")).First is not Sample.Cached(("a", "a"), ("", "tinyframe.png")).Last
+	Sample.Cached(List(Text) + "a", List(Text) + "").First.EndsWith("/context-876170803-1.safetensors")
+	Custom.Cached(List(Text) + "a", List(Text) + "") is not Sample.Cached(List(Text) + "a", List(Text) + "")
+	let named = options.files.textEncoder is "" then H3Batch.Encoder else options.files.textEncoder
+	for prompts
+		let identity = named + Text.Combine(Pictures(images(index)), "") + "\n"
+		Folder + "/context-" + HashCode(identity + value).number + "-" + value.Length + ".safetensors"
+Pictures(image Text) Texts
+	Sample.Pictures("").Length is 0
+	Sample.Pictures("H3Batch.strict").First.StartsWith(" H3Batch.strict ")
+	for (image, options.files.lastImage)
+		if value is not ""
+			" " + value + " " + File(value).Length + " " + options.width + "x" + options.height
+Missing(paths Texts) Numbers
+	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0
+	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors", "H3BatchMissing.safetensors")) is (1)
+	for paths
+		if (File(value).Exists is false) and (paths.Index(value) is index)
+			index
+Read(paths Texts) Slow(List(Safetensors))
+	Sample.Read(List(Text) + "H3BatchMissing.safetensors") is Error("TextEncoderFailed")
+	Sample.Read(("tinyh3.safetensors", "tinyh3.safetensors")).Length is 1
+	if Missing(paths).Length > 0
+		return Error("TextEncoderFailed")
+	for paths.Unique
+		Safetensors(value, 32)
+Latents(count Number, prefix Text) Texts
+	Sample.Latents(2, "").Last.EndsWith("/latent-1.safetensors")
+	Sample.Latents(2, "3-").Last.EndsWith("/latent-3-1.safetensors")
+	for count
+		Folder + "/latent-" + prefix + index + ".safetensors"
+Folder Text
+	Sample.Folder.EndsWith("/artifacts/h3")
+	Root + "/artifacts/h3"
+Root Text
+	Sample.Root.Length > 0
+	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text

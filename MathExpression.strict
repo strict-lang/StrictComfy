@@ -1,6 +1,7 @@
 has expression Text
 has values Numbers
 constant Tiny = MathExpression("", List(Number))
+constant Tokenized = MathExpression("ab1+22.5//2**34", List(Number))
 constant Length = MathExpression("max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17", List(Number) + 5)
 constant Digits = "0123456789."
 constant Letters = "abcdefghijklmnopqrstuvwxyz_"
@@ -20,6 +21,7 @@ Result Number
 Tokens Texts
 	MathExpression("max(a,2.5)//3", List(Number)).Tokens is ("max", "(", "a", ",", "2.5", ")", "//", "3")
 	MathExpression(" 1 ", List(Number)).Tokens is ("1")
+	MathExpression("", List(Number)).Tokens.Length is 0
 	mutable tokens = List(Text)
 	mutable at = 0
 	for as long as at < expression.Length
@@ -29,18 +31,17 @@ Tokens Texts
 		at = at + length
 	tokens
 TokenLength(at Number) Number
-	MathExpression("ab1+22.5//", List(Number)).TokenLength(0) is 3
-	MathExpression("ab1+22.5//", List(Number)).TokenLength(4) is 4
-	MathExpression("ab1+22.5//", List(Number)).TokenLength(8) is 2
+	Tokenized.TokenLength(0) is 3 and Tokenized.TokenLength(3) is 1 and Tokenized.TokenLength(4) is 4
+	Tokenized.TokenLength(8) is 2 and Tokenized.TokenLength(11) is 2 and Tokenized.TokenLength(13) is 2
 	MathExpression("ab1+22.5/", List(Number)).TokenLength(8) is 1
 	let first = expression.Substring(at, 1)
 	let allowed = first is in Digits then Digits else first is in Letters then Letters + Digits else ""
 	if allowed is ""
-		return (at + 1 < expression.Length) and (expression.Substring(at, 2) is in ("//", "**")) then 2 else 1
-	mutable finish = at + 1
-	for as long as (finish < expression.Length) and (expression.Substring(finish, 1) is in allowed)
-		finish = finish + 1
-	finish - at
+		return expression.Substring(at, 2) is in ("//", "**") then 2 else 1
+	for Range(at + 1, expression.Length)
+		if expression.Substring(index, 1) is not in allowed
+			return index - at
+	expression.Length - at
 Chained(tokens Texts, at Number, level Number) Numbers
 	Tiny.Chained(("2", "*", "3", "+", "1"), 0, 0) is (7, 5)
 	Tiny.Chained(("8", "-", "2", "-", "1"), 0, 0) is (5, 5)
@@ -57,16 +58,17 @@ Operand(tokens Texts, at Number, level Number) Numbers
 Unary(tokens Texts, at Number) Numbers
 	Tiny.Unary(("-", "-", "2"), 0) is (2, 3)
 	Tiny.Unary(("-", "2"), 0) is (-2, 2)
+	Tiny.Unary(("+", "2"), 0) is (2, 2)
 	if Token(tokens, at) is not in ("-", "+")
 		return Atom(tokens, at)
 	let inner = Unary(tokens, at + 1)
 	(tokens(at) is "-" then -inner(0) else inner(0), inner(1))
 Atom(tokens Texts, at Number) Numbers
 	Tiny.Atom(("(", "1", ")"), 0) is (1, 3)
-	Tiny.Atom(("(", "1"), 0)(1) is Invalid
+	Tiny.Atom(("(", "1"), 0)(1) is Invalid and Tiny.Atom(List(Text), 0)(1) is Invalid
 	Tiny.Atom(("max", "(", "1", ",", "4", ")"), 0) is (4, 6)
 	Tiny.Atom(("int", "(", "1", ")"), 0)(1) is Invalid
-	Tiny.Atom(List(Text), 0)(1) is Invalid
+	Tiny.Atom(("max", "+", "2", ")"), 0)(1) is Invalid
 	if Token(tokens, at) is "("
 		let inner = Chained(tokens, at + 1, 0)
 		return (inner(0), Token(tokens, inner(1)) is ")" then inner(1) + 1 else Invalid)
@@ -77,6 +79,7 @@ Atom(tokens Texts, at Number) Numbers
 Listed(tokens Texts, at Number) Numbers
 	Tiny.Listed(("1", ",", "2", ")"), 0) is (1, 2, 4)
 	Tiny.Listed(("1", ","), 0).Last is Invalid
+	Tiny.Listed(("1", "2"), 0) is (1, Invalid)
 	mutable argument = Chained(tokens, at, 0)
 	mutable found = List(Number) + argument(0)
 	for as long as Token(tokens, argument(1)) is ","
@@ -85,9 +88,10 @@ Listed(tokens Texts, at Number) Numbers
 	found + (Token(tokens, argument(1)) is ")" then argument(1) + 1 else Invalid)
 Called(name Text, arguments Numbers) Number
 	Tiny.Called("max", (5, 7.5, 6)) is 7.5
-	Tiny.Called("round", List(Number) + 2.5) is 2
+	Tiny.Called("round", List(Number) + 2.5) is 2 and Tiny.Called("round", List(Number) + 3.5) is 4
 	Tiny.Called("abs", List(Number) + -2) is 2
 	Tiny.Called("ceil", List(Number) + 1.2) is 2
+	Tiny.Called("floor", List(Number) + -1.5) is -2 and Tiny.Called("sqrt", List(Number) + 2.25) is 1.5
 	if name is in ("max", "min", "sum")
 		return Combined(name, arguments)
 	let first = arguments(0)
@@ -96,7 +100,8 @@ Called(name Text, arguments Numbers) Number
 		return rounded
 	name is "floor" then first.Floor else name is "ceil" then first.Ceiling else first.SquareRoot
 Combined(name Text, arguments Numbers) Number
-	Tiny.Combined("min", (5, 7.5, 3)) is 3
+	Tiny.Combined("min", (5, 3, 7.5)) is 3
+	Tiny.Combined("max", (5, 7.5, 6)) is 7.5
 	Tiny.Combined("sum", (1, 2, 3)) is 6
 	mutable result = name is "sum" then 0 else arguments(0)
 	for arguments
@@ -105,10 +110,9 @@ Combined(name Text, arguments Numbers) Number
 		result = name is "sum" then result + value else name is "max" then larger else smaller
 	result
 Operated(left Number, operator Text, right Number) Number
-	Tiny.Operated(-7, "//", 2) is -4
-	Tiny.Operated(-7, "%", 3) is 2
-	Tiny.Operated(7, "/", 2) is 3.5
-	Tiny.Operated(7, "-", 2) is 5
+	Tiny.Operated(-7, "//", 2) is -4 and Tiny.Operated(-7, "%", 3) is 2
+	Tiny.Operated(7, "/", 2) is 3.5 and Tiny.Operated(7, "-", 2) is 5
+	Tiny.Operated(7, "+", 2) is 9 and Tiny.Operated(7, "*", 2) is 14
 	if operator is "+"
 		return left + right
 	if operator is "-"
@@ -121,6 +125,8 @@ Named(token Text, at Number) Numbers
 	Length.Named("a", 3) is (5, 4)
 	Length.Named("2.5", 0) is (2.5, 1)
 	Length.Named("q", 0)(1) is Invalid
+	Length.Named("ab", 0)(1) is Invalid
+	Length.Named("", 0)(1) is Invalid
 	if (token is not "") and (token.Substring(0, 1) is in Digits)
 		return (token to Number, at + 1)
 	let variable = token.Length is 1 then Letters.IndexOf(token) else -1

@@ -14,8 +14,8 @@ constant Embedding = Tiny.Embedded(Window)
 constant Turning = Tiny.Rotations(7, 2, 2)
 constant Circle = 6.283185307179586
 Loaded(model Safetensors) Slow(H3Decoder)
-	Tiny.blocks.Length is 2
-	Tiny.post.weights.Length is 24
+	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24)
+	Tiny.registers.Length is 1280
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
 	let embedded = MossText.Dense(decoder, "x_embedder")
 	let mixed = Batch(Split(model.Values("post_quant_conv.weight"), 24), model.Values("post_quant_conv.bias"))
@@ -43,6 +43,7 @@ Denormalized(latent Numbers) Slow(Numbers)
 Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
 	Window.Length is 672
 	Window(27).IsNearlyEqual(3.585491)
+	Tiny.Cut((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), (3, 2, 2), (1, 2, 1, 1, 1, 1)) is (8, 12)
 	let area = box(3) * box(5)
 	for latent.Length / shape(0) / shape(1) / shape(2) * box(1) * area
 		let x = index % box(5)
@@ -52,7 +53,6 @@ Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
 		latent(((channel * shape(0) + box(0) + frame) * shape(1) + box(2) + y) * shape(2) + box(4) + x)
 Embedded(tile Numbers) Slow(Numbers)
 	Embedding.Length is 8448
-	Tiny.registers.Length is 1280
 	embedder.Sums(post.Sums(Moss.Transposed(tile, means.Length))) + registers
 Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	Turning.Length is 4224
@@ -67,6 +67,7 @@ Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 	Tiny.Coordinates(7, 2, 2)(0).IsNearlyEqual(-0.857143)
 	Tiny.Coordinates(7, 2, 2)(4) is -0.5
 	Tiny.Coordinates(7, 2, 2)(5) is 0.5
+	Tiny.Coordinates(7, 2, 2)(12).IsNearlyEqual(-0.571429)
 	for frames * height * width * 3
 		let token = (index / 3).Floor
 		let axis = index % 3

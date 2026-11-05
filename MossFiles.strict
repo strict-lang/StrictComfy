@@ -16,6 +16,8 @@ Located(name Text, folder Text) Text
 	ModelFiles(models).Located(name, folder)
 Checkpoint Text
 	Local.Checkpoint is "tinymoss.safetensors"
+	MossFiles.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:moss-image-sft-dit-int8-convrot.safetensors")
+	MossFiles.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
 	Located(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")
 Decoder Text
 	Local.Decoder is "tinyvae.safetensors"
@@ -26,6 +28,8 @@ Decoder Text
 	File(tiny).Exists then tiny else Located("flux2-vae.safetensors", "vae")
 Encoder Text
 	Local.Encoder is Error("FileNotFound:qwen3.5_9b_int8_convrot.safetensors")
+	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Encoder is "tinymoss.safetensors"
+	MossFiles.Parsed(("--models", "web", "--text_encoder", "h3_preview.js")).Encoder is Error("FileNotFound:h3_preview.js")
 	Located(textEncoder is "" then "qwen3.5_9b_int8_convrot.safetensors" else textEncoder, "text_encoders")
 Tokenizer Text
 	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Tokenizer is Error("TokenizerNotFound")

@@ -8,8 +8,11 @@ has keyframes Numbers = List(Number)
 constant Reference = H3Job(Safetensors("tinyh3.safetensors", 32, "reference."))
 constant Noisy = H3Job(Safetensors(""), Layer.Zeros(32), Layer.Zeros(64), (2, 4, 2, 2), 3)
 constant Keyframe = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
-constant Twice = (Keyframe.Values("keyframe"), Keyframe.Values("keyframe"))
-constant Patches = Reference.Patched(Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
+constant Latent = Keyframe.Values("keyframe")
+constant Patchified = Keyframe.Values("rows")
+constant Twice = (Latent, Latent)
+constant Patches = Noisy.Patched(Latent, Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
+constant Dumped = H3Job(Safetensors("h3job.safetensors"))
 Video Numbers
 	Reference.Video.Length is 768
 	Noisy.Video.Length is 32
@@ -28,10 +31,13 @@ AudioShape Numbers
 	video.Length > 0 then (32, 2, audio.Length / 64) else file.Shape(Stream("audio"))
 Stream(name Text) Text
 	Reference.Stream("audio") is "audio"
+	Reference.Stream("blocks") is "blocks.0"
 	file.Entry(name + ".0") is "" then name else name + ".0"
 Count Number
 	Reference.Count is 1
 	Noisy.Count is 1
+	Safetensors("h3job.safetensors").Written(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is 6
+	Dumped.Count is 3
 	if video.Length > 0
 		return 1
 	file.Entry("sigmas") is "" then 1 else file.Values("sigmas").Length - 1
@@ -39,6 +45,7 @@ Noise(stream Text, step Number) Numbers
 	Reference.Noise("video", 0) is List(Number)
 	Noisy.Noise("audio", 1).Length is 64
 	H3Job(Noisy, seed = -1).Noise("video", 0) is List(Number)
+	Dumped.Noise("video", 2) is (0.5, -1.5)
 	if video.Length > 0
 		return seed < 0 then List(Number) else Drawn(stream, step)
 	let name = stream + ".noise." + step
@@ -47,18 +54,21 @@ Drawn(stream Text, step Number) Numbers
 	Noisy.Drawn("video", 0).Length is 32
 	Noisy.Drawn("video", 0) is not Noisy.Drawn("video", 1)
 	Noisy.Drawn("video", 1) is not Noisy.Drawn("audio", 0)
+	Noisy.Drawn("video", 2) is MersenneTwister.Seeded(8).Normals(32)
+	Noisy.Drawn("audio", 1) is MersenneTwister.Seeded(7).Normals(64)
 	let count = stream is "video" then video.Length else audio.Length
 	MersenneTwister.Seeded((seed + 2 * step + (stream is "video" then 1 else 2)) % 4294967296).Normals(count)
 Preview(step Number) Text
 	Reference.Preview(0) is ""
 	Noisy.Preview(0) is ""
+	H3Job(Safetensors("h3preview.safetensors")).Preview(6) is "h3preview-step6.safetensors"
 	if video.Length > 0
 		return ""
 	file.Entry("preview") is "" then "" else file.path.Replace(".safetensors", "-step" + step + ".safetensors")
 Patched(latent Numbers, size Numbers, noise Numbers) Numbers
 	Reference.Patched((0, 1, 2, 3, 4, 5, 6, 7), (1, 1, 2, 4), Layer.Zeros(8))(4).IsNearlyEqual(1.998)
-	Patches(0).IsNearlyEqual(Keyframe.Values("rows")(0), 0.0001)
-	Patches(383).IsNearlyEqual(Keyframe.Values("rows")(383), 0.0001)
+	Patches(0).IsNearlyEqual(Patchified(0), 0.0001) and Patches(383).IsNearlyEqual(Patchified(383), 0.0001)
+	Reference.Patched(Latent, (12, 2, 4, 4), Layer.Zeros(384))(200).IsNearlyEqual(0.999 * Latent(80))
 	let columns = 4 * size(0)
 	let half = size(3) / 2
 	for latent.Length
@@ -71,6 +81,7 @@ Patched(latent Numbers, size Numbers, noise Numbers) Numbers
 Rows(condition Safetensors) Numbers
 	H3Job(Noisy, rows = (1, 2)).Rows(Keyframe) is (1, 2)
 	Noisy.Rows(Keyframe).Length is 384
+	Noisy.Rows(Reference.file) is List(Number)
 	if rows.Length > 0
 		return rows
 	condition.Entry("rows") is "" then List(Number) else condition.Values("rows")

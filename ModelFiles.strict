@@ -1,4 +1,5 @@
 has models Text
+constant Cached = " into the file cache in the background"
 Folder Text
 	ModelFiles(".").Folder is "."
 	if models is not ""
@@ -21,9 +22,13 @@ Specs(loras Texts) Texts
 Spec(text Text) Text
 	ModelFiles("").Spec("tinylora.safetensors") is "tinylora.safetensors=1"
 	ModelFiles("").Spec("tinylora.safetensors:0.25") is "tinylora.safetensors=0.25"
+	ModelFiles(".").Spec("a:5") is Error("FileNotFound:a:5")
+	ModelFiles(".").Spec("a b:5") is Error("FileNotFound:a_b")
+	ModelFiles(".").Spec("tinylora.safetensors:0.50") is Error("FileNotFound:tinylora.safetensors:0.50")
+	ModelFiles("tinymodels").Spec("tinyfolderlora.safetensors:0.5") is "tinymodels/loras/tinyfolderlora.safetensors=0.5"
 	let at = text.LastIndexOf(":")
-	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
-	let numeric = (strength is not "") and ((strength to Number) to Text is strength)
+	let strength = at > 1 then text.Substring(at + 1, text.Length) else ""
+	let numeric = (strength to Number) to Text is strength
 	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
 Described(path Text) Text
 	ModelFiles("").Described("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
@@ -32,10 +37,11 @@ Described(path Text) Text
 	File(path).Exists then name + " (" + (File(path).Length / 1000000000).Round(1) + " GB)" else name
 Prefetching(paths Texts, what Text) Text
 	ModelFiles("").Prefetching(List(Text) + "missing.safetensors", "nothing") is ""
+	ModelFiles("").Prefetching(List(Text) + "tinyqkvlora.safetensors", "LoRA") is "Reading LoRA (0 GB)" + Cached
 	mutable bytes = 0
 	for paths
 		bytes = bytes + TensorFile.Prefetched(value)
-	bytes > 0 then "Reading " + what + " (" + (bytes / 1000000000).Round(1) + " GB) into the file cache in the background" else ""
+	bytes > 0 then "Reading " + what + " (" + (bytes / 1000000000).Round(1) + " GB)" + Cached else ""
 ComfyUI Text
 	ModelFiles(".").ComfyUI is "./.."
 	Folder + "/.."

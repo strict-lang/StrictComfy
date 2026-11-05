@@ -20,6 +20,7 @@ Angles(values Numbers) Slow(Numbers)
 		value.Exponential * Radians.DegreesPerRadian
 Inverses(values Numbers) Slow(Numbers)
 	Tiny.Inverses((0))(0).IsNearlyEqual(1)
+	Tiny.Inverses((-1000))(0) is 1000000000
 	for values
 		1 / (value.Exponential + 0.000000001)
 Output(signal Numbers) Slow(Numbers)
@@ -34,6 +35,8 @@ Raised(signal Numbers, channels Number) Slow(Numbers)
 		2 * Rising(signal, up, channels, index % channels, (index / channels).Floor, length)
 Rising(signal Numbers, filter Numbers, channels Number, channel Number, position Number, length Number) Slow(Number)
 	Single.Rising((1, 1, 1, 1), Single.up, 1, 0, 3, 4).IsNearlyEqual(0.5, 0.01)
+	Single.Rising((1, 2, 4, 8, 16, 32, 64, 128), (1, 3, 5, 7), 2, 1, 2, 4) is 608
+	Single.Rising((1, 2, 4, 8, 16, 32, 64, 128), (1, 3, 5, 7), 2, 1, 4, 4) is 1280
 	mutable sum = 0
 	let shifted = position + Offset
 	let phase = shifted % 2
@@ -54,6 +57,7 @@ Lowered(snaked Numbers, channels Number) Slow(Numbers)
 		Falling(snaked, down, channels, index % channels, (index / channels).Floor, length)
 Falling(snaked Numbers, filter Numbers, channels Number, channel Number, at Number, length Number) Slow(Number)
 	Single.Falling((1, 1, 1, 1), Single.down, 1, 0, 1, 4).IsNearlyEqual(1, 0.01)
+	Single.Falling((1, 2, 4, 8, 16, 32, 64, 128), (1, 3, 5, 7), 2, 1, 3, 4) is 1640
 	mutable sum = 0
 	let start = 2 * at
 	for filter

@@ -107,6 +107,7 @@ Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Slow(Nu
 Error(values Numbers, expected Numbers) Number
 	MossImage(Logger).Error((1, 2), (1, 2)) is 0
 	MossImage(Logger).Error((2, 0), (1, 0)) is 1
+	MossImage(Logger).Error((3, 0), (2, 0)) is 0.5
 	mutable difference = 0
 	mutable size = 0
 	for expected

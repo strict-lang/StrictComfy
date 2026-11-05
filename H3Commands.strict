@@ -2,6 +2,8 @@ has logger
 has file Text
 has arguments Texts
 constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
+constant Sized = "--length 5 --width 32 --height 32"
+constant Unsized = "--width and --height must be positive multiples of 16"
 Completed Number
 	let lines = Lines
 	if lines.Length is 0
@@ -12,6 +14,8 @@ Completed Number
 	if problem is not ""
 		logger.Log(problem)
 		return 2
+	Generated(batches, lines.Length)
+Generated(batches List(H3Batch), count Number) Slow(Number)
 	let started = Process.Elapsed
 	let plans = Planned(batches)
 	Encoded(plans)
@@ -19,46 +23,26 @@ Completed Number
 	first.Prefetched((first.options.files.Decoder, first.options.files.Sound), "the VAEs")
 	let videos = Sampled(plans)
 	let made = Decoded(plans)
-	let commands = lines.Length is 1 then " command" else " commands"
-	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + videos + " videos from " + lines.Length + commands)
+	let commands = count is 1 then " command" else " commands"
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + videos + " videos from " + count + commands)
 	made
 Lines Texts
-	Sample.Lines is ("--length 5 --width 32 --height 32 --seed 7", "--length 5 --width 32 --height 32 --prompt \"a b.txt\"")
+	Sample.Lines is (Sized + " --seed 7", Sized + " --prompt \"a b.txt\"")
 	H3Commands(Logger, "missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")
 	if File(file).Exists is false
 		return Error("FileNotFound:" + file)
 	for File(file).ReadLines
 		if (value.Trim is not "") and (value.Trim.StartsWith("#") is false)
 			value.Trim
-Words(line Text) Texts
-	Sample.Words("--length 5  --prompt \"a b.txt\"") is ("--length", "5", "--prompt", "a b.txt")
-	Sample.Words("--prompt=\"a b.txt\" --seed 7") is ("--prompt=a b.txt", "--seed", "7")
-	let parts = line.Split("\"")
-	mutable words = List(Text)
-	for parts
-		let isQuoted = index % 2 is 1
-		let isJoined = isQuoted and (words.Length > 0) and (parts(index - 1) is not "") and (parts(index - 1).EndsWith(" ") is false)
-		if isJoined
-			words = words.Slice(0, words.Length - 1) + (words.Last + value)
-		else if isQuoted
-			words = words + value
-		else
-			words = words + Spaced(value)
-	words
-Spaced(text Text) Texts
-	Sample.Spaced(" a  b ") is ("a", "b")
-	for text.Split(" ")
-		if value is not ""
-			value
 Batches(lines Texts) Slow(List(H3Batch))
 	Sample.Batches(Sample.Lines).Last.options.prompt is "a b.txt"
 	Sample.Batches(Sample.Lines).First.options.seed is 7
 	for lines
-		let words = arguments + Words(value)
+		let words = arguments + CommandWords.Words(value)
 		H3Batch(logger, H3Options.Parsed(words)).Expanded(words)
 Problem(batches List(H3Batch)) Text
 	Sample.Problem(Sample.Batches(Sample.Lines)) is ""
-	Sample.Problem(Sample.Batches(List(Text) + "--width 30")) is "Command 1: --width and --height must be positive multiples of 16"
+	Sample.Problem(Sample.Batches(List(Text) + "--width 30")) is "Command 1: " + Unsized
 	for batches
 		let problem = H3Inputs(value.options).Problem
 		if problem is not ""
@@ -80,8 +64,9 @@ Encoded(plans List(H3Plan)) Slow(Number)
 Encoding(plan H3Plan) Text
 	let options = plan.batch.options
 	let pictures = (options.files.lastImage is not "") or (Text.Combine(plan.images, "") is not "")
-	options.files.Encoder + (pictures then " " + options.width + "x" + options.height + " " + options.files.lastImage else "")
-EncodedWith(plans List(H3Plan), key Text) Slow(Number)
+	let size = " " + options.width + "x" + options.height + " " + options.files.lastImage
+	options.files.Encoder + (pictures then size else "")
+Merged(plans List(H3Plan), key Text) H3Plan
 	mutable prompts = List(Text)
 	mutable images = List(Text)
 	mutable paths = List(Text)
@@ -90,12 +75,16 @@ EncodedWith(plans List(H3Plan), key Text) Slow(Number)
 			prompts = prompts + value.prompts
 			images = images + value.images
 			paths = paths + value.paths
-	let batch = First(plans, key, true).batch
-	let missing = batch.Missing(paths)
+	H3Plan(First(plans, key, true).batch, List(Number), images, prompts, paths)
+EncodedWith(plans List(H3Plan), key Text) Slow(Number)
+	let merged = Merged(plans, key)
+	let batch = merged.batch
+	let missing = H3Artifacts(batch.options).Missing(merged.paths)
 	if missing.Length is 0
 		return 0
 	let inputs = H3Inputs(batch.options)
-	batch.Encoded(inputs.Picked(prompts, missing), inputs.Picked(images, missing), inputs.Picked(paths, missing))
+	let prompts = inputs.Picked(merged.prompts, missing)
+	batch.Encoded(prompts, inputs.Picked(merged.images, missing), inputs.Picked(merged.paths, missing))
 First(plans List(H3Plan), key Text, isEncoding Boolean) H3Plan
 	for plans
 		if (isEncoding then Encoding(value) else Model(value)) is key
@@ -120,14 +109,11 @@ SampledWith(plans List(H3Plan), model Text) Slow(Number)
 	for plans
 		if Model(value) is model
 			logger.Log("Command " + (index + 1) + "/" + plans.Length)
-			let latents = value.batch.Latents(value.seeds.Length, Prefix(index))
-			let conditions = value.batch.Read(value.paths)
+			let latents = H3Artifacts(value.batch.options).Latents(value.seeds.Length, Prefix(index))
+			let conditions = H3Artifacts(value.batch.options).Read(value.paths)
 			videos = videos + value.batch.Sampled(h3, refiner, value, conditions, latents, videos is 0)
 	GpuMemory.Evicted
 	videos
-Prefix(index Number) Text
-	Sample.Prefix(3) is "c3-"
-	"c" + index + "-"
 Decoded(plans List(H3Plan)) Slow(Number)
 	mutable decodings = List(H3Decoding)
 	mutable vaes = ""
@@ -138,6 +124,9 @@ Decoded(plans List(H3Plan)) Slow(Number)
 			decodings = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound))
 			vaes = wanted
 		logger.Log("Command " + (index + 1) + "/" + plans.Length)
-		let latents = value.batch.Latents(value.seeds.Length, Prefix(index))
+		let latents = H3Artifacts(options).Latents(value.seeds.Length, Prefix(index))
 		value.batch.DecodedWith(decodings.First, latents, value.images)
 	0
+Prefix(index Number) Text
+	Sample.Prefix(3) is "c3-"
+	"c" + index + "-"

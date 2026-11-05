@@ -32,6 +32,7 @@ Interleaved(batch Batch) Slow(Batch)
 Order(count Number) Slow(Numbers)
 	Tiny.Order(384)(64) is 192
 	Tiny.Order(384)(128) is 64
+	Tiny.Order(384)(200) is 264
 	let third = count / 3
 	for count
 		let within = index % third

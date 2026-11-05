@@ -1,0 +1,62 @@
+has logger
+has job H3Job
+has stamps Numbers = List(Number)
+has times Numbers = List(Number)
+has notes Texts = List(Text)
+has logged = 0
+constant Tiny = H3StepLog(Logger, H3Job.Reference)
+constant Stepping = H3StepLog(Logger, H3Job(Safetensors("tinyh3steps.safetensors", 32)))
+constant Timed = H3StepLog(Logger, H3Job.Reference, (-1, -1, -1), (1, 1.5, 2.25), (", forecasts 0", ", forecasts 1"))
+Started H3StepLog
+	Tiny.Started.stamps.Length is 1
+	Tiny.Started.times.Length is 1
+	H3StepLog(value, stamps = List(Number) + GpuMemory.Stamped, times = List(Number) + Process.Elapsed)
+Stepped(step Number, state H3Spectrum, video Numbers, audio Numbers) Slow(H3StepLog)
+	Tiny.Started.Stepped(0, H3Spectrum.Tiny, (1, 2), (3, 4)).logged is 1
+	Tiny.Started.Stepped(0, H3Spectrum.Tiny, (1, 2), (3, 4)).notes is (", forecasts 0")
+	let note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video, audio)
+	let next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
+	H3StepLog(next, logged = next.Logged(step + 1 >= state.steps))
+Logged(waiting Boolean) Number
+	Timed.Logged(true) is 2
+	H3StepLog(Timed, logged = 1).Logged(false) is 2
+	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is 0
+	H3StepLog(Timed, logged = 2).Logged(true) is 2
+	mutable count = logged
+	for as long as Continues(count, waiting)
+		count = IsDone(count) then Logging(count) else Waited(count)
+	count
+Continues(count Number, waiting Boolean) Boolean
+	Timed.Continues(0, false) and Timed.Continues(1, true)
+	(Timed.Continues(2, true) is false) and (H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, false) is false)
+	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, true)
+	(count < notes.Length) and (waiting or IsDone(count))
+IsDone(step Number) Boolean
+	Timed.IsDone(0)
+	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0) is false
+	H3StepLog(Timed, stamps = (0, 1, -1)).IsDone(1)
+	(stamps(step + 1) < 0) or (GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1)
+Logging(step Number) Number
+	Timed.Logging(1) is 2
+	logger.Log(Line(step, GpuMemory.Elapsed(stamps(step), stamps(step + 1))))
+	step + 1
+Waited(step Number) Number
+	Timed.Waited(1) is 1
+	Process.Wait(0.002)
+	step
+Line(step Number, took Number) Text
+	Timed.Line(1, -1) is "step 1 750 ms, forecasts 1"
+	Timed.Line(0, 42.4) is "step 0 42 ms, forecasts 0"
+	let host = (times(step + 1) - times(step)) * 1000
+	"step " + step + " " + (took < 0 then host else took).Round + " ms" + notes(step)
+Errors(step Number, count Number, video Numbers, audio Numbers) Slow(Text)
+	Tiny.Errors(1, 1, (1, 2), (3, 4)) is ""
+	H3StepLog(Logger, H3Job.Noisy).Errors(1, 1, (1, 2), (3, 4)) is ""
+	Stepping.Errors(1, 2, (2, 0), (3, 0)) is ", video error 1, audio error 0.5"
+	Stepping.Errors(1, 3, (2, 0), (3, 0)) is ""
+	if job.video.Length > 0
+		return ""
+	if (job.file.Entry("video." + step) is "") or (job.Count is not count)
+		return ""
+	let seen = MossImage(logger).Error(video, job.file.Values("video." + step))
+	", video error " + seen + ", audio error " + MossImage(logger).Error(audio, job.file.Values("audio." + step))

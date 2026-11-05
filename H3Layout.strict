@@ -7,6 +7,8 @@ has width Number
 has shift Number = 12
 has routing Number = 0
 constant Tiny = H3Layout((1, 1, 1), List(Number), 3, 2, 4, 4)
+constant Keyframed = H3Layout(Tiny, keyframes = List(Number) + 0)
+constant Pinning = (24, 24, 24, 36, 36, 36, 36, 12, 12, 12, 12, 12, 12, 18, 18, 18, 18, 18, 18, 18, 18)
 constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
 constant Chunk = 32768
 constant Pinned = 0.999
@@ -32,7 +34,7 @@ Positions Numbers
 	for Tokens * 3
 		Position((index / 3).Floor, index % 3)
 Position(token Number, axis Number) Number
-	Tiny.Position(7, 0) is 4
+	(Tiny.Position(7, 0) is 4) and (Tiny.Position(2, 0) is 2) and (Tiny.Position(2, 1) is 0)
 	H3Layout(Tiny, keyframes = List(Number) + 0).Position(6, 1) is 16
 	H3Layout(Tiny, keyframes = List(Number) + 5).Position(3, 0).IsNearlyEqual(11.333333)
 	H3Layout(Tiny, keyframes = List(Number) + 0).Position(17, 0).IsNearlyEqual(4.666667)
@@ -45,7 +47,7 @@ Position(token Number, axis Number) Number
 	let seen = heard - 2 * audio
 	heard < 2 * audio then Heard(heard, axis) else Seen(seen % Patches, axis, Words + FrameTime((seen / Patches).Floor))
 Heard(row Number, axis Number) Number
-	Tiny.Heard(3, 0) is 3
+	(Tiny.Heard(3, 0) is 3) and (Tiny.Heard(3, 1) is 0)
 	Tiny.Heard(3, 2) is 16
 	H3Layout(Tiny, height = 60, width = 104).Heard(0, 2).IsNearlyEqual(-5.064979)
 	let side = row < audio then 0 else width / 2 - 1
@@ -54,6 +56,7 @@ Seen(patch Number, axis Number, time Number) Number
 	Tiny.Seen(0, 0, 4.5) is 4.5
 	Tiny.Seen(3, 1, 0) is 16
 	Tiny.Seen(1, 2, 0) is 16
+	Tiny.Seen(2, 1, 0) is 16
 	let across = width / 2
 	if axis is 0
 		return time
@@ -62,6 +65,7 @@ Axis(size Number, other Number, at Number) Number
 	Tiny.Axis(4, 4, 1) is 16
 	Tiny.Axis(104, 60, 0).IsNearlyEqual(-5.064979)
 	Tiny.Axis(60, 104, 0).IsNearlyEqual(3.847128)
+	Tiny.Axis(104, 60, 51).IsNearlyEqual(36.254787)
 	let ratio = size / (size * other).SquareRoot
 	(at * ratio * 2 / size + (1 - ratio) / 2) * 32
 FrameTime(frame Number) Number
@@ -70,11 +74,11 @@ FrameTime(frame Number) Number
 	Tiny.FrameTime(6).IsNearlyEqual(30)
 	(4 * frame - 3 * ((frame + 4) / 5).Floor) * 5 / 3
 Rows(sigma Number) Numbers
-	Tiny.Rows(0.75)(2) is 6
-	Tiny.Rows(0.75)(3) is 30
+	Tiny.Rows(0.75).Slice(2, 2) is (6, 30)
 	Tiny.Rows(1)(3) is 12
 	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4).Rows(0.75)(1) is 0
 	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, 4, 4).Rows(0.75)(3) is 36
+	(H3Layout(Keyframed, shift = 1).Rows(0.75) is Pinning) and (H3Layout(Keyframed, shift = 1).Rows(0.0005)(3) is 18)
 	let times = Times(sigma)
 	let seen = times.Index(1 - sigma) * 3
 	let heard = (times.Index(1 - AudioSigma(sigma)) * 3 + 2) * 6
@@ -86,6 +90,8 @@ Finals(sigma Number) Numbers
 	Tiny.Finals(0.75)(3) is 2
 	Tiny.Finals(0.75)(16) is 0
 	Tiny.Finals(1)(3) is 0
+	H3Layout(Tiny, shift = 1).Finals(0.75)(16) is 2
+	Keyframed.Finals(0.75) is (0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
 	let times = Times(sigma)
 	let heard = times.Index(1 - AudioSigma(sigma)) * 2
 	let seen = times.Index(1 - sigma) * 2
@@ -97,6 +103,7 @@ Times(sigma Number) Numbers
 	Tiny.Times(1).Length is 1
 	H3Layout(Tiny, keyframes = List(Number) + 0).Times(0.75)(2) is Pinned
 	H3Layout(Tiny, keyframes = List(Number) + 0).Times(1).Length is 2
+	Keyframed.Times(0.0005) is (0.9995, 0.999875)
 	let streams = List(Number) + (1 - sigma) + (1 - AudioSigma(sigma))
 	(keyframes.Length is 0 then streams else streams + (1 - sigma > Pinned then 1 - sigma else Pinned)).Unique.Sorted
 AudioSigma(sigma Number) Number

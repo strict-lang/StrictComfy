@@ -3,6 +3,7 @@ has links Jsons
 has known Texts
 constant Values = ("PrimitiveInt", "PrimitiveFloat", "PrimitiveString", "PrimitiveStringMultiline", "PrimitiveBoolean", "DPRandomGenerator", "ComfyMathExpression", "ResolutionSelector", "UnifiedResizeImageMask")
 constant Tiny = ComfyGraph.Read("tinyh3workflow.json", H3Workflow.Known)
+constant Wild = ComfyGraph.Read("tinywildworkflow.json", List(Text))
 Read(path Text, supported Texts) Slow(ComfyGraph)
 	Tiny.nodes.Length is 26
 	Tiny.links.Length is 29
@@ -28,7 +29,7 @@ Widget(node Json, name Text, position Number) Json
 	Tiny.Widget(Tiny.Node(1), "unet_name", 0) to Text is "tinyh3.safetensors"
 	Tiny.Widget(Tiny.Node(11), "noise_seed", 1) to Number is 42
 	Tiny.Widget(Tiny.Node(27), "filename_prefix", 0) to Text is "tiny"
-	let named = "widgets_values_named" is in node.Keys then node("widgets_values_named") else Json("{}")
+	let named = node("widgets_values_named")
 	if name is in named.Keys
 		return named(name)
 	let widgets = node("widgets_values")
@@ -36,7 +37,7 @@ Widget(node Json, name Text, position Number) Json
 Inputs(node Json) Jsons
 	Tiny.Inputs(Tiny.Node(15)).Length is 8
 	Tiny.Inputs(Json("{\"id\": 1}")).Length is 0
-	"inputs" is in node.Keys then node("inputs").Elements else List(Json)
+	node("inputs").Elements
 Input(node Json, name Text) Json
 	Tiny.Input(Tiny.Node(9), "model").Elements(0) to Number is 8
 	Tiny.Input(Tiny.Node(15), "last_frame").text is ""
@@ -64,8 +65,11 @@ Producer(link Json) Json
 		return link
 	Producer(Passed(origin, link.Elements(5) to Text))
 Passed(node Json, type Text) Json
-	Tiny.Passed(Tiny.Node(4), "STRING").Elements(0) to Number is 3
+	(Tiny.Passed(Tiny.Node(4), "STRING") is Tiny.Linking(3)) and (Tiny.Passed(Tiny.Node(4), "*") is Tiny.Linking(3))
+	(Tiny.Passed(Tiny.Node(4), "INT") is Tiny.Linking(4)) and (Tiny.Passed(Tiny.Node(15), "*") is Tiny.Linking(15))
+	(Wild.Passed(Wild.Node(1), "STRING") is Wild.Linking(2)) and (Wild.Passed(Wild.Node(2), "STRING") is Wild.Linking(3))
 	Tiny.Passed(Tiny.Node(5), "INT") is Error("UnsupportedNode:RandomNumber")
+	Wild.Passed(Wild.Node(3), "STRING") is Error("UnsupportedNode:Any_Switch")
 	for Inputs(node)
 		if (value("link") to Text) is not "null"
 			let link = Linking(value("link") to Number)
@@ -76,6 +80,7 @@ Passed(node Json, type Text) Json
 Skipped Texts
 	Tiny.Skipped.Length is 6
 	Tiny.Skipped(4) is "easy imageInsetCrop"
+	Wild.Skipped is ("Reroute", "Any Switch")
 	mutable skipped = List(Text)
 	for nodes
 		let type = Type(value)
@@ -95,8 +100,10 @@ Value(link Json) Text
 	Tiny.Value(Tiny.Linking(18)) is "832"
 	Produced(Origin(link), link.Elements(2) to Number)
 Produced(node Json, slot Number) Text
-	Tiny.Produced(Tiny.Node(3), 0).StartsWith("[{")
+	Tiny.Produced(Tiny.Node(3), 0).StartsWith("[{") and (Tiny.Produced(Tiny.Node(19), 3) is "832")
 	Tiny.Produced(Tiny.Node(23), 0) is Error("UnsupportedValue:EnhancementUtils_ImageLoadWithSubfolders")
+	Tiny.Produced(Tiny.Node(21), 0) is Error("UnsupportedValue:easy_imageInsetCrop")
+	(Wild.Produced(Wild.Node(5), 0) is "a fox") and (Wild.Produced(Wild.Node(6), 0) is "7")
 	let type = Type(node)
 	if type is "ComfyMathExpression"
 		return Expressed(node, slot) to Text
@@ -107,6 +114,9 @@ Produced(node Json, slot Number) Text
 	Widget(node, type is "DPRandomGenerator" then "text" else "value", 0) to Text
 Expressed(node Json, slot Number) Number
 	Tiny.Expressed(Tiny.Node(20), 1) is 124
+	Wild.Expressed(Wild.Node(7), 0) is 3.5
+	Wild.Expressed(Wild.Node(7), 1) is 3
+	Wild.Expressed(Wild.Node(9), 0) is 70
 	mutable values = List(Number)
 	for Inputs(node)
 		if (value("name") to Text).StartsWith("values.") and ((value("link") to Text) is not "null")

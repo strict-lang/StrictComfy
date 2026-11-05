@@ -5,7 +5,11 @@ has visions List(QwenVision) = List(QwenVision)
 has prefetched Texts = List(Text)
 constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
+constant Imaged = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")), (32, 48), List(QwenVision) + QwenVision.Loaded(Safetensors("../Strict/NeuralNetworks/tinyqwenvision.safetensors", 32, "visual."), 2, (0, 1, 2)))
 constant Both = H3Encoder(Logger, H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
+constant Seeing = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwenvision.safetensors", "--image", "tinyframe.png")))
+constant Framed = H3Encoder(Logger, H3Files.Parsed(("--last_image", "tinyframe.png")), (3, 3))
+constant Spelled = Gpt2Tokens.Parsed("{\"<\": 0, \"P\": 1, \"i\": 2, \"c\": 3, \"t\": 4, \"u\": 5, \"r\": 6, \"e\": 7, \"\\u0120\": 8, \"1\": 9, \"2\": 10, \">\": 11, \":\": 12}", List(Text))
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
@@ -22,6 +26,8 @@ Loaded Slow(Qwen3)
 	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Loaded(5000000)
 Visions Slow(List(QwenVision))
 	Tiny.Visions.Length is 0
+	Seeing.Visions.Length is 1
+	Seeing.Visions.First.deepstacks.Length is 3
 	for files.Images.Length.Clamp(0, 1)
 		QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, (8, 16, 24))
 Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, pictures List(Numbers)) Slow(Numbers)
@@ -43,20 +49,26 @@ Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	pictures.Length is 0 then List(Numbers) + chosen else pictures + (List(Number) + 151653 + chosen)
 Hidden(encoder Qwen3, texts List(Numbers), image Text) Slow(Numbers)
 	Tiny.Hidden(Tiny.Loaded, List(Numbers) + (1, 2, 3), "").Length is 192
+	Imaged.Hidden(Imaged.Loaded, ((1, 2), (3, 4, 5)), "tinyframe.png").Length is 704
 	if texts.Length is 1
 		return encoder.Prefilled(texts.First, 0).hidden
 	Qwen3Images(encoder, visions.First).Prefilled(texts, Frames(image), frame(0), frame(1)).hidden
 Frames(image Text) Slow(List(Numbers))
 	Tiny.Frames("").Length is 0
+	Framed.Frames("tinyframe.png").Length is 2
+	Framed.Frames("tinyframe.png")(0)(2).IsNearlyEqual(23 / 255)
+	Framed.Frames("tinyframe.png")(1)(2).IsNearlyEqual(16 / 255)
 	for (image, files.lastImage)
 		if value is not ""
 			H3Picture.Frame(value, frame, index is 1)
 Pictures(labels List(Numbers)) List(Numbers)
 	Both.Pictures(((1, 2), (3, 4)))(1) is (151653, 3, 4, 151652)
+	Both.Pictures(((1, 2), (3, 4))) is ((1, 2, 151652), (151653, 3, 4, 151652))
 	for labels
 		(index is 0 then List(Number) else List(Number) + 151653) + value + 151652
 Labels(tokens Gpt2Tokens) List(Numbers)
 	Tiny.Labels(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens")).Length is 0
+	Both.Labels(Spelled) is ((0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 8), (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 8))
 	for files.Images
 		tokens.Encoded("<Picture " + (index + 1) + ">: ")
 Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
@@ -67,14 +79,14 @@ Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 Tags(texts List(Numbers), total Number) Numbers
 	Tiny.Tags(List(Numbers) + (5, 6), 2) is (1, 1)
 	Tiny.Tags(((7, 151652), (151653, 8)), 6) is (1, 0, 0, 0, 0, 1)
+	Tiny.Tags(((7, 151652), (151653, 8, 151652), (151653, 9)), 11) is (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
 	let images = texts.Length - 1
 	mutable text = 0
 	for texts
 		text = text + value.Length
-	let size = images is 0 then 0 else (total - text) / images
 	mutable tags = List(Number)
 	for texts
-		tags = tags + Marked(value) + Vision(index < images then size else 0)
+		tags = tags + Marked(value) + Vision(index < images then (total - text) / images else 0)
 	tags
 Marked(tokens Numbers) Numbers
 	Tiny.Marked((7, 151652, 151653)) is (1, 0, 0)

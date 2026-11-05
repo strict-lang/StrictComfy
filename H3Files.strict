@@ -12,7 +12,8 @@ constant Local = H3Files.Parsed(("--models", "."))
 Checkpoint Text
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Checkpoint is "tinyh3.safetensors"
 	H3Files.Parsed(("--image", "a.png", "--last_image", "b.jpg")).lastImage is "b.jpg"
-	Local.Checkpoint is Error
+	Local.Checkpoint is Error("FileNotFound:" + H3Video.Base)
+	H3Files.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
 	ModelFiles(models).Located(model is "" then H3Video.Base else model, "diffusion_models")
 Decoder Text
 	Local.Decoder is Error
@@ -26,6 +27,7 @@ Encoder Text
 Images Texts
 	Local.Images.Length is 0
 	H3Files.Parsed(("--last_image", "b.png")).Images is ("b.png")
+	H3Files.Parsed(("--image", "a.png", "--last_image", "b.jpg")).Images is ("a.png", "b.jpg")
 	for (image, lastImage)
 		if value is not ""
 			value

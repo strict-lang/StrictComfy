@@ -35,6 +35,8 @@ Skipped Numbers
 	H3Options.Parsed(List(Text)).Skipped is (5, 45)
 	H3Options.Parsed(("--skip", "off")).Skipped is (0, 0)
 	H3Options.Parsed(("--skip", "45:5")).Skipped is Error("InvalidSkip")
+	H3Options(skip = "-1:45").Skipped is Error("InvalidSkip") and H3Options(skip = "5:51").Skipped is Error("InvalidSkip")
+	H3Options.Parsed(("--skip", "5:45:49")).Skipped is Error("InvalidSkip")
 	if skip is "off"
 		return (0, 0)
 	let parts = skip.Split(":")
@@ -56,10 +58,20 @@ Problem Text
 	H3Options.Parsed(List(Text)).Problem is ""
 	H3Options.Parsed(("--width", "500")).Problem is "--width and --height must be positive multiples of 16"
 	H3Options.Parsed(("--sampler", "heun")).Problem.StartsWith("--sampler must be one of euler, ")
+	H3Options.Parsed(("--count", "-1")).Problem is "--count must not be negative and --length at least 5"
+	H3Options.Parsed(("--length", "4")).Problem is "--count must not be negative and --length at least 5"
+	H3Options.Parsed(("--height", "500")).Problem is "--width and --height must be positive multiples of 16"
+	H3Options(width = 0).Problem.StartsWith("--width") and H3Options(height = 0).Problem.StartsWith("--width")
 	if (width < 16) or (height < 16) or (width % 16 is not 0) or (height % 16 is not 0)
 		return "--width and --height must be positive multiples of 16"
 	if (count < 0) or (length < 5)
 		return "--count must not be negative and --length at least 5"
+	Unsupported
+Unsupported Text
+	H3Options.Parsed(List(Text)).Unsupported is ""
+	H3Options.Parsed(("--sampler", "heun")).Unsupported.StartsWith("--sampler must be one of euler, ")
+	H3Options.Parsed(("--scheduler", "karras")).Unsupported.StartsWith("--scheduler must be one of simple, ")
+	H3Options.Parsed(("--output", "a.gif")).Unsupported is "--output must end with .mp4"
 	if sampler is not in Samplers
 		return "--sampler must be one of " + Text.Combine(Samplers, ", ")
 	if scheduler is not in Schedulers

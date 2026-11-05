@@ -14,9 +14,10 @@ constant None = MossLora(List(Number), List(Number), 0, 0)
 constant Fours = MossBlock.Loaded(Safetensors("tinymossint4.safetensors"), "layers.0.", "")
 constant FoursOutput = Fours.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
 Loaded(path Text, prefix Text, strength = 1) Slow(MossLora)
-	Tiny.rank is 8
-	Tiny.columns is 256
-	Tiny.up.Length is 2048
+	(Tiny.rank is 8) and (Tiny.columns is 256) and (Tiny.up.Length is 2048)
+	MossLora.Loaded("tinyhyperflow.safetensors", "a.mlp.fc1.").up is (64, 128)
+	MossLora.Loaded("tinyhyperflow.safetensors", "a.mlp.fc1.").down is (1, 2)
+	MossLora.Loaded("tinylora.safetensors", "diffusion_model.layers.0.proj.q.", 0.5).up(0).IsNearlyEqual(-1.11, 0.01)
 	let file = Safetensors(path, 32, prefix)
 	let peft = file.Entry("lora_A.weight") is not ""
 	let shape = file.Shape(peft then "lora_A.weight" else "lora_down.weight")
@@ -47,6 +48,7 @@ Delta(input Numbers) Slow(Numbers)
 		value / Gain
 Dense Slow(Numbers)
 	MossLora((1, 2), (64, 128), 1, 2).Dense is (1, 2, 2, 4)
+	MossLora((1, 2, 3, 4), (64, 128), 2, 2).Dense is (7, 10)
 	for Products(up, down, (1, up.Length / rank, rank, columns), (0, 0, rank, 1, 0, 0, columns, 1)).Multiplied
 		value / Gain
 Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Slow(Numbers)
@@ -72,6 +74,7 @@ Widened(other MossLora) Slow(BFloat16s)
 	Interleaved(up, other.up, rank, other.rank)
 Interleaved(first Numbers, second Numbers, firstRank Number, secondRank Number) BFloat16s
 	MossLora.Interleaved((1, 2, 3, 4), (5, 6), 2, 1) is (1, 2, 5, 3, 4, 6)
+	MossLora.Interleaved((1, 2), (5, 6, 7, 8), 1, 2) is (1, 5, 6, 2, 7, 8)
 	for first.Length + second.Length
 		let row = (index / (firstRank + secondRank)).Floor
 		let column = index % (firstRank + secondRank)

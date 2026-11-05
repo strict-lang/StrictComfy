@@ -5,6 +5,7 @@ constant Real = H3Tiles(256, 64)
 Starts(size Number) Numbers
 	Real.Starts(480) is (0, 112, 224)
 	Real.Starts(832) is (0, 192, 384, 576)
+	Real.Starts(496) is (0, 112, 240)
 	Tiny.Starts(64) is (0, 16, 32)
 	Tiny.Starts(16) is (0)
 	if size <= tile
