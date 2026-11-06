@@ -17,7 +17,7 @@ Decoded(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, lab
 	let psnr = Psnr(image, expected)
 	logger.Log(label + " in " + ((Process.Elapsed - before) * 1000).Round + " ms, PSNR " + psnr.Round(2) + " dB")
 	image
-Psnr(values Numbers, expected Numbers) Number
+Psnr(values Numbers with value.Bits is 32, expected Numbers with value.Bits is 32) Number
 	FluxImage(Logger).Psnr((0.5, 1), (0.5, 0.9)).IsNearlyEqual(23.0103)
 	mutable sum = 0
 	for expected

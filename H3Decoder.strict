@@ -98,7 +98,7 @@ Means(values Numbers, width Number) Slow(Numbers)
 	Tiny.Means((1, 3, 2, 4), 2) is (2, 3)
 	for values.Length / width
 		Mean(values, index * width, width)
-Mean(values Numbers, first Number, size Number) Slow(Number)
+Mean(values Numbers with value.Bits is 32, first Number, size Number) Slow(Number)
 	Tiny.Mean((1, 3, 2, 4), 1, 3) is 3
 	mutable sum = 0
 	for size
