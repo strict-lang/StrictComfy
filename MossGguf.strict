@@ -18,6 +18,8 @@ Dense(model Gguf) Slow(List(Batch))
 Batched(model Gguf, name Text) Slow(Batch)
 	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases is (0)
 	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").weights.First.Length is 16
+	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").biases.Length is 256
+	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases.Length is 1
 	let biased = model.Shape(name + ".bias").Length > 0
 	Batch(model.Rows(name + ".weight"), biased then model.Values(name + ".bias") else List(Number) + 0)
 Texts(model Gguf) Slow(List(MossText))
@@ -42,6 +44,7 @@ Blocks(model Gguf) Slow(List(MossBlock))
 Block(model Gguf, prefix Text) Slow(MossBlock)
 	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").rotated is false
 	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").attention.Length is 768
+	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").norms.Length is 4
 	let rows = prefix + "proj."
 	let norms = Norms(model, prefix, "norm1", "norm2")
 	let headNorms = Norms(model, prefix, "q_norm", "k_norm")
@@ -52,4 +55,6 @@ Block(model Gguf, prefix Text) Slow(MossBlock)
 	MossBlock((norms(0), norms(1), headNorms(0), headNorms(1)), attended, output, expanded, reduced, false)
 Norms(model Gguf, prefix Text, first Text, second Text) Slow(List(Numbers))
 	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "q_norm", "k_norm").First.Length is 128
+	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Length is 2
+	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Last.Length is 128
 	(model.Values(prefix + first + ".weight"), model.Values(prefix + second + ".weight"))

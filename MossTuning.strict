@@ -3,6 +3,7 @@ has loras Text
 constant Lora = "tinylora.safetensors"
 constant Fours = MossTuning(Safetensors("tinymossint4.safetensors", 32, "layers.0.proj."), Lora)
 constant Floats = MossTuning(Safetensors(MossBlock.Model.path, 32, "layers.0.proj."), Lora)
+constant Fused = MossTuning(Safetensors("tinymossqkv.safetensors", 32, "layers.0.proj."), "")
 constant Unmerged = MossBlock.Loaded(Safetensors("tinymossint4.safetensors"), "layers.0.", Lora)
 constant Merging = MossBlock.Loaded(MossBlock.Model, "layers.0.", Lora)
 constant Output = Unmerged.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
@@ -25,6 +26,7 @@ Merged(name Text, deltas List(MossLora)) Slow(List(Numbers))
 Qkv(deltas List(MossLora)) Slow(List(Numbers))
 	MossBlock.Tiny.attention.Length is 768
 	MossTuning(Floats.rows, "").Qkv(List(MossLora)) is MossBlock.Tiny.attention
+	Fused.Qkv(List(MossLora)) is MossBlock.Tiny.attention
 	if rows.Entry("qkv.weight") is not ""
 		return Merged("qkv", deltas)
 	Merged("q", deltas) + Merged("k", deltas) + Merged("v", deltas)

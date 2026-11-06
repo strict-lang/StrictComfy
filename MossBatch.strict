@@ -3,6 +3,7 @@ has options MossOptions
 has prompted = ""
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
 constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
+constant Prompted = ("--models", ".", "--prompt", "a cat")
 constant Example = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Completed Number
@@ -111,7 +112,7 @@ Described(seed Number, prompt Text) Text
 	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
 Expanded(arguments Texts) Slow(MossBatch)
-	Sample.Expanded(List(Text)).prompted is ""
+	(Sample.Expanded(List(Text)).prompted is "") and (Workflowed.Expanded(Prompted).prompted is "")
 	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
 	if options.files.workflow is ""

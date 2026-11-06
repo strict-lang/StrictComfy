@@ -1,0 +1,18 @@
+{
+	"nodes": [
+		{"id": 1, "type": "SamplerCustomAdvanced", "mode": 0, "inputs": [{"name": "noise", "type": "NOISE", "link": 1}, {"name": "sampler", "type": "SAMPLER", "link": 2}, {"name": "sigmas", "type": "SIGMAS", "link": 3}], "widgets_values": null},
+		{"id": 2, "type": "RandomNoise", "mode": 0, "inputs": [], "widgets_values": [1, "fixed"], "widgets_values_named": {"noise_seed": 9, "control_after_generate": "fixed"}},
+		{"id": 3, "type": "KSamplerSelect", "mode": 0, "inputs": [], "widgets_values": ["res_multistep"], "widgets_values_named": {"sampler_name": "euler"}},
+		{"id": 4, "type": "BasicScheduler", "mode": 0, "inputs": [], "widgets_values": ["simple", 20, 1], "widgets_values_named": {"scheduler": "beta", "steps": 6, "denoise": 1}},
+		{"id": 5, "type": "MiniMaxH3ImageToVideo", "mode": 0, "inputs": [{"name": "first_frame", "type": "IMAGE", "link": 4}], "widgets_values": ["a fox", 1344, 768, 73], "widgets_values_named": {"width": 480, "height": 832}},
+		{"id": 6, "type": "UnifiedResizeImageMask", "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 5}], "widgets_values": ["Total Pixels (MP)", "9:16 (Portrait Widescreen)", 1024, 768, 1024, 1024, 1, 0.41, "lanczos", "center", 32, false, ""], "widgets_values_named": {"crop": "disabled"}},
+		{"id": 7, "type": "LoadImage", "mode": 0, "inputs": [], "widgets_values": ["stale.png", "image"], "widgets_values_named": {"image": "named.png", "upload": "image"}},
+		{"id": 8, "type": "StrictH3Sampler", "mode": 0, "inputs": [], "widgets_values": ["fast", 1, "randomize", "5:45"], "widgets_values_named": {"quality": "best", "seed": 3, "control_after_generate": "fixed", "skip": "off"}},
+		{"id": 9, "type": "ApplyHyperFlowH3", "mode": 0, "inputs": [], "widgets_values": ["a.safetensors", 1, "merge", "auto", false, false, false], "widgets_values_named": {"hyperflow_file": "b.safetensors", "strength": 0.75}},
+		{"id": 10, "type": "LoraLoaderModelOnly", "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 6}], "widgets_values": ["h3\\a.safetensors", 1], "widgets_values_named": {"lora_name": "h3\\b.safetensors", "strength_model": 0.75}},
+		{"id": 11, "type": "UNETLoader", "mode": 0, "inputs": [], "widgets_values": ["a.safetensors", "default"], "widgets_values_named": {"unet_name": "b.safetensors"}}
+	],
+	"links": [
+		[1, 2, 0, 1, 0, "NOISE"], [2, 3, 0, 1, 1, "SAMPLER"], [3, 4, 0, 1, 2, "SIGMAS"], [4, 6, 0, 5, 0, "IMAGE"], [5, 7, 0, 6, 0, "IMAGE"], [6, 11, 0, 10, 0, "MODEL"]
+	]
+}

@@ -4,6 +4,13 @@ constant Known = ("UNETLoader", "LoraLoaderModelOnly", "Lora Loader Stack (rgthr
 constant Samplers = ("KSampler", "StrictMossSampler")
 constant Tiny = MossWorkflow(ComfyGraph.Read("tinymossworkflow.json", Known), ".")
 constant Strict = Json("{\"widgets_values\": [7, \"fixed\", 8, 1, \"off\", \"merged\", \"auto\", \"fast\", \"6:36\"]}")
+constant Named = MossWorkflow(ComfyGraph(Json("[{\"id\": 1, \"type\": \"UNETLoader\", \"mode\": 0, \"widgets_values\": [\"a\"], \"widgets_values_named\": {\"unet_name\": \"b\"}}, {\"id\": 2, \"type\": \"KSampler\", \"mode\": 0, \"inputs\": [{\"name\": \"model\", \"link\": 1}]}, {\"id\": 3, \"type\": \"CLIPLoader\", \"mode\": 0, \"widgets_values\": [\"c\"], \"widgets_values_named\": {\"clip_name\": \"d\"}}, {\"id\": 4, \"type\": \"VAELoader\", \"mode\": 0, \"widgets_values\": [\"e\"], \"widgets_values_named\": {\"vae_name\": \"f\"}}]").Elements, Json("[[1, 1, 0, 2, 0, \"MODEL\"]]").Elements, Known), "")
+constant Empty = MossWorkflow(ComfyGraph(List(Json), List(Json), Known), ".")
+constant Several = MossWorkflow(ComfyGraph(Json("[{\"id\": 1, \"type\": \"KSampler\", \"mode\": 0}, {\"id\": 2, \"type\": \"StrictMossSampler\", \"mode\": 0}, {\"id\": 3, \"type\": \"SaveImage\", \"mode\": 0, \"widgets_values\": [\"stale\"], \"widgets_values_named\": {\"filename_prefix\": \"named\"}}]").Elements, List(Json), Known), ".")
+constant Single = Json("{\"type\": \"LoraLoaderModelOnly\", \"widgets_values\": [\"moss\\\\a.safetensors\", 1], \"widgets_values_named\": {\"lora_name\": \"moss\\\\b.safetensors\", \"strength_model\": 0.75}}")
+constant Stacked = Json("{\"type\": \"Lora Loader Stack (rgthree)\", \"widgets_values\": [\"moss\\\\a.safetensors\", 1, \"None\", 1, \"None\", 1, \"None\", 1], \"widgets_values_named\": {\"lora_01\": \"moss\\\\b.safetensors\", \"strength_01\": 0.75, \"lora_02\": \"None\", \"strength_02\": 1, \"lora_03\": \"moss\\\\c.safetensors\", \"strength_03\": 0.5, \"lora_04\": \"None\", \"strength_04\": 1}}")
+constant Custom = Json("{\"type\": \"StrictMossSampler\", \"widgets_values\": [7, \"fixed\", 20, 4, \"spectrum8_w3p3\", \"merged\", \"auto\", \"fast\", \"6:36\"], \"widgets_values_named\": {\"seed\": 3, \"control_after_generate\": \"fixed\", \"steps\": 8, \"cfg\": 2.5, \"spectrum\": \"off\", \"quality\": \"custom\", \"skip\": \"off\"}}")
+constant Latent = Json("{\"type\": \"EmptyLatentImage\", \"widgets_values\": [1024, 1024, 1], \"widgets_values_named\": {\"width\": 512, \"height\": 768, \"batch_size\": 3}}")
 Arguments Texts
 	Tiny.Arguments.Length is 24
 	Tiny.Arguments(3) is "moss/tinylora.safetensors:0.5"
@@ -13,13 +20,17 @@ Arguments Texts
 	Model(ComfyInputs(graph).Source(sampler, "model")) + Sampling(sampler) + Size(latent) + Files + Output
 Sampler Json
 	Tiny.graph.Node(5).text is Tiny.Sampler.text
+	Empty.Sampler is Error("NoMossSamplerFound")
+	Several.Sampler is Error("SeveralMossSamplers")
 	let samplers = graph.Active(Samplers)
 	if samplers.Length is 1
 		return samplers(0)
 	Error(samplers.Length is 0 then "NoMossSamplerFound" else "SeveralMossSamplers")
 Model(link Json) Texts
 	Tiny.Model(ComfyInputs(Tiny.graph).Source(Tiny.Sampler, "model")).Length is 6
+	Tiny.Model(ComfyInputs(Tiny.graph).Source(Tiny.Sampler, "model"))(0) is "--model"
 	Tiny.Model(Json("")).Length is 0
+	Named.Model(ComfyInputs(Named.graph).Source(Named.graph.Node(2), "model")) is ("--model", "b")
 	if link.text is ""
 		return List(Text)
 	let node = graph.Origin(link)
@@ -29,8 +40,14 @@ Model(link Json) Texts
 Loras(node Json) Texts
 	Tiny.Loras(Tiny.graph.Node(2)) is ("--lora", "moss/tinylora.safetensors:0.5")
 	Tiny.Loras(Tiny.graph.Node(3)) is ("--lora", "moss/a.safetensors:0.25")
+	Tiny.Loras(Single) is ("--lora", "moss/b.safetensors:0.75")
+	Tiny.Loras(Stacked) is ("--lora", "moss/b.safetensors:0.75", "--lora", "moss/c.safetensors:0.5")
 	if graph.Type(node) is "LoraLoaderModelOnly"
 		return ComfyInputs(graph).Lora(graph.Text(node, "lora_name", 0), graph.Text(node, "strength_model", 1) to Number)
+	Stack(node)
+Stack(node Json) Texts
+	Tiny.Stack(Tiny.graph.Node(3)) is ("--lora", "moss/a.safetensors:0.25")
+	Tiny.Stack(Stacked) is ("--lora", "moss/b.safetensors:0.75", "--lora", "moss/c.safetensors:0.5")
 	mutable loras = List(Text)
 	for 4
 		let name = graph.Text(node, "lora_0" + (index + 1), 2 * index)
@@ -41,6 +58,7 @@ Loras(node Json) Texts
 Sampling(sampler Json) Texts
 	Tiny.Sampling(Tiny.Sampler) is ("--seed", "42", "--steps", "6", "--guidance", "1.5")
 	Tiny.Sampling(Strict) is ("--seed", "7", "--quality", "fast", "--skip", "6:36")
+	Tiny.Sampling(Custom) is ("--seed", "3", "--steps", "8", "--guidance", "2.5", "--spectrum", "off", "--skip", "off")
 	let seed = ComfyInputs(graph).Seed(sampler, "seed", 0)
 	let steps = ("--steps", graph.Text(sampler, "steps", 2), "--guidance", graph.Text(sampler, "cfg", 3))
 	if graph.Type(sampler) is "KSampler"
@@ -51,10 +69,12 @@ Sampling(sampler Json) Texts
 	seed + chosen + "--skip" + graph.Text(sampler, "skip", 8)
 Size(latent Json) Texts
 	Tiny.Size(Tiny.graph.Node(9)) is ("--width", "480", "--height", "1280", "--count", "2")
+	Tiny.Size(Latent) is ("--width", "512", "--height", "768", "--count", "3")
 	let sizes = ("--width", graph.Text(latent, "width", 0), "--height", graph.Text(latent, "height", 1))
 	sizes + "--count" + graph.Text(latent, "batch_size", 2)
 Files Texts
 	Tiny.Files is ("--text_encoder", "qwen3.5_9b_int8_convrot.safetensors", "--vae", "flux2-vae.safetensors")
+	Named.Files is ("--text_encoder", "d", "--vae", "f")
 	Loader("CLIPLoader", "clip_name", "--text_encoder") + Loader("VAELoader", "vae_name", "--vae")
 Loader(type Text, name Text, option Text) Texts
 	Tiny.Loader("VAELoader", "vae_name", "--vae") is ("--vae", "flux2-vae.safetensors")
@@ -63,6 +83,8 @@ Loader(type Text, name Text, option Text) Texts
 	loaders.Length is 1 then (option, graph.Text(loaders(0), name, 0)) else List(Text)
 Output Texts
 	Tiny.Output is ("--output", "./output/tinymoss_.png")
+	Empty.Output is ("--output", "./output/MossImage_.png")
+	Several.Output is ("--output", "./output/named_.png")
 	let saved = graph.Active(List(Text) + "SaveImage")
 	let prefix = saved.Length is 0 then "MossImage" else graph.Text(saved(0), "filename_prefix", 0)
 	("--output", comfyui + "/output/" + prefix + "_.png")

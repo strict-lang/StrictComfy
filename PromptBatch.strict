@@ -20,8 +20,11 @@ Prompts(templates Texts, seeds Numbers) Texts
 	Sample.Prompts(List(Text) + "a", (1, 2)) is ("a", "a")
 	for seeds
 		let prompt = Expanded(templates(index % templates.Length), value)
-		logger.Log(noun + " " + (index + 1) + "/" + seeds.Length + ", seed " + value + "\nPrompt: " + prompt)
+		logger.Log(Prompting(index, seeds.Length, value, prompt))
 		prompt
+Prompting(index Number, count Number, seed Number, prompt Text) Text
+	Sample.Prompting(1, 3, 42, "a fox") is "Image 2/3, seed 42\nPrompt: a fox"
+	noun + " " + (index + 1) + "/" + count + ", seed " + seed + "\nPrompt: " + prompt
 Expanded(template Text, seed Number) Text
 	Sample.Expanded("a cat", 1) is "a cat"
 	Sample.Expanded("{x|x}{y|y|y} {z}", 5) is "xy z"
@@ -41,7 +44,7 @@ Chosen(text Text, draw Number) Text
 	if open < 0
 		return Error("UnmatchedBrace")
 	let choices = text.Substring(open + 1, close - open - 1).Split("|")
-	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
+	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length)
 Reserved(base Text) Text
 	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
 	Sample.Reserved("artifacts/PromptBatchTest.png") is "artifacts/PromptBatchTest0001.png"
@@ -54,11 +57,12 @@ Outputs(base Text, count Number) Texts
 		number = Free(base, number + 1)
 		Named(base, number)
 Saving(planned Text, base Text) Text
-	Sample.Saving("PromptBatchTest0001.jpg", "PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
+	Sample.Saving("PromptBatchTest0007.jpg", "PromptBatchTest.jpg") is "PromptBatchTest0007.jpg"
 	Sample.Saving("PromptBatch.strict", "PromptBatch.strict") is "PromptBatch0001.strict"
 	IsTaken(planned) then Reserved(base) else planned
 Free(base Text, first Number) Number
 	Sample.Free("PromptBatchTest.jpg", 3) is 3
+	Sample.Free("../Strict/NeuralNetworks/tinysplit-00001-of-0.gguf", 3) is 4
 	mutable number = first
 	for as long as IsTaken(Named(base, number))
 		number = number + 1
@@ -66,7 +70,7 @@ Free(base Text, first Number) Number
 Named(base Text, number Number) Text
 	Sample.Named("a.jpg", 7) is "a0007.jpg"
 	let dot = base.LastIndexOf(".")
-	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
+	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length)
 IsTaken(path Text) Boolean
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false
@@ -75,4 +79,4 @@ Numbered(stem Text, number Number) Text
 	Sample.Numbered("a", 7) is "a0007"
 	Sample.Numbered("a", 12345) is "a12345"
 	let digits = number to Text
-	stem + (digits.Length < 4 then "0000".Substring(0, 4 - digits.Length) else "") + digits
+	stem + "0000".Substring(0, (4 - digits.Length).Clamp(0, 4)) + digits

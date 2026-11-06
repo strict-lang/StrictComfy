@@ -1,4 +1,5 @@
 has logger
+constant Command = "-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4 -r 24 -i \"a b.mp4.rgb\" -i \"a b.mp4.wav\""
 constant Encoding = " -c:v libx264 -crf 18 -preset medium -pix_fmt yuv420p -c:a aac -b:a 192k -shortest "
 Run(dumps Text, video Text, audio Text)
 	let steps = Safetensors(dumps + "/steps.safetensors", 32)
@@ -43,6 +44,7 @@ Bytes(frames Numbers) Bytes
 Arguments(size Numbers, output Text) Text
 	H3Frames(Logger).Arguments((4, 6), "a b.mp4").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
 	H3Frames(Logger).Arguments((4, 6), "a b.mp4").EndsWith(" -i \"a b.mp4.wav\"" + Encoding + "\"a b.mp4\"")
+	H3Frames(Logger).Arguments((4, 6), "a b.mp4") is Command + Encoding + "\"a b.mp4\""
 	let path = "\"" + output
 	let input = " -s " + size(1) + "x" + size(0) + " -r 24 -i " + path + ".rgb\" -i " + path + ".wav\""
 	"-y -loglevel error -f rawvideo -pix_fmt rgb24" + input + Encoding + path + "\""
@@ -53,6 +55,7 @@ Wave(waveform Numbers) Bytes
 Header(count Number) Numbers
 	H3Frames(Logger).Header(2).Length is 44
 	H3Frames(Logger).Header(2)(4) is 40
+	H3Frames(Logger).Header(300).Slice(40, 4) is (88, 2, 0, 0)
 	let format = (87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 2, 0) + Little(32000, 4) + Little(128000, 4)
 	(82, 73, 70, 70) + Little(36 + 2 * count, 4) + format + (4, 0, 16, 0, 100, 97, 116, 97) + Little(2 * count, 4)
 Little(number Number, count Number) Numbers
@@ -62,6 +65,7 @@ Little(number Number, count Number) Numbers
 Samples(waveform Numbers) Numbers
 	H3Frames(Logger).Samples((1, -1)) is (255, 127, 1, 128)
 	H3Frames(Logger).Samples((0, 0.5, 0, 0))(5) is 64
+	H3Frames(Logger).Samples((0, 0.5, 0.25, -0.25)) is (0, 0, 0, 32, 0, 64, 0, 224)
 	let length = waveform.Length / 2
 	for 2 * waveform.Length
 		let sample = (index / 2).Floor

@@ -31,7 +31,8 @@ Layers(model Safetensors, lora Text) Slow(List(MossBlock))
 	let count = TensorFile.Header(model.path).Split(".proj.o.weight\"").Length - 1
 	if count is 0
 		return Error("NoMossLayersFound:" + Path(model.path).FileName.text)
-	let completion = Completion(Logger, lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs", count, Process.Elapsed)
+	let label = lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs"
+	let completion = Completion(Logger, label, count, Process.Elapsed)
 	for count
 		let block = MossBlock.Loaded(model, "layers." + index + ".", lora)
 		completion.Report(index + 1)

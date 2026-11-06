@@ -8,6 +8,8 @@ constant Up = H3Conv.Loaded(Model, "decoder.ups.0.0", 1)
 constant Entered = Moss.Transposed(Model.Values("reference.dec_in_proj"), 64)
 constant Raised = Moss.Transposed(Model.Values("reference.conv_pre"), 128)
 constant Pair = H3Conv((1, 2), List(Number) + 0, 2, 1)
+constant Spread = H3Conv(List(Number), (0, 0), 5, 1)
+constant Ramp = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
 Loaded(model Safetensors, name Text, spacing Number) Slow(H3Conv)
 	Pre.kernel is 7
 	Up.biases.Length is 64
@@ -26,6 +28,7 @@ Output(signal Numbers) Slow(Numbers)
 Columns(signal Numbers, inputs Number) Numbers
 	H3Conv(List(Number), List(Number) + 0, 3, 1).Columns((1, 2, 3), 1) is (0, 1, 2, 1, 2, 3, 2, 3, 0)
 	H3Conv(List(Number), List(Number) + 0, 3, 2).Columns((1, 2, 3), 1) is (0, 1, 3, 0, 2, 0, 1, 3, 0)
+	H3Conv(List(Number), List(Number) + 0, 3, 1).Columns((1, 2, 3, 4), 2) is (0, 1, 3, 0, 2, 4, 1, 3, 0, 2, 4, 0)
 	let length = signal.Length / inputs
 	let width = inputs * kernel
 	let half = (kernel - 1) / 2
@@ -51,6 +54,8 @@ Upsampled(signal Numbers, stride Number) Slow(Numbers)
 		biases(index % outputs) + Tapped(products, at, index % outputs, stride, length)
 Tapped(products Numbers, at Number, output Number, stride Number, length Number) Number
 	Pair.Tapped((3, 6, 4, 8), 1, 0, 2, 2) is 6
+	Spread.Tapped(Ramp, 5, 1, 2, 2) is 19
+	Spread.Tapped(Ramp, 2, 0, 2, 2) is 14
 	mutable sum = 0
 	let phase = at % stride
 	for (kernel / stride).Ceiling

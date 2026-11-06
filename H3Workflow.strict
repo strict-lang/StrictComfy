@@ -4,6 +4,9 @@ constant Known = ("UNETLoader", "LoraLoaderModelOnly", "LTX_lora_loader", "Apply
 constant Samplers = ("SamplerCustomAdvanced", "StrictH3Sampler", "StrictH3LatentSampler")
 constant Tiny = H3Workflow(ComfyGraph.Tiny, ".")
 constant Strict = H3Workflow(ComfyGraph.Read("tinyh3strictworkflow.json", Known), ".")
+constant Named = H3Workflow(ComfyGraph.Read("tinyh3namedworkflow.json", Known), ".")
+constant Empty = H3Workflow(ComfyGraph(List(Json), List(Json), Known), ".")
+constant Lcm = Json("{\"widgets_values\": [\"best\", 1, \"fixed\", \"off\", \"lcm\", \"beta\"], \"widgets_values_named\": {\"seed\": 5}}")
 Arguments Texts
 	Tiny.Arguments.Length is 25
 	Tiny.Arguments.Last is "./output/tiny_.mp4"
@@ -16,6 +19,8 @@ Arguments Texts
 Sampler Json
 	Tiny.graph.Type(Tiny.Sampler) is "SamplerCustomAdvanced"
 	Strict.graph.Type(Strict.Sampler) is "StrictH3Sampler"
+	Empty.Sampler is Error("NoH3SamplerFound")
+	Named.Sampler is Error("SeveralH3Samplers")
 	let samplers = graph.Active(Samplers)
 	if samplers.Length is 1
 		return samplers(0)
@@ -35,6 +40,7 @@ Model(link Json) Texts
 	Strict.Model(Strict.Source(Strict.Sampler, "model"))(1) is "tinyh3.safetensors"
 	Strict.Model(Strict.Source(Strict.Sampler, "model"))(3) is "h3/tinylora.safetensors:0.66"
 	Strict.Model(Json("")).Length is 0
+	Named.Model(Named.Source(Named.graph.Node(10), "model")) is ("--model", "b.safetensors")
 	if link.text is ""
 		return List(Text)
 	let node = graph.Origin(link)
@@ -44,14 +50,16 @@ Model(link Json) Texts
 Loras(node Json) Texts
 	Tiny.Loras(Tiny.graph.Node(8)) is ("--lora", "./models/hyperflow/hyperflow.safetensors:1")
 	Strict.Loras(Strict.graph.Node(2)) is ("--lora", "h3/tinylora.safetensors:0.66")
+	Tiny.Loras(Tiny.graph.Node(2)) is ("--lora", "h3/tinylora.safetensors:0.5")
+	Named.Loras(Named.graph.Node(9)) is ("--lora", "./models/hyperflow/b.safetensors:0.75")
+	Named.Loras(Named.graph.Node(10)) is ("--lora", "h3/b.safetensors:0.75")
 	let type = graph.Type(node)
 	if type is "LTX_lora_loader"
 		return Stack(graph.Text(node, "stack_data", 1))
 	let flow = type is "ApplyHyperFlowH3"
 	let folder = flow then comfyui + "/models/hyperflow/" else ""
 	let named = folder + graph.Text(node, flow then "hyperflow_file" else "lora_name", 0)
-	let strength = graph.Text(node, flow then "strength" else "strength_model", 1) to Number
-	ComfyInputs(graph).Lora(named, strength)
+	ComfyInputs(graph).Lora(named, graph.Text(node, flow then "strength" else "strength_model", 1) to Number)
 Stack(text Text) Texts
 	Tiny.Stack("[{\"on\": true, \"lora\": \"h3\\\\a\", \"str\": 1.0}, {\"on\": false}]") is ("--lora", "h3/a:1")
 	Tiny.Stack("[]").Length is 0
@@ -63,12 +71,14 @@ Stack(text Text) Texts
 Sampling(sampler Json) Texts
 	Tiny.Sampling(Tiny.Sampler).Length is 8
 	Tiny.Sampling(Tiny.Sampler)(3) is "res_multistep"
+	Named.Sampling(Named.graph.Node(1)) is ("--seed", "9", "--sampler", "euler", "--scheduler", "beta", "--steps", "6")
 	let noise = graph.Origin(Source(sampler, "noise"))
 	let chosen = ("--sampler", graph.Text(graph.Origin(Source(sampler, "sampler")), "sampler_name", 0))
 	Seed(noise, "noise_seed", 0) + chosen + Sigmas(graph.Origin(Source(sampler, "sigmas")))
 Preset(sampler Json) Texts
 	Strict.Preset(Strict.Sampler) is ("--quality", "fastest2steps", "--skip", "5:45")
-	Strict.Preset(Json("{\"widgets_values\": [\"best\", 1, \"fixed\", \"off\", \"lcm\", \"beta\"]}"))(5) is "lcm"
+	Strict.Preset(Lcm) is ("--quality", "best", "--skip", "off", "--sampler", "lcm", "--scheduler", "beta", "--seed", "5")
+	Named.Preset(Named.graph.Node(8)) is ("--quality", "best", "--skip", "off", "--seed", "3")
 	let widgets = sampler("widgets_values").Elements
 	let quality = ("--quality", graph.Text(sampler, "quality", 0), "--skip", graph.Text(sampler, "skip", 3))
 	if widgets.Length <= 5
@@ -81,6 +91,7 @@ Seed(node Json, name Text, position Number) Texts
 Sigmas(node Json) Texts
 	Tiny.Sigmas(Tiny.graph.Node(8)) is ("--scheduler", "hyperflow", "--skip", "off")
 	Tiny.Sigmas(Json("{\"type\": \"BasicScheduler\", \"widgets_values\": [\"beta\", 6, 1]}"))(3) is "6"
+	Named.Sigmas(Named.graph.Node(4)) is ("--scheduler", "beta", "--steps", "6")
 	if graph.Type(node) is "ApplyHyperFlowH3"
 		return ("--scheduler", "hyperflow", "--skip", "off")
 	("--scheduler", graph.Text(node, "scheduler", 0), "--steps", graph.Text(node, "steps", 1))
@@ -88,6 +99,9 @@ Video(node Json) Texts
 	Tiny.Video(Tiny.Latent).Length is 9
 	Tiny.Video(Tiny.Latent)(3) is "832"
 	Strict.Video(Strict.Latent)(5) is "73"
+	Tiny.Video(Tiny.Latent)(5) is "124"
+	Strict.Video(Strict.Latent)(8) is "--last_image"
+	Named.Video(Named.graph.Node(5)).Slice(0, 4) is ("--width", "480", "--height", "832")
 	let sizes = ("--width", graph.Text(node, "width", 1), "--height", graph.Text(node, "height", 2))
 	let pictures = Picture(Source(node, "first_frame"), "--image") + Picture(Source(node, "last_frame"), "--last_image")
 	sizes + "--length" + graph.Text(node, "length", 3) + pictures
@@ -95,6 +109,7 @@ Picture(link Json, option Text) Texts
 	Tiny.Picture(Tiny.Source(Tiny.Latent, "first_frame"), "--image") is ("--crop", "--image", "./input/tinyframe.png")
 	Tiny.Picture(Tiny.Source(Tiny.Latent, "first_frame"), "--last_image") is ("--last_image", "./input/tinyframe.png")
 	Tiny.Picture(Json(""), "--image").Length is 0
+	Named.Picture(Named.Source(Named.graph.Node(5), "first_frame"), "--image") is ("--image", "./input/named.png")
 	if link.text is ""
 		return List(Text)
 	let node = graph.Origin(link)
@@ -105,6 +120,7 @@ Picture(link Json, option Text) Texts
 Output Texts
 	Tiny.Output is ("--output", "./output/tiny_.mp4")
 	Strict.Output is ("--output", "./output/video/tiny_.mp4")
+	Empty.Output is ("--output", "./output/H3Video_.mp4")
 	let saved = graph.Active(("VHS_VideoCombine", "SaveVideo"))
 	let prefix = saved.Length is 0 then "H3Video" else graph.Text(saved(0), "filename_prefix", 0)
 	("--output", comfyui + "/output/" + prefix + "_.mp4")

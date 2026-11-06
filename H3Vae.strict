@@ -12,15 +12,12 @@ constant Padding = 3
 constant Ratio = 4
 constant Blended = 5
 Decoded(latent Numbers, shape Numbers) Slow(Numbers)
-	Pixels.Length is 359424
-	Pixels(15000).IsNearlyEqual(0.770597, 0.01)
-	Pixels(359423).IsNearlyEqual(0.486039, 0.01)
+	(Pixels.Length is 359424) and Pixels(15000).IsNearlyEqual(0.7706, 0.01) and Pixels(359423).IsNearlyEqual(0.486, 0.01)
 	let latents = decoder.Denormalized(latent)
 	mutable frames = List(Number)
 	mutable shared = List(Number)
-	let windows = (shape(0) + Dropped) / Tokens - 1
-	let completion = Completion(Logger, "Decoding video", windows, Process.Elapsed)
-	for windows
+	let completion = Completion(Logger, "Decoding video", (shape(0) + Dropped) / Tokens - 1, Process.Elapsed)
+	for completion.total
 		let window = decoder.Cut(latents, shape, (index * Tokens, Tokens + Shared, 0, shape(1), 0, shape(2)))
 		let canvas = Canvas(window, shape(1), shape(2))
 		frames = frames + Finished(canvas, shared, Padding, Tokens * Ratio - Padding)

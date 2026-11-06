@@ -10,6 +10,7 @@ Sigmas Numbers
 	Moss.Sigmas(8) is 0
 	Euler(3, 12).Sigmas(1).IsNearlyEqual(0.960057557)
 	Euler(6, 12).Sigmas(5).IsNearlyEqual(0.70638001)
+	(Euler(3, 12).Sigmas(3) is 0) and (Euler(19, 12).Sigmas(19) is 0)
 	for steps + 1
 		index is steps then 0 else Shifted(1 - (index * (1000 / steps)).Floor / 1000)
 Spaced(intervals Number) Numbers
@@ -21,35 +22,38 @@ Spaced(intervals Number) Numbers
 	for steps + 1
 		index is steps then 0 else Shifted(1 - index * (1 - least) / intervals)
 Beta(alpha Number, beta Number) Numbers
-	Euler(4, 12).Beta(0.6, 0.6)(1).IsNearlyEqual(0.982511938)
-	Euler(4, 12).Beta(0.6, 0.6)(2).IsNearlyEqual(0.923360527)
 	Euler(4, 12).Beta(0.5, 0.7)(3).IsNearlyEqual(0.563135028)
+	Euler(4, 12).Beta(0.6, 0.6) is (1, 0.982511924, 0.923360467, 0.720732949, 0)
 	let distribution = BetaDistribution(alpha, beta)
 	for steps + 1
 		index is steps then 0 else Shifted(((distribution.Quantile(1 - index / steps) * 999).Counted("Even") + 1) / 1000)
 Quadratic Numbers
-	Euler(8, 12).Quadratic(3).IsNearlyEqual(0.981249988)
-	Euler(8, 12).Quadratic(6).IsNearlyEqual(0.725000024)
 	Euler(1, 12).Quadratic is (1, 0)
+	Euler(8, 12).Quadratic is (1, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0)
+	Euler(5, 12).Quadratic is (1, 0.9875, 0.975, 0.858333333, 0.533333333, 0)
+	(Euler(3, 12).Quadratic(3) is 0) and (Euler(7, 12).Quadratic(7) is 0)
 	if steps is 1
 		return (1, 0)
 	let linear = (steps / 2).Floor
 	let spread = (linear - 0.025 * steps) / (steps - linear) ^ 2
 	let slope = 0.025 / linear - 2 * spread
 	for steps + 1
-		let ramp = index < linear then index * 0.025 / linear else spread / linear * (index ^ 2 + linear ^ 2) + slope * index
-		index is steps then 0 else 1 - ramp
+		index is steps then 0 else 1 - Ramp(index, linear, spread, slope)
+Ramp(index Number, linear Number, spread Number, slope Number) Number
+	Moss.Ramp(3, 4, 0.2375, -0.46875) is 0.01875
+	Moss.Ramp(6, 4, 0.2375, -0.46875).IsNearlyEqual(0.275)
+	index < linear then index * 0.025 / linear else spread / linear * (index ^ 2 + linear ^ 2) + slope * index
 Scheduled(scheduler Number, sampler Number) Numbers
-	Euler(1, 12).Scheduled(1, 2)(0).IsNearlyEqual(0.9999917)
+	(Euler(1, 1).Scheduled(1, 2) is (0.9999, 0)) and (Euler(1, 1).Scheduled(1, 4) is (0.9999, 0))
 	Euler(4, 5).Scheduled(0, 1) is Euler(4, 5).Sigmas
-	Euler(4, 5).Scheduled(0, 4)(0).IsNearlyEqual(0.999979998)
 	let sigmas = Schedule(scheduler)
 	(sampler is 2) or (sampler is 4) then Offset(sigmas) else sigmas
 Schedule(scheduler Number) Numbers
 	Euler(8, 12).Schedule(2)(4).IsNearlyEqual(0.902460515)
-	Euler(4, 12).Schedule(4)(3).IsNearlyEqual(0.563135028)
+	Euler(4, 12).Schedule(3)(1).IsNearlyEqual(0.982511924) and Euler(4, 12).Schedule(4)(3).IsNearlyEqual(0.563135028)
 	Euler(8, 12).Schedule(5)(5).IsNearlyEqual(0.909375012)
 	Euler(8, 12).Schedule(6)(7).IsNearlyEqual(0.468753315)
+	Euler(8, 12).Schedule(0)(7).IsNearlyEqual(0.631578947) and Euler(8, 12).Schedule(1)(7).IsNearlyEqual(0.652659812)
 	if (scheduler is 1) or (scheduler is 2)
 		return Spaced(scheduler is 1 then steps else (steps - 1).Clamp(1, steps))
 	if (scheduler is 3) or (scheduler is 4)
@@ -71,6 +75,7 @@ Shifted(time Number) Number
 Offset(sigmas Numbers) Numbers
 	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(0).IsNearlyEqual(0.999979998)
 	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(1) is 0.9375
+	(Euler(1, 1).Offset((1, 1)) is (0.9999, 1)) and (Euler(1, 1).Offset((0.5, 1)) is (0.5, 1))
 	for sigmas
 		(index is 0) and (value >= 1) then Shifted(0.9999) else value
 Stepped(latent Numbers, output Numbers, sigmas Numbers, step Number, start = 0) Numbers

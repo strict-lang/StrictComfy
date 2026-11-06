@@ -7,16 +7,16 @@ constant Toy = Solver(1, Euler(4, 5).Sigmas, (1, -2))
 constant First = Solver.Toy.Stepped((0.25, -1.25), 0)
 constant Second = Solver.First.Stepped((0.5 * 0.984375 / 0.9375 - 0.25, -0.5 * 1.921875 / 0.9375 - 0.25), 1)
 constant Quiet = Solver(2, Euler(4, 5).Scheduled(0, 2), (1, -2))
-constant Started = Solver.Quiet.Stepped((0.5 / Solver.Quiet.sigmas(0) - 0.25, -1 / Solver.Quiet.sigmas(0) - 0.25), 0)
+constant Started = Solver.Quiet.Stepped((0.25, -1.25), 0)
 constant Staged = Solver.Started.Stepped((0.5 * 0.046874688 / 0.9375 - 0.25, -0.5 * 0.046875313 / 0.9375 - 0.25), 1)
 constant Third = Solver.Staged.Stepped((0.5 * 0.06405185 / 0.833333313 - 0.25, -0.5 * 0.006006669 / 0.833333313 - 0.25), 2)
 constant Ancestor = Solver(Solver.Toy, kind = 3).Stepped((0.25, -1.25), 0, 0, (0.5, -1))
 constant Midway = Solver(4, Euler(4, 5).Scheduled(0, 4), (1, -2)).Stepped((0.250010001, -1.250020002), 0, 0, (0.5, -1))
 Stepped(output Numbers, step Number, start = 0, noise = List(Number)) Solver
 	First.latent is (0.984375, -1.921875)
-	Second.latent(0).IsNearlyEqual(0.953306216)
-	Second.latent(1).IsNearlyEqual(-1.78663953)
-	Solver(Quiet, sigmas = (0.5, 0)).Stepped((1, 1), 0).denoised is (0.5, -2.5)
+	Second.latent(0).IsNearlyEqual(0.953306216) and Second.latent(1).IsNearlyEqual(-1.78663953)
+	Solver(Quiet, sigmas = (0.5, 0)).Stepped((1, 1), 0).latent is (0.5, -2.5)
+	Solver(Toy, kind = 5, sigmas = (0.5, 0)).Stepped((1, 1), 0).change.Length is 0
 	let predicted = Predicted(output, step, start)
 	if sigmas(step + 1) is 0
 		return Solver(value, latent = predicted, denoised = predicted)
@@ -27,6 +27,7 @@ Stepped(output Numbers, step Number, start = 0, noise = List(Number)) Solver
 	Solver(value, latent = Moved(predicted, step, noise), denoised = predicted)
 Predicted(output Numbers, step Number, start Number) Numbers
 	Toy.Predicted((0.25, -1.25), 0, 0) is (0.75, -0.75)
+	Toy.Predicted((0, 0.25, -1.25), 1, 1) is (0.765625, -0.828125)
 	for latent
 		value - sigmas(step) * output(start + index)
 Moved(predicted Numbers, step Number, noise Numbers) Numbers
@@ -37,7 +38,10 @@ Moved(predicted Numbers, step Number, noise Numbers) Numbers
 		let older = denoised.Length is 0 then 0 else weights(2) * denoised(index)
 		weights(0) * value + weights(1) * predicted(index) + older + (noise.Length is 0 then 0 else weights(3) * noise(index))
 Coefficients(step Number) Numbers
-	Toy.Coefficients(0) is (0.9375, 0.0625, 0, 0)
+	Toy.Coefficients(1) is (0.888888889, 0.111111111, 0, 0)
+	Solver(Toy, kind = 6).Coefficients(1) is (0, 0.166666667, 0, 0.833333333)
+	First.Coefficients(2) is First.Multistep(2) and Staged.Coefficients(1) is Toy.Coefficients(1)
+	Ancestor.Coefficients(1) is Ancestor.Ancestral(1) and Midway.Coefficients(1) is Midway.Midpoint(1)
 	if kind is 3
 		return Ancestral(step)
 	if kind is 4
@@ -48,6 +52,7 @@ Coefficients(step Number) Numbers
 	(kind is 1) and (denoised.Length > 0) then Multistep(step) else (decay, 1 - decay, 0, 0)
 Multistep(step Number) Numbers
 	Second.denoised(0).IsNearlyEqual(0.5 * 0.984375 + 0.25 * 0.9375)
+	Toy.Multistep(2) is (0.75, 0.569927842, -0.319927842, 0)
 	let sigma = sigmas(step)
 	let size = (sigma / sigmas(step + 1)).Logarithm
 	let ratio = (sigma / sigmas(step - 1)).Logarithm / size
@@ -65,6 +70,7 @@ Ancestral(step Number) Numbers
 Midpoint(step Number) Numbers
 	Midway.latent(1).IsNearlyEqual(-0.984937834)
 	Midway.Stepped((0.025149838, -0.775300178), 1, 0, (0.5, -1)).latent(0).IsNearlyEqual(0.616050576)
+	Solver(Toy, kind = 4).Midpoint(2) is (0.25, 0.333333333, 0, 0.589255651)
 	let size = (Lambda(step) / Lambda(step + 1)).Logarithm
 	let following = sigmas(step + 1)
 	let fading = (-2 * size).Exponential
@@ -74,6 +80,8 @@ Midpoint(step Number) Numbers
 Estimated(output Numbers, step Number, start Number) Numbers
 	Solver(Toy, kind = 5).Stepped((0.25, -1.25), 0).latent is (0.984375, -1.921875)
 	Solver(Toy, kind = 5).Stepped((0.25, -1.25), 0).Stepped((0.275, -1.275), 1).latent(1).IsNearlyEqual(-1.786458308)
+	Solver(Toy, kind = 5).Estimated((9, 0.25, -1.25), 0, 1) is (0.984375, -1.921875)
+	Solver(Toy, kind = 5, change = (9, 1, 2)).Estimated((9, 0.25, -1.25), 0, 1) is (1.03125, -1.71875)
 	let size = sigmas(step + 1) - sigmas(step)
 	for latent
 		let slope = output(start + index)
@@ -95,6 +103,8 @@ Changed(predicted Numbers, step Number) Numbers
 		(value - denoised(index)) / spacing
 Weights(step Number, ratio Number) Numbers
 	Solver.Quiet.Stepped((0.25, -1.25), 0, 0, (0.5, -1)).latent(1).IsNearlyEqual(-0.984375313, 0.0001)
+	Solver(Quiet, sigmas = (0.9, 0.8, 0.6, 0.4, 0)).Weights(2, 0.25) is (0.45, -0.182669613, -0.015091014, 0.330718914)
+	Solver(Quiet, sigmas = (0.9, 0.8, 0.6, 0.4, 0.2)).Weights(1, 0.25)(2) is 0
 	let lambda = Lambda(step)
 	let following = Lambda(step + 1)
 	let next = 1 - sigmas(step + 1)
@@ -115,11 +125,13 @@ Integrals(lambda Number, following Number) Numbers
 	(plain, weighted)
 Combined(predicted Numbers, changed Numbers, kept Number, weights Numbers, noise Numbers) Numbers
 	Toy.Combined((1, 1), List(Number), 0.5, (1, 0, 0, 0), List(Number)) is (1.5, 0)
+	Solver(Toy, change = (0.5, 1)).Combined((3, 4), (2, 3), 0.25, (2, 3, 5, 7), (2, -0.5)) is (33.75, 23)
 	for latent
 		let staged = changed.Length is 0 then 0 else weights(1) * changed(index) + Curvature(changed, weights, index)
 		kept * value + weights(0) * predicted(index) + staged + (noise.Length is 0 then 0 else weights(3) * noise(index))
 Curvature(changed Numbers, weights Numbers, index Number) Number
 	Toy.Curvature((1, 2), (0, 0, 3, 0), 1) is 0
+	Solver(Toy, change = (0.5, 1)).Curvature((1, 3), (0, 0, 3, 0), 1) is 6
 	change.Length is 0 then 0 else weights(2) * (changed(index) - change(index))
 Lambda(step Number) Number
 	Toy.Lambda(4) is 0
@@ -127,4 +139,5 @@ Lambda(step Number) Number
 	sigmas(step) / (1 - sigmas(step))
 Scaled(lambda Number) Number
 	Toy.Scaled(0) is 0
+	Toy.Scaled(2) is 26.850294156
 	lambda * ((lambda ^ 0.3).Exponential + 10)

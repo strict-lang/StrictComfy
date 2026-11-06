@@ -1,0 +1,23 @@
+Words(line Text) Texts
+	CommandWords.Words("--length 5  --prompt \"a b.txt\"") is ("--length", "5", "--prompt", "a b.txt")
+	CommandWords.Words("--prompt=\"a b.txt\" --seed 7") is ("--prompt=a b.txt", "--seed", "7")
+	CommandWords.Words("\"a\"\"b\" c") is ("a", "b", "c")
+	let parts = line.Split("\"")
+	mutable words = List(Text)
+	for parts
+		if IsJoined(parts, index)
+			words = words.Slice(0, words.Length - 1) + (words.Last + value)
+		else
+			words = words + (index % 2 is 1 then List(Text) + value else Spaced(value))
+	words
+IsJoined(parts Texts, index Number) Boolean
+	CommandWords.IsJoined(("--prompt=", "a b.txt", ""), 1)
+	CommandWords.IsJoined(("--prompt ", "a b.txt", ""), 1) is false
+	CommandWords.IsJoined(("", "a", "", "b", ""), 3) is false
+	CommandWords.IsJoined(("--prompt=", "a b.txt", "x"), 2) is false
+	(index % 2 is 1) and (parts(index - 1) is not "") and (parts(index - 1).EndsWith(" ") is false)
+Spaced(text Text) Texts
+	CommandWords.Spaced(" a  b ") is ("a", "b")
+	for text.Split(" ")
+		if value is not ""
+			value

@@ -17,6 +17,9 @@ IsActual(step Number) Boolean
 	Primed.IsActual(5) is false
 	Primed.IsActual(6)
 	Primed.IsActual(7)
+	MossSpectrum(Primed, steps = 12, period = 3).IsActual(6) is false
+	MossSpectrum(Primed, steps = 12, period = 3).IsActual(7)
+	MossSpectrum(Tiny, mode = "on").IsActual(5)
 	let protected = (step < warmup) or (step >= steps - 1)
 	protected or (history.Ready is false) or ((step - warmup) % period is period - 1)
 IsSpanning(step Number) Boolean
@@ -27,6 +30,7 @@ IsSpanning(step Number) Boolean
 Coord(step Number) Number
 	Tiny.Coord(0) is -1
 	Tiny.Coord(7) is 1
+	MossSpectrum(Tiny, steps = 1).Coord(0) is 0
 	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
 Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) Slow(MossSpectrum)
 	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, MossBlock.Rotation, 0).output.Length is 256

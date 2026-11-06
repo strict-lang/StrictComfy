@@ -1,5 +1,6 @@
 has logger
 constant Tiny = MossSpectrum(Logger, 4, 1, 1)
+constant Image = MossSpectrumImage(Logger)
 Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Slow(Numbers)
 	MossSpectrumImage(Logger).Sampled(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
@@ -30,12 +31,20 @@ Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Num
 	MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
 	Sampled(moss, spectrum, data, Euler(steps, 5), context)
 Configured(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
-	MossSpectrumImage(Logger).Configured(4, "on", 8, 3, 2, 2).history.maximum is 4
+	Image.Configured(4, "on", 8, 3, 2, 2).history.maximum is 4 and Image.Configured(4, "off", 1, 0, 2, 2).steps is 1
+	Image.Configured(4, "shadow", 8, 3, 2, 2).mode is "shadow" and Image.Configured(4, "on", 8, -1, 2, 2) is Error
+	Image.Configured(4, "on", 8, 3, 2, 5) is Error and Image.Configured(4, "x", 8, 3, 2, 2) is Error
+	Image.Configured(4, "on", 8, 3, 1, 2) is Error and Image.Configured(4, "on", 0, 3, 2, 2) is Error
 	let fit = SpectralFit(degree, 0.1, 0.5)
 	if (fit.IsValid is false) or (mode is not in ("off", "shadow", "on"))
 		return Error("Invalid Spectrum configuration")
-	if (period < 2) or (period.Floor is not period) or (steps < 1) or (steps.Floor is not steps)
+	if (IsCount(period, 2) and IsCount(steps, 1)) is false
 		return Error("Invalid Spectrum schedule")
-	if (warmup < 0) or (warmup.Floor is not warmup)
+	if IsCount(warmup, 0) is false
 		return Error("Invalid Spectrum warmup")
 	MossSpectrum(logger, width, steps, warmup, period, mode, SpectralHistory(fit = fit, maximum = degree + 2))
+IsCount(number Number, minimum Number) Boolean
+	Image.IsCount(2, 2) and Image.IsCount(0, 0)
+	Image.IsCount(1, 2) is false
+	Image.IsCount(2.5, 2) is false
+	(number >= minimum) and (number.Floor is number)
