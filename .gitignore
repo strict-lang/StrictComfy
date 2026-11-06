@@ -82,3 +82,4 @@ Release/*
 #!Release/Linux/
 #!Release/Windows/**
 #!Release/Linux/**
+h3preview-step6.safetensors
