@@ -7,19 +7,6 @@ constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--
 constant Prompted = ("--models", ".", "--prompt", "a cat")
 constant Example = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
-Completed Number
-	let problem = options.Problem
-	if problem is not ""
-		logger.Log(problem)
-		return 2
-	options.Located
-	let started = Process.Elapsed
-	let seeds = PromptBatch(logger, "Image").Seeds(options.seed, options.count)
-	let template = prompted is "" then Templated else prompted
-	let prompts = PromptBatch(logger, "Image").Prompts(List(Text) + template, seeds)
-	let unique = prompts.Unique
-	Produced(seeds, prompts, unique)
-	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
 Templated Text
 	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
 	if (options.prompt is "prompt.txt") and (File(options.prompt).Exists is false)
@@ -30,6 +17,8 @@ Contexts(prompts Texts) Slow(List(Numbers))
 	let ids = Tokenized(prompts)
 	let encoder = Encoder(Picked(ids))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	Encoded(encoder, ids, prompts)
+Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) Slow(List(Numbers))
 	for ids
 		let hidden = encoder.Prefilled(value, 0).hidden
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + prompts(index))
@@ -50,14 +39,7 @@ Encoder(picked Numbers) Slow(Qwen3)
 	let file = Safetensors(path, 32, "model.language_model.")
 	let loading = QwenSafetensors(file, 64, 256, 1, "Loading text encoder")
 	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else loading.Loaded(10000000, picked)
-Produced(seeds Numbers, prompts Texts, unique Texts) Slow(Number)
-	let contexts = Contexts(unique)
-	if options.output.EndsWith(".safetensors")
-		return Safetensors(options.output).Written("context", contexts.First)
-	Images(seeds, prompts, unique, contexts)
-Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
-	GpuMemory.Evicted
-	let moss = Loaded
+Images(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
 	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
 	let sampled = Process.Elapsed
 	let latents = Latents(moss, seeds, prompts, unique, contexts, outputs)
@@ -67,13 +49,6 @@ Images(seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(
 	Decoded(latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + seeds.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
 	seeds.Length
-Loaded Moss
-	let before = Process.Elapsed
-	let loras = options.Loras
-	logger.Log(Loading(loras))
-	let moss = Moss.Loaded(options.files.Checkpoint, loras)
-	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	moss
 Loading(loras Text) Text
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"

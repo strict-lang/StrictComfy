@@ -76,6 +76,8 @@ H3Video.exe --quality faster --image first.jpg
 
 H3Video.exe starts a backend in the background the first time, which keeps the text encoder, H3 and the VAEs loaded for the next runs: a second video with a new prompt skips loading them (on a 4090 23 s instead of 59 s). The backend gives the GPU memory back when another program needs it, and it ends after 15 minutes without a run or when RAM runs low. It only starts with 48 GB of RAM free, otherwise every run loads the models itself. `--local` runs without the backend, `H3Video.exe stop` ends it.
 
+MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept, the backend gives the GPU memory back after every run. `--local` and `MossImage.exe stop` work like for H3Video.
+
 ## Building from source
 
 With [Strict](https://github.com/strict-lang/Strict) on the PATH, in this folder:

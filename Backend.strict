@@ -1,0 +1,83 @@
+has logger
+has resident Resident
+has name Text
+has room Number
+constant StartSeconds = 30
+constant PollSeconds = 0.2
+constant IdleSeconds = 900
+constant LowMemory = 4294967296
+constant LowDevice = 536870912
+constant Stopped = -3
+constant Local = "--local"
+constant Serving = "serve"
+constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video", 51539607552)
+IsServing(arguments Texts) Boolean
+	Backend.IsServing(List(Text))
+	Backend.IsServing(("--prompt", "a.txt"))
+	Backend.IsServing(List(Text) + "serve")
+	Backend.IsServing(List(Text) + "stop")
+	Backend.IsServing(List(Text) + "-") is false
+	Backend.IsServing(("encode", "a")) is false
+	let isCommand = (arguments is (Serving)) or (arguments is (Resident.Stopping))
+	isCommand or (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
+Dispatched(arguments Texts) Number
+	Sample.Dispatched(List(Text) + Local) is -1
+	if arguments is (Resident.Stopping)
+		return Stop
+	Local is in arguments then -1 else Forwarded(arguments)
+Forwarded(arguments Texts) Number
+	let first = Attempted(arguments)
+	first is -1 then Attempted(arguments) else first
+Attempted(arguments Texts) Number
+	let isRunning = File(resident.root + Resident.Stamp).Exists
+	if (isRunning is false) and (HasRoom is false)
+		return -1
+	if isRunning is false
+		logger.Log("Starting the " + name + " backend, it keeps the models loaded for the next runs (--local runs without it)")
+		Forwarding(logger, resident.root).Started
+	let port = Waited(StartSeconds)
+	port > 0 then Forwarding(logger, resident.root).Answered(port, arguments) else -1
+Waited(seconds Number) Number
+	Sample.Waited(0) is 0
+	let started = Process.Elapsed
+	mutable isBusy = false
+	mutable port = 0
+	for as long as (port is 0) and (isBusy or (Process.Elapsed - started < seconds))
+		port = Port
+		if (port < 0) and (isBusy is false)
+			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
+		isBusy = port < 0
+		port = port > 0 then port else Paused
+	port
+Port Number
+	Sample.Port is 0
+	let stamp = File(resident.root + Resident.Stamp)
+	if stamp.Exists is false
+		return 0
+	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else -1
+Paused Number
+	Process.Wait(PollSeconds)
+	0
+HasRoom Boolean
+	Sample.HasRoom is (GpuMemory.HostAvailable is 0) or (GpuMemory.HostAvailable >= Sample.room)
+	let available = GpuMemory.HostAvailable
+	(available is 0) or (available >= room)
+Stop Number
+	Sample.Stop is 0
+	Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
+Opened Number
+	let objects = resident.root + "/obj"
+	let hasRoot = Directory.Exists(resident.root) or Directory.Create(resident.root)
+	let hasObjects = hasRoot and (Directory.Exists(objects) or Directory.Create(objects))
+	hasObjects then resident.Opened else 0
+IsWanted(idle Number, built Number) Boolean
+	Sample.IsWanted(0, File(Process.Current.executable).Modified)
+	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
+	Sample.IsWanted(0, 0) is false
+	let available = GpuMemory.HostAvailable
+	let hasRoom = (available is 0) or (available > LowMemory)
+	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
+Unpressed Number
+	Sample.Unpressed >= 0
+	let available = GpuMemory.Available
+	(available > 0) and (available < LowDevice) then GpuMemory.Evicted + GpuMemory.Released else 0

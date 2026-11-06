@@ -1,0 +1,23 @@
+has batch MossBatch
+Completed(kept MossResident) Slow(MossResident)
+	let options = batch.options
+	let problem = options.Problem
+	if problem is not ""
+		batch.logger.Log(problem)
+		return MossResident(kept, code = 2)
+	options.Located
+	let started = Process.Elapsed
+	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
+	let template = batch.prompted is "" then batch.Templated else batch.prompted
+	let prompts = PromptBatch(batch.logger, "Image").Prompts(List(Text) + template, seeds)
+	let unique = prompts.Unique
+	let encoded = kept.Encoded(batch, unique)
+	let contexts = encoded.Contexts(unique)
+	if options.output.EndsWith(".safetensors")
+		Safetensors(options.output).Written("context", contexts.First)
+		return MossResident(encoded, code = 0)
+	GpuMemory.Evicted
+	let sampling = encoded.Sampling(batch)
+	batch.Images(sampling.mosses.First, seeds, prompts, unique, contexts)
+	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
+	MossResident(sampling, code = 0)

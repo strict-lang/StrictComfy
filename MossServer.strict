@@ -1,0 +1,55 @@
+has logger
+has backend Backend
+constant Room = 25769803776
+Root Text
+	MossServer.Root.EndsWith("/artifacts/moss")
+	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/artifacts/moss"
+Backended(logger Logger) Backend
+	MossServer.Backended(Logger).name is "MossImage"
+	Backend(logger, Resident(Root), "MossImage", Room)
+Ran(arguments Texts) Number
+	if arguments is (Backend.Serving)
+		return Served
+	let forwarded = backend.Dispatched(arguments)
+	let rest = arguments - Backend.Local
+	forwarded >= 0 then forwarded else Local(rest).code
+Local(arguments Texts) Slow(MossResident)
+	MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(MossResident(logger))
+Served Number
+	let server = backend.Opened
+	if server is 0
+		return 1
+	let built = File(Process.Current.executable).Modified
+	mutable kept = MossResident(logger, true)
+	mutable last = Process.Elapsed
+	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
+		let socket = backend.resident.Accepted(server, built)
+		kept = socket > 0 then Replied(socket, kept) else kept
+		last = socket > 0 then Process.Elapsed else last
+		backend.Unpressed
+	backend.resident.Closed(server)
+Replied(socket Number, kept MossResident) Slow(MossResident)
+	let resident = backend.resident
+	let request = resident.Requested(socket)
+	let isStopping = resident.Arguments(request) is (Resident.Stopping)
+	let isRunning = resident.IsCurrent(request) and (isStopping is false)
+	let skipped = MossResident(kept, code = isStopping then Backend.Stopped else -1)
+	let served = isRunning then Ran(socket, request, kept) else skipped
+	let isFailed = served is Error
+	GpuMemory.Evicted
+	resident.Finished(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code))
+	resident.Released(request)
+	isFailed then MossResident(logger, true) else served
+Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
+	let home = Directory.Current
+	let folder = backend.resident.Folder(request)
+	let isMoved = (folder is not home) and Directory.Change(folder)
+	Socket.Output(socket)
+	let arguments = backend.resident.Arguments(request)
+	let served = MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
+	if served is Error
+		logger.Log("The run failed, the next one loads the models again")
+	Socket.Output(0)
+	if isMoved
+		Directory.Change(home)
+	served

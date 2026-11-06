@@ -13,7 +13,9 @@ Run(arguments Texts) Number
 	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
-	MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments).Completed
+	if Backend.IsServing(arguments)
+		return MossServer(logger, MossServer.Backended(logger)).Ran(arguments)
+	MossServer(logger, MossServer.Backended(logger)).Local(arguments).code
 Loaded(model Text, lora Text) Slow(Moss)
 	MossImage(Logger).Loaded("tinymoss.safetensors", "").layers.Length is 2
 	let started = Process.Elapsed
