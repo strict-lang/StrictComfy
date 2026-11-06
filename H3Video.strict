@@ -44,7 +44,7 @@ Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Tex
 	mutable decodings = loaded
 	for files
 		if conditions(index).Entry("decode") is not ""
-			decodings = Decoding(decodings, arguments.Slice(14, 2))
+			decodings = Decoding(decodings, arguments.Slice(Positional.Split(" ").Length, 2))
 			decodings.First.Written(value, decodings.First.Shapes(conditions)(index), index)
 	GpuMemory.Evicted
 	decodings
@@ -63,7 +63,7 @@ Decoding(loaded List(H3Decoding), vaes Texts) Slow(List(H3Decoding))
 	List(H3Decoding) + decoding
 Numbered(arguments Texts) Numbers
 	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
-	for (0, 12, 0, 1, 1, 0, 0, 0, 0, 0)
+	for (0, H3Format.Shift, 0, 1, 1, 0, 0, 0, 0, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Loaded(model Text, loras Text) Slow(H3)
 	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2

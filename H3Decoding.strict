@@ -7,7 +7,7 @@ constant Both = Tiny.Decoded(Latent, (12, 3, 4))
 Decoded(latent Numbers, shape Numbers) Slow(List(Numbers))
 	Both(0) is H3Vae.Pixels
 	Both(1) is H3Audio.Tiny.Normalized(H3Audio.Waveform)
-	let count = 24 * shape(0) * shape(1) * shape(2)
+	let count = H3Format.Channels * shape(0) * shape(1) * shape(2)
 	let frames = vae.Decoded(latent.Slice(0, count), shape)
 	(frames, sound.Normalized(sound.Decoded(latent.Slice(count, latent.Length - count))))
 Shapes(conditions List(Safetensors)) List(Numbers)

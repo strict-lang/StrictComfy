@@ -1,0 +1,5 @@
+constant VisionStart = 151652
+constant VisionEnd = 151653
+constant EndOfText = 151643
+constant Theta = 5000000
+constant Deepstacks = (8, 16, 24)

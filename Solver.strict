@@ -12,6 +12,7 @@ constant Staged = Solver.Started.Stepped((0.5 * 0.046874688 / 0.9375 - 0.25, -0.
 constant Third = Solver.Staged.Stepped((0.5 * 0.06405185 / 0.833333313 - 0.25, -0.5 * 0.006006669 / 0.833333313 - 0.25), 2)
 constant Ancestor = Solver(Solver.Toy, kind = 3).Stepped((0.25, -1.25), 0, 0, (0.5, -1))
 constant Midway = Solver(4, Euler(4, 5).Scheduled(0, 4), (1, -2)).Stepped((0.250010001, -1.250020002), 0, 0, (0.5, -1))
+constant IntegralSteps = 200
 Stepped(output Numbers, step Number, start = 0, noise = List(Number)) Solver
 	First.latent is (0.984375, -1.921875)
 	Second.latent(0).IsNearlyEqual(0.953306216) and Second.latent(1).IsNearlyEqual(-1.78663953)
@@ -115,10 +116,10 @@ Weights(step Number, ratio Number) Numbers
 	(next * (1 - ratio), next * (following - lambda + integrals(0) * Scaled(following)), third, next * noisy)
 Integrals(lambda Number, following Number) Numbers
 	Toy.Integrals(1, 1) is (0, 0)
-	let spacing = (lambda - following) / 200
+	let spacing = (lambda - following) / IntegralSteps
 	mutable plain = 0
 	mutable weighted = 0
-	for 200
+	for IntegralSteps
 		let position = following + index * spacing
 		plain = plain + spacing / Scaled(position)
 		weighted = weighted + (position - lambda) * spacing / Scaled(position)
@@ -140,4 +141,4 @@ Lambda(step Number) Number
 Scaled(lambda Number) Number
 	Toy.Scaled(0) is 0
 	Toy.Scaled(2) is 26.850294156
-	lambda * ((lambda ^ 0.3).Exponential + 10)
+	lambda * ((lambda ^ ErSde.NoisePower).Exponential + ErSde.NoiseOffset)

@@ -59,7 +59,7 @@ Span MossSpan
 	let parts = skip.Split(":")
 	let first = parts.First to Number
 	let last = parts.Last to Number
-	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= 41)
+	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= MossBlock.Layers)
 	valid then MossSpan(first, last) else Error("InvalidSkip")
 Loras Text
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"

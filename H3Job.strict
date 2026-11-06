@@ -57,7 +57,7 @@ Drawn(stream Text, step Number) Numbers
 	Noisy.Drawn("video", 2) is MersenneTwister.Seeded(8).Normals(32)
 	Noisy.Drawn("audio", 1) is MersenneTwister.Seeded(7).Normals(64)
 	let count = stream is "video" then video.Length else audio.Length
-	MersenneTwister.Seeded((seed + 2 * step + (stream is "video" then 1 else 2)) % 4294967296).Normals(count)
+	MersenneTwister.Seeded((seed + 2 * step + (stream is "video" then 1 else 2)) % PromptBatch.SeedRange).Normals(count)
 Preview(step Number) Text
 	Reference.Preview(0) is ""
 	Noisy.Preview(0) is ""
@@ -77,7 +77,7 @@ Patched(latent Numbers, size Numbers, noise Numbers) Numbers
 		let y = 2 * ((row / half).Floor % (size(2) / 2)) + (column % 4 / 2).Floor
 		let x = 2 * (row % half) + column % 2
 		let plane = ((column / 4).Floor * size(1) + (row / (size(2) / 2 * half)).Floor) * size(2)
-		0.999 * latent((plane + y) * size(3) + x) + 0.001 * noise(index)
+		H3Layout.Pinned * latent((plane + y) * size(3) + x) + (1 - H3Layout.Pinned) * noise(index)
 Rows(condition Safetensors) Numbers
 	H3Job(Noisy, rows = (1, 2)).Rows(Keyframe) is (1, 2)
 	Noisy.Rows(Keyframe).Length is 384

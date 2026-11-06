@@ -1,11 +1,12 @@
 has logger
 has noun Text
 constant Sample = PromptBatch(Logger, "Image")
+constant SeedRange = 4294967296
 Seeds(seed Number, count Number) Numbers
 	Sample.Seeds(7, 2) is (7, 7)
 	Sample.Seeds(-1, 3).Unique.Length is 3
 	for count
-		seed >= 0 then seed else 4294967296.Random.Floor
+		seed >= 0 then seed else SeedRange.Random.Floor
 Template(path Text) Text
 	Sample.Template("a red fox") is Error("FileNotFound:a_red_fox")
 	if File(path).Exists is false

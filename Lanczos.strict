@@ -1,5 +1,7 @@
 constant Row = (0, 50, 100, 150, 200, 250, 30, 60)
 constant Grid = (10, 200, 30, 250, 0, 128, 64, 32, 16, 90, 180, 255)
+constant One = 4194304
+constant SineTerms = 12
 Resized(pixels Numbers, source Numbers, target Numbers) Numbers
 	Lanczos.Resized(Row, (1, 8), (1, 5)) is (15, 91, 191, 189, 34)
 	Lanczos.Resized(Row, (1, 8), (1, 11)) is (0, 24, 69, 102, 140, 168, 225, 255, 93, 18, 68)
@@ -22,10 +24,10 @@ Summed(values Numbers, weights Numbers, start Number, step Number) Number
 	Lanczos.Summed((1, 9, 3), (1, 1, 4194304), 1, 1) is 9
 	Lanczos.Summed((300, 0), (0, 1, 4194304), 0, 1) is 255
 	Lanczos.Summed((0, 0, 100, 0, 10, 0, 40), (0, 2, 1048576, 3145728), 4, 2) is 33
-	mutable sum = 2097152
+	mutable sum = One / 2
 	for weights(1)
 		sum = sum + values(start + index * step) * weights(index + 2)
-	(sum / 4194304).Floor.Clamp(0, 255)
+	(sum / One).Floor.Clamp(0, Byte.Max)
 Table(source Number, target Number) List(Numbers)
 	Lanczos.Table(1, 1) is List(Numbers) + (0, 1, 4194304)
 	Lanczos.Table(4, 4)(3) is (1, 3, 0, 0, 4194304)
@@ -59,7 +61,7 @@ Sine(radians Number) Number
 	let reduced = radians - turns * Number.Pi
 	mutable term = reduced
 	mutable sum = reduced
-	for 12
+	for SineTerms
 		term = -term * reduced * reduced / ((2 * index + 2) * (2 * index + 3))
 		sum = sum + term
 	turns % 2 is 0 then sum else -sum
@@ -70,5 +72,5 @@ Fixed(raw Numbers) Numbers
 	Lanczos.Fixed((-1, 8388609)) is (-1, 4194305)
 	let total = raw.Sum
 	for raw
-		let share = value / total * 4194304
+		let share = value / total * One
 		share < 0 then -(0.5 - share).Floor else (share + 0.5).Floor

@@ -1,5 +1,6 @@
 has graph ComfyGraph
 has node Json
+constant MaintainAspect = 11
 constant Selector = ComfySize(ComfyGraph.Tiny, Json("{\"type\": \"ResolutionSelector\", \"widgets_values\": [\"9:16 (Portrait Widescreen)\", 0.2, 32]}"))
 constant Total = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(19))
 constant Shorter = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(18))
@@ -29,7 +30,7 @@ Resized(dimension Number) Number
 	Shorter.Resized(1) is 1344
 	(Named.Resized(0) is 656) and (Named.Resized(1) is 480)
 	let size = Scaled(Widget("scale_mode", 0))
-	Snapped(size, Widget("divisible_by", 10) to Number, Widget("maintain_aspect", 11) is "true")(dimension)
+	Snapped(size, Widget("divisible_by", 10) to Number, Widget("maintain_aspect", MaintainAspect) is "true")(dimension)
 Scaled(mode Text) Numbers
 	Total.Scaled("Total Pixels (MP)") is (480, 854)
 	Total.Scaled("Dimensions (W x H)") is (1024, 1024)

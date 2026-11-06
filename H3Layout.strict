@@ -82,7 +82,7 @@ Rows(sigma Number) Numbers
 	let times = Times(sigma)
 	let seen = times.Index(1 - sigma) * 3
 	let heard = (times.Index(1 - AudioSigma(sigma)) * 3 + 2) * 6
-	let pinned = times.Index(1 - sigma > Pinned then 1 - sigma else Pinned) * 18
+	let pinned = times.Index(1 - sigma > Pinned then 1 - sigma else Pinned) * 3 * 6
 	for Tokens
 		let row = index - Words - Conditions
 		index < Words then (seen + tags(index)) * 6 else (row < 0 then pinned else (row < 2 * audio then heard else seen * 6))

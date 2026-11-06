@@ -30,7 +30,8 @@ Numbers Numbers
 	H3Options.Parsed(("--scheduler", "hyperflow")).Numbers(9) is 6
 	let preset = Preset
 	let blocks = Skipped
-	(Evaluated, 12, preset(2), 1, 1, preset(1), blocks(0), blocks(1), Samplers.Index(sampler), Schedulers.Index(scheduler))
+	let indices = (Samplers.Index(sampler), Schedulers.Index(scheduler))
+	(Evaluated, H3Format.Shift, preset(2), 1, 1, preset(1), blocks(0), blocks(1)) + indices
 Skipped Numbers
 	H3Options.Parsed(List(Text)).Skipped is (5, 45)
 	H3Options.Parsed(("--skip", "off")).Skipped is (0, 0)
@@ -42,7 +43,7 @@ Skipped Numbers
 	let parts = skip.Split(":")
 	let first = parts.First to Number
 	let last = parts.Last to Number
-	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= 50)
+	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= H3Format.Blocks)
 	valid then (first, last) else Error("InvalidSkip")
 Samplers Texts
 	H3Options.Parsed(List(Text)).Samplers(2) is "er_sde"
@@ -98,5 +99,6 @@ Shapes Numbers
 	H3Options.Parsed(List(Text)).Shapes is (37, 52, 30, 207)
 	H3Options.Parsed(("--length", "5", "--width", "32", "--height", "32")).Shapes is (2, 2, 2, 8)
 	H3Options.Parsed(("--length", "125")).Shapes(0) is 42
-	let frames = ((length - 5) / 17).Ceiling * 17 + 5
-	((frames - 5) / 17 * 5 + 2, height / 16, width / 16, (frames / 24 * 40).Round)
+	let frames = ((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+	let seconds = frames / H3Format.FramesPerSecond
+	((frames - 5) / H3Format.FrameGroup * 5 + 2, height / 16, width / 16, (seconds * H3Format.AudioPerSecond).Round)

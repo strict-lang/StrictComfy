@@ -23,13 +23,13 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 Loaded Slow(Qwen3)
 	Tiny.Loaded.blocks.Length is 2
-	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Loaded(5000000)
+	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Loaded(H3Qwen.Theta)
 Visions Slow(List(QwenVision))
 	Tiny.Visions.Length is 0
 	Seeing.Visions.Length is 1
 	Seeing.Visions.First.deepstacks.Length is 3
 	for files.Images.Length.Clamp(0, 1)
-		QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, (8, 16, 24))
+		QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
 Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, pictures List(Numbers)) Slow(Numbers)
 	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + "", List(Text) + Written, List(Numbers)) is (195)
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
@@ -46,7 +46,7 @@ Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, picture
 Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	Tiny.Texts(List(Numbers), (1, 2)) is List(Numbers) + (1, 2)
 	Tiny.Texts(List(Numbers) + (5, 151652), (1, 2)) is ((5, 151652), (151653, 1, 2))
-	pictures.Length is 0 then List(Numbers) + chosen else pictures + (List(Number) + 151653 + chosen)
+	pictures.Length is 0 then List(Numbers) + chosen else pictures + (List(Number) + H3Qwen.VisionEnd + chosen)
 Hidden(encoder Qwen3, texts List(Numbers), image Text) Slow(Numbers)
 	Tiny.Hidden(Tiny.Loaded, List(Numbers) + (1, 2, 3), "").Length is 192
 	Imaged.Hidden(Imaged.Loaded, ((1, 2), (3, 4, 5)), "tinyframe.png").Length is 704
@@ -65,7 +65,7 @@ Pictures(labels List(Numbers)) List(Numbers)
 	Both.Pictures(((1, 2), (3, 4)))(1) is (151653, 3, 4, 151652)
 	Both.Pictures(((1, 2), (3, 4))) is ((1, 2, 151652), (151653, 3, 4, 151652))
 	for labels
-		(index is 0 then List(Number) else List(Number) + 151653) + value + 151652
+		(index is 0 then List(Number) else List(Number) + H3Qwen.VisionEnd) + value + H3Qwen.VisionStart
 Labels(tokens Gpt2Tokens) List(Numbers)
 	Tiny.Labels(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens")).Length is 0
 	Both.Labels(Spelled) is ((0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 8), (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 8))
@@ -75,7 +75,7 @@ Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 	Tiny.Tokens(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens"), ("ab", "")) is ((3), (151643))
 	for prompts
 		let chosen = tokens.Encoded(value)
-		chosen.Length is 0 then List(Number) + 151643 else chosen
+		chosen.Length is 0 then List(Number) + H3Qwen.EndOfText else chosen
 Tags(texts List(Numbers), total Number) Numbers
 	Tiny.Tags(List(Numbers) + (5, 6), 2) is (1, 1)
 	Tiny.Tags(((7, 151652), (151653, 8)), 6) is (1, 0, 0, 0, 0, 1)
@@ -91,7 +91,7 @@ Tags(texts List(Numbers), total Number) Numbers
 Marked(tokens Numbers) Numbers
 	Tiny.Marked((7, 151652, 151653)) is (1, 0, 0)
 	for tokens
-		value is in (151652, 151653) then 0 else 1
+		value is in (H3Qwen.VisionStart, H3Qwen.VisionEnd) then 0 else 1
 Vision(count Number) Numbers
 	Tiny.Vision(2) is (0, 0)
 	for count

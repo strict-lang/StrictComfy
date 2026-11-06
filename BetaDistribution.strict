@@ -1,5 +1,6 @@
 has alpha Number
 has beta Number
+constant SeriesTerms = 40
 Quantile(probability Number) Number
 	BetaDistribution(0.6, 0.6).Quantile(0.875).IsNearlyEqual(0.942843636377586)
 	BetaDistribution(0.5, 0.7).Quantile(0.25).IsNearlyEqual(0.09617666129459618)
@@ -25,7 +26,7 @@ Area(position Number) Number
 	BetaDistribution(1, 1).Area(0.5) is 0.5
 	mutable term = position ^ alpha
 	mutable sum = 0
-	for 40
+	for SeriesTerms
 		sum = sum + term / (alpha + index)
 		term = term * position * (index + 1 - beta) / (index + 1)
 	sum

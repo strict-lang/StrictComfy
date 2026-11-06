@@ -74,7 +74,7 @@ Keyframes(pictured List(Numbers), image Text, images Texts) List(Numbers)
 Indices Numbers
 	Sample.Indices.Length is 0
 	H3Inputs(H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
-	let last = (options.Shapes(0) - 2) / 5 * 17 + 4
+	let last = (options.Shapes(0) - 2) / 5 * H3Format.FrameGroup + 4
 	let first = options.files.image is "" then List(Number) else List(Number) + 0
 	options.files.lastImage is "" then first else first + last
 Output(image Text) Text

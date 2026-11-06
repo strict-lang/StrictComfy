@@ -14,11 +14,11 @@ constant Embedding = Tiny.Embedded(Window)
 constant Turning = Tiny.Rotations(7, 2, 2)
 constant Circle = 6.283185307179586
 Loaded(model Safetensors) Slow(H3Decoder)
-	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24)
-	Tiny.registers.Length is 1280
+	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
 	let embedded = MossText.Dense(decoder, "x_embedder")
-	let mixed = Batch(Split(model.Values("post_quant_conv.weight"), 24), model.Values("post_quant_conv.bias"))
+	let quantized = Split(model.Values("post_quant_conv.weight"), H3Format.Channels)
+	let mixed = Batch(quantized, model.Values("post_quant_conv.bias"))
 	let tokens = decoder.Values("register_tokens")
 	let suffix = tokens + Layer.Zeros(tokens.Length / 4)
 	let weights = decoder.Values("norm_out.weight")
@@ -57,7 +57,8 @@ Embedded(tile Numbers) Slow(Numbers)
 Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	Turning.Length is 4224
 	Turning(3649) is 0
-	H3DecoderBlock.Decoding.Table(Coordinates(frames, height, width) + Layer.Zeros(15), Frequencies, Circle)
+	let origins = Layer.Zeros(3 * H3Format.Registers)
+	H3DecoderBlock.Decoding.Table(Coordinates(frames, height, width) + origins, Frequencies, Circle)
 Frequencies Slow(Numbers)
 	Tiny.Frequencies(1).IsNearlyEqual(0.5623413)
 	Tiny.Frequencies.Length is 8

@@ -5,6 +5,8 @@ has expansion List(Numbers)
 has reduction List(Numbers)
 has rotated = true
 has deltas List(MossLora) = List(MossLora)
+constant Cap = 25
+constant Layers = 41
 constant Model = Safetensors("tinymoss.safetensors")
 constant Tiny = MossBlock.Loaded(Model, "layers.0.", "")
 constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
@@ -116,7 +118,7 @@ Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
 	let squashed = 4 * (2 / (1 + (-gate / 2).Exponential) - 1) / (1 + (-gate).Exponential)
-	squashed * 25 * (2 / (1 + (-hidden * 2 / 25).Exponential) - 1)
+	squashed * Cap * (2 / (1 + (-hidden * 2 / Cap).Exponential) - 1)
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s
 	let size = weights.Length
 	let heads = width / size

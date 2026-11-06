@@ -2,6 +2,8 @@ has entry Convolution
 has blocks List(Taef2Block)
 has upsamples List(Convolution)
 has exit Convolution
+constant UpsampleLayers = (6, 11, 16)
+constant Shrink = 0.7071
 constant Tiny = Taef2Decoder.Loaded("tinytaef2.safetensors")
 constant Latent = Safetensors("tinytaef2.safetensors").Values("latent")
 constant Layers = (2, 3, 4, 7, 8, 9, 12, 13, 14, 17)
@@ -21,7 +23,7 @@ Blocks(model Safetensors) Slow(List(Taef2Block))
 		Taef2Block.Loaded(model, (value to Text) + ".")
 Upsamples(model Safetensors) Slow(List(Convolution))
 	Tiny.Upsamples(Taef2Block.Model).Length is 3
-	for (6, 11, 16)
+	for UpsampleLayers
 		let upsample = FluxResnet.Convolved(model, value to Text)
 		Convolution(upsample.Folds, upsample.biases)
 Entered(latent Numbers, width Number) Slow(FeatureMap)
@@ -53,7 +55,7 @@ Finished(map FeatureMap) Slow(Numbers)
 Shrunk(size Number) Number
 	Tiny.Shrunk(60) is 42
 	Tiny.Shrunk(106) is 75
-	(size * 0.7071).Round
+	(size * Shrink).Round
 Blended(values Numbers, row Number, x Number, size Numbers, channels Number, channel Number) Number
 	Tiny.Blended((1, 3), 0, 0.5, (2, 1), 1, 0) is 2
 	Tiny.Blended((1, 3, 5, 7), 1, 0, (2, 2), 1, 0) is 5

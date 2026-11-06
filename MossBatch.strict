@@ -1,6 +1,7 @@
 has logger
 has options MossOptions
 has prompted = ""
+constant JpegQuality = 85
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
 constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
 constant Prompted = ("--models", ".", "--prompt", "a cat")
@@ -100,7 +101,7 @@ Saved(image Numbers, started Number, seed Number, prompt Text, planned Text) Slo
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
 	else
-		ImageCodec.SaveJpeg(path, image, options.width, 85)
+		ImageCodec.SaveJpeg(path, image, options.width, JpegQuality)
 	if options.JsonOutput
 		File(path + ".json").Write(List(Text) + Described(seed, prompt))
 	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms")

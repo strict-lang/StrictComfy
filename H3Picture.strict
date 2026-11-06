@@ -1,5 +1,6 @@
 has encoder H3VaeEncoder
 has tiling H3Tiles
+constant Statistics = 2 * H3Format.Channels
 constant Tiny = H3Picture(H3VaeEncoder.Tiny, H3Tiles.Tiny)
 constant Image = H3VaeEncoder.Model.Values("reference.image")
 constant Reference = H3VaeEncoder.Model.Values("reference.latent")
@@ -24,7 +25,7 @@ Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers) Slow(Number
 	let plane = size(0) * size(1) / 256
 	let tall = tiling.Length(size(0)) / 16
 	let wide = tiling.Length(size(1)) / 16
-	for 24 * plane
+	for H3Format.Channels * plane
 		let row = (index % plane / (size(1) / 16)).Floor
 		let column = index % (size(1) / 16)
 		let above = tiling.Owner(ys, row * 16)
@@ -33,14 +34,14 @@ Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers) Slow(Number
 		Value(moments, place, (xs.Length, tall, wide, Extent(ys, above, tall), Extent(xs, left, wide)))
 Value(moments List(Numbers), place Numbers, extents Numbers) Number
 	let tile = place(0) * extents(0) + place(1)
-	let own = moments(tile)((place(2) * extents(2) + place(3)) * 48 + place(4))
+	let own = moments(tile)((place(2) * extents(2) + place(3)) * Statistics + place(4))
 	let upper = place(0) > 0 and place(2) < extents(3)
 	let higherRow = extents(1) - extents(3) + place(2)
-	let higher = upper then moments(tile - extents(0))((higherRow * extents(2) + place(3)) * 48 + place(4)) else 0
+	let higher = upper then moments(tile - extents(0))((higherRow * extents(2) + place(3)) * Statistics + place(4)) else 0
 	let vertical = upper then higher * (1 - place(2) / extents(3)) + own * place(2) / extents(3) else own
 	let leftward = place(1) > 0 and place(3) < extents(4)
 	let besideColumn = extents(2) - extents(4) + place(3)
-	let beside = leftward then moments(tile - 1)((place(2) * extents(2) + besideColumn) * 48 + place(4)) else 0
+	let beside = leftward then moments(tile - 1)((place(2) * extents(2) + besideColumn) * Statistics + place(4)) else 0
 	let blended = leftward then beside * (1 - place(3) / extents(4)) + vertical * place(3) / extents(4) else vertical
 	(blended - encoder.Means(place(4))) / encoder.Deviations(place(4))
 Extent(starts Numbers, at Number, size Number) Number
@@ -56,7 +57,7 @@ Frame(path Text, size Numbers, cropped Boolean) Slow(Numbers)
 	let original = (image.Size.Height, image.Size.Width)
 	let box = cropped then Cropped(original, size) else (0, original(0), 0, original(1))
 	for Lanczos.Resized(Bytes(image.Colors, original(1), box), (box(1), box(3)), size)
-		value / 255
+		value / Byte.Max
 Cropped(original Numbers, size Numbers) Numbers
 	Tiny.Cropped((2, 4), (2, 2)) is (0, 2, 1, 2)
 	Tiny.Cropped((4, 2), (2, 2)) is (1, 2, 0, 2)
@@ -71,4 +72,4 @@ Bytes(colors List(ColorValue), width Number, box Numbers) Numbers
 		let pixel = index % pixels
 		let channel = (index / pixels).Floor
 		let color = colors((box(0) + (pixel / box(3)).Floor) * width + box(2) + pixel % box(3))
-		((channel is 0 then color.Red else channel is 1 then color.Green else color.Blue) * 255).Round
+		((channel is 0 then color.Red else channel is 1 then color.Green else color.Blue) * Byte.Max).Round
