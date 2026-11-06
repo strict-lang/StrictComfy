@@ -35,7 +35,7 @@ Positions Numbers
 		Position((index / 3).Floor, index % 3)
 Position(token Number, axis Number) Number
 	(Tiny.Position(7, 0) is 4) and (Tiny.Position(2, 0) is 2) and (Tiny.Position(2, 1) is 0)
-	H3Layout(Tiny, keyframes = List(Number) + 0).Position(6, 1) is 16
+	(H3Layout(Tiny, keyframes = List(Number) + 0).Position(6, 1) is 16) and (Tiny.Position(12, 2) is 16)
 	H3Layout(Tiny, keyframes = List(Number) + 5).Position(3, 0).IsNearlyEqual(11.333333)
 	H3Layout(Tiny, keyframes = List(Number) + 0).Position(17, 0).IsNearlyEqual(4.666667)
 	if token < Words
