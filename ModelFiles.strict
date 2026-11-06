@@ -27,7 +27,7 @@ Spec(text Text) Text
 	ModelFiles(".").Spec("tinylora.safetensors:0.50") is Error("FileNotFound:tinylora.safetensors:0.50")
 	ModelFiles("tinymodels").Spec("tinyfolderlora.safetensors:0.5") is "tinymodels/loras/tinyfolderlora.safetensors=0.5"
 	let at = text.LastIndexOf(":")
-	let strength = at > 1 then text.Substring(at + 1, text.Length) else ""
+	let strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	let numeric = (strength to Number) to Text is strength
 	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
 Described(path Text) Text

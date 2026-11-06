@@ -16,8 +16,8 @@ Run(arguments Texts) Number
 		return H3Encoding(logger, arguments).Encoded
 	if (arguments.Length > 1) and (arguments(0) is "--commands")
 		return H3Commands(logger, arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed
-	if (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
-		return H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).Completed
+	if H3Client.IsServing(arguments)
+		return H3Client(logger, H3Server.Root).Ran(arguments)
 	if arguments.Length < 2
 		logger.Log("--help or: " + Positional)
 		return 2

@@ -37,7 +37,8 @@ TokenLength(at Number) Number
 	let first = expression.Substring(at, 1)
 	let allowed = first is in Digits then Digits else first is in Letters then Letters + Digits else ""
 	if allowed is ""
-		return expression.Substring(at, 2) is in ("//", "**") then 2 else 1
+		let pair = at + 1 < expression.Length then expression.Substring(at, 2) else first
+		return pair is in ("//", "**") then 2 else 1
 	for Range(at + 1, expression.Length)
 		if expression.Substring(index, 1) is not in allowed
 			return index - at

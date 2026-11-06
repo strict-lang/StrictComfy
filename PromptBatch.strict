@@ -45,7 +45,7 @@ Chosen(text Text, draw Number) Text
 	if open < 0
 		return Error("UnmatchedBrace")
 	let choices = text.Substring(open + 1, close - open - 1).Split("|")
-	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length)
+	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
 Reserved(base Text) Text
 	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
 	Sample.Reserved("artifacts/PromptBatchTest.png") is "artifacts/PromptBatchTest0001.png"
@@ -71,7 +71,7 @@ Free(base Text, first Number) Number
 Named(base Text, number Number) Text
 	Sample.Named("a.jpg", 7) is "a0007.jpg"
 	let dot = base.LastIndexOf(".")
-	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length)
+	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
 IsTaken(path Text) Boolean
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false

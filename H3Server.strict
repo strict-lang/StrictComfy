@@ -1,0 +1,62 @@
+has logger
+has resident Resident
+constant IdleSeconds = 900
+constant LowMemory = 4294967296
+constant LowDevice = 536870912
+constant Stopped = -3
+constant Sample = H3Server(Logger, Resident("artifacts/h3test"))
+Root Text
+	H3Server.Root.EndsWith("/artifacts/h3")
+	H3Artifacts(H3Options.Parsed(List(Text))).Folder
+Served Number
+	let server = Opened
+	if server is 0
+		return 1
+	let built = File(Process.Current.executable).Modified
+	mutable kept = H3Resident(logger)
+	mutable last = Process.Elapsed
+	for as long as (kept.code is not Stopped) and IsWanted(Process.Elapsed - last, built)
+		let socket = resident.Accepted(server, built)
+		kept = socket > 0 then Replied(socket, kept) else kept
+		last = socket > 0 then Process.Elapsed else last
+		Unpressed
+	resident.Closed(server)
+Opened Number
+	let objects = resident.root + "/obj"
+	let hasRoot = Directory.Exists(resident.root) or Directory.Create(resident.root)
+	let hasObjects = hasRoot and (Directory.Exists(objects) or Directory.Create(objects))
+	hasObjects then resident.Opened else 0
+IsWanted(idle Number, built Number) Boolean
+	Sample.IsWanted(0, File(Process.Current.executable).Modified)
+	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
+	Sample.IsWanted(0, 0) is false
+	let available = GpuMemory.HostAvailable
+	let hasRoom = (available is 0) or (available > LowMemory)
+	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
+Unpressed Number
+	Sample.Unpressed >= 0
+	let available = GpuMemory.Available
+	(available > 0) and (available < LowDevice) then GpuMemory.Evicted + GpuMemory.Released else 0
+Replied(socket Number, kept H3Resident) Slow(H3Resident)
+	let request = resident.Requested(socket)
+	let isStopping = resident.Arguments(request) is (Resident.Stopping)
+	let isRunning = resident.IsCurrent(request) and (isStopping is false)
+	let skipped = H3Resident(kept, code = isStopping then Stopped else -1)
+	let served = isRunning then Ran(socket, request, kept) else skipped
+	let isFailed = served is Error
+	resident.Finished(socket, isFailed then 1 else (served.code is Stopped then 0 else served.code))
+	resident.Released(request)
+	isFailed then H3Resident(logger) else served
+Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
+	let home = Directory.Current
+	let folder = resident.Folder(request)
+	let isMoved = (folder is not home) and Directory.Change(folder)
+	Socket.Output(socket)
+	let arguments = resident.Arguments(request)
+	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
+	if served is Error
+		logger.Log("The run failed, the next one loads the models again")
+	Socket.Output(0)
+	if isMoved
+		Directory.Change(home)
+	served

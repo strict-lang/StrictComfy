@@ -1,0 +1,46 @@
+has batch H3Batch
+Completed(kept H3Resident) Slow(H3Resident)
+	let options = batch.options
+	let problem = H3Inputs(options).Problem
+	if problem is not ""
+		batch.logger.Log(problem)
+		return H3Resident(kept, code = 2)
+	let started = Process.Elapsed
+	let plan = batch.Planned
+	let made = Videos(Contexted(kept, plan).Sampling(options.Checkpoint, options.Loras), plan)
+	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
+	made
+Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
+	let options = batch.options
+	let latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
+	let conditions = H3Artifacts(options).Read(plan.paths)
+	let vaes = (options.files.Decoder, options.files.Sound)
+	if sampling.decodings.Length is 0
+		batch.Prefetched(vaes, "the VAEs")
+	plan.batch.Sampled(sampling.samplers.First, sampling.refiners.First, plan, conditions, latents, true)
+	GpuMemory.Evicted
+	let decoding = sampling.Decoding(vaes)
+	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
+	H3Resident(decoding, code = plan.seeds.Length)
+Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
+	let artifacts = H3Artifacts(batch.options)
+	let missing = artifacts.Missing(plan.paths)
+	if missing.Length is 0
+		batch.logger.Log("Using cached prompt conditioning")
+		return kept
+	let encoding = kept.Encoding(batch.options.files)
+	Directory.Create(artifacts.Root + "/artifacts")
+	Directory.Create(artifacts.Folder)
+	Encoded(encoding, plan, missing)
+	GpuMemory.Evicted
+	encoding
+Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Slow(Number)
+	let options = batch.options
+	let inputs = H3Inputs(options)
+	let isLoaded = encoding.IsSampling(options.Checkpoint, options.Loras)
+	let reading = isLoaded then List(Text) else List(Text) + options.Checkpoint + batch.LoraFiles
+	let size = (options.height, options.width)
+	let encoder = H3Encoder(batch.logger, options.files, size, List(QwenVision), reading)
+	let prompts = inputs.Picked(plan.prompts, missing)
+	let images = inputs.Picked(plan.images, missing)
+	encoder.EncodedWith(encoding.encoders.First, prompts, images, inputs.Picked(plan.paths, missing))

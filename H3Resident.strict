@@ -1,0 +1,49 @@
+has logger
+has encoders List(Qwen3) = List(Qwen3)
+has encoderFile = ""
+has samplers List(H3) = List(H3)
+has refiners List(H3Refiner) = List(H3Refiner)
+has model = ""
+has decodings List(H3Decoding) = List(H3Decoding)
+has vaes = ""
+has code = 0
+constant None = H3Resident(Logger)
+constant Files = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
+constant Encoded = H3Resident.None.Encoding(H3Resident.Files)
+constant Sampled = H3Resident.None.Sampling("tinyh3.safetensors", "")
+constant Decoders = ("tinyh3vae.safetensors", "tinyh3audio.safetensors")
+Encoding(files H3Files) Slow(H3Resident)
+	Encoded.encoders.Length is 1
+	Encoded.Encoding(Files).encoders.First.blocks.Length is 2
+	Encoded.Encoding(Files).encoderFile is Encoded.encoderFile
+	if (files.Encoder is encoderFile) and (encoders.Length is 1)
+		return value
+	let before = Process.Elapsed
+	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
+	let encoder = H3Encoder(logger, files).Loaded
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s, it stays loaded for the next runs")
+	H3Resident(value, encoders = List(Qwen3) + encoder, encoderFile = files.Encoder)
+Sampling(checkpoint Text, loras Text) Slow(H3Resident)
+	Sampled.samplers.First.blocks.Length is 2
+	Sampled.refiners.Length is 1
+	Sampled.Sampling("tinyh3.safetensors", "").model is Sampled.model
+	if (Key(checkpoint, loras) is model) and (samplers.Length is 1)
+		return value
+	let h3 = H3Video(logger).Loaded(checkpoint, loras)
+	let refiner = H3Refiner.Loaded(checkpoint, loras)
+	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
+Key(checkpoint Text, loras Text) Text
+	None.Key("a.safetensors", "b=1") is "a.safetensors|b=1"
+	checkpoint + "|" + loras
+IsSampling(checkpoint Text, loras Text) Boolean
+	Sampled.IsSampling("tinyh3.safetensors", "")
+	Sampled.IsSampling("tinyh3.safetensors", "a=1") is false
+	None.IsSampling("tinyh3.safetensors", "") is false
+	(Key(checkpoint, loras) is model) and (samplers.Length is 1)
+Decoding(files Texts) Slow(H3Resident)
+	Sampled.Decoding(Decoders).decodings.Length is 1
+	Sampled.Decoding(Decoders).Decoding(Decoders).vaes is Text.Combine(Decoders, "|")
+	if (Text.Combine(files, "|") is vaes) and (decodings.Length is 1)
+		return value
+	let decoding = H3Video(logger).Decoding(List(H3Decoding), files)
+	H3Resident(value, decodings = decoding, vaes = Text.Combine(files, "|"))

@@ -13,10 +13,12 @@ constant Spelled = Gpt2Tokens.Parsed("{\"<\": 0, \"P\": 1, \"i\": 2, \"c\": 3, \
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
-	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 	let encoder = Loaded
-	let loaded = H3Encoder(logger, files, frame, Visions)
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
+	EncodedWith(encoder, prompts, images, paths)
+EncodedWith(encoder Qwen3, prompts Texts, images Texts, paths Texts) Slow(Number)
+	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
+	let loaded = H3Encoder(logger, files, frame, Visions)
 	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
 	if reading is not ""
 		logger.Log(reading + " while encoding")
