@@ -29,9 +29,24 @@ Sampling(checkpoint Text, loras Text) Slow(H3Resident)
 	Sampled.Sampling("tinyh3.safetensors", "").model is Sampled.model
 	if (Key(checkpoint, loras) is model) and (samplers.Length is 1)
 		return value
+	GpuMemory.Released
 	let h3 = H3Video(logger).Loaded(checkpoint, loras)
 	let refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
+Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
+	Sampled.Trimmed("tinyh3.safetensors", "", false).samplers.Length is 1
+	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).samplers.Length is 0
+	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).model is ""
+	Encoded.Trimmed("tinyh3.safetensors", "", true).encoders.Length is 0
+	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
+	let isOther = (samplers.Length is 1) and (IsSampling(checkpoint, loras) is false)
+	if isOther
+		logger.Log("Freeing the loaded H3 first, this run needs another model or LoRAs")
+		return H3Resident(value, samplers = List(H3), refiners = List(H3Refiner), model = "")
+	let isDropped = isTight and (encoders.Length is 1)
+	if isDropped
+		logger.Log("Freeing the text encoder, little memory is left (it loads again for a new prompt)")
+	isDropped then H3Resident(value, encoders = List(Qwen3), encoderFile = "") else value
 Key(checkpoint Text, loras Text) Text
 	None.Key("a.safetensors", "b=1") is "a.safetensors|b=1"
 	checkpoint + "|" + loras

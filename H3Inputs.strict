@@ -7,7 +7,7 @@ Problem Text
 	Sample.Problem is ""
 	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
 	H3Inputs(H3Options.Parsed(("--prompt", "web"))).Problem is "--prompt web has no txt files"
-	H3Inputs(H3Options.Parsed(("--width", "500"))).Problem is "--width and --height must be positive multiples of 16"
+	H3Inputs(H3Options.Parsed(("--width", "500"))).Problem is "--width and --height must be positive multiples of 32"
 	if Images.Length is 0
 		return "--image " + options.files.image + " has no png or jpg files"
 	if Prompts.Length is 0

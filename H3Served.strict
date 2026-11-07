@@ -21,7 +21,7 @@ Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
 	GpuMemory.Evicted
 	let decoding = sampling.Decoding(vaes)
 	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
-	H3Resident(decoding, code = plan.seeds.Length)
+	H3Resident(decoding, code = 0)
 Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
 	let artifacts = H3Artifacts(batch.options)
 	let missing = artifacts.Missing(plan.paths)
@@ -33,6 +33,7 @@ Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
 	Directory.Create(artifacts.Folder)
 	Encoded(encoding, plan, missing)
 	GpuMemory.Evicted
+	GpuMemory.Released
 	encoding
 Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Slow(Number)
 	let options = batch.options

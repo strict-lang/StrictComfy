@@ -3,7 +3,7 @@ has file Text
 has arguments Texts
 constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
 constant Sized = "--length 5 --width 32 --height 32"
-constant Unsized = "--width and --height must be positive multiples of 16"
+constant Unsized = "--width and --height must be positive multiples of 32"
 Completed Number
 	let lines = Lines
 	if lines.Length is 0

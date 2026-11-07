@@ -33,7 +33,7 @@ QUALITIES = {
 	'best': (H3_BASE, 8, 0, '', [H3_TURBO], 'the turbo LoRA of the H3 template, 8 steps'),
 	'fast': (H3_BASE, 8, 1, '', [H3_TURBO], 'best with routed attention like Sol-Attn'),
 	'faster': (H3_BASE, 8, 1, 'w1p2', [H3_TURBO], 'fast with Spectrum (5 of 8 steps evaluated)'),
-	'fastest4steps': (H3_BASE, 4, 1, '', [H3_TURBO], '4 routed turbo steps'),
+	'fastest4steps': (H3_BASE, 4, 1, '', [H3_TAOMATE], 'the TaoMate 3-step LoRA instead, 4 routed steps'),
 	'fastest2steps': (H3_BASE, 2, 1, '', [H3_TAOMATE], 'the TaoMate 3-step LoRA instead, 2 routed steps, lowest quality')}
 # Moss quality: steps, guidance, Spectrum warmup and period, description; 8 steps or fewer add a turbo LoRA
 TURBO_LORAS = ('dmd_turbo_lora.safetensors', 'moss_image_sft_4step_v2.0.safetensors')

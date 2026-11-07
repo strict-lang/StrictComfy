@@ -130,7 +130,7 @@ Prefixed(header Text, name Text, suffix = "lora_") Text
 	""
 Report Text
 	H3Lora("").Report is ""
-	Half.Report is ", tinyh3lora.safetensors applies 51 of its 61 tensors"
+	Half.Report is ", tinyh3lora.safetensors applies 53 of its 61 tensors"
 	if loras is ""
 		return ""
 	mutable report = ""
@@ -145,8 +145,9 @@ Applied(header Text) Number
 	Half.Applied("\"lora_unet_b_mlp_fc1.lora_down.weight\":{},\"lora_unet_b_mlp_fc1.alpha\":{}") is 2
 	Half.Applied("\"audio_out.lora_A.weight\",\"b.norm.diff\",\"final_layer.norm.diff\",\"condition_proj.diff_b\"") is 2
 	Half.Applied("\"video_patch_proj.lora_A.weight\":{},\"video_patch_proj.alpha\":{}") is 2
+	Half.Applied("\"final_layer.adaln_proj.linear.lora_A.weight\":{},\"b.adaln_proj.linear.lora_B.weight\"") is 2
 	mutable count = 0
-	for Linears
+	for Linears + "adaln_proj.linear"
 		count = count + Counted(header, "." + value + ".") + Counted(header, "_" + value.Replace(".", "_") + ".")
 	for Floats
 		count = count + Counted(header, value + ".") + header.Split(value + ".diff").Length - 1

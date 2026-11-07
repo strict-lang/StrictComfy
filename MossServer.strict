@@ -48,6 +48,7 @@ Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	let arguments = backend.resident.Arguments(request)
 	let served = MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
+		logger.Log(served to Text)
 		logger.Log("The run failed, the next one loads the models again")
 	Socket.Output(0)
 	if isMoved

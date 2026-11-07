@@ -1,5 +1,6 @@
 has logger
 has backend Backend
+constant Tight = 25769803776
 Root Text
 	H3Server.Root.EndsWith("/artifacts/h3")
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
@@ -12,13 +13,30 @@ Served Number
 	mutable last = Process.Elapsed
 	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
 		let socket = backend.resident.Accepted(server, built)
-		kept = socket > 0 then Replied(socket, kept) else kept
+		let request = socket > 0 then backend.resident.Requested(socket) else ""
+		kept = socket > 0 then Trimmed(socket, request, kept) else kept
+		kept = socket > 0 then Replied(socket, request, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
 		backend.Unpressed
 	backend.resident.Closed(server)
-Replied(socket Number, kept H3Resident) Slow(H3Resident)
+Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
-	let request = resident.Requested(socket)
+	let arguments = resident.Arguments(request)
+	if (resident.IsCurrent(request) is false) or (arguments is (Resident.Stopping))
+		return kept
+	let home = Directory.Current
+	let folder = resident.Folder(request)
+	let isMoved = (folder is not home) and Directory.Change(folder)
+	Socket.Output(socket)
+	let options = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).options
+	let isValid = (options is Error) is false
+	let trimmed = isValid then kept.Trimmed(options.Checkpoint, options.Loras, GpuMemory.HostAvailable < Tight) else kept
+	Socket.Output(0)
+	if isMoved
+		Directory.Change(home)
+	trimmed
+Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
+	let resident = backend.resident
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)
 	let isRunning = resident.IsCurrent(request) and (isStopping is false)
 	let skipped = H3Resident(kept, code = isStopping then Backend.Stopped else -1)
@@ -35,6 +53,7 @@ Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let arguments = backend.resident.Arguments(request)
 	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
+		logger.Log(served to Text)
 		logger.Log("The run failed, the next one loads the models again")
 	Socket.Output(0)
 	if isMoved

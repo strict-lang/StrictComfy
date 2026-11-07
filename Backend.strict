@@ -4,6 +4,8 @@ has name Text
 has room Number
 constant StartSeconds = 30
 constant PollSeconds = 0.2
+constant CheckSeconds = 5
+constant Gone = -2
 constant IdleSeconds = 900
 constant LowMemory = 4294967296
 constant LowDevice = 536870912
@@ -36,19 +38,46 @@ Attempted(arguments Texts) Number
 		logger.Log("Starting the " + name + " backend, it keeps the models loaded for the next runs (--local runs without it)")
 		Forwarding(logger, resident.root).Started
 	let port = Waited(StartSeconds)
-	port > 0 then Forwarding(logger, resident.root).Answered(port, arguments) else -1
+	let failed = port is Gone then 1 else -1
+	port > 0 then Forwarding(logger, resident.root).Answered(port, arguments) else failed
 Waited(seconds Number) Number
 	Sample.Waited(0) is 0
 	let started = Process.Elapsed
 	mutable isBusy = false
 	mutable port = 0
+	mutable checked = started - CheckSeconds
 	for as long as (port is 0) and (isBusy or (Process.Elapsed - started < seconds))
 		port = Port
-		if (port < 0) and (isBusy is false)
+		let isDue = (port < 0) and (Process.Elapsed - checked >= CheckSeconds)
+		checked = isDue then Process.Elapsed else checked
+		port = isDue and IsGone then Cleared else port
+		if (port is -1) and (isBusy is false)
 			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
 		isBusy = port < 0
-		port = port > 0 then port else Paused
+		port = (port > 0) or (port is Gone) then port else Paused
 	port
+IsGone Boolean
+	Sample.IsGone is false
+	let stamp = File(resident.root + Resident.Stamp)
+	stamp.Exists and Forwarding(logger, resident.root).IsDead(stamp.ReadLines.First to Number)
+Cleared Number
+	let objects = resident.root + "/obj"
+	let forwarding = Forwarding(logger, resident.root)
+	forwarding.Kept(objects, Forwarding.Output)
+	forwarding.Kept(objects, Forwarding.Errors)
+	logger.Log("The " + name + " backend ended without finishing its run (crashed or killed), its output:")
+	let printed = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
+	if printed is 0
+		logger.Log("(nothing, see " + objects + "/server.previous*.log)")
+	forwarding.Killed + Gone
+Printed(path Text) Number
+	Sample.Printed("missing.log") is 0
+	if File(path).Exists is false
+		return 0
+	let lines = File(path).ReadLines - ""
+	for lines
+		logger.Log(value)
+	lines.Length
 Port Number
 	Sample.Port is 0
 	let stamp = File(resident.root + Resident.Stamp)
