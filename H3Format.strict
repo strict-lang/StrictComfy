@@ -6,4 +6,5 @@ constant Blocks = 50
 constant Shift = 12
 constant Registers = 5
 constant DoubledBlocks = 0.76
-constant LateRouting = 1.3
+constant EarlyRouting = 1
+constant LateRouting = 0.65
