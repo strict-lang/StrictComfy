@@ -40,7 +40,7 @@ Served(h3 H3, refiner H3Refiner, arguments Texts) Number
 Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Texts) Slow(List(H3Decoding))
 	let conditions = Conditions(dumps)
 	let files = Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
-	GpuMemory.Evicted
+	H3Files.Parsed(("--model", arguments(1))).Freed
 	mutable decodings = loaded
 	for files
 		if conditions(index).Entry("decode") is not ""

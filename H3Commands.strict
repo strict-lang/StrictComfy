@@ -112,7 +112,7 @@ SampledWith(plans List(H3Plan), model Text) Slow(Number)
 			let latents = H3Artifacts(value.batch.options).Latents(value.seeds.Length, Prefix(index))
 			let conditions = H3Artifacts(value.batch.options).Read(value.paths)
 			videos = videos + value.batch.Sampled(h3, refiner, value, conditions, latents, videos is 0)
-	GpuMemory.Evicted
+	options.files.Freed
 	videos
 Decoded(plans List(H3Plan)) Slow(Number)
 	mutable decodings = List(H3Decoding)

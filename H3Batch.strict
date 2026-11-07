@@ -53,7 +53,7 @@ Videos(plan H3Plan, conditions List(Safetensors)) Slow(Number)
 	let latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
 	Prefetched((options.files.Decoder, options.files.Sound), "the VAEs")
 	Sampled(h3, refiner, plan, conditions, latents, true)
-	GpuMemory.Evicted
+	options.files.Freed
 	Decoded(latents, plan.images)
 LoraFiles Texts
 	Loraed.LoraFiles is ("tinylora.safetensors", "tinyqkvlora.safetensors")

@@ -43,3 +43,6 @@ Cropped(index Number) Boolean
 	H3Files.Parsed(List(Text)).Cropped(0) is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or (index is 1)
+Freed Number
+	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed >= 0
+	GpuMemory.Held + GpuMemory.Available > File(Checkpoint).Length then GpuMemory.Released else GpuMemory.Evicted

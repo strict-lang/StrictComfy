@@ -18,7 +18,7 @@ Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
 	if sampling.decodings.Length is 0
 		batch.Prefetched(vaes, "the VAEs")
 	plan.batch.Sampled(sampling.samplers.First, sampling.refiners.First, plan, conditions, latents, true)
-	GpuMemory.Evicted
+	options.files.Freed
 	let decoding = sampling.Decoding(vaes)
 	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
 	H3Resident(decoding, code = 0)
