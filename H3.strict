@@ -76,8 +76,8 @@ Leading(layout H3Layout) Slow(Number)
 	Tiny.Leading(H3Layout(H3Layout.Tiny, keyframes = List(Number) + 0)) is 13
 	layout.Words + layout.Conditions + 2 * layout.audio
 Routed(routing Number, block Number) Slow(Number)
-	Tiny.Routed(1, 0) is 1
-	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 0.65
+	Tiny.Routed(1, 0) is 0.7
+	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 0.455
 	routing * (block < blocks.Length * H3Format.DoubledBlocks then H3Format.EarlyRouting else H3Format.LateRouting)
 Rotation(layout H3Layout) Slow(Numbers)
 	Turned(0) is 1
