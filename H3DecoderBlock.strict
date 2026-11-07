@@ -55,11 +55,24 @@ Attended(normed Numbers, rotation Numbers) Slow(Numbers)
 	let width = combined.Length / (rotation.Length / 2 / Decoding.head) / 3
 	let scales = Qwen3Block.Scales(combined, Decoding.head, H3Block.Epsilon)
 	let ones = Decoding.Still(1)
-	let queries = Decoding.Rotated(combined, 0, width, ones, rotation, scales)
-	let keys = Decoding.Rotated(combined, width, width, ones, rotation, scales)
-	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
+	let queries = Widened(Decoding.Rotated(combined, 0, width, ones, rotation, scales), 2.SquareRoot)
+	let keys = Widened(Decoding.Rotated(combined, width, width, ones, rotation, scales), 1)
+	let values = Widened(Batch.Columns(combined, 3 * width, 2 * width, width), 1)
 	let heads = width / Decoding.head
-	Projected(output, Attention(queries, keys, values, heads, heads, Decoding.head, 1, false).Merged)
+	let eights = Attention(queries, keys, values, heads, heads, 2 * Decoding.head, 1, false, 0, 0, true)
+	Projected(output, Narrowed(eights.Merged))
+Widened(numbers Numbers, factor Number) Slow(Numbers)
+	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2
+	Tiny.Widened(Layer.Zeros(64), 1).Length is 128
+	let wide = 2 * Decoding.head
+	for numbers.Length * 2
+		let column = index % wide
+		column < Decoding.head then numbers((index / wide).Floor * Decoding.head + column) * factor else 0
+Narrowed(numbers Numbers) Slow(Numbers)
+	Tiny.Narrowed(Layer.Zeros(64) + 1 + Layer.Zeros(63))(0) is 0
+	Tiny.Narrowed(Layer.Zeros(128)).Length is 64
+	for numbers.Length / 2
+		numbers((index / Decoding.head).Floor * 2 * Decoding.head + index % Decoding.head)
 Fed(normed Numbers) Slow(Numbers)
 	Tiny.Fed(H3Decoder.Embedding).Length is 8448
 	let expanded = Projected(up, normed)
