@@ -25,11 +25,9 @@ Loaded(path Text, prefix Text, strength = 1) Slow(MossLora)
 	let downs = Packed(file.Values(peft then "lora_A.weight" else "lora_down.weight"), 1)
 	let ups = Packed(file.Values(peft then "lora_B.weight" else "lora_up.weight"), Gain * strength * ratio)
 	MossLora(downs, ups, shape(0), shape(1))
-Packed(values Numbers, scale Number) BFloat16s
+Packed(values Numbers, scale Number) Float32s
 	MossLora.Packed((0.5, -1.25), 2) is (1, -2.5)
 	MossLora.Packed((0.5, -1.25), 1) is (0.5, -1.25)
-	if scale is 1
-		return values
 	for values
 		value * scale
 DownProjected(input Numbers, total Number) Numbers
