@@ -43,9 +43,9 @@ Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, picture
 		let prompt = "prompt " + (index + 1) + "/" + paths.Length
 		logger.Log("Encoding " + prompt + " on the GPU" + (index is 0 then ", uploading the text encoder into VRAM" else ""))
 		let hidden = Hidden(Qwen3(encoder, progress = "Encoding " + prompt), texts, images(index))
+		GpuMemory.Finished
 		logger.Log("Encoded " + prompt + " in " + (Process.Elapsed - before).Round(1) + " s")
-		let tags = Tags(texts, hidden.Length / encoder.norm.Length)
-		Safetensors(value).Written(("context", "tags"), (hidden, tags))
+		Safetensors(value).Written(("context", "tags"), (hidden, Tags(texts, hidden.Length / encoder.norm.Length)))
 Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	Tiny.Texts(List(Numbers), (1, 2)) is List(Numbers) + (1, 2)
 	Tiny.Texts(List(Numbers) + (5, 151652), (1, 2)) is ((5, 151652), (151653, 1, 2))
