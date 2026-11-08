@@ -6,6 +6,7 @@ has workflow = ""
 constant FourSteps = "moss/moss_image_sft_4step_v2.0.safetensors"
 constant Dmd = "moss/dmd_turbo_lora.safetensors"
 constant Help = ("Moss int8 Convrot model file or a 4 bit .gguf (LoRAs merged, like moss_image_sft_turbo-Q4_K_M.gguf for 8 steps), a name in models/diffusion_models or a path, empty for moss-image-sft-dit-int8-convrot.safetensors", "image decoder: taef2.safetensors (tiny, fastest), the Flux 2 VAE flux2-vae.safetensors or the FLUX.2 small decoder (its full_encoder_small_decoder.safetensors), a name in models/vae or models/vae_approx or a path, empty for taef2.safetensors when it is in models/vae_approx, else flux2-vae.safetensors", "Qwen3.5 9B text encoder file (int8 Convrot or a .gguf like Qwen3.5-9B-Q4_K_M.gguf), a name in models/text_encoders or a path, empty for qwen3.5_9b_int8_convrot.safetensors; its tokenizer folder qwen35_tokenizer is used from next to it, else from ComfyUI", "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models", "ComfyUI image workflow (.json saved in ComfyUI, a path or a name in user/default/workflows) whose model, LoRAs, prompt, size, seed and steps this run uses, options after it change them")
+constant Encoding = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--text_encoder", "tinymoss.safetensors", "--models", "."))
 constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
 Folder Text
 	Local.Folder is "."
@@ -43,3 +44,7 @@ Workflow Text
 	MossFiles.Parsed(("--workflow", "tinymossworkflow.json")).Workflow is "tinymossworkflow.json"
 	MossFiles.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
+Freed Number
+	Encoding.Freed >= 0
+	let sizes = File(Checkpoint).Length + File(Encoder).Length
+	GpuMemory.Held + GpuMemory.Available > sizes then GpuMemory.Released else GpuMemory.Evicted

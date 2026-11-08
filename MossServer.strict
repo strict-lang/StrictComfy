@@ -36,7 +36,8 @@ Replied(socket Number, kept MossResident) Slow(MossResident)
 	let skipped = MossResident(kept, code = isStopping then Backend.Stopped else -1)
 	let served = isRunning then Ran(socket, request, kept) else skipped
 	let isFailed = served is Error
-	GpuMemory.Evicted
+	if isFailed
+		GpuMemory.Evicted
 	resident.Finished(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code))
 	resident.Released(request)
 	isFailed then MossResident(logger, true) else served

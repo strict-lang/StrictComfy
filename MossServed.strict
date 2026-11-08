@@ -16,8 +16,9 @@ Completed(kept MossResident) Slow(MossResident)
 	if options.output.EndsWith(".safetensors")
 		Safetensors(options.output).Written("context", contexts.First)
 		return MossResident(encoded, code = 0)
-	GpuMemory.Evicted
+	options.files.Freed
 	let sampling = encoded.Sampling(batch)
 	batch.Images(sampling.mosses.First, seeds, prompts, unique, contexts)
+	options.files.Freed
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + options.count + " images")
 	MossResident(sampling, code = 0)

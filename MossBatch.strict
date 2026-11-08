@@ -45,7 +45,7 @@ Images(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numb
 	let sampled = Process.Elapsed
 	let latents = Latents(moss, seeds, prompts, unique, contexts, outputs)
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
-	GpuMemory.Evicted
+	options.files.Freed
 	let decoded = Process.Elapsed
 	Decoded(latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + seeds.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
