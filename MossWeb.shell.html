@@ -176,7 +176,10 @@
 		}
 		if (original.startsWith("Workflow: "))
 			return applied(original.slice(10).split("\t"));
-		const text = original.replace(/\b(\d+) ms\b/g, (match, milliseconds) => (milliseconds / 1000).toFixed(3) + " s");
+		if (original.startsWith("Warning: GarbageCollection"))
+			return;
+		const text = original.replace(/\b(\d+) ms\b/g, (match, milliseconds) => (milliseconds / 1000).toFixed(3) + " s")
+			.replace(/ \(0 GB\) from disk into memory$/, "");
 		log.textContent += text + "\n";
 		requestAnimationFrame(() => log.scrollTop = log.scrollHeight);
 		const encoded = original.match(/^Encoded prompt \d+\/\d+: (.*)/);
