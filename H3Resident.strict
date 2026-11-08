@@ -10,6 +10,7 @@ has vaes = ""
 has code = 0
 has plans List(H3Plan) = List(H3Plan)
 has isCrowded = false
+constant EncoderGrowth = 1.6
 constant None = H3Resident(Logger)
 constant Files = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
 constant Encoded = H3Resident.None.Encoding(H3Resident.Files)
@@ -64,10 +65,13 @@ Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	isDropped then H3Resident(value, encoders = List(Qwen3), encoderFile = "") else value
 Missing(files H3Files) Slow(Number)
 	None.Missing(Whole.options.files) > Encoded.Missing(Whole.options.files)
-	let encoder = encoders.Length is 1 then 0 else File(files.Encoder).Length
+	let encoder = encoders.Length is 1 then 0 else EncoderRoom(files)
 	let sampler = samplers.Length is 1 then 0 else File(files.Checkpoint).Length
 	let decoder = decodings.Length is 1 then 0 else File(files.Decoder).Length + File(files.Sound).Length
 	encoder + sampler + decoder
+EncoderRoom(files H3Files) Slow(Number)
+	None.EncoderRoom(Whole.options.files) is File(Whole.options.files.Encoder).Length * EncoderGrowth
+	File(files.Encoder).Length * EncoderGrowth
 Crowded(batch H3Batch) Slow(H3Resident)
 	Sampled.Crowded(Whole).isCrowded is false
 	let options = batch.options
