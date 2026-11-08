@@ -34,12 +34,12 @@ Attempted(arguments Texts) Number
 	let isRunning = File(resident.root + Resident.Stamp).Exists
 	if (isRunning is false) and (HasRoom is false)
 		return -1
-	if isRunning is false
+	if (isRunning is false) and Rooted
 		logger.Log("Starting the " + name + " backend, it keeps the models loaded for the next runs (--local runs without it)")
-		Forwarding(logger, resident.root).Started
+		Forwarding(logger, resident.root).Started("")
 	let port = Waited(StartSeconds)
 	let failed = port is Gone then 1 else -1
-	port > 0 then Forwarding(logger, resident.root).Answered(port, arguments) else failed
+	port > 0 then Forwarding(logger, resident.root).Answered(resident, port, arguments) else failed
 Waited(seconds Number) Number
 	Sample.Waited(0) is 0
 	let started = Process.Elapsed
@@ -96,9 +96,13 @@ Stop Number
 	Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
 Opened Number
 	let objects = resident.root + "/obj"
-	let hasRoot = Directory.Exists(resident.root) or Directory.Create(resident.root)
-	let hasObjects = hasRoot and (Directory.Exists(objects) or Directory.Create(objects))
+	let hasObjects = Rooted and (Directory.Exists(objects) or Directory.Create(objects))
 	hasObjects then resident.Opened else 0
+Rooted Boolean
+	Sample.Rooted
+	let parent = Path(resident.root).PathOnly.text
+	let hasParent = Directory.Exists(parent) or Directory.Create(parent)
+	hasParent and (Directory.Exists(resident.root) or Directory.Create(resident.root))
 IsWanted(idle Number, built Number) Boolean
 	Sample.IsWanted(0, File(Process.Current.executable).Modified)
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
