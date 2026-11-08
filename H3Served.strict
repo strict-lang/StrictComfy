@@ -23,20 +23,20 @@ Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
 	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
 	H3Resident(decoding, code = 0)
 Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
-	let artifacts = H3Artifacts(batch.options)
-	let missing = artifacts.Missing(plan.paths)
+	let missing = H3Artifacts(batch.options).Missing(plan.paths)
 	if missing.Length is 0
 		batch.logger.Log("Using cached prompt conditioning")
 		return kept
 	let encoding = kept.Encoding(batch.options.files).Tokenizing(batch.options.files)
-	Directory.Create(artifacts.Root + "/artifacts")
-	Directory.Create(artifacts.Folder)
 	Encoded(encoding, plan, missing)
-	GpuMemory.Evicted
-	GpuMemory.Released
+	if kept.isCrowded
+		GpuMemory.Evicted
+	batch.options.files.Freed
 	kept.isCrowded then H3Resident(encoding, encoders = List(Qwen3), encoderFile = "") else encoding
 Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Slow(Number)
 	let options = batch.options
+	Directory.Create(H3Artifacts(options).Root + "/artifacts")
+	Directory.Create(H3Artifacts(options).Folder)
 	let inputs = H3Inputs(options)
 	let isLoaded = encoding.IsSampling(options.Checkpoint, options.Loras)
 	let reading = isLoaded then List(Text) else List(Text) + options.Checkpoint + batch.LoraFiles
