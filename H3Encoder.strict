@@ -15,9 +15,10 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
 	let encoder = Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	EncodedWith(encoder, prompts, images, paths)
-EncodedWith(encoder Qwen3, prompts Texts, images Texts, paths Texts) Slow(Number)
-	let tokens = Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
+	EncodedWith(encoder, Tokenizer, prompts, images, paths)
+Tokenizer Slow(Gpt2Tokens)
+	Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
+EncodedWith(encoder Qwen3, tokens Gpt2Tokens, prompts Texts, images Texts, paths Texts) Slow(Number)
 	let loaded = H3Encoder(logger, files, frame, Visions)
 	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
 	if reading is not ""

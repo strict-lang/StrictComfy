@@ -14,7 +14,7 @@ Templated Text
 	PromptBatch(logger, "Image").Template(options.prompt)
 Contexts(prompts Texts) Slow(List(Numbers))
 	let before = Process.Elapsed
-	let ids = Tokenized(prompts)
+	let ids = Tokenized(Tokenizer, prompts)
 	let encoder = Encoder(Picked(ids))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	Encoded(encoder, ids, prompts)
@@ -23,8 +23,9 @@ Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) Slow(List(Numbers))
 		let hidden = encoder.Prefilled(value, 0).hidden
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + prompts(index))
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
-Tokenized(prompts Texts) Slow(List(Numbers))
-	let tokens = Gpt2Tokens.Folder(options.files.Tokenizer)
+Tokenizer Slow(Gpt2Tokens)
+	Gpt2Tokens.Folder(options.files.Tokenizer)
+Tokenized(tokens Gpt2Tokens, prompts Texts) Slow(List(Numbers))
 	for prompts
 		tokens.Encoded(Template.Replace("{prompt}", value))
 Picked(ids List(Numbers)) Numbers

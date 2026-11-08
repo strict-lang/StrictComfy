@@ -2,12 +2,14 @@ has logger
 has isKept = false
 has encoders List(Qwen3) = List(Qwen3)
 has encoderFile = ""
+has tokenizers List(Gpt2Tokens) = List(Gpt2Tokens)
 has prompts List(Text) = List(Text)
 has contexts List(Numbers) = List(Numbers)
 has mosses List(Moss) = List(Moss)
 has model = ""
 has code = 0
 constant MostPrompts = 100
+constant Spelled = MossResident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
 constant Cached = MossResident(Logger, true, prompts = ("a", "b"), contexts = ((1, 2), (3, 4)))
 Missing(unique Texts) Texts
 	Cached.Missing(("b", "c", "a")) is ("c")
@@ -22,19 +24,25 @@ Contexts(unique Texts) List(Numbers)
 Encoded(batch MossBatch, unique Texts) Slow(MossResident)
 	let file = batch.options.files.Encoder
 	let isSame = file is encoderFile
-	let known = isSame then value else MossResident(value, encoders = List(Qwen3), encoderFile = file, prompts = List(Text), contexts = List(Numbers))
+	let known = isSame then value else MossResident(value, encoders = List(Qwen3), encoderFile = file, tokenizers = List(Gpt2Tokens), prompts = List(Text), contexts = List(Numbers))
 	let missing = known.Missing(unique)
 	if missing.Length is 0
 		logger.Log("Using the cached prompt conditioning, the text encoder is not needed")
 		return known
-	let ids = batch.Tokenized(missing)
-	let encoding = known.Encoding(batch, ids)
+	let tokenizing = known.Tokenizing(batch)
+	let ids = batch.Tokenized(tokenizing.tokenizers.First, missing)
+	let encoding = tokenizing.Encoding(batch, ids)
 	let encoded = batch.Encoded(encoding.encoders.First, ids, missing)
 	let isFull = known.prompts.Length + missing.Length > MostPrompts
 	let kept = isFull then List(Text) else known.prompts
 	let keptContexts = isFull then List(Numbers) else known.contexts
 	let encoders = isKept then encoding.encoders else List(Qwen3)
 	MossResident(encoding, encoders = encoders, prompts = kept + missing, contexts = keptContexts + encoded)
+Tokenizing(batch MossBatch) Slow(MossResident)
+	Spelled.Tokenizing(MossBatch.Sample).tokenizers.Length is 1
+	if tokenizers.Length is 1
+		return value
+	MossResident(value, tokenizers = List(Gpt2Tokens) + batch.Tokenizer)
 Encoding(batch MossBatch, ids List(Numbers)) Slow(MossResident)
 	if encoders.Length is 1
 		return value

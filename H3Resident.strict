@@ -1,6 +1,7 @@
 has logger
 has encoders List(Qwen3) = List(Qwen3)
 has encoderFile = ""
+has tokenizers List(Gpt2Tokens) = List(Gpt2Tokens)
 has samplers List(H3) = List(H3)
 has refiners List(H3Refiner) = List(H3Refiner)
 has model = ""
@@ -23,6 +24,11 @@ Encoding(files H3Files) Slow(H3Resident)
 	let encoder = H3Encoder(logger, files).Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s, it stays loaded for the next runs")
 	H3Resident(value, encoders = List(Qwen3) + encoder, encoderFile = files.Encoder)
+Tokenizing(files H3Files) Slow(H3Resident)
+	H3Resident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled).Tokenizing(Files).tokenizers.Length is 1
+	if tokenizers.Length is 1
+		return value
+	H3Resident(value, tokenizers = List(Gpt2Tokens) + H3Encoder(logger, files).Tokenizer)
 Sampling(checkpoint Text, loras Text) Slow(H3Resident)
 	Sampled.samplers.First.blocks.Length is 2
 	Sampled.refiners.Length is 1
