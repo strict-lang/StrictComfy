@@ -8,9 +8,13 @@ has model = ""
 has decodings List(H3Decoding) = List(H3Decoding)
 has vaes = ""
 has code = 0
+has plans List(H3Plan) = List(H3Plan)
+has isCrowded = false
 constant None = H3Resident(Logger)
 constant Files = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
 constant Encoded = H3Resident.None.Encoding(H3Resident.Files)
+constant Sized = H3Options.Parsed(("--model", "tinyh3.safetensors", "--vae", "tinyh3vae.safetensors", "--audio_vae", "tinyh3audio.safetensors"))
+constant Whole = H3Batch(Logger, H3Options(Sized, files = H3Files(Sized.files, textEncoder = Files.textEncoder)))
 constant Sampled = H3Resident.None.Sampling("tinyh3.safetensors", "")
 constant Decoders = ("tinyh3vae.safetensors", "tinyh3audio.safetensors")
 Encoding(files H3Files) Slow(H3Resident)
@@ -19,11 +23,17 @@ Encoding(files H3Files) Slow(H3Resident)
 	Encoded.Encoding(Files).encoderFile is Encoded.encoderFile
 	if (files.Encoder is encoderFile) and (encoders.Length is 1)
 		return value
+	if isCrowded
+		GpuMemory.Released
+	H3Resident(value, encoders = List(Qwen3) + Encoder(files), encoderFile = files.Encoder)
+Encoder(files H3Files) Slow(Qwen3)
+	None.Encoder(Files).blocks.Length is 2
 	let before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
 	let encoder = H3Encoder(logger, files).Loaded
-	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s, it stays loaded for the next runs")
-	H3Resident(value, encoders = List(Qwen3) + encoder, encoderFile = files.Encoder)
+	let staying = isCrowded then "" else ", it stays loaded for the next runs"
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
+	encoder
 Tokenizing(files H3Files) Slow(H3Resident)
 	H3Resident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled).Tokenizing(Files).tokenizers.Length is 1
 	if tokenizers.Length is 1
@@ -47,12 +57,33 @@ Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
 	let isOther = (samplers.Length is 1) and (IsSampling(checkpoint, loras) is false)
 	if isOther
-		logger.Log("Freeing the loaded H3 first, this run needs another model or LoRAs")
-		return H3Resident(value, samplers = List(H3), refiners = List(H3Refiner), model = "")
+		return Unsampled("Freeing the loaded H3 first, this run needs another model or LoRAs")
 	let isDropped = isTight and (encoders.Length is 1)
 	if isDropped
 		logger.Log("Freeing the text encoder, little memory is left (it loads again for a new prompt)")
 	isDropped then H3Resident(value, encoders = List(Qwen3), encoderFile = "") else value
+Missing(files H3Files) Slow(Number)
+	None.Missing(Whole.options.files) > Encoded.Missing(Whole.options.files)
+	let encoder = encoders.Length is 1 then 0 else File(files.Encoder).Length
+	let sampler = samplers.Length is 1 then 0 else File(files.Checkpoint).Length
+	let decoder = decodings.Length is 1 then 0 else File(files.Decoder).Length + File(files.Sound).Length
+	encoder + sampler + decoder
+Crowded(batch H3Batch) Slow(H3Resident)
+	Sampled.Crowded(Whole).isCrowded is false
+	let options = batch.options
+	let needed = H3Inputs(options).Problem is "" then Missing(options.files) else 0
+	if Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
+		return H3Resident(value, plans = List(H3Plan), isCrowded = false)
+	let plan = batch.Planned
+	let isNew = H3Artifacts(options).Missing(plan.paths).Length > 0
+	let kept = isNew then Unsampled("Freeing the loaded H3, the text encoder does not fit next to it") else value
+	H3Resident(kept, encoders = List(Qwen3), encoderFile = "", plans = List(H3Plan) + plan, isCrowded = true)
+Unsampled(reason Text) H3Resident
+	Sampled.Unsampled("a").samplers.Length is 0
+	Sampled.Unsampled("a").model is ""
+	if samplers.Length is 1
+		logger.Log(reason)
+	H3Resident(value, samplers = List(H3), refiners = List(H3Refiner), model = "")
 Key(checkpoint Text, loras Text) Text
 	None.Key("a.safetensors", "b=1") is "a.safetensors|b=1"
 	checkpoint + "|" + loras

@@ -1,12 +1,11 @@
 has logger
 has backend Backend
-constant Room = 25769803776
 Root Text
 	MossServer.Root.EndsWith("/artifacts/moss")
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/artifacts/moss"
 Backended(logger Logger) Backend
 	MossServer.Backended(Logger).name is "MossImage"
-	Backend(logger, Resident(Root), "MossImage", Room)
+	Backend(logger, Resident(Root), "MossImage")
 Ran(arguments Texts) Number
 	if arguments is (Backend.Serving)
 		return Served

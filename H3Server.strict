@@ -27,13 +27,14 @@ Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let folder = resident.Folder(request)
 	let isMoved = (folder is not home) and Directory.Change(folder)
 	Socket.Output(socket)
-	let options = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).options
-	let isValid = (options is Error) is false
-	let trimmed = isValid then kept.Trimmed(options.Checkpoint, options.Loras, backend.IsHostFull) else kept
+	let prepared = Prepared(arguments, kept)
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)
-	trimmed
+	prepared is Error then kept else prepared
+Prepared(arguments Texts, kept H3Resident) Slow(H3Resident)
+	let batch = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)
+	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, backend.IsHostFull).Crowded(batch)
 Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)

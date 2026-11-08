@@ -1,7 +1,6 @@
 has logger
 has resident Resident
 has name Text
-has room Number
 constant StartSeconds = 30
 constant PollSeconds = 0.2
 constant CheckSeconds = 5
@@ -10,11 +9,12 @@ constant IdleSeconds = 900
 constant LowMemory = 4294967296
 constant Gigabyte = 1073741824
 constant LastShare = 20
+constant FreePercent = 8
 constant LowDevice = 536870912
 constant Stopped = -3
 constant Local = "--local"
 constant Serving = "serve"
-constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video", 51539607552)
+constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video")
 IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text))
 	Backend.IsServing(("--prompt", "a.txt"))
@@ -34,7 +34,7 @@ Forwarded(arguments Texts) Number
 	first is -1 then Attempted(arguments) else first
 Attempted(arguments Texts) Number
 	let isRunning = File(resident.root + Resident.Stamp).Exists
-	if (isRunning is false) and (HasRoom is false)
+	if (isRunning is false) and IsHostFull
 		return -1
 	if (isRunning is false) and Rooted
 		logger.Log("Starting the " + name + " backend, it keeps the models loaded for the next runs (--local runs without it)")
@@ -89,10 +89,6 @@ Port Number
 Paused Number
 	Process.Wait(PollSeconds)
 	0
-HasRoom Boolean
-	Sample.HasRoom is (GpuMemory.HostAvailable is 0) or (GpuMemory.HostAvailable >= Sample.room)
-	let available = GpuMemory.HostAvailable
-	(available is 0) or (available >= room)
 Stop Number
 	Sample.Stop is 0
 	Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
@@ -112,15 +108,18 @@ IsWanted(idle Number, built Number) Boolean
 	let hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
 	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
 IsHostFull Boolean
-	Sample.IsHostFull is Sample.IsFull(GpuMemory.HostAvailable, GpuMemory.HostTotal)
-	IsFull(GpuMemory.HostAvailable, GpuMemory.HostTotal)
-IsFull(available Number, total Number) Boolean
-	Sample.IsFull(12 * Gigabyte, 128 * Gigabyte)
-	Sample.IsFull(20 * Gigabyte, 128 * Gigabyte) is false
-	Sample.IsFull(3 * Gigabyte, 32 * Gigabyte)
-	Sample.IsFull(4 * Gigabyte, 32 * Gigabyte) is false
-	Sample.IsFull(0, 128 * Gigabyte) is false
-	(available > 0) and (available * 10 < total)
+	Sample.IsHostFull is Sample.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+IsCrowded(needed Number, available Number, total Number) Boolean
+	Sample.IsCrowded(0, 10 * Gigabyte, 128 * Gigabyte)
+	Sample.IsCrowded(0, 11 * Gigabyte, 128 * Gigabyte) is false
+	Sample.IsCrowded(0, 2 * Gigabyte, 32 * Gigabyte)
+	Sample.IsCrowded(0, 3 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsCrowded(0, 0, 128 * Gigabyte) is false
+	Sample.IsCrowded(16 * Gigabyte, 18 * Gigabyte, 32 * Gigabyte)
+	Sample.IsCrowded(16 * Gigabyte, 19 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsCrowded(40 * Gigabyte, 0, 32 * Gigabyte) is false
+	(available > 0) and ((available - needed) * 100 < total * FreePercent)
 IsOut(available Number, total Number) Boolean
 	Sample.IsOut(3 * Gigabyte, 128 * Gigabyte)
 	Sample.IsOut(5 * Gigabyte, 128 * Gigabyte) is false

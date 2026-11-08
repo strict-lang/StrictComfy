@@ -1,6 +1,5 @@
 has logger
 has root Text
-constant Room = 51539607552
 Ran(arguments Texts) Number
 	if arguments is (Backend.Serving)
 		return H3Server(logger, Backended).Served
@@ -9,4 +8,4 @@ Ran(arguments Texts) Number
 	forwarded >= 0 then forwarded else H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed
 Backended Backend
 	H3Client(Logger, "artifacts/h3test").Backended.name is "H3Video"
-	Backend(logger, Resident(root), "H3Video", Room)
+	Backend(logger, Resident(root), "H3Video")

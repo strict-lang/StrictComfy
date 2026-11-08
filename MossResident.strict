@@ -36,8 +36,12 @@ Encoded(batch MossBatch, unique Texts) Slow(MossResident)
 	let isFull = known.prompts.Length + missing.Length > MostPrompts
 	let kept = isFull then List(Text) else known.prompts
 	let keptContexts = isFull then List(Numbers) else known.contexts
-	let encoders = isKept then encoding.encoders else List(Qwen3)
+	let encoders = isKept and (encoding.IsCrowded(batch) is false) then encoding.encoders else List(Qwen3)
 	MossResident(encoding, encoders = encoders, prompts = kept + missing, contexts = keptContexts + encoded)
+IsCrowded(batch MossBatch) Boolean
+	Spelled.IsCrowded(MossBatch.Sample) is false
+	let needed = mosses.Length is 1 then 0 else File(batch.options.files.Checkpoint).Length
+	Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 Tokenizing(batch MossBatch) Slow(MossResident)
 	Spelled.Tokenizing(MossBatch.Sample).tokenizers.Length is 1
 	if tokenizers.Length is 1
