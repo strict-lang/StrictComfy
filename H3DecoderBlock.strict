@@ -54,13 +54,28 @@ Attended(normed Numbers, rotation Numbers) Slow(Numbers)
 	let combined = Projected(attention, normed)
 	let width = combined.Length / (rotation.Length / 2 / Decoding.head) / 3
 	let scales = Qwen3Block.Scales(combined, Decoding.head, H3Block.Epsilon)
-	let ones = Decoding.Still(1)
-	let queries = Widened(Decoding.Rotated(combined, 0, width, ones, rotation, scales), 2.SquareRoot)
-	let keys = Widened(Decoding.Rotated(combined, width, width, ones, rotation, scales), 1)
+	let queries = Rotated(combined, 0, width, rotation, scales, 2.SquareRoot)
+	let keys = Rotated(combined, width, width, rotation, scales, 1)
 	let values = Widened(Batch.Columns(combined, 3 * width, 2 * width, width), 1)
 	let heads = width / Decoding.head
 	let eights = Attention(queries, keys, values, heads, heads, 2 * Decoding.head, 1, false, 0, 0, true)
 	Projected(output, Narrowed(eights.Merged))
+Rotated(combined Numbers, start Number, width Number, rotation Numbers, scales Numbers, factor Number) Slow(BFloat16s)
+	Tiny.Rotated(Layer.Zeros(64) + 1 + Layer.Zeros(127), 0, 64, H3Decoder.Turning, Layer.Zeros(1) + 2, 1)(127) is 0
+	let wide = 2 * Decoding.head
+	for combined.Length / 3 * 2
+		let column = index % wide
+		let within = column < Decoding.head then column else 0
+		let at = (index / wide).Floor * Decoding.head + within
+		let token = (at / width).Floor
+		let first = at - within + token * 2 * width + start
+		let own = combined(first + within) * rotation(token * 2 * Decoding.head + within)
+		let other = combined(first + Paired(within)) * rotation((token * 2 + 1) * Decoding.head + within)
+		column < Decoding.head then (own + other) * scales((first / Decoding.head).Floor) * factor else 0
+Paired(within Number) Number
+	(Tiny.Paired(0) is Decoding.half) and (Tiny.Paired(Decoding.half) is 0) and (Tiny.Paired(60) is 60)
+	let half = Decoding.half
+	within < half then within + half else (within < 2 * half then within - half else within)
 Widened(numbers Numbers, factor Number) Slow(Numbers)
 	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2
 	Tiny.Widened(Layer.Zeros(64), 1).Length is 128
