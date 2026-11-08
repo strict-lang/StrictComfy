@@ -10,14 +10,14 @@ Run
 		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
 Session(previewer Taef2Decoder, first Text) Slow(Text)
 	mutable prompt = Prompt(first)
-	mutable context = Encoded(prompt)
+	mutable context = Encoded(prompt, HasRoom(first))
 	let moss = Loaded(Loras(first))
 	let decoders = Decoders(Settings(first)(4))
 	mutable line = first
 	for as long as (line is not "") and (Setup(line) is Setup(first))
 		if Prompt(line) is not prompt
 			prompt = Prompt(line)
-			context = Encoded(prompt)
+			context = Encoded(prompt, HasRoom(line))
 		Generated(moss, previewer, decoders, context, line)
 		line = Process.InputLine
 	line
@@ -57,10 +57,22 @@ Quality(options MossOptions) Text
 	if options.steps is 0
 		return Qualities(options.quality)
 	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
-Encoded(prompt Text) Slow(Numbers)
-	GpuMemory.Evicted
+HasRoom(line Text) Boolean
+	MossWeb(Logger).HasRoom(Sample) is false
+	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 0\ta fox") is false
+	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 1\ta fox")
+	let words = Settings(line)
+	(words.Length > 6) and (words(6) is "1")
+Encoded(prompt Text, hasRoom Boolean) Slow(Numbers)
+	if hasRoom
+		GpuMemory.Released
+	else
+		GpuMemory.Evicted
 	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
-	GpuMemory.Evicted
+	if hasRoom
+		GpuMemory.Released
+	else
+		GpuMemory.Evicted
 	context
 Loaded(loras Text) Slow(Moss)
 	let started = Process.Elapsed

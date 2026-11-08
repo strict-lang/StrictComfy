@@ -97,7 +97,7 @@
 		<div id="frame"><img alt="An example image of the prompt"><div id="gallery"><button class="small" id="back">&#9664;</button><span id="caption">Example</span><button class="small" id="forward">&#9654;</button><button class="small" id="delete" title="Delete from this browser">&#128465;</button></div></div>
 	</section>
 </main>
-<footer>Made with <a href="https://strict-lang.org">Strict</a> © 2026 · runs 100% locally with WebGPU · the <a href="https://github.com/strict-lang/StrictComfy">desktop version</a> is up to 5x faster with int8 quality<span id="stats"></span></footer>
+<footer>Made with <a href="https://strict-lang.org">Strict</a> © 2026 · runs 100% locally with WebGPU · the <a href="https://github.com/strict-lang/StrictComfy">desktop version</a> is up to 2x faster with int8 quality<span id="stats"></span></footer>
 <script>
 	const element = id => document.getElementById(id);
 	const start = element("start"), bar = element("bar"), status = element("status"), log = element("log"), frame = element("frame");
@@ -108,6 +108,22 @@
 	const counted = (action, sent) => fetch("stats/" + action, sent ? { method: "POST", body: JSON.stringify(sent) } : { method: "POST" })
 		.then(response => response.ok ? response.text() : "").then(text => element("stats").textContent = text, () => {});
 	counted("visit");
+	// whether this GPU has 8 GB of memory or more by its name, then Moss stays on it while a prompt is encoded (WebGPU can
+	// not tell): phones, integrated and unknown GPUs give it back first, which only takes a few seconds more per new prompt
+	const hasRoom = renderer => {
+		if (isMobile) return false;
+		const nvidia = /(RTX|GTX)\s*(\d{3,4})/i.exec(renderer), radeon = /RX\s*(\d{3,4})/i.exec(renderer), apple = /Apple M\d+\s*(Pro|Max|Ultra)/i.exec(renderer);
+		if (nvidia) return Number(nvidia[2]) >= 1070 && ![2060, 3050, 4050].includes(Number(nvidia[2]));
+		if (radeon) return Number(radeon[1]) >= 5700 && ![6400, 6500, 7500].includes(Number(radeon[1]));
+		return !!apple;
+	};
+	const gpuName = () => {
+		try {
+			const gl = document.createElement("canvas").getContext("webgl"), info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+			return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+		} catch { return ""; }
+	};
+	const roomy = hasRoom(gpuName());
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[began.quality] || 8;
@@ -389,7 +405,7 @@
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
 		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
-		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed, roomy ? 1 : 0].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
