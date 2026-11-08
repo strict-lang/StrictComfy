@@ -69,9 +69,7 @@ Decoded(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow
 	MossDecoding(batch, FluxDecoder.Loaded(path, 32)).Saved(latents, seeds, prompts, outputs)
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
-	let latent = sampling.Sampled(moss, noise, context, label)
-	GpuMemory.Released
-	latent
+	sampling.Sampled(moss, noise, context, label)
 Saved(image Numbers, started Number, seed Number, prompt Text, planned Text) Slow(Text)
 	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
