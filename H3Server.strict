@@ -1,6 +1,5 @@
 has logger
 has backend Backend
-constant Tight = 25769803776
 Root Text
 	H3Server.Root.EndsWith("/artifacts/h3")
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
@@ -30,7 +29,7 @@ Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	Socket.Output(socket)
 	let options = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments).options
 	let isValid = (options is Error) is false
-	let trimmed = isValid then kept.Trimmed(options.Checkpoint, options.Loras, GpuMemory.HostAvailable < Tight) else kept
+	let trimmed = isValid then kept.Trimmed(options.Checkpoint, options.Loras, backend.IsHostFull) else kept
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)

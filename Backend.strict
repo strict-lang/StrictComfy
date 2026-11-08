@@ -8,6 +8,8 @@ constant CheckSeconds = 5
 constant Gone = -2
 constant IdleSeconds = 900
 constant LowMemory = 4294967296
+constant Gigabyte = 1073741824
+constant LastShare = 20
 constant LowDevice = 536870912
 constant Stopped = -3
 constant Local = "--local"
@@ -107,9 +109,26 @@ IsWanted(idle Number, built Number) Boolean
 	Sample.IsWanted(0, File(Process.Current.executable).Modified)
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
 	Sample.IsWanted(0, 0) is false
-	let available = GpuMemory.HostAvailable
-	let hasRoom = (available is 0) or (available > LowMemory)
+	let hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
 	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
+IsHostFull Boolean
+	Sample.IsHostFull is Sample.IsFull(GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	IsFull(GpuMemory.HostAvailable, GpuMemory.HostTotal)
+IsFull(available Number, total Number) Boolean
+	Sample.IsFull(12 * Gigabyte, 128 * Gigabyte)
+	Sample.IsFull(20 * Gigabyte, 128 * Gigabyte) is false
+	Sample.IsFull(3 * Gigabyte, 32 * Gigabyte)
+	Sample.IsFull(4 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsFull(0, 128 * Gigabyte) is false
+	(available > 0) and (available * 10 < total)
+IsOut(available Number, total Number) Boolean
+	Sample.IsOut(3 * Gigabyte, 128 * Gigabyte)
+	Sample.IsOut(5 * Gigabyte, 128 * Gigabyte) is false
+	Sample.IsOut(Gigabyte, 32 * Gigabyte)
+	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsOut(0, 128 * Gigabyte) is false
+	let least = total / LastShare < LowMemory then total / LastShare else LowMemory
+	(available > 0) and (available <= least)
 Unpressed Number
 	Sample.Unpressed >= 0
 	let available = GpuMemory.Available
