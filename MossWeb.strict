@@ -24,7 +24,7 @@ Session(previewer Taef2Decoder, first Text) Slow(Text)
 Settings(line Text) Texts
 	MossWeb(Logger).Settings(Sample) is ("7", "480", "848", "fastest", "taef2", "7")
 	line.Split("\t").First.Split(" ")
-Prompt(line Text) Text
+Prompt(line Text) Slow(Text)
 	MossWeb(Logger).Prompt(Sample) is "a red fox"
 	MossWeb(Logger).Prompt(Sample + "\tloras/a.safetensors=0.5") is "a red fox"
 	MossWeb(Logger).Prompt("9 480 848 fastest taef2 1\t{a|b|c|d}") is PromptBatch(Logger, "Image").Expanded("{a|b|c|d}", 1)
