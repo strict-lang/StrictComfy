@@ -32,8 +32,12 @@ Dispatched(arguments Texts) Number
 		return Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
 	if Local is in arguments
 		return -1
-	let first = Attempted(arguments)
-	first is -1 then Attempted(arguments) else first
+	mutable code = Attempted(arguments)
+	mutable tries = 0
+	for as long as (code is -1) and ((tries is 0) or (Port is not 0)) and (tries < StartSeconds)
+		tries = tries + 1
+		code = Attempted(arguments)
+	(code is -1) and (Port is not 0) then Cleared else code
 Attempted(arguments Texts) Number
 	let isRunning = File(resident.root + Resident.Stamp).Exists
 	if (isRunning is false) and IsHostFull
@@ -71,7 +75,7 @@ Cleared Number
 	let forwarding = Forwarding(logger, resident.root)
 	forwarding.Kept(objects, Forwarding.Output)
 	forwarding.Kept(objects, Forwarding.Errors)
-	logger.Log("The " + name + " backend ended without finishing its run (crashed or killed), its output:")
+	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
 	let printed = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
 	if printed is 0
 		logger.Log("(nothing, see " + objects + "/server.previous*.log)")
