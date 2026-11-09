@@ -5,7 +5,9 @@ constant JpegQuality = 85
 constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
 constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
 constant Prompted = ("--models", ".", "--prompt", "a cat")
-constant Example = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
+constant ExamplePerson = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} "
+constant ExampleStreet = "walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
+constant Example = ExamplePerson + ExampleStreet
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Templated Text
 	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")

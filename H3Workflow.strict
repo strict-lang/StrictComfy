@@ -1,6 +1,8 @@
 has graph ComfyGraph
 has comfyui Text
-constant Known = ("UNETLoader", "LoraLoaderModelOnly", "LTX_lora_loader", "ApplyHyperFlowH3", "StrictH3Sampler", "StrictH3LatentSampler", "SamplerCustomAdvanced", "RandomNoise", "KSamplerSelect", "BasicScheduler", "BasicGuider", "MiniMaxH3ImageToVideo", "LoadImage", "EnhancementUtils_ImageLoadWithSubfolders", "CLIPLoader", "VAELoader", "VAEDecode", "VAEDecodeAudio", "CreateVideo", "VHS_VideoCombine", "SaveVideo", "Note", "MarkdownNote")
+constant KnownSampling = ("UNETLoader", "LoraLoaderModelOnly", "LTX_lora_loader", "ApplyHyperFlowH3", "StrictH3Sampler", "StrictH3LatentSampler", "SamplerCustomAdvanced", "RandomNoise", "KSamplerSelect", "BasicScheduler", "BasicGuider")
+constant KnownLoading = ("MiniMaxH3ImageToVideo", "LoadImage", "EnhancementUtils_ImageLoadWithSubfolders", "CLIPLoader", "VAELoader", "VAEDecode", "VAEDecodeAudio", "CreateVideo", "VHS_VideoCombine", "SaveVideo", "Note", "MarkdownNote")
+constant Known = KnownSampling + KnownLoading
 constant Samplers = ("SamplerCustomAdvanced", "StrictH3Sampler", "StrictH3LatentSampler")
 constant Tiny = H3Workflow(ComfyGraph.Tiny, ".")
 constant Strict = H3Workflow(ComfyGraph.Read("tinyh3strictworkflow.json", Known), ".")

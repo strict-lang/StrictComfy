@@ -1,15 +1,28 @@
 has graph ComfyGraph
 has comfyui Text
-constant Known = ("UNETLoader", "LoraLoaderModelOnly", "Lora Loader Stack (rgthree)", "KSampler", "StrictMossSampler", "CLIPTextEncode", "EmptyFlux2LatentImage", "EmptySD3LatentImage", "EmptyLatentImage", "CLIPLoader", "VAELoader", "VAEDecode", "SaveImage", "Note", "MarkdownNote")
+constant KnownSampling = ("UNETLoader", "LoraLoaderModelOnly", "Lora Loader Stack (rgthree)", "KSampler", "StrictMossSampler", "CLIPTextEncode", "EmptyFlux2LatentImage", "EmptySD3LatentImage")
+constant KnownSaving = ("EmptyLatentImage", "CLIPLoader", "VAELoader", "VAEDecode", "SaveImage", "Note", "MarkdownNote")
+constant Known = KnownSampling + KnownSaving
 constant Samplers = ("KSampler", "StrictMossSampler")
 constant Tiny = MossWorkflow(ComfyGraph.Read("tinymossworkflow.json", Known), ".")
 constant Strict = Json("{\"widgets_values\": [7, \"fixed\", 8, 1, \"off\", \"merged\", \"auto\", \"fast\", \"6:36\"]}")
-constant Named = MossWorkflow(ComfyGraph(Json("[{\"id\": 1, \"type\": \"UNETLoader\", \"mode\": 0, \"widgets_values\": [\"a\"], \"widgets_values_named\": {\"unet_name\": \"b\"}}, {\"id\": 2, \"type\": \"KSampler\", \"mode\": 0, \"inputs\": [{\"name\": \"model\", \"link\": 1}]}, {\"id\": 3, \"type\": \"CLIPLoader\", \"mode\": 0, \"widgets_values\": [\"c\"], \"widgets_values_named\": {\"clip_name\": \"d\"}}, {\"id\": 4, \"type\": \"VAELoader\", \"mode\": 0, \"widgets_values\": [\"e\"], \"widgets_values_named\": {\"vae_name\": \"f\"}}]").Elements, Json("[[1, 1, 0, 2, 0, \"MODEL\"]]").Elements, Known), "")
+constant NamedUnet = "[{\"id\": 1, \"type\": \"UNETLoader\", \"mode\": 0, \"widgets_values\": [\"a\"], \"widgets_values_named\": {\"unet_name\": \"b\"}}, "
+constant NamedSampler = "{\"id\": 2, \"type\": \"KSampler\", \"mode\": 0, \"inputs\": [{\"name\": \"model\", \"link\": 1}]}, "
+constant NamedClip = "{\"id\": 3, \"type\": \"CLIPLoader\", \"mode\": 0, \"widgets_values\": [\"c\"], \"widgets_values_named\": {\"clip_name\": \"d\"}}, "
+constant NamedVae = "{\"id\": 4, \"type\": \"VAELoader\", \"mode\": 0, \"widgets_values\": [\"e\"], \"widgets_values_named\": {\"vae_name\": \"f\"}}]"
+constant Named = MossWorkflow(ComfyGraph(Json(NamedUnet + NamedSampler + NamedClip + NamedVae).Elements, Json("[[1, 1, 0, 2, 0, \"MODEL\"]]").Elements, Known), "")
 constant Empty = MossWorkflow(ComfyGraph(List(Json), List(Json), Known), ".")
-constant Several = MossWorkflow(ComfyGraph(Json("[{\"id\": 1, \"type\": \"KSampler\", \"mode\": 0}, {\"id\": 2, \"type\": \"StrictMossSampler\", \"mode\": 0}, {\"id\": 3, \"type\": \"SaveImage\", \"mode\": 0, \"widgets_values\": [\"stale\"], \"widgets_values_named\": {\"filename_prefix\": \"named\"}}]").Elements, List(Json), Known), ".")
+constant SeveralSamplers = "[{\"id\": 1, \"type\": \"KSampler\", \"mode\": 0}, {\"id\": 2, \"type\": \"StrictMossSampler\", \"mode\": 0}, "
+constant SeveralSaving = "{\"id\": 3, \"type\": \"SaveImage\", \"mode\": 0, \"widgets_values\": [\"stale\"], \"widgets_values_named\": {\"filename_prefix\": \"named\"}}]"
+constant Several = MossWorkflow(ComfyGraph(Json(SeveralSamplers + SeveralSaving).Elements, List(Json), Known), ".")
 constant Single = Json("{\"type\": \"LoraLoaderModelOnly\", \"widgets_values\": [\"moss\\\\a.safetensors\", 1], \"widgets_values_named\": {\"lora_name\": \"moss\\\\b.safetensors\", \"strength_model\": 0.75}}")
-constant Stacked = Json("{\"type\": \"Lora Loader Stack (rgthree)\", \"widgets_values\": [\"moss\\\\a.safetensors\", 1, \"None\", 1, \"None\", 1, \"None\", 1], \"widgets_values_named\": {\"lora_01\": \"moss\\\\b.safetensors\", \"strength_01\": 0.75, \"lora_02\": \"None\", \"strength_02\": 1, \"lora_03\": \"moss\\\\c.safetensors\", \"strength_03\": 0.5, \"lora_04\": \"None\", \"strength_04\": 1}}")
-constant Custom = Json("{\"type\": \"StrictMossSampler\", \"widgets_values\": [7, \"fixed\", 20, 4, \"spectrum8_w3p3\", \"merged\", \"auto\", \"fast\", \"6:36\"], \"widgets_values_named\": {\"seed\": 3, \"control_after_generate\": \"fixed\", \"steps\": 8, \"cfg\": 2.5, \"spectrum\": \"off\", \"quality\": \"custom\", \"skip\": \"off\"}}")
+constant StackedWidgets = "{\"type\": \"Lora Loader Stack (rgthree)\", \"widgets_values\": [\"moss\\\\a.safetensors\", 1, \"None\", 1, \"None\", 1, \"None\", 1], "
+constant StackedNamed = "\"widgets_values_named\": {\"lora_01\": \"moss\\\\b.safetensors\", \"strength_01\": 0.75, \"lora_02\": \"None\", "
+constant StackedStrengths = "\"strength_02\": 1, \"lora_03\": \"moss\\\\c.safetensors\", \"strength_03\": 0.5, \"lora_04\": \"None\", \"strength_04\": 1}}"
+constant Stacked = Json(StackedWidgets + StackedNamed + StackedStrengths)
+constant CustomWidgets = "{\"type\": \"StrictMossSampler\", \"widgets_values\": [7, \"fixed\", 20, 4, \"spectrum8_w3p3\", \"merged\", \"auto\", \"fast\", \"6:36\"], "
+constant CustomNamed = "\"widgets_values_named\": {\"seed\": 3, \"control_after_generate\": \"fixed\", \"steps\": 8, \"cfg\": 2.5, \"spectrum\": \"off\", \"quality\": \"custom\", \"skip\": \"off\"}}"
+constant Custom = Json(CustomWidgets + CustomNamed)
 constant Latent = Json("{\"type\": \"EmptyLatentImage\", \"widgets_values\": [1024, 1024, 1], \"widgets_values_named\": {\"width\": 512, \"height\": 768, \"batch_size\": 3}}")
 Arguments Texts
 	Tiny.Arguments.Length is 24

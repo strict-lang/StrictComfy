@@ -7,6 +7,8 @@ Served Number
 	let server = backend.Opened
 	if server is 0
 		return 1
+	Listened(server)
+Listened(server Number) Number
 	let built = File(Process.Current.executable).Modified
 	mutable kept = H3Resident(logger)
 	mutable last = Process.Elapsed
@@ -28,9 +30,7 @@ Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let isMoved = (folder is not home) and Directory.Change(folder)
 	Socket.Output(socket)
 	let prepared = Prepared(arguments, kept)
-	Socket.Output(0)
-	if isMoved
-		Directory.Change(home)
+	backend.Restored(isMoved, home)
 	prepared is Error then kept else prepared
 Prepared(arguments Texts, kept H3Resident) Slow(H3Resident)
 	let batch = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)
@@ -55,7 +55,5 @@ Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	if served is Error
 		logger.Log(served to Text)
 		logger.Log("The run failed, the next one loads the models again")
-	Socket.Output(0)
-	if isMoved
-		Directory.Change(home)
+	backend.Restored(isMoved, home)
 	served

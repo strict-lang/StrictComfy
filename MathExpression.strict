@@ -26,7 +26,7 @@ Tokens Texts
 	mutable at = 0
 	for as long as at < expression.Length
 		let length = TokenLength(at)
-		if expression.Substring(at, 1) is not " "
+		if expression(at) to Text is not " "
 			tokens = tokens + expression.Substring(at, length)
 		at = at + length
 	tokens
@@ -34,13 +34,13 @@ TokenLength(at Number) Number
 	Tokenized.TokenLength(0) is 3 and Tokenized.TokenLength(3) is 1 and Tokenized.TokenLength(4) is 4
 	Tokenized.TokenLength(8) is 2 and Tokenized.TokenLength(11) is 2 and Tokenized.TokenLength(13) is 2
 	MathExpression("ab1+22.5/", List(Number)).TokenLength(8) is 1
-	let first = expression.Substring(at, 1)
+	let first = expression(at) to Text
 	let allowed = first is in Digits then Digits else first is in Letters then Letters + Digits else ""
 	if allowed is ""
 		let pair = at + 1 < expression.Length then expression.Substring(at, 2) else first
 		return pair is in ("//", "**") then 2 else 1
 	for Range(at + 1, expression.Length)
-		if expression.Substring(index, 1) is not in allowed
+		if expression(index) to Text is not in allowed
 			return index - at
 	expression.Length - at
 Chained(tokens Texts, at Number, level Number) Numbers
@@ -128,7 +128,7 @@ Named(token Text, at Number) Numbers
 	Length.Named("q", 0)(1) is Invalid
 	Length.Named("ab", 0)(1) is Invalid
 	Length.Named("", 0)(1) is Invalid
-	if (token is not "") and (token.Substring(0, 1) is in Digits)
+	if (token is not "") and (token(0) to Text is in Digits)
 		return (token to Number, at + 1)
 	let variable = token.Length is 1 then Letters.IndexOf(token) else -1
 	(variable >= 0) and (variable < values.Length) then (values(variable), at + 1) else (0, Invalid)

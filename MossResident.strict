@@ -22,22 +22,30 @@ Contexts(unique Texts) List(Numbers)
 	for unique
 		contexts(prompts.Index(value))
 Encoded(batch MossBatch, unique Texts) Slow(MossResident)
-	let file = batch.options.files.Encoder
-	let isSame = file is encoderFile
-	let known = isSame then value else MossResident(value, encoders = List(Qwen3), encoderFile = file, tokenizers = List(Gpt2Tokens), prompts = List(Text), contexts = List(Numbers))
+	let known = Switched(batch.options.files.Encoder)
 	let missing = known.Missing(unique)
 	if missing.Length is 0
 		logger.Log("Using the cached prompt conditioning, the text encoder is not needed")
 		return known
-	let tokenizing = known.Tokenizing(batch)
+	known.Extended(batch, missing)
+Switched(file Text) MossResident
+	Cached.Switched("").prompts.Length is 2
+	Cached.Switched("a.safetensors").encoderFile is "a.safetensors"
+	Cached.Switched("a.safetensors").prompts.Length is 0
+	if file is encoderFile
+		return value
+	let emptied = MossResident(value, encoders = List(Qwen3), encoderFile = file, tokenizers = List(Gpt2Tokens))
+	MossResident(emptied, prompts = List(Text), contexts = List(Numbers))
+Extended(batch MossBatch, missing Texts) Slow(MossResident)
+	let tokenizing = Tokenizing(batch)
 	let ids = batch.Tokenized(tokenizing.tokenizers.First, missing)
 	let encoding = tokenizing.Encoding(batch, ids)
 	let encoded = batch.Encoded(encoding.encoders.First, ids, missing)
-	let isFull = known.prompts.Length + missing.Length > MostPrompts
-	let kept = isFull then List(Text) else known.prompts
-	let keptContexts = isFull then List(Numbers) else known.contexts
-	let encoders = isKept and (encoding.IsCrowded(batch) is false) then encoding.encoders else List(Qwen3)
-	MossResident(encoding, encoders = encoders, prompts = kept + missing, contexts = keptContexts + encoded)
+	let isFull = prompts.Length + missing.Length > MostPrompts
+	let kept = isFull then List(Text) else prompts
+	let keptContexts = isFull then List(Numbers) else contexts
+	let staying = isKept and (encoding.IsCrowded(batch) is false) then encoding.encoders else List(Qwen3)
+	MossResident(encoding, encoders = staying, prompts = kept + missing, contexts = keptContexts + encoded)
 IsCrowded(batch MossBatch) Boolean
 	Spelled.IsCrowded(MossBatch.Sample) is false
 	let needed = mosses.Length is 1 then 0 else File(batch.options.files.Checkpoint).Length

@@ -14,6 +14,7 @@ constant LowDevice = 536870912
 constant Stopped = -3
 constant Local = "--local"
 constant Serving = "serve"
+constant KeepsModels = " backend, it keeps the models loaded for the next runs (--local runs without it)"
 constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video")
 IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text))
@@ -26,10 +27,11 @@ IsServing(arguments Texts) Boolean
 	isCommand or (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
 Dispatched(arguments Texts) Number
 	Sample.Dispatched(List(Text) + Local) is -1
+	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
-		return Stop
-	Local is in arguments then -1 else Forwarded(arguments)
-Forwarded(arguments Texts) Number
+		return Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
+	if Local is in arguments
+		return -1
 	let first = Attempted(arguments)
 	first is -1 then Attempted(arguments) else first
 Attempted(arguments Texts) Number
@@ -37,7 +39,7 @@ Attempted(arguments Texts) Number
 	if (isRunning is false) and IsHostFull
 		return -1
 	if (isRunning is false) and Rooted
-		logger.Log("Starting the " + name + " backend, it keeps the models loaded for the next runs (--local runs without it)")
+		logger.Log("Starting the " + name + KeepsModels)
 		Forwarding(logger, resident.root).Started("")
 	let port = Waited(StartSeconds)
 	let failed = port is Gone then 1 else -1
@@ -46,18 +48,20 @@ Waited(seconds Number) Number
 	Sample.Waited(0) is 0
 	let started = Process.Elapsed
 	mutable isBusy = false
-	mutable port = 0
-	mutable checked = started - CheckSeconds
-	for as long as (port is 0) and (isBusy or (Process.Elapsed - started < seconds))
-		port = Port
-		let isDue = (port < 0) and (Process.Elapsed - checked >= CheckSeconds)
-		checked = isDue then Process.Elapsed else checked
-		port = isDue and IsGone then Cleared else port
-		if (port is -1) and (isBusy is false)
+	mutable polled = (0, started - CheckSeconds)
+	for as long as (polled(0) is 0) and (isBusy or (Process.Elapsed - started < seconds))
+		polled = Polled(polled(1))
+		if (polled(0) is -1) and (isBusy is false)
 			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
-		isBusy = port < 0
-		port = (port > 0) or (port is Gone) then port else Paused
-	port
+		isBusy = polled(0) < 0
+		polled = ((polled(0) > 0) or (polled(0) is Gone) then polled(0) else Paused, polled(1))
+	polled(0)
+Polled(checked Number) Numbers
+	Sample.Polled(0) is (0, 0)
+	let port = Port
+	let isDue = (port < 0) and (Process.Elapsed - checked >= CheckSeconds)
+	let nextCheck = isDue then Process.Elapsed else checked
+	(isDue and IsGone then Cleared else port, nextCheck)
 IsGone Boolean
 	Sample.IsGone is false
 	let stamp = File(resident.root + Resident.Stamp)
@@ -89,9 +93,6 @@ Port Number
 Paused Number
 	Process.Wait(PollSeconds)
 	0
-Stop Number
-	Sample.Stop is 0
-	Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
 Opened Number
 	let objects = resident.root + "/obj"
 	let hasObjects = Rooted and (Directory.Exists(objects) or Directory.Create(objects))
@@ -128,6 +129,9 @@ IsOut(available Number, total Number) Boolean
 	Sample.IsOut(0, 128 * Gigabyte) is false
 	let least = total / LastShare < LowMemory then total / LastShare else LowMemory
 	(available > 0) and (available <= least)
+Restored(isMoved Boolean, home Text) Slow(Boolean)
+	Socket.Output(0)
+	isMoved then Directory.Change(home) else false
 Unpressed Number
 	Sample.Unpressed >= 0
 	let available = GpuMemory.Available

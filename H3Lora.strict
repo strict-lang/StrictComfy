@@ -151,6 +151,11 @@ Applied(header Text) Number
 		count = count + Counted(header, "." + value + ".") + Counted(header, "_" + value.Replace(".", "_") + ".")
 	for Floats
 		count = count + Counted(header, value + ".") + header.Split(value + ".diff").Length - 1
+	count + Norms(header)
+Norms(header Text) Number
+	Half.Norms("\"b.norm1.diff\",\"b.norm2.diff\",\"final_layer.norm.diff\",\"x.adaln_proj.linear.diff_b\"") is 4
+	Half.Norms("\"b.norm.diff\"") is 0
+	mutable count = 0
 	for (".norm1.diff\"", ".norm2.diff\"", "final_layer.norm.diff\"", "adaln_proj.linear.diff_b\"")
 		count = count + header.Split(value).Length - 1
 	count
