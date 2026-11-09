@@ -9,8 +9,11 @@ Backended(logging Logger) Backend
 Ran(arguments Texts) Number
 	if arguments is (Backend.Serving)
 		return Served
-	let forwarded = backend.Dispatched(arguments)
 	let rest = arguments - Backend.Local
+	if MachineUse.IsChecked(arguments, backend.resident.root)
+		if Checked(rest) is not 0
+			return 1
+	let forwarded = backend.Dispatched(arguments)
 	forwarded >= 0 then forwarded else Local(rest).code
 Local(arguments Texts) Slow(MossResident)
 	MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(MossResident(logger))
@@ -53,3 +56,12 @@ Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	backend.Unpressed
 	backend.Restored(isMoved, home)
 	served
+Checked(arguments Texts) Number
+	let options = MossOptions.Parsed(arguments)
+	if options is Error
+		return 0
+	let model = options.files.Checkpoint
+	let encoder = options.files.Encoder
+	if (model is Error) or (encoder is Error)
+		return 0
+	MachineUse.Models(logger, "MossImage", File(model).Length, File(encoder).Length).Checked

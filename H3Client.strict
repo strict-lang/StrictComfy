@@ -3,9 +3,21 @@ has root Text
 Ran(arguments Texts) Number
 	if arguments is (Backend.Serving)
 		return H3Server(logger, Backended).Served
-	let forwarded = Backended.Dispatched(arguments)
 	let rest = arguments - Backend.Local
+	if MachineUse.IsChecked(arguments, root)
+		if Checked(rest) is not 0
+			return 1
+	let forwarded = Backended.Dispatched(arguments)
 	forwarded >= 0 then forwarded else H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed
 Backended Backend
 	H3Client(Logger, "artifacts/h3test").Backended.name is "H3Video"
 	Backend(logger, Resident(root), "H3Video")
+Checked(arguments Texts) Number
+	let options = H3Options.Parsed(arguments)
+	if options is Error
+		return 0
+	let model = options.files.Checkpoint
+	let encoder = options.files.Encoder
+	if (model is Error) or (encoder is Error)
+		return 0
+	MachineUse.Models(logger, "H3Video", File(model).Length, File(encoder).Length).Checked

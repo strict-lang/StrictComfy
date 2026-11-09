@@ -74,9 +74,11 @@ H3Video.exe --quality faster --image first.jpg
 
 `--help` lists every option.
 
-H3Video.exe starts a backend in the background the first time, which keeps the text encoder, H3 and the VAEs loaded for the next runs: a second video with a new prompt skips loading them (on a 4090 23 s instead of 59 s). The backend gives the GPU memory back when another program needs it, and it ends after 15 minutes without a run or when RAM runs low. It only starts with 48 GB of RAM free, otherwise every run loads the models itself. `--local` runs without the backend, `H3Video.exe stop` ends it.
+H3Video.exe starts a backend in the background the first time, which keeps the text encoder, H3 and the VAEs loaded for the next runs: a second video with a new prompt skips loading them (on a 4090 23 s instead of 59 s). The backend keeps its RAM and VRAM between runs and ends after 15 minutes without a run or when RAM runs low. On a machine with too little RAM to keep everything, runs load the models themselves. `--local` runs without the backend, `H3Video.exe stop` ends it.
 
-MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept, the backend gives the GPU memory back after every run. `--local` and `MossImage.exe stop` work like for H3Video.
+MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept. `--local` and `MossImage.exe stop` work like for H3Video.
+
+Before loading models, both check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
 
 ## Building from source
 
