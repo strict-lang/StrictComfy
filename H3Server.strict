@@ -55,5 +55,6 @@ Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	if served is Error
 		logger.Log(served to Text)
 		logger.Log("The run failed, the next one loads the models again")
+	backend.Unpressed
 	backend.Restored(isMoved, home)
 	served
