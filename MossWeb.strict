@@ -9,15 +9,17 @@ Run
 	for as long as line is not ""
 		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
 Session(previewer Taef2Decoder, first Text) Slow(Text)
+	Images(previewer, first, Encoders(first, Prompt(first)))
+Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Slow(Text)
 	mutable prompt = Prompt(first)
-	mutable context = Encoded(prompt, HasRoom(first))
+	mutable context = Encoded(prompt, encoders, HasRoom(first))
 	let moss = Loaded(Loras(first))
 	let decoders = Decoders(Settings(first)(4))
 	mutable line = first
 	for as long as (line is not "") and (Setup(line) is Setup(first))
 		if Prompt(line) is not prompt
 			prompt = Prompt(line)
-			context = Encoded(prompt, HasRoom(line))
+			context = Encoded(prompt, encoders, HasRoom(line))
 		Generated(moss, previewer, decoders, context, line)
 		line = Process.InputLine
 	line
@@ -61,14 +63,37 @@ HasRoom(line Text) Boolean
 	MossWeb(Logger).HasRoom(Sample) is false
 	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 0\ta fox") is false
 	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 1\ta fox")
+	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
-	(words.Length > 6) and (words(6) is "1")
-Encoded(prompt Text, hasRoom Boolean) Slow(Numbers)
+	(words.Length > 6) and (words(6) is not "0")
+KeepsEncoder(line Text) Boolean
+	MossWeb(Logger).KeepsEncoder(Sample) is false
+	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 1\ta fox") is false
+	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 2\ta fox")
+	let words = Settings(line)
+	(words.Length > 6) and (words(6) is "2")
+Encoders(line Text, prompt Text) Slow(List(Qwen3))
+	if KeepsEncoder(line) is false
+		return List(Qwen3)
+	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
+	let ids = batch.Tokenized(batch.Tokenizer, List(Text) + prompt)
+	List(Qwen3) + Qwen3(batch.Encoder(batch.Picked(ids)), tokens = List(Numbers))
+Context(prompt Text, encoders List(Qwen3)) Slow(Numbers)
+	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
+	if encoders.Length is 0
+		return batch.Contexts(List(Text) + prompt).First
+	let prompts = List(Text) + prompt
+	let started = Process.Elapsed
+	let ids = batch.Tokenized(batch.Tokenizer, prompts)
+	let encoder = batch.Reworded(encoders.First, batch.Picked(ids))
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s")
+	batch.Encoded(encoder, ids, prompts).First
+Encoded(prompt Text, encoders List(Qwen3), hasRoom Boolean) Slow(Numbers)
 	if hasRoom
 		GpuMemory.Released
 	else
 		GpuMemory.Evicted
-	let context = MossBatch(logger, MossOptions.Parsed(Encoder)).Contexts(List(Text) + prompt).First
+	let context = Context(prompt, encoders)
 	if hasRoom
 		GpuMemory.Released
 	else

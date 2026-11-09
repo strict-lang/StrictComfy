@@ -109,7 +109,8 @@
 		.then(response => response.ok ? response.text() : "").then(text => element("stats").textContent = text, () => {});
 	counted("visit");
 	// whether this GPU has 8 GB of memory or more by its name, then Moss stays on it while a prompt is encoded (WebGPU can
-	// not tell): phones, integrated and unknown GPUs give it back first, which only takes a few seconds more per new prompt
+	// not tell): phones, integrated and unknown GPUs give it back first, which only takes a few seconds more per new prompt;
+	// with 16 GB or more the text encoder stays too (level 2)
 	const hasRoom = renderer => {
 		if (isMobile) return false;
 		const nvidia = /(RTX|GTX)\s*(\d{3,4})/i.exec(renderer), radeon = /RX\s*(\d{3,4})/i.exec(renderer), apple = /Apple M\d+\s*(Pro|Max|Ultra)/i.exec(renderer);
@@ -125,7 +126,9 @@
 			return name;
 		} catch { return ""; }
 	};
-	const roomy = !isMobile && hasRoom(gpuName());
+	const isLarge = renderer => /RTX\s*(3090|4080|4090|5080|5090|4070\s*Ti\s*SUPER|5070\s*Ti)|RX\s*(68|69|78|79)\d\d|Apple M\d+\s*(Max|Ultra)/i.test(renderer);
+	const gpuLevel = renderer => hasRoom(renderer) ? (isLarge(renderer) ? 2 : 1) : 0;
+	const roomy = isMobile ? 0 : gpuLevel(gpuName());
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[began.quality] || 8;
@@ -407,7 +410,7 @@
 		show((isFirst ? "Streaming in the model" : "Sampling " + steps() + " steps") + (missing ? ", without " + missing + " missing LoRAs" : ""));
 		begin();
 		if (element("varied").checked || began.promptSeed === undefined) began.promptSeed = began.seed;
-		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed, roomy ? 1 : 0].join(" ") + "\t" + began.prompt + "\t" + loraLine());
+		Module.strictInput([began.seed, began.size, began.quality, began.decoder, began.promptSeed, roomy].join(" ") + "\t" + began.prompt + "\t" + loraLine());
 	};
 	window.addEventListener("error", event => failed(event.message));
 </script>
