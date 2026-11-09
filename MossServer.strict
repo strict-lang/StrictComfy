@@ -6,12 +6,13 @@ Root Text
 Backended(logging Logger) Backend
 	MossServer.Backended(Logger).name is "MossImage"
 	Backend(logging, Resident(Root), "MossImage")
-Ran(arguments Texts) Number
-	if arguments is (Backend.Serving)
+Ran(given Texts) Number
+	if given is (Backend.Serving)
 		return Served
+	let arguments = given - MachineUse.Force
 	let rest = arguments - Backend.Local
 	if MachineUse.IsChecked(arguments, backend.resident.root)
-		if Checked(rest) is not 0
+		if Checked(rest, MachineUse.IsForced(given)) is not 0
 			return 1
 	let forwarded = backend.Dispatched(arguments)
 	forwarded >= 0 then forwarded else Local(rest).code
@@ -56,7 +57,7 @@ Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	backend.Unpressed
 	backend.Restored(isMoved, home)
 	served
-Checked(arguments Texts) Number
+Checked(arguments Texts, forced Boolean) Number
 	let options = MossOptions.Parsed(arguments)
 	if options is Error
 		return 0
@@ -64,4 +65,5 @@ Checked(arguments Texts) Number
 	let encoder = options.files.Encoder
 	if (model is Error) or (encoder is Error)
 		return 0
-	MachineUse.Models(logger, "MossImage", File(model).Length, File(encoder).Length).Checked
+	let growth = H3Resident.EncoderGrowth
+	MachineUse.Models(logger, "MossImage", File(model).Length, File(encoder).Length, growth, forced).Checked

@@ -78,7 +78,7 @@ H3Video.exe starts a backend in the background the first time, which keeps the t
 
 MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept. `--local` and `MossImage.exe stop` work like for H3Video.
 
-Before loading models, both check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
+Before loading models, both check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. `--force` (or `STRICT_FORCE=1`, also for the LLM programs in Strict) runs anyway, which is very slow or fails while the others hold the memory. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
 
 ## Building from source
 
