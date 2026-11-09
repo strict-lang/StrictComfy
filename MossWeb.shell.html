@@ -120,10 +120,12 @@
 	const gpuName = () => {
 		try {
 			const gl = document.createElement("canvas").getContext("webgl"), info = gl && gl.getExtension("WEBGL_debug_renderer_info");
-			return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+			const name = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+			gl && gl.getExtension("WEBGL_lose_context")?.loseContext();
+			return name;
 		} catch { return ""; }
 	};
-	const roomy = hasRoom(gpuName());
+	const roomy = !isMobile && hasRoom(gpuName());
 	const randomSeed = () => seed.value = Math.floor(Math.random() * 4294967296);
 	if (parameters.get("seed")) seed.value = parameters.get("seed"); else randomSeed();
 	const steps = () => ({ fastest: 4, fastest2steps: 2 })[began.quality] || 8;
