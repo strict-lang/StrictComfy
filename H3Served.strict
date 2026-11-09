@@ -29,7 +29,7 @@ Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
 		return kept
 	let encoding = kept.Encoding(batch.options.files).Tokenizing(batch.options.files)
 	Encoded(encoding, plan, missing)
-	if kept.isCrowded
+	if kept.isCrowded or batch.options.IsLarge
 		GpuMemory.Evicted
 	batch.options.files.Freed
 	kept.isCrowded then H3Resident(encoding, encoders = List(Qwen3), encoderFile = "") else encoding
