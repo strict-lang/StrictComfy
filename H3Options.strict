@@ -12,7 +12,7 @@ has width = 480
 has height = 832
 has length = 124
 has output = "H3Video.mp4"
-constant LargeClip = 40000000
+constant LargeClip = 60000000
 constant BestPresetHelp = "presets of model, steps, attention and Spectrum (124 frames at 480x832 on a 4090): best the model with the turbo LoRA of ComfyUI's H3 template ("
 constant TurboPresetHelp = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors in models/loras, left out above 8 steps or with a model or LoRA named turbo) 8 steps 14 s, "
 constant FastPresetsHelp = "fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps and fastest2steps 4 or 2 routed steps with the TaoMate 3 step LoRA instead (an 8 step turbo LoRA is an error there) 6.4 s and 4.5 s"
@@ -120,7 +120,9 @@ Turbos Texts
 IsLarge Boolean
 	H3Options.Parsed(("--width", "384", "--height", "640")).IsLarge is false
 	H3Options.Parsed(("--length", "53")).IsLarge is false
-	H3Options.Parsed(List(Text)).IsLarge
+	H3Options.Parsed(List(Text)).IsLarge is false
+	H3Options.Parsed(("--length", "294")).IsLarge
+	H3Options.Parsed(("--width", "704", "--height", "1280")).IsLarge
 	width * height * length >= LargeClip
 Checkpoint Text
 	H3Options.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:" + H3Video.Base)
