@@ -156,8 +156,6 @@ Fitted H3Options
 	H3Options.Parsed(("--width", "720", "--height", "1280")).Fitted.width is 704
 	H3Options.Parsed(("--length", "5", "--width", "720")).Fitted.Problem is ""
 	H3Options.Parsed(("--width", "368")).Fitted.width is 352
-	let wide = ComfySize.Total.Snap(width, 32)
-	let high = ComfySize.Total.Snap(height, 32)
-	if (wide is width) and (high is height)
-		return value
+	let wide = ComfySize.Plain.Snap(width, 32)
+	let high = ComfySize.Plain.Snap(height, 32)
 	H3Options(value, width = wide, height = high)

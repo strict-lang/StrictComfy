@@ -2,7 +2,7 @@ has logger
 has backend Backend
 constant MinimumRam = 17179869184
 constant MinimumVram = 8589934592
-constant Sample = MossServer(Logger, Backend(Logger, Resident("artifacts/mosstest"), "MossImage"))
+constant Sample = MossServer(Logger, Backend(Logger, Resident("artifacts/mosstest"), "MossImage", Backend.Nowhere))
 Root Text
 	MossServer.Root.EndsWith("/artifacts/moss")
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/artifacts/moss"
@@ -78,11 +78,11 @@ Continued(arguments Texts, forced Boolean) Slow(Number)
 	let line = Asked(arguments, forced)
 	if line is ""
 		return 0
-	let reply = Coordinator(logger).Sent(line)
+	let reply = Coordinator(logger, backend.coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
 	if sent >= 0
 		return sent
-	let settled = reply.StartsWith("wait") then Coordinator(logger).Resolved(line) else reply
+	let settled = reply.StartsWith("wait") then Coordinator(logger, backend.coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		return Refused(settled)
 	settled is "" then Checked(arguments, forced) else 0

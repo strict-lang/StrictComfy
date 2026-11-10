@@ -103,13 +103,9 @@ Distilled(specs Texts) Boolean
 	let dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
 Located Text
-	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is Error("FileNotFound:a_b.safetensors")
-	files.Checkpoint
-	Loras
-	files.Decoder
-	files.Encoder
-	files.Tokenizer
-	"ok"
+	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
+	let found = Text.Combine((files.Checkpoint, Loras, files.Decoder, files.Encoder, files.Tokenizer), ";")
+	(found is Error) then (found to Text).Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ") else ""
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)
@@ -130,8 +126,6 @@ Fitted MossOptions
 	MossOptions.Parsed(("--width", "500")).Fitted.width is 480
 	MossOptions.Parsed(("--width", "0")).Fitted.width is 32
 	MossOptions.Parsed(("--height", "500")).Fitted.height is 480
-	let wide = ComfySize.Total.Snap(width, 32)
-	let high = ComfySize.Total.Snap(height, 32)
-	if (wide is width) and (high is height)
-		return value
+	let wide = ComfySize.Plain.Snap(width, 32)
+	let high = ComfySize.Plain.Snap(height, 32)
 	MossOptions(value, width = wide, height = high)

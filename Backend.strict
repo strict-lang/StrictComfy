@@ -1,6 +1,7 @@
 has logger
 has resident Resident
 has name Text
+has coordinator = ""
 constant StartSeconds = 30
 constant PollSeconds = 0.2
 constant CheckSeconds = 5
@@ -15,7 +16,8 @@ constant Stopped = -3
 constant Local = "--local"
 constant Serving = "serve"
 constant KeepsModels = " backend, it keeps the models loaded for the next runs (--local runs without it)"
-constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video")
+constant Nowhere = "artifacts/h3test/obj/MissingCoordinator"
+constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video", Nowhere)
 IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text))
 	Backend.IsServing(("--prompt", "a.txt"))
@@ -29,7 +31,7 @@ Dispatched(arguments Texts) Number
 	Sample.Dispatched(List(Text) + Local) is -1
 	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
-		return Forwarding(logger, resident.root).Forwarded(List(Text) + Resident.Stopping)
+		return Forwarding(logger, resident.root, coordinator).Forwarded(List(Text) + Resident.Stopping)
 	if Local is in arguments
 		return -1
 	mutable code = Attempted(arguments)
@@ -143,13 +145,13 @@ Unpressed Slow(Number)
 	let available = GpuMemory.Available
 	if (available > 0) and (available < LowDevice)
 		GpuMemory.Yielded
-	let reply = Coordinator(logger).Sent("holding\t0\t" + GpuMemory.Held)
+	let reply = Coordinator(logger, coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
 		GpuMemory.Yielded
 	reply is "exit" then Backend.Stopped else 0
 Freed(request Text) Slow(Number)
 	Sample.Freed("broken") is 1
-	let told = Coordinator(logger).Sent("done")
+	let told = Coordinator(logger, coordinator).Sent("done")
 	let yielded = GpuMemory.Yielded
 	resident.Released(request)
 	(told is Error) or (yielded is Error) then 2 else 1

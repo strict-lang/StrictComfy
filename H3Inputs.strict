@@ -23,7 +23,7 @@ Prompts Texts
 Listed(path Text, extensions Texts) Texts
 	Sample.Listed("H3Inputs.strict", List(Text) + "txt") is List(Text) + "H3Inputs.strict"
 	Sample.Listed(".", List(Text) + "png").Length is 1
-	if Directory.Exists(path) is false
+	if IsFolder(path) is false
 		return List(Text) + path
 	for Directory.Files(path)
 		if value.Lower.Split(".").Last is in extensions
@@ -37,7 +37,7 @@ Paired Slow(List(Texts))
 	Folder.Paired.Last.First.EndsWith("tinyframe.png")
 	let images = Images
 	let prompts = Prompts
-	for Directory.Exists(options.files.image) then images.Length else prompts.Length
+	for IsFolder(options.files.image) then images.Length else prompts.Length
 		Matched(images(index % images.Length), prompts, index)
 Matched(image Text, prompts Texts, position Number) Texts
 	Sample.Matched("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
@@ -81,4 +81,9 @@ Output(image Text) Text
 	Sample.Output("") is "H3Video.mp4"
 	Folder.Output("./frame12.png") is "H3Video-frame12-.mp4"
 	let named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
-	Directory.Exists(options.files.image) then named else options.output
+	IsFolder(options.files.image) then named else options.output
+IsFolder(path Text) Boolean
+	Sample.IsFolder(".")
+	Sample.IsFolder("") is false
+	Sample.IsFolder("H3Inputs.strict") is false
+	(path is not "") and Directory.Exists(path)

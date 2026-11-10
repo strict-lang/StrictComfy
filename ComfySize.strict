@@ -3,6 +3,7 @@ has node Json
 constant MaintainAspect = 11
 constant Selector = ComfySize(ComfyGraph.Tiny, Json("{\"type\": \"ResolutionSelector\", \"widgets_values\": [\"9:16 (Portrait Widescreen)\", 0.2, 32]}"))
 constant Total = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(19))
+constant Plain = ComfySize(ComfyGraph(List(Json), List(Json), List(Text)), Json("{}"))
 constant Shorter = ComfySize(ComfyGraph.Tiny, ComfyGraph.Tiny.Node(18))
 constant NamedSides = "{\"type\": \"UnifiedResizeImageMask\", \"widgets_values_named\": {\"scale_mode\": \"Shorter Side\", \"aspect_ratio\": \"4:3\", \"long_side_target\": 900, \"short_side_target\": 500, "
 constant NamedScale = "\"width\": 640, \"height\": 480, \"multiplier\": 1.3, \"megapixels\": 0.22, \"divisible_by\": 16, \"maintain_aspect\": true}, "
@@ -77,6 +78,7 @@ Snapped(size Numbers, divisor Number, keepsAspect Boolean) Numbers
 Snap(size Number, divisor Number) Number
 	Total.Snap(854, 32) is 832
 	Total.Snap(10, 32) is 32
+	Plain.Snap(704, 32) is 704
 	let snapped = (size.Floor / divisor).Floor * divisor
 	snapped > divisor then snapped else divisor
 Widget(name Text, position Number) Text

@@ -1,10 +1,10 @@
 has logger
 has root Text
+has coordinator = ""
 constant MinimumRam = 68719476736
 constant MinimumVram = 10737418240
-constant NumberOptions = "--steps, --count, --seed, --width, --height, --length"
 constant QualityChoices = "--quality must be best, fast, faster, fastest4steps or fastest2steps"
-constant Sample = H3Client(Logger, "artifacts/h3test")
+constant Sample = H3Client(Logger, "artifacts/h3test", Backend.Nowhere)
 Ran(given Texts) Number
 	if given is (Backend.Serving)
 		return H3Server(logger, Backended).Served
@@ -19,11 +19,11 @@ Ran(given Texts) Number
 	let forwarded = Backended.Dispatched(plain)
 	forwarded >= 0 then forwarded else H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed
 Backended Backend
-	H3Client(Logger, "artifacts/h3test").Backended.name is "H3Video"
-	Backend(logger, Resident(root), "H3Video")
+	Sample.Backended.name is "H3Video"
+	Backend(logger, Resident(root), "H3Video", coordinator)
 Asked(arguments Texts, forced Boolean) Text
-	H3Client(Logger, "artifacts/h3test").Asked(List(Text), false).StartsWith("need\tH3Video\t")
-	let options = H3Options.Parsed(arguments)
+	Sample.Asked(List(Text), false).StartsWith("need\tH3Video\t")
+	let options = Options(arguments)
 	let model = options.files.Checkpoint
 	let encoder = options.files.Encoder
 	let bytes = (File(model).Length, File(encoder).Length)
@@ -31,28 +31,28 @@ Asked(arguments Texts, forced Boolean) Text
 	let mode = forced then "force" else "wait"
 	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
 Granted(arguments Texts, forced Boolean) Slow(Number)
-	H3Client(Logger, "artifacts/h3test").Granted(List(Text), false) >= 0
+	Sample.Granted(List(Text), false) >= 0
 	let named = Remote(logger).Named(arguments)
 	named >= 0 then named else Continued(arguments, forced)
 Continued(arguments Texts, forced Boolean) Slow(Number)
-	H3Client(Logger, "artifacts/h3test").Continued(List(Text), false) >= 0
+	Sample.Continued(List(Text), false) >= 0
 	let line = Asked(arguments, forced)
 	if line is ""
 		return 0
-	let reply = Coordinator(logger).Sent(line)
+	let reply = Coordinator(logger, coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
 	if sent >= 0
 		return sent
-	let settled = reply.StartsWith("wait") then Coordinator(logger).Resolved(line) else reply
+	let settled = reply.StartsWith("wait") then Coordinator(logger, coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		return Refused(settled)
 	settled is "" then Checked(arguments, forced) else 0
 Refused(reply Text) Number
-	H3Client(Logger, "artifacts/h3test").Refused("refused\tH3Video") is 1
+	Sample.Refused("refused\tH3Video") is 1
 	logger.Log(reply)
 	1
 Checked(arguments Texts, forced Boolean) Number
-	let options = H3Options.Parsed(arguments)
+	let options = Options(arguments)
 	let model = options.files.Checkpoint
 	let encoder = options.files.Encoder
 	let growth = H3Resident.EncoderGrowth
@@ -64,25 +64,18 @@ Unparsed(arguments Texts) Text
 	Sample.Unparsed(("--colour", "red")) is "--colour is not an option of H3Video, see H3Video --help"
 	Sample.Unparsed(("--count", "many")) is "--count must be a number"
 	let parsed = H3Options.Parsed(arguments)
-	(parsed is Error) then Explained((parsed to Text).Lines.First.Replace("Error: ", ""), arguments) else ""
-Unnumbered(arguments Texts) Text
-	Sample.Unnumbered(("--seed", "5", "--count", "many")) is "--count must be a number"
-	Sample.Unnumbered(("--seed", "many", "--count")) is "--seed must be a number"
-	Sample.Unnumbered(("--count", "5", "--seed", "x")) is "--seed must be a number"
-	Sample.Unnumbered(List(Text)) is NumberOptions + " must be numbers"
-	for NumberOptions.Split(", ")
-		let at = arguments.Index(value) + 1
-		if (at > 0) and (at < arguments.Length) and ((arguments(at) to Number) is Error)
-			return value + " must be a number"
-	NumberOptions + " must be numbers"
-Explained(problem Text, arguments Texts) Text
-	Sample.Explained("UnknownChoice:--quality", List(Text)) is QualityChoices
-	Sample.Explained("InvalidNumber", ("--count", "many")) is "--count must be a number"
-	Sample.Explained("UnknownOption:--colour", List(Text)).StartsWith("--colour is not an option")
-	Sample.Explained("Odd", List(Text)) is "Odd"
-	if problem is "InvalidNumber"
-		return Unnumbered(arguments)
+	(parsed is Error) then Explained((parsed to Text).Lines.First.Replace("Error: ", "")) else ""
+Explained(problem Text) Text
+	Sample.Explained("UnknownChoice:--quality") is QualityChoices
+	Sample.Explained("InvalidNumber:--count") is "--count must be a number"
+	Sample.Explained("UnknownOption:--colour").StartsWith("--colour is not an option")
+	Sample.Explained("Odd") is "Odd"
+	let option = problem.Split(":").Last
+	if problem.StartsWith("InvalidNumber:")
+		return option + " must be a number"
 	if problem.StartsWith("UnknownChoice:")
 		return QualityChoices
-	let option = problem.Split(":").Last
 	problem.StartsWith("UnknownOption:") then option + " is not an option of H3Video, see H3Video --help" else problem
+Options(arguments Texts) H3Options
+	Sample.Options(("--local", "--remote", "AiServer", "--steps", "6")).steps is 6
+	H3Options.Parsed(Remote(logger).Without(arguments) - Backend.Local)
