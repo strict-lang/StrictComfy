@@ -15,8 +15,7 @@ Loaded(model Safetensors, name Text, spacing Number) Slow(H3Conv)
 	Up.biases.Length is 64
 	H3Conv.Loaded(Model, "decoder.conv_post", 1).biases is (0)
 	let shape = model.Shape(name + ".weight")
-	let biased = model.Entry(name + ".bias") is not ""
-	let offsets = biased then model.Values(name + ".bias") else Layer.Zeros(shape(0))
+	let offsets = (model.Entry(name + ".bias") is not "") then model.Values(name + ".bias") else Layer.Zeros(shape(0))
 	H3Conv(model.Values(name + ".weight"), offsets, shape(2), spacing)
 Output(signal Numbers) Slow(Numbers)
 	Pre.Output(Entered).Length is 512
@@ -33,8 +32,7 @@ Columns(signal Numbers, inputs Number) Numbers
 	let width = inputs * kernel
 	let half = (kernel - 1) / 2
 	for length * width
-		let tap = index % kernel
-		let at = (index / width).Floor + (tap - half) * dilation
+		let at = (index / width).Floor + ((index % kernel) - half) * dilation
 		at >= 0 and at < length then signal(at * inputs + (index / kernel).Floor % inputs) else 0
 Biased(values Numbers) Numbers
 	H3Conv(List(Number), (1, 2), 1, 1).Biased((0, 0, 1, 1)) is (1, 2, 2, 3)

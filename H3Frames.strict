@@ -24,9 +24,7 @@ Saved(frames Numbers, waveform Numbers, size Numbers, output Text)
 	let result = Process.RunTool("ffmpeg", Arguments(size, output))
 	File(output + ".rgb").Delete
 	File(output + ".wav").Delete
-	if result.exitCode is not 0
-		return Error("FfmpegFailed: " + result.error)
-	logger.Log("Wrote " + output)
+	result.exitCode is not 0 then Error("FfmpegFailed: " + result.error) else logger.Log("Wrote " + output)
 Pictures(vae H3Vae, latent Numbers, shape Numbers, expected Numbers) Numbers
 	let before = Process.Elapsed
 	let frames = vae.Decoded(latent, shape)

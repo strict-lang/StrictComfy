@@ -60,5 +60,4 @@ Queries(values Numbers, biases Numbers) Slow(BFloat16s)
 	Middle.Queries(Spaced, (2, 4, 6, 8, 0, 0, 0, 0, 0, 0, 0, 0)) is (1.5, 3, 4.5, 6, 3.5, 5, 6.5, 8)
 	let size = biases.Length / 3
 	for values.Length / 3
-		let position = (index / size).Floor
-		(values(position * 3 * size + index % size) + biases(index % size)) / size.SquareRoot
+		(values((index / size).Floor * 3 * size + index % size) + biases(index % size)) / size.SquareRoot

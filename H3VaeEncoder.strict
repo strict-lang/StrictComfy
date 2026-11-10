@@ -91,8 +91,7 @@ Reflected(convolution Convolution, map FeatureMap, affine Numbers, activation Ac
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(0).IsNearlyEqual(Entry(0), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(31749).IsNearlyEqual(Entry(6112), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(32767).IsNearlyEqual(Entry(32767), 0.0001)
-	let full = convolution.Applied(Padded(map, (1, 1, 1, 1)), affine, activation)
-	Strided(full, (1, 1), (map.Height, map.width))
+	Strided(convolution.Applied(Padded(map, (1, 1, 1, 1)), affine, activation), (1, 1), (map.Height, map.width))
 Padded(map FeatureMap, sides Numbers) FeatureMap
 	Tiny.Padded(FeatureMap((1, 2), 2, 1, List(Number) + 3), (0, 0, 1, 0)).values is (2, 1, 2)
 	let size = (map.Height, map.width, map.channels)

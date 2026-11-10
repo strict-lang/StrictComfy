@@ -10,9 +10,7 @@ Problem Text
 	H3Inputs(H3Options.Parsed(("--width", "500"))).options.Fitted.width is 480
 	if Images.Length is 0
 		return "--image " + options.files.image + " has no png or jpg files"
-	if Prompts.Length is 0
-		return "--prompt " + options.prompt + " has no txt files"
-	options.Problem
+	Prompts.Length is 0 then "--prompt " + options.prompt + " has no txt files" else options.Problem
 Images Slow(Texts)
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")

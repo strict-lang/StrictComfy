@@ -18,14 +18,12 @@ Total(context Number, added Number) Number
 	Sample.Total(22, 24) is 56
 	Sample.Total(22, 124) is 158
 	Sample.Total(39, 5) is 56
-	let raw = context + added
-	((raw - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+	(((context + added) - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
 LatentCount(length Number) Number
 	Sample.LatentCount(22) is 7
 	Sample.LatentCount(39) is 12
 	Sample.LatentCount(90) is 27
-	let frames = ((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
-	(frames - 5) / H3Format.FrameGroup * 5 + 2
+	((((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5) - 5) / H3Format.FrameGroup * 5 + 2
 AudioCount(length Number) Number
 	Sample.AudioCount(22) is 37
 	Sample.AudioCount(39) is 65
@@ -51,12 +49,10 @@ Prepare Text
 Tail(values Numbers, temporal Number, keep Number, plane Number) Numbers
 	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1) is (3, 4, 7, 8)
 	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 2) is (5, 6, 7, 8)
-	let channels = values.Length / temporal / plane
-	for channels * keep * plane
+	for (values.Length / temporal / plane) * keep * plane
 		let at = index % plane
 		let time = (index / plane).Floor % keep
-		let channel = (index / (keep * plane)).Floor
-		values((channel * temporal + temporal - keep + time) * plane + at)
+		values(((index / (keep * plane)).Floor * temporal + temporal - keep + time) * plane + at)
 FromLatent(path Text, context Number) StrictGenExtend
 	(Sample.Prepare is "strictgen-tail.latent.safetensors") and (Sample.FromLatent(Sample.Prepare, 22).frames is 7)
 	Sample.FromLatent(Sample.Prepare, 22).sound is 37
@@ -94,8 +90,7 @@ FromMedia(path Text, context Number, width Number, height Number, vae Text, audi
 	let seconds = context / H3Format.FramesPerSecond + 1
 	let rgb = path + ".tail.rgb"
 	let pcm = path + ".tail.pcm"
-	let filmed = Process.RunTool("ffmpeg", Extract(path, rgb, width, height, seconds))
-	if filmed.Failed
+	if Process.RunTool("ffmpeg", Extract(path, rgb, width, height, seconds)).Failed
 		return StrictGenExtend(value, problem = "FfmpegFailed")
 	let frame = width * height * 3
 	let raw = Scaled(Bytes(rgb))
@@ -107,8 +102,7 @@ FromMedia(path Text, context Number, width Number, height Number, vae Text, audi
 	let pictured = EncodedFrames(last, context, width, height, vae)
 	if pictured is Error
 		return StrictGenExtend(value, problem = pictured to Text)
-	let recorded = Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds))
-	if recorded.Failed
+	if Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds)).Failed
 		return StrictGenExtend(value, problem = "FfmpegFailed")
 	let waveform = Pcm(Bytes(pcm))
 	File(pcm).Delete
@@ -123,8 +117,7 @@ EncodedFrames(frames Numbers, context Number, width Number, height Number, vae T
 	let frame = width * height * 3
 	mutable joined = List(Number)
 	for Slots(context, LatentCount(context))
-		let image = Planar(frames.Slice(value * frame, frame))
-		joined = joined + picture.Encoded(image, (height, width))
+		joined = joined + picture.Encoded(Planar(frames.Slice(value * frame, frame)), (height, width))
 	joined
 Slots(frames Number, count Number) Numbers
 	Sample.Slots(22, 7).First is 0
@@ -138,15 +131,13 @@ Planar(frame Numbers) Numbers
 	let pixels = frame.Length / 3
 	for frame.Length
 		let channel = (index / pixels).Floor
-		let pixel = index % pixels
-		frame(pixel * 3 + channel)
+		frame((index % pixels) * 3 + channel)
 Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
 	Sample.Mixed((1, 2, 3, 4, 5, 6, 7, 8), (30, 40, 70, 80), (1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1, 0) is (30, 40, 3, 4, 70, 80, 7, 8)
 	let level = sigma > (1 - H3Layout.Pinned) then (1 - H3Layout.Pinned) else sigma
 	for latent.Length
 		let time = (index / plane).Floor % temporal
-		let channel = (index / (temporal * plane)).Floor
-		let at = (channel * keep + time) * plane + index % plane
+		let at = ((index / (temporal * plane)).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
 Trimmed(frames Numbers, context Number, frame Number) Numbers
 	Sample.Trimmed((1, 2, 3, 4, 5, 6, 7, 8, 9), 1, 3) is (4, 5, 6, 7, 8, 9)
@@ -215,8 +206,7 @@ Appended(source Text, frames Numbers, waveform Numbers, size Numbers, context Nu
 	0
 LastFrame(source Text, size Numbers) Numbers
 	let raw = source + ".join.rgb"
-	let filmed = Process.RunTool("ffmpeg", Still(source, raw, size(1), size(0)))
-	if filmed.Failed
+	if Process.RunTool("ffmpeg", Still(source, raw, size(1), size(0))).Failed
 		return List(Number)
 	let frame = size(0) * size(1) * 3
 	let bytes = Scaled(Bytes(raw))
@@ -252,20 +242,17 @@ Pcm(bytes Numbers) Numbers
 	Lefts(bytes) + Rights(bytes)
 Lefts(bytes Numbers) Numbers
 	Sample.Lefts((0, 0, 0, 128)) is (0)
-	let pairs = bytes.Length / 4
-	for pairs
+	for bytes.Length / 4
 		Sampled(bytes, index * 4)
 Rights(bytes Numbers) Numbers
 	Sample.Rights((0, 0, 0, 128)) is (-1)
-	let pairs = bytes.Length / 4
-	for pairs
+	for bytes.Length / 4
 		Sampled(bytes, index * 4 + 2)
 Sampled(bytes Numbers, at Number) Number
 	Sample.Sampled((0, 128), 0) is -1
 	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)
 	let unsigned = bytes(at) + bytes(at + 1) * 256
-	let signed = unsigned >= 32768 then unsigned - 65536 else unsigned
-	signed / 32768
+	(unsigned >= 32768 then unsigned - 65536 else unsigned) / 32768
 Scaled(bytes Numbers) Numbers
 	Sample.Scaled((0, 255)) is (0, 1)
 	for bytes

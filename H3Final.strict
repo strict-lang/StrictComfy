@@ -25,8 +25,7 @@ Output(hidden Numbers, curves Numbers, layout H3Layout, sigma Number) Slow(Numbe
 	let first = (layout.Words + layout.Conditions) * norm.Length
 	let count = 2 * layout.audio * norm.Length
 	let seen = Unpatched(video.Sums(Safetensors.Part(normed, first + count, normed.Length - first - count, 1)), layout)
-	let heard = Unpacked(audio.Sums(Safetensors.Part(normed, first, count, 1)), layout)
-	for seen + heard
+	for seen + Unpacked(audio.Sums(Safetensors.Part(normed, first, count, 1)), layout)
 		-value
 Unpatched(rows Numbers, layout H3Layout) Slow(Numbers)
 	(Tiny.Unpatched(Counted.Slice(1, 8), Flat) is (1, 2, 5, 6, 3, 4, 7, 8)) and (Tiny.Unpatched(Counted, Quad) is Order)

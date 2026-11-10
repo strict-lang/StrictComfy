@@ -52,9 +52,7 @@ IsCrowded(batch MossBatch) Boolean
 	Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 Tokenizing(batch MossBatch) Slow(MossResident)
 	Spelled.Tokenizing(MossBatch.Sample).tokenizers.Length is 1
-	if tokenizers.Length is 1
-		return value
-	MossResident(value, tokenizers = List(Gpt2Tokens) + batch.Tokenizer)
+	tokenizers.Length is 1 then value else MossResident(value, tokenizers = List(Gpt2Tokens) + batch.Tokenizer)
 Encoding(batch MossBatch, ids List(Numbers)) Slow(MossResident)
 	if encoders.Length is 1
 		return value

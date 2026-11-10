@@ -75,8 +75,7 @@ Output(latent Numbers, sigma Number, text Numbers, rotation Numbers) Slow(Number
 	Head(Features(latent, text, rotation, vector), vector)
 Rotation(latent Numbers, text Numbers, width Number) Slow(Float32s)
 	Tiny.Rotation(Model.Values("reference.x"), Tiny.TextEmbedded(Context, 3), 4) is MossBlock.Rotation
-	let count = latent.Length / video.weights.First.Length
-	MossBlock.Rotations(count / width, width, text.Length / finalNorm.Length, 128)
+	MossBlock.Rotations((latent.Length / video.weights.First.Length) / width, width, text.Length / finalNorm.Length, 128)
 Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
 	Ran(Embedded(latent, text), blockModulation.Sums(vector), rotation, latent, 0, layers.Length)
 Embedded(latent Numbers, text Numbers) Numbers

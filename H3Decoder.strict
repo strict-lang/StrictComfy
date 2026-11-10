@@ -74,8 +74,7 @@ Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 		let axis = index % 3
 		let size = axis is 0 then frames else (axis is 1 then height else width)
 		let time = (token / (height * width)).Floor
-		let at = axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)
-		2 * (at + 0.5) / size - 1
+		2 * ((axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)) + 0.5) / size - 1
 Pixels(tile Numbers, rotation Numbers, shape Numbers) Slow(Numbers)
 	Tiny.Pixels(Window, Turning, (7, 2, 2))(1000).IsNearlyEqual(1.640707, 0.01)
 	Tiny.Pixels(Window, Turning, (7, 2, 2))(86015).IsNearlyEqual(0.326644, 0.01)
@@ -116,5 +115,4 @@ Unpatched(rows Numbers, frames Number, height Number, width Number) Slow(Numbers
 		let y = (index / wide).Floor % high
 		let time = (index / (wide * high)).Floor % (frames * 4)
 		let token = ((time / 4).Floor * height + (y / 16).Floor) * width + (x / 16).Floor
-		let channel = (index / (wide * high * frames * 4)).Floor
-		rows(token * size + channel * 1024 + time % 4 * 256 + y % 16 * 16 + x % 16)
+		rows(token * size + (index / (wide * high * frames * 4)).Floor * 1024 + time % 4 * 256 + y % 16 * 16 + x % 16)

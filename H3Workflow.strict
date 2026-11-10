@@ -24,9 +24,7 @@ Sampler Json
 	Empty.Sampler is Error("NoH3SamplerFound")
 	Named.Sampler is Error("SeveralH3Samplers")
 	let samplers = graph.Active(Samplers)
-	if samplers.Length is 1
-		return samplers(0)
-	Error(samplers.Length is 0 then "NoH3SamplerFound" else "SeveralH3Samplers")
+	samplers.Length is 1 then samplers(0) else Error(samplers.Length is 0 then "NoH3SamplerFound" else "SeveralH3Samplers")
 Latent Json
 	Tiny.graph.Type(Tiny.Latent) is "MiniMaxH3ImageToVideo"
 	Strict.Latent.text is Strict.graph.Node(4).text

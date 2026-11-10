@@ -64,9 +64,7 @@ Schedule(scheduler Number) Numbers
 		return Spaced(scheduler is 1 then steps else (steps - 1).Clamp(1, steps))
 	if (scheduler is 3) or (scheduler is 4)
 		return scheduler is 3 then Beta(BetaShape, BetaShape) else Beta(0.5, Beta57Tail)
-	if scheduler is 6
-		return HyperFlow
-	scheduler is 5 then Quadratic else Sigmas
+	scheduler is 6 then HyperFlow else scheduler is 5 then Quadratic else Sigmas
 HyperFlow Numbers
 	Euler(8, 12).HyperFlow(1).IsNearlyEqual(0.993909785)
 	Euler(4, 12).HyperFlow is Error("HyperFlowNeedsEightSteps")

@@ -45,11 +45,7 @@ Spectral(preset Numbers) Numbers
 	MossOptions.Parsed(List(Text)).Spectral((8, 1, 3, 3)) is (3, 3)
 	MossOptions.Parsed(("--spectrum", "off", "--quality", "fast")).Spectral((8, 1, 3, 3)) is (0, 2)
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3")).Spectral((8, 1, 0, 2)) is (2, 3)
-	if spectrum is ""
-		return (preset(2), preset(3))
-	if spectrum is "off"
-		return (0, 2)
-	Rates
+	spectrum is "" then (preset(2), preset(3)) else spectrum is "off" then (0, 2) else Rates
 Rates Numbers
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3")).Rates is (2, 3)
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3", "--steps", "6")).Rates is Error("InvalidSpectrum")
@@ -137,6 +133,4 @@ Fitted MossOptions
 	MossOptions.Parsed(("--width", "500")).Fitted.width is 480
 	MossOptions.Parsed(("--width", "0")).Fitted.width is 32
 	MossOptions.Parsed(("--height", "500")).Fitted.height is 480
-	let wide = ComfySize.Plain.Snap(width, 32)
-	let high = ComfySize.Plain.Snap(height, 32)
-	MossOptions(value, width = wide, height = high)
+	MossOptions(value, width = ComfySize.Plain.Snap(width, 32), height = ComfySize.Plain.Snap(height, 32))

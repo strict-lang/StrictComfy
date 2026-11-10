@@ -5,9 +5,7 @@ Root Text
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
 Served Number
 	let server = backend.Opened
-	if server is 0
-		return 1
-	Listened(server)
+	server is 0 then 1 else Listened(server)
 Listened(server Number) Number
 	let built = File(Process.Current.executable).Modified
 	mutable kept = H3Resident(logger)
@@ -63,13 +61,10 @@ Claimed Text
 	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
 Proved Slow(Boolean)
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
-	let request = Claimed
-	let code = Ended(0, 1, request)
-	(code is 1) and File(backend.resident.Freed).Exists
+	(Ended(0, 1, Claimed) is 1) and File(backend.resident.Freed).Exists
 Ended(socket Number, code Number, request Text) Slow(Number)
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken") is 1
-	let ended = backend.resident.Finished(socket, code)
-	if ended is Error
+	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.Freed(request)
 	backend.resident.Released(request)

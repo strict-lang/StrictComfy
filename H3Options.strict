@@ -93,27 +93,21 @@ Problem Text
 		return "--video " + files.video + " was not found"
 	if (files.video is not "") and (files.image is not "")
 		return "--image is a still first frame; leave it empty when --video continues a clip"
-	if (count < 0) or (length < 5)
-		return Miscounted
-	Unsupported
+	(count < 0) or (length < 5) then Miscounted else Unsupported
 Unsupported Text
 	H3Options.Parsed(List(Text)).Unsupported is ""
 	H3Options.Parsed(("--sampler", "heun")).Unsupported.StartsWith("--sampler must be one of euler, ")
 	H3Options.Parsed(("--output", "a.gif")).Unsupported is "--output must end with .mp4"
 	H3Options.Parsed(FourStepArguments + TurboArguments).Unsupported is ""
 	let unlisted = Unlisted
-	if unlisted is not ""
-		return unlisted
-	output.EndsWith(".mp4") then "" else "--output must end with .mp4"
+	unlisted is not "" then unlisted else output.EndsWith(".mp4") then "" else "--output must end with .mp4"
 Unlisted Text
 	H3Options.Parsed(List(Text)).Unlisted is ""
 	H3Options.Parsed(("--sampler", "heun")).Unlisted.StartsWith("--sampler must be one of euler, ")
 	H3Options.Parsed(("--scheduler", "karras")).Unlisted.StartsWith("--scheduler must be one of simple, ")
 	if sampler is not in Samplers
 		return "--sampler must be one of " + Text.Combine(Samplers, ", ")
-	if scheduler is not in Schedulers
-		return "--scheduler must be one of " + Text.Combine(Schedulers, ", ")
-	""
+	scheduler is not in Schedulers then "--scheduler must be one of " + Text.Combine(Schedulers, ", ") else ""
 IsFew Boolean
 	H3Options.Parsed(("--quality", "fastest4steps")).IsFew
 	H3Options.Parsed(("--quality", "fastest2steps")).IsFew and (H3Options.Parsed(List(Text)).IsFew is false)
@@ -155,8 +149,7 @@ Few(local ModelFiles, given Texts) Text
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
 	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo
 	let isGiven = (Turbos.Length > 0) or (Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0)
-	let added = isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")
-	Text.Combine(added + given, ";")
+	Text.Combine((isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")) + given, ";")
 Clip Number
 	H3Options.Parsed(List(Text)).Clip is 124
 	H3Options.Parsed(("--video", "clip.mp4", "--length", "24", "--context", "22")).Clip is 56
@@ -174,6 +167,4 @@ Fitted H3Options
 	H3Options.Parsed(("--width", "720", "--height", "1280")).Fitted.width is 704
 	H3Options.Parsed(("--length", "5", "--width", "720")).Fitted.Problem is ""
 	H3Options.Parsed(("--width", "368")).Fitted.width is 352
-	let wide = ComfySize.Plain.Snap(width, 32)
-	let high = ComfySize.Plain.Snap(height, 32)
-	H3Options(value, width = wide, height = high)
+	H3Options(value, width = ComfySize.Plain.Snap(width, 32), height = ComfySize.Plain.Snap(height, 32))

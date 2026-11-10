@@ -85,8 +85,7 @@ Imported(path Text) Text
 	let text = Text.Combine(File(path).ReadLines, "\n")
 	let h3 = (text.IndexOf("StrictH3") >= 0) or (text.IndexOf("MiniMax") >= 0) or (text.IndexOf("SamplerCustomAdvanced") >= 0)
 	let arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
-	let mode = Selected(h3 then "h3" else "moss", arguments)
-	Described(mode, arguments)
+	Described(Selected(h3 then "h3" else "moss", arguments), arguments)
 Described(mode Text, arguments Texts) Text
 	StrictGenForm.Described("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
 	let width = Taken(arguments, "--width")
@@ -117,8 +116,7 @@ Neighbor(paths Texts, current Text, step Number) Text
 	if files.Length is 0
 		return ""
 	let at = files.Index(current)
-	let next = at < 0 then (step < 0 then files.Length - 1 else 0) else (at + step).Clamp(0, files.Length - 1)
-	files(next)
+	files(at < 0 then (step < 0 then files.Length - 1 else 0) else (at + step).Clamp(0, files.Length - 1))
 Listed(folder Text, extensions Texts) Texts
 	Text.Combine(StrictGenForm.Listed(".", List(Text) + "strict"), " ").IndexOf("StrictGenForm.strict") >= 0
 	mutable files = List(Mutable(Text))

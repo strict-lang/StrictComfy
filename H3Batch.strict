@@ -14,8 +14,7 @@ constant Vae = "FileNotFound:minimax_h3_video_vae_int8_convrot.safetensors"
 constant Longer = ("--models", ".", "--length", "22")
 Completed Number
 	let ready = H3Batch(logger, Noted, pictured, prompt, commandLine)
-	let inputs = H3Inputs(ready.options)
-	let problem = inputs.Problem
+	let problem = H3Inputs(ready.options).Problem
 	if problem is not ""
 		logger.Log(problem)
 		return 2

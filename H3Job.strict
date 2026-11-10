@@ -45,9 +45,7 @@ Count Number
 	Noisy.Count is 1
 	Safetensors("h3job.safetensors").Written(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is not Error
 	Dumped.Count is 3
-	if video.Length > 0
-		return 1
-	file.Entry("sigmas") is "" then 1 else file.Values("sigmas").Length - 1
+	video.Length > 0 then 1 else file.Entry("sigmas") is "" then 1 else file.Values("sigmas").Length - 1
 Noise(stream Text, step Number) Numbers
 	Reference.Noise("video", 0) is List(Number)
 	Noisy.Noise("audio", 1).Length is 64
@@ -89,9 +87,7 @@ Rows(condition Safetensors) Numbers
 	H3Job(Noisy, rows = (1, 2)).Rows(Keyframe) is (1, 2)
 	Noisy.Rows(Keyframe).Length is 384
 	Noisy.Rows(Reference.file) is List(Number)
-	if rows.Length > 0
-		return rows
-	condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
+	rows.Length > 0 then rows else condition.Entry("rows") is "" then List(Number) else condition.Values("rows")
 Keyframes(given Numbers) Numbers
 	H3Job(Noisy, keyframes = (0, 123)).Keyframes(List(Number) + 5) is (0, 123)
 	Noisy.Keyframes(List(Number) + 5) is (5)

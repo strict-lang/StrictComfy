@@ -90,8 +90,7 @@ Narrowed(numbers Numbers) Slow(Numbers)
 		numbers((index / Decoding.head).Floor * 2 * Decoding.head + index % Decoding.head)
 Fed(normed Numbers) Slow(Numbers)
 	Tiny.Fed(H3Decoder.Embedding).Length is 8448
-	let expanded = Projected(up, normed)
-	Projected(down, H3Block.Activated(expanded, down.weights.First.Length))
+	Projected(down, H3Block.Activated(Projected(up, normed), down.weights.First.Length))
 Scaled(input Numbers, update Numbers, scale Numbers) Slow(Numbers)
 	Tiny.Scaled((1, 2), (3, 4), (2, 0.5)) is (7, 4)
 	for input.Length

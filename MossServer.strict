@@ -84,8 +84,7 @@ Continued(arguments Texts, forced Boolean) Slow(Number)
 	settled is "" then Use(arguments, forced).Checked else 0
 Ended(socket Number, code Number, request Text) Slow(Number)
 	Sample.Ended(0, 1, "broken") is 1
-	let ended = backend.resident.Finished(socket, code)
-	if ended is Error
+	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The MossImage client left before the result was sent")
 		return backend.Freed(request)
 	backend.resident.Released(request)

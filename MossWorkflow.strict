@@ -78,8 +78,7 @@ Sampling(sampler Json) Texts
 		return seed + steps
 	let quality = graph.Text(sampler, "quality", 7)
 	let custom = steps + "--spectrum" + graph.Text(sampler, "spectrum", 4)
-	let chosen = quality is "custom" then custom else ("--quality", quality)
-	seed + chosen + "--skip" + graph.Text(sampler, "skip", 8)
+	seed + (quality is "custom" then custom else ("--quality", quality)) + "--skip" + graph.Text(sampler, "skip", 8)
 Size(latent Json) Texts
 	Tiny.Size(Tiny.graph.Node(9)) is ("--width", "480", "--height", "1280", "--count", "2")
 	Tiny.Size(Latent) is ("--width", "512", "--height", "768", "--count", "3")

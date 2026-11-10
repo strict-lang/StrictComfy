@@ -22,9 +22,7 @@ Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layo
 	H3Span(value, residual = Kept(skipping, middle, before), skipped = skipping, output = finished)
 Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Slow(Numbers)
 	H3Span(Tiny, residual = (5, 6)).Middle(H3.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), H3Layout.Tiny, true) is (6, 7)
-	if skipping
-		return Combined(before, residual, 1)
-	h3.Ran(before, curves, starts, rotation, layout, first, last)
+	skipping then Combined(before, residual, 1) else h3.Ran(before, curves, starts, rotation, layout, first, last)
 Kept(skipping Boolean, middle Numbers, before Numbers) Numbers
 	Tiny.Kept(false, (3, 4), (1, 1)) is (2, 3)
 	H3Span(Tiny, residual = (5, 6)).Kept(true, (3, 4), (1, 1)) is (5, 6)

@@ -31,12 +31,10 @@ Packed(values Numbers, scale Number) Float32s
 	for values
 		value * scale
 DownProjected(input Numbers, total Number) Numbers
-	let tokens = input.Length / columns
-	Products(input, down, (1, tokens, columns, total), (0, 0, columns, 1, 0, 0, 1, columns)).Multiplied
+	Products(input, down, (1, input.Length / columns, columns, total), (0, 0, columns, 1, 0, 0, 1, columns)).Multiplied
 Expanded(hidden Numbers, offset Number, stride Number) Numbers
 	let tokens = hidden.Length / stride
-	let outputs = up.Length / rank
-	Products(hidden, up, (1, tokens, rank, outputs), (offset, 0, stride, 1, 0, 0, 1, rank)).Multiplied
+	Products(hidden, up, (1, tokens, rank, up.Length / rank), (offset, 0, stride, 1, 0, 0, 1, rank)).Multiplied
 Projected(input Numbers) Numbers
 	Expanded(DownProjected(input, rank), 0, rank)
 Delta(input Numbers) Slow(Numbers)
@@ -64,9 +62,7 @@ Stacked(other MossLora) Slow(MossLora)
 	MossLora(Tiny, rank = 0).Stacked(Tiny).up is Tiny.up
 	Tiny.Stacked(Tiny).rank is 16
 	MossImage(Logger).Error(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
-	if rank is 0
-		return other
-	MossLora(down + other.down, Widened(other), rank + other.rank, columns)
+	rank is 0 then other else MossLora(down + other.down, Widened(other), rank + other.rank, columns)
 Widened(other MossLora) Slow(BFloat16s)
 	MossLora(Tiny, up = (1, 2, 3, 4), rank = 2).Widened(MossLora(Tiny, up = (5, 6), rank = 1)) is (1, 2, 5, 3, 4, 6)
 	Interleaved(up, other.up, rank, other.rank)

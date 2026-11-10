@@ -9,9 +9,7 @@ Count(data Safetensors) Number
 	GenerationCommand.Count(Safetensors(Jobs, 32, "d.")) is Error("Invalid generation count")
 	let key = data.Entry("jobs") is "" then "runs" else "jobs"
 	let count = data.Entry(key) is "" then 1 else data.Values(key).First
-	if (count < 1) or (count.Floor is not count)
-		return Error("Invalid generation count")
-	count
+	(count < 1) or (count.Floor is not count) then Error("Invalid generation count") else count
 Job(data Safetensors, dumps Text, index Number) Safetensors
 	GenerationCommand.Job(MossImage.Reference, "", 0).path is "tinymoss.safetensors"
 	GenerationCommand.Job(Safetensors(Jobs, 32, "a."), "dumps", 2).path is "dumps/generation-2.safetensors"

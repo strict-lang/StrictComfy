@@ -62,8 +62,7 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Slow(Numbers)
 	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
 	let moss = Loaded(model, lora)
-	let compared = Compared(moss, step)
-	MossFiles.FailedNumber(compared) then List(Number) else Sampled(moss, euler, steps, context)
+	MossFiles.FailedNumber(Compared(moss, step)) then List(Number) else Sampled(moss, euler, steps, context)
 Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Slow(Number)
 	MossImage(Logger, 2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
 	let before = Process.Elapsed
@@ -100,8 +99,7 @@ Compared(moss Moss, step Safetensors) Slow(Number)
 Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Slow(Number)
 	MossImage(Logger, 4).Layered(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
 	let text = step.Values("context").Length / moss.textProjection.weights.First.Length
-	let image = hidden.Length / moss.finalNorm.Length - text
-	let rotation = MossBlock.Rotations(image / width, width, text, 128)
+	let rotation = MossBlock.Rotations((hidden.Length / moss.finalNorm.Length - text) / width, width, text, 128)
 	mutable state = hidden
 	mutable error = 0
 	for moss.layers

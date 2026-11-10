@@ -37,8 +37,7 @@ TokenLength(at Number) Number
 	let first = expression(at) to Text
 	let allowed = first is in Digits then Digits else first is in Letters then Letters + Digits else ""
 	if allowed is ""
-		let pair = at + 1 < expression.Length then expression.Substring(at, 2) else first
-		return pair is in ("//", "**") then 2 else 1
+		return (at + 1 < expression.Length then expression.Substring(at, 2) else first) is in ("//", "**") then 2 else 1
 	for Range(at + 1, expression.Length)
 		if expression(index) to Text is not in allowed
 			return index - at
@@ -107,8 +106,7 @@ Combined(name Text, arguments Numbers) Number
 	mutable result = name is "sum" then 0 else arguments(0)
 	for arguments
 		let larger = value > result then value else result
-		let smaller = value < result then value else result
-		result = name is "sum" then result + value else name is "max" then larger else smaller
+		result = name is "sum" then result + value else name is "max" then larger else (value < result then value else result)
 	result
 Operated(left Number, operator Text, right Number) Number
 	Tiny.Operated(-7, "//", 2) is -4 and Tiny.Operated(-7, "%", 3) is 2

@@ -26,13 +26,11 @@ Position Text
 Waiting Texts
 	Empty.Waiting.Length is 0
 	Empty.Added("image", ("--width", "32"), "Image fox").Waiting is ("Image fox")
-	let live = current < 0 then pending else List(Number) + current + pending
-	for live
+	for (current < 0 then pending else List(Number) + current + pending)
 		lines(value)
 Recent Texts
 	Empty.Recent.Length is 0
-	let newest = results.Reverse
-	newest
+	results.Reverse
 Quoted(words Texts) Text
 	Empty.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
 	Empty.Quoted(("--width", "32")) is "--width 32"
@@ -59,9 +57,7 @@ Executable(name Text) Text
 Script(executable Text, arguments Text, log Text, done Text) Texts
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
-	let command = "\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1"
-	let mark = "echo DONE> \"" + done + "\""
-	(command, mark)
+	("\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1", "echo DONE> \"" + done + "\"")
 Stopped(root Text) Slow(Number)
 	Empty.Stopped("StrictGenMissing") is 0
 	Forwarding(logger, root, "").Forwarded(List(Text) + "stop")
@@ -72,9 +68,7 @@ StopAll Slow(Number)
 	0
 Advanced StrictGenQueue
 	Empty.Advanced.current is -1
-	if (pending.Length is 0) and (current < 0)
-		return value
-	current < 0 then (halted then value else Launch) else Polled
+	(pending.Length is 0) and (current < 0) then value else current < 0 then (halted then value else Launch) else Polled
 Launch StrictGenQueue
 	let index = pending.First
 	let mode = modes(index)
@@ -92,8 +86,7 @@ Launch StrictGenQueue
 Polled StrictGenQueue
 	if File("StrictGenJob.done").Exists is false
 		return value
-	let rows = File("StrictGenJob.log").Exists then File("StrictGenJob.log").ReadLines else List(Text)
-	let path = Found(rows)
+	let path = Found(File("StrictGenJob.log").Exists then File("StrictGenJob.log").ReadLines else List(Text))
 	let caption = lines(current)
 	File("StrictGenJob.done").Delete
 	let done = StrictGenQueue(value, current = -1, finished = finished + 1, results = path is "" then results else results + path, captions = path is "" then captions else captions + caption)

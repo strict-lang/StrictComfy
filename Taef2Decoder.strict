@@ -49,8 +49,7 @@ Decoded(latent Numbers, width Number) Slow(Numbers)
 Finished(map FeatureMap) Slow(Numbers)
 	Tiny.Finished(Tiny.Entered(Latent, 2)).Length is 4608
 	let upsampled = Upsampled(map)
-	let output = exit.Applied(upsampled, upsampled.Identity, Activation.Linear)
-	for output.Completed
+	for exit.Applied(upsampled, upsampled.Identity, Activation.Linear).Completed
 		value.Clamp
 Shrunk(size Number) Number
 	Tiny.Shrunk(60) is 42
@@ -75,8 +74,7 @@ Resampled(values Numbers, size Numbers, target Numbers, channels Number) Slow(Nu
 		let y = (((pixel / target(0)).Floor + 0.5) * size(1) / target(1) - 0.5).Clamp(0, size(1) - 1)
 		let top = y.Floor
 		let upper = Blended(values, top, x, size, channels, index % channels)
-		let lower = Blended(values, (top + 1).Clamp(0, size(1) - 1), x, size, channels, index % channels)
-		upper + (lower - upper) * (y - top)
+		upper + (Blended(values, (top + 1).Clamp(0, size(1) - 1), x, size, channels, index % channels) - upper) * (y - top)
 Previewed(latent Numbers, width Number) Slow(Numbers)
 	Tiny.Previewed(Latent, 2).Length is 2304
 	let full = FluxDecoder.Unpatchified(latent, width, Channels)

@@ -56,8 +56,7 @@ Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).model is ""
 	Encoded.Trimmed("tinyh3.safetensors", "", true).encoders.Length is 0
 	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
-	let isOther = (samplers.Length is 1) and (IsSampling(checkpoint, loras) is false)
-	if isOther
+	if (samplers.Length is 1) and (IsSampling(checkpoint, loras) is false)
 		return Unsampled("Freeing the loaded H3 first, this run needs another model or LoRAs")
 	let isDropped = isTight and (encoders.Length is 1)
 	if isDropped
@@ -67,8 +66,7 @@ Missing(files H3Files) Slow(Number)
 	None.Missing(Whole.options.files) > Encoded.Missing(Whole.options.files)
 	let encoder = encoders.Length is 1 then 0 else EncoderRoom(files)
 	let sampler = samplers.Length is 1 then 0 else File(files.Checkpoint).Length
-	let decoder = decodings.Length is 1 then 0 else File(files.Decoder).Length + File(files.Sound).Length
-	encoder + sampler + decoder
+	encoder + sampler + (decodings.Length is 1 then 0 else File(files.Decoder).Length + File(files.Sound).Length)
 EncoderRoom(files H3Files) Slow(Number)
 	None.EncoderRoom(Whole.options.files) is File(Whole.options.files.Encoder).Length * EncoderGrowth
 	File(files.Encoder).Length * EncoderGrowth
@@ -101,5 +99,4 @@ Decoding(files Texts) Slow(H3Resident)
 	Sampled.Decoding(Decoders).Decoding(Decoders).vaes is Text.Combine(Decoders, "|")
 	if (Text.Combine(files, "|") is vaes) and (decodings.Length is 1)
 		return value
-	let decoding = H3Video(logger).Decoding(List(H3Decoding), files)
-	H3Resident(value, decodings = decoding, vaes = Text.Combine(files, "|"))
+	H3Resident(value, decodings = H3Video(logger).Decoding(List(H3Decoding), files), vaes = Text.Combine(files, "|"))

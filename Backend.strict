@@ -48,8 +48,7 @@ Attempted(arguments Texts) Number
 		logger.Log("Starting the " + name + KeepsModels)
 		Forwarding(logger, resident.root).Started("")
 	let port = Waited(StartSeconds)
-	let failed = port is Gone then 1 else -1
-	port > 0 then Forwarding(logger, resident.root).Answered(resident, port, arguments) else failed
+	port > 0 then Forwarding(logger, resident.root).Answered(resident, port, arguments) else (port is Gone then 1 else -1)
 Waited(seconds Number) Number
 	Sample.Waited(0) is 0
 	let started = Process.Elapsed
@@ -78,8 +77,7 @@ Cleared Number
 	forwarding.Kept(objects, Forwarding.Output)
 	forwarding.Kept(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
-	let printed = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
-	if printed is 0
+	if (Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")) is 0
 		logger.Log("(nothing, see " + objects + "/server.previous*.log)")
 	forwarding.Killed + Gone
 Printed(path Text) Number
@@ -134,8 +132,7 @@ IsOut(available Number, total Number) Boolean
 	Sample.IsOut(Gigabyte, 32 * Gigabyte)
 	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false
 	Sample.IsOut(0, 128 * Gigabyte) is false
-	let least = total / LastShare < LowMemory then total / LastShare else LowMemory
-	(available > 0) and (available <= least)
+	(available > 0) and (available <= (total / LastShare < LowMemory then total / LastShare else LowMemory))
 Restored(isMoved Boolean, home Text)
 	Socket.Output(0)
 	if isMoved
