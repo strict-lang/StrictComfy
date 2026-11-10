@@ -57,8 +57,10 @@ Cropped(index Number) Boolean
 	H3Files.Parsed(("--crop=false")).Cropped(0) is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or (index is 1)
-Freed Number
-	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed >= 0
+Freed
+	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
-		return GpuMemory.Evicted
-	GpuMemory.Released + GpuMemory.Freed(File(Decoder).Length + File(Sound).Length + DecodeRoom)
+		GpuMemory.Evicted
+	else
+		GpuMemory.Released
+		GpuMemory.Freed(File(Decoder).Length + File(Sound).Length + DecodeRoom)

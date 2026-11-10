@@ -107,8 +107,16 @@ Distilled(specs Texts) Boolean
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
 Located Text
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
-	let found = Text.Combine((files.Checkpoint, Loras, files.Decoder, files.Encoder, files.Tokenizer), ";")
-	(found is Error) then (found to Text).Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ") else ""
+	let model = files.Checkpoint
+	let loras = Loras
+	let decoder = files.Decoder
+	let encoder = files.Encoder
+	let tokenizer = files.Tokenizer
+	let early = (model is Error) then (model to Text) else ((loras is Error) then (loras to Text) else "")
+	let late = (decoder is Error) then (decoder to Text) else ((encoder is Error) then (encoder to Text) else "")
+	let problem = early + late + ((tokenizer is Error) then (tokenizer to Text) else "")
+	let named = problem.Lines.First.Replace("Error: ", "")
+	problem is "" then "" else named.Replace("FileNotFound:", "Model file not found: ")
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)

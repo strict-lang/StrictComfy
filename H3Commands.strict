@@ -17,7 +17,9 @@ Completed Number
 Generated(batches List(H3Batch), count Number) Slow(Number)
 	let started = Process.Elapsed
 	let plans = Planned(batches)
-	Encoded(plans)
+	if Encoded(plans) is not 0
+		logger.Log("The text encoder failed, see its output above")
+		return 1
 	let first = plans.First.batch
 	first.Prefetched((first.options.files.Decoder, first.options.files.Sound), "the VAEs")
 	let videos = Sampled(plans)
@@ -109,8 +111,8 @@ SampledWith(plans List(H3Plan), model Text) Slow(Number)
 		if Model(value) is model
 			logger.Log("Command " + (index + 1) + "/" + plans.Length)
 			let latents = H3Artifacts(value.batch.options).Latents(value.seeds.Length, Prefix(index))
-			let conditions = H3Artifacts(value.batch.options).Read(value.paths)
-			videos = videos + value.batch.Sampled(h3, refiner, value, conditions, latents, videos is 0)
+			value.batch.Sampled(h3, refiner, value, H3Artifacts(value.batch.options).Read(value.paths), latents, videos is 0)
+			videos = videos + value.seeds.Length
 	options.files.Freed
 	videos
 Decoded(plans List(H3Plan)) Slow(Number)

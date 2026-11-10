@@ -20,8 +20,7 @@ Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Slow(Text)
 		if Prompt(line) is not prompt
 			prompt = Prompt(line)
 			context = Encoded(prompt, encoders, HasRoom(line))
-		Generated(moss, previewer, decoders, context, line)
-		line = Process.InputLine
+		line = Generated(moss, previewer, decoders, context, line) is "" then "" else Process.InputLine
 	line
 Settings(line Text) Texts
 	MossWeb(Logger).Settings(Sample) is ("7", "480", "848", "fastest", "taef2", "7")

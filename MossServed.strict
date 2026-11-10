@@ -18,7 +18,7 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) Slow(M
 		return MossResident(encoded, code = 0)
 	batch.options.files.Freed
 	let sampling = encoded.Sampling(batch)
-	batch.Images(sampling.mosses.First, seeds, prompts, prompts.Unique, c)
+	let made = batch.Images(sampling.mosses.First, seeds, prompts, prompts.Unique, c)
 	batch.options.files.Freed
-	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + batch.options.count + " images")
+	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(sampling, code = 0)
