@@ -20,9 +20,9 @@ Completed Number
 		return 2
 	let started = Process.Elapsed
 	let plan = ready.Planned
-	let made = plan.batch.Videos(plan, ready.Conditions(plan.prompts, plan.images, plan.paths))
+	plan.batch.Videos(plan, ready.Conditions(plan.prompts, plan.images, plan.paths))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
-	made
+	0
 Noted H3Options
 	H3Batch(Logger, H3Options.Parsed(("--width", "720"))).Noted.width is 704
 	let fitted = options.Fitted
@@ -55,11 +55,10 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	Directory.Create(H3Artifacts(options).Root + "/artifacts")
 	Directory.Create(H3Artifacts(options).Folder)
 	encoding.Started(prompts, images, paths)
-Videos(plan H3Plan, conditions List(Safetensors)) Slow(Number)
+Videos(plan H3Plan, conditions List(Safetensors)) Slow(None)
 	let batch = Armed
 	if batch.motion.problem is not ""
-		logger.Log(batch.motion.problem)
-		return 2
+		return Error(batch.motion.problem)
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	let latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
@@ -67,7 +66,6 @@ Videos(plan H3Plan, conditions List(Safetensors)) Slow(Number)
 	batch.Sampled(h3, refiner, plan, conditions, latents, true)
 	options.files.Freed
 	Decoded(latents, plan.images)
-	0
 LoraFiles Texts
 	Loraed.LoraFiles is ("tinylora.safetensors", "tinyqkvlora.safetensors")
 	Turbo.LoraFiles.Length is 0

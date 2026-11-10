@@ -83,3 +83,5 @@ Release/*
 #!Release/Windows/**
 #!Release/Linux/**
 h3preview-step6.safetensors
+strictgen-tail.latent.safetensors
+StrictGenPrompt.txt

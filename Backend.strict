@@ -59,7 +59,7 @@ Waited(seconds Number) Number
 		if (polled(0) is -1) and (isBusy is false)
 			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
 		isBusy = polled(0) < 0
-		polled = ((polled(0) > 0) or (polled(0) is Gone) then polled(0) else Paused, polled(1))
+		polled = (polled(0) > 0) or (polled(0) is Gone) then polled else Paused(polled(1))
 	polled(0)
 Polled(checked Number) Numbers
 	Sample.Polled(0) is (0, 0)
@@ -94,9 +94,9 @@ Port Number
 	if stamp.Exists is false
 		return 0
 	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else -1
-Paused Number
+Paused(checked Number) Numbers
 	Process.Wait(PollSeconds)
-	0
+	(0, checked)
 Opened Number
 	let objects = resident.root + "/obj"
 	if Rooted and (Directory.Exists(objects) is false)

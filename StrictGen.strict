@@ -7,20 +7,21 @@ Run(arguments Texts) Number
 		logger.Log("StrictGen.exe serves http://localhost:<port>, a local page for images and video")
 		return 0
 	Served(Port(arguments))
+	0
 Port(arguments Texts) Number
 	StrictGen(Logger).Port(List(Text)) is 0
 	StrictGen(Logger).Port(("--port", "8765")) is 8765
 	let at = arguments.Index("--port")
 	(at < 0) or (at + 1 >= arguments.Length) then 0 else arguments(at + 1) to Number
-Served(port Number) Number
-	StrictGen(Logger).Served(-1) is 0
+Served(port Number)
+	StrictGen(Logger).Served(-1) is Error
 	let socket = Socket.Listen(port)
 	if socket is Error
-		return 0
+		return socket
 	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket))
 	Looped(socket, StrictGenQueue(logger))
-Looped(socket Number, queue StrictGenQueue) Number
-	StrictGen(Logger).Looped(0, StrictGenQueue.Empty) is 0
+Looped(socket Number, queue StrictGenQueue)
+	StrictGen(Logger).Looped(0, StrictGenQueue.Empty) is not Error
 	mutable state = queue
 	for Range(0, socket > 0 then Forever else 0)
 		let waiting = Socket.Waiting(socket) is 1
@@ -29,7 +30,6 @@ Looped(socket Number, queue StrictGenQueue) Number
 		state = waiting then state else state.Advanced
 		if waiting is false
 			Process.Wait(state.IsBusy then 0.05 else 0.02)
-	0
 Answered(client Number, queue StrictGenQueue) StrictGenQueue
 	if (client is Error) or (client <= 0)
 		return queue

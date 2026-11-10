@@ -58,14 +58,14 @@ Script(executable Text, arguments Text, log Text, done Text) Texts
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
 	("\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1", "echo DONE> \"" + done + "\"")
-Stopped(root Text) Slow(Number)
-	Empty.Stopped("StrictGenMissing") is 0
-	Forwarding(logger, root, "").Forwarded(List(Text) + "stop")
-StopAll Slow(Number)
-	Empty.Stopped("StrictGenMissing") is 0
+Stopped(root Text) Slow(None)
+	Empty.Stopped("StrictGenMissing") is not Error
+	if Forwarding(logger, root, "").Forwarded(List(Text) + "stop") is not 0
+		return Error("ServersNotStopped: " + root)
+StopAll Slow(None)
+	Empty.Stopped("StrictGenMissing") is not Error
 	Stopped(MossServer.Root)
 	Stopped(H3Artifacts(H3Options.Parsed(List(Text))).Folder)
-	0
 Advanced StrictGenQueue
 	Empty.Advanced.current is -1
 	(pending.Length is 0) and (current < 0) then value else current < 0 then (halted then value else Launch) else Polled
@@ -81,8 +81,8 @@ Launch StrictGenQueue
 	File(script).Write(Script(executable, Quoted(previewed), "StrictGenJob.log", "StrictGenJob.done"))
 	let shell = Process.OperatingSystem is "Windows" then "cmd" else "sh"
 	let flag = Process.OperatingSystem is "Windows" then "/c \"" + script + "\"" else script
-	Process.Find(shell).Started(flag)
-	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = index)
+	let started = Process.Find(shell).Started(flag) is 0
+	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = started then index else -1)
 Polled StrictGenQueue
 	if File("StrictGenJob.done").Exists is false
 		return value

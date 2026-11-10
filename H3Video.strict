@@ -11,7 +11,8 @@ constant Decoders = H3Video(Logger).Decoding(List(H3Decoding), ("tinyh3vae.safet
 constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
 	if "--help" is in arguments
-		return Help
+		Help
+		return 0
 	if (arguments.Length > 1) and (arguments(0) is "encode")
 		return H3Encoding(logger, arguments).Encoded
 	if (arguments.Length > 1) and (arguments(0) is "--commands")
@@ -24,17 +25,17 @@ Run(arguments Texts) Number
 Diagnosed(arguments Texts) Number
 	let loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
-		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
+		Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
+		return 0
 	let conditions = Conditions(arguments(0))
 	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
 	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments).Length is 0 then 1 else 0
-Served(h3 H3, refiner H3Refiner, arguments Texts) Number
+Served(h3 H3, refiner H3Refiner, arguments Texts)
 	mutable decodings = List(H3Decoding)
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		decodings = Job(h3, refiner, decodings, dumps, arguments)
 		dumps = Process.InputLine
-	0
 Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Texts) Slow(List(H3Decoding))
 	let conditions = Conditions(dumps)
 	let files = Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
@@ -154,10 +155,9 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	seen = job.pinFrames is 0 then seen else Solver(seen, latent = job.HeldVideo(seen.latent, 0))
 	heard = job.pinAudio is 0 then heard else Solver(heard, latent = job.HeldAudio(heard.latent, 0))
 	seen.latent + heard.latent
-Help Number
-	H3Video(Logger).Help is 0
+Help
+	H3Video(Logger).Help is not Error
 	logger.Log("H3Video.exe [options] makes H3 videos with sound, diagnostic arguments: " + Positional)
 	logger.Log(H3Options.Usage)
 	logger.Log("H3Video.exe --commands commands.txt [options] makes the videos of every line of commands.txt")
 	logger.Log("(its options after these, # for comments), loading the text encoder, H3 and the VAEs once for all")
-	0

@@ -177,13 +177,10 @@ Colored(source Numbers, tail Numbers, frame Number) Numbers
 Joined(source Numbers, tail Numbers) Numbers
 	Sample.Joined((1, 2), (3, 4)) is (1, 2, 3, 4)
 	source + tail
-Kept(path Text, latent Numbers, shapes Numbers, pixels Number) Number
-	let channels = H3Format.Channels
-	let count = channels * shapes(0) * shapes(1) * shapes(2)
-	let shape = (channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
+Kept(path Text, latent Numbers, shapes Numbers, pixels Number)
+	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
 	Safetensors(LatentPath(path)).Written(("latent", "shape"), (latent, shape))
-	count
-Appended(source Text, frames Numbers, waveform Numbers, size Numbers, context Number, output Text) Slow(Number)
+Appended(source Text, frames Numbers, waveform Numbers, size Numbers, context Number, output Text) Slow(None)
 	let frame = size(0) * size(1) * 3
 	if frames.Length < (context + 1) * frame
 		return Error("ShortVideo")
@@ -203,7 +200,6 @@ Appended(source Text, frames Numbers, waveform Numbers, size Numbers, context Nu
 	if merged.Failed
 		return Error("FfmpegFailed")
 	logger.Log("Wrote " + output)
-	0
 LastFrame(source Text, size Numbers) Numbers
 	let raw = source + ".join.rgb"
 	if Process.RunTool("ffmpeg", Still(source, raw, size(1), size(0))).Failed

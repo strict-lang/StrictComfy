@@ -23,10 +23,10 @@ Generated(batches List(H3Batch), count Number) Slow(Number)
 	let first = plans.First.batch
 	first.Prefetched((first.options.files.Decoder, first.options.files.Sound), "the VAEs")
 	let videos = Sampled(plans)
-	let made = Decoded(plans)
+	Decoded(plans)
 	let commands = count is 1 then " command" else " commands"
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + videos + " videos from " + count + commands)
-	made
+	0
 Lines Texts
 	Sample.Lines is (Sized + " --seed 7", Sized + " --prompt \"a b.txt\"")
 	H3Commands(Logger, "missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")
@@ -115,7 +115,7 @@ SampledWith(plans List(H3Plan), model Text) Slow(Number)
 			videos = videos + value.seeds.Length
 	options.files.Freed
 	videos
-Decoded(plans List(H3Plan)) Slow(Number)
+Decoded(plans List(H3Plan)) Slow(None)
 	mutable decodings = List(H3Decoding)
 	mutable vaes = ""
 	for plans
@@ -127,7 +127,6 @@ Decoded(plans List(H3Plan)) Slow(Number)
 		logger.Log("Command " + (index + 1) + "/" + plans.Length)
 		let latents = H3Artifacts(options).Latents(value.seeds.Length, Prefix(index))
 		value.batch.DecodedWith(decodings.First, latents, value.images)
-	0
 Prefix(index Number) Text
 	Sample.Prefix(3) is "c3-"
 	"c" + index + "-"
