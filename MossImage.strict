@@ -26,8 +26,8 @@ Served(moss Moss, mode Text) Number
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		let made = Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
-		let evicted = GpuMemory.Evicted
-		if MossFiles.FailedTexts(made) or MossFiles.FailedNumber(evicted)
+		GpuMemory.Evicted
+		if MossFiles.FailedTexts(made)
 			return 1
 		dumps = Process.InputLine
 	0
@@ -42,7 +42,8 @@ Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
 		let latent = sampling.Sampled(moss, job.Values("noise"), job.Values("context"), label)
 		Safetensors(path).Written("latent", latent)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		MossFiles.FailedNumber(GpuMemory.Released) then path else path
+		GpuMemory.Released
+		path
 Configured(data Safetensors, mode Text) MossSampling
 	let columns = data.Shape("noise").Last
 	let steps = data.Values("steps").First

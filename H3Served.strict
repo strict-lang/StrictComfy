@@ -28,7 +28,8 @@ Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
 		batch.logger.Log("Using cached prompt conditioning")
 		return kept
 	let encoding = kept.Encoding(batch.options.files).Tokenizing(batch.options.files)
-	Encoded(encoding, plan, missing)
+	if Encoded(encoding, plan, missing) is not missing.Length
+		batch.logger.Log("The text encoder made fewer contexts than the " + missing.Length + " prompts it was given")
 	if kept.isCrowded or batch.options.IsLarge
 		GpuMemory.Evicted
 	batch.options.files.Freed

@@ -152,6 +152,6 @@ Unpressed Slow(Number)
 Freed(request Text) Slow(Number)
 	Sample.Freed("broken") is 1
 	let told = Coordinator(logger, coordinator).Sent("done")
-	let yielded = GpuMemory.Yielded
+	GpuMemory.Yielded
 	resident.Released(request)
-	(told is Error) or (yielded is Error) then 2 else 1
+	told is Error then 2 else 1

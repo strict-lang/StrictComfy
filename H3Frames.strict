@@ -18,7 +18,7 @@ Run(dumps Text, video Text, audio Text)
 	let frames = Pictures(vae, steps.Values("video." + last), shape, steps.Values("frames"))
 	let size = Safetensors.Part(steps.Shape("frames"), 1, 2, 1)
 	Saved(frames, Heard(sound, steps.Values("audio." + last)), size, dumps + "/strict-vae.mp4")
-Saved(frames Numbers, waveform Numbers, size Numbers, output Text) Slow(Number)
+Saved(frames Numbers, waveform Numbers, size Numbers, output Text)
 	File(output + ".rgb").Write(Bytes(frames))
 	File(output + ".wav").Write(Wave(waveform))
 	let result = Process.RunTool("ffmpeg", Arguments(size, output))
@@ -27,7 +27,6 @@ Saved(frames Numbers, waveform Numbers, size Numbers, output Text) Slow(Number)
 	if result.exitCode is not 0
 		return Error("FfmpegFailed: " + result.error)
 	logger.Log("Wrote " + output)
-	0
 Pictures(vae H3Vae, latent Numbers, shape Numbers, expected Numbers) Numbers
 	let before = Process.Elapsed
 	let frames = vae.Decoded(latent, shape)

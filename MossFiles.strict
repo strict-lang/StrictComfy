@@ -53,10 +53,12 @@ Workflow Text
 	MossFiles.Parsed(("--workflow", "tinymossworkflow.json")).Workflow is "tinymossworkflow.json"
 	MossFiles.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
-Freed Number
-	Encoding.Freed >= 0
-	let sizes = File(Checkpoint).Length + File(Encoder).Length
-	GpuMemory.Held + GpuMemory.Available > sizes then GpuMemory.Released else GpuMemory.Evicted
+Freed
+	Encoding.Freed is not Error
+	if GpuMemory.Held + GpuMemory.Available > File(Checkpoint).Length + File(Encoder).Length
+		GpuMemory.Released
+	else
+		GpuMemory.Evicted
 FailedNumber(number Number) Boolean
 	MossFiles.FailedNumber(Error("x"))
 	MossFiles.FailedNumber(0) is false

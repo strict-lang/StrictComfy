@@ -63,6 +63,7 @@ Videos(plan H3Plan, conditions List(Safetensors)) Slow(Number)
 	Sampled(h3, refiner, plan, conditions, latents, true)
 	options.files.Freed
 	Decoded(latents, plan.images)
+	0
 LoraFiles Texts
 	Loraed.LoraFiles is ("tinylora.safetensors", "tinyqkvlora.safetensors")
 	Turbo.LoraFiles.Length is 0
@@ -71,13 +72,10 @@ LoraFiles Texts
 		return List(Text)
 	for loras.Split(";")
 		value.Split("=").First
-Prefetched(paths Texts, what Text) Text
-	Sample.Prefetched(List(Text) + "missing.safetensors", "nothing") is ""
-	Sample.Prefetched(List(Text) + "tinyqkvlora.safetensors", "LoRA").StartsWith("Reading LoRA (0 GB) into")
-	let reading = ModelFiles("").Prefetching(paths, what)
-	logger.Log(reading)
-	reading
-Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean) Slow(Number)
+Prefetched(paths Texts, what Text)
+	Sample.Prefetched(List(Text) + "tinyqkvlora.safetensors", "LoRA") is not Error
+	logger.Log(ModelFiles("").Prefetching(paths, what))
+Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean)
 	let texts = refiner.Texts(conditions)
 	for plan.seeds
 		let before = Process.Elapsed
@@ -87,7 +85,6 @@ Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), lat
 		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes))
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 		GpuMemory.Finished
-	plan.seeds.Length
 Sampling(index Number, count Number, uploading Boolean) Text
 	Sample.Sampling(0, 2, true) is "Sampling video 1/2 with 8 steps, the first one uploads H3 into GPU VRAM"
 	Sample.Sampling(1, 2, false) is "Sampling video 2/2 with 8 steps"
@@ -103,15 +100,14 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	let rows = job.Keyed(keyframes, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
 	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
-Decoded(latents Texts, images Texts) Slow(Number)
+Decoded(latents Texts, images Texts)
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
 	DecodedWith(decoding, latents, images)
-DecodedWith(decoding H3Decoding, latents Texts, images Texts) Slow(Number)
+DecodedWith(decoding H3Decoding, latents Texts, images Texts)
 	for latents
 		logger.Log("Decoding video " + (index + 1) + "/" + latents.Length)
 		Saved(decoding, Safetensors(value, 32).Values("latent"), H3Inputs(options).Output(images(index)))
-	0
-Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)
+Saved(decoding H3Decoding, latent Numbers, output Text)
 	let before = Process.Elapsed
 	let shapes = options.Shapes
 	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))

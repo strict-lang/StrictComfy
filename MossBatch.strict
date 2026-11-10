@@ -52,9 +52,9 @@ Images(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numb
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
 	options.files.Freed
 	let decoded = Process.Elapsed
-	Decoded(latents, seeds, prompts, outputs)
-	logger.Log("Decoded and saved " + seeds.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
-	seeds.Length
+	let saved = Decoded(latents, seeds, prompts, outputs)
+	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
+	saved.Length
 Loading(loras Text) Text
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"

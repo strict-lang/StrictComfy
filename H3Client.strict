@@ -23,11 +23,7 @@ Backended Backend
 	Backend(logger, Resident(root), "H3Video", coordinator)
 Asked(arguments Texts, forced Boolean) Text
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Video\t")
-	let options = Options(arguments)
-	let model = options.files.Checkpoint
-	let encoder = options.files.Encoder
-	let bytes = (File(model).Length, File(encoder).Length)
-	let use = MachineUse.Models(logger, "H3Video", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
+	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"
 	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
 Granted(arguments Texts, forced Boolean) Slow(Number)
@@ -45,18 +41,17 @@ Continued(arguments Texts, forced Boolean) Slow(Number)
 		return sent
 	let settled = reply.StartsWith("wait") then Coordinator(logger, coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
-		return Refused(settled)
-	settled is "" then Checked(arguments, forced) else 0
+		return Use(arguments, forced).Explained(settled)
+	settled is "" then Use(arguments, forced).Checked else 0
 Refused(reply Text) Number
 	Sample.Refused("refused\tH3Video") is 1
 	logger.Log(reply)
 	1
-Checked(arguments Texts, forced Boolean) Number
-	let options = Options(arguments)
-	let model = options.files.Checkpoint
-	let encoder = options.files.Encoder
-	let growth = H3Resident.EncoderGrowth
-	MachineUse.Models(logger, "H3Video", File(model).Length, File(encoder).Length, growth, forced).Checked
+Use(arguments Texts, forced Boolean) MachineUse
+	Sample.Use(List(Text), true).isForced
+	let files = Options(arguments).files
+	let bytes = (File(files.Checkpoint).Length, File(files.Encoder).Length)
+	MachineUse.Models(logger, "H3Video", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
 Unparsed(arguments Texts) Text
 	Sample.Unparsed(List(Text)) is ""
 	Sample.Unparsed(List(Text) + "stop") is ""
