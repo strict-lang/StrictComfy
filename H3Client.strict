@@ -2,12 +2,17 @@ has logger
 has root Text
 constant MinimumRam = 68719476736
 constant MinimumVram = 10737418240
+constant NumberOptions = "--steps, --count, --seed, --width, --height, --length"
+constant QualityChoices = "--quality must be best, fast, faster, fastest4steps or fastest2steps"
+constant Sample = H3Client(Logger, "artifacts/h3test")
 Ran(given Texts) Number
 	if given is (Backend.Serving)
 		return H3Server(logger, Backended).Served
 	let arguments = given - MachineUse.Force
 	let plain = Remote(logger).Without(arguments)
 	let rest = plain - Backend.Local
+	if Unparsed(rest) is not ""
+		return Refused(Unparsed(rest))
 	if MachineUse.IsChecked(arguments, root)
 		if Granted(arguments, MachineUse.IsForced(given)) is not 0
 			return 1
@@ -52,3 +57,32 @@ Checked(arguments Texts, forced Boolean) Number
 	let encoder = options.files.Encoder
 	let growth = H3Resident.EncoderGrowth
 	MachineUse.Models(logger, "H3Video", File(model).Length, File(encoder).Length, growth, forced).Checked
+Unparsed(arguments Texts) Text
+	Sample.Unparsed(List(Text)) is ""
+	Sample.Unparsed(List(Text) + "stop") is ""
+	Sample.Unparsed(("--quality", "fastest")) is QualityChoices
+	Sample.Unparsed(("--colour", "red")) is "--colour is not an option of H3Video, see H3Video --help"
+	Sample.Unparsed(("--count", "many")) is "--count must be a number"
+	let parsed = H3Options.Parsed(arguments)
+	(parsed is Error) then Explained((parsed to Text).Lines.First.Replace("Error: ", ""), arguments) else ""
+Unnumbered(arguments Texts) Text
+	Sample.Unnumbered(("--seed", "5", "--count", "many")) is "--count must be a number"
+	Sample.Unnumbered(("--seed", "many", "--count")) is "--seed must be a number"
+	Sample.Unnumbered(("--count", "5", "--seed", "x")) is "--seed must be a number"
+	Sample.Unnumbered(List(Text)) is NumberOptions + " must be numbers"
+	for NumberOptions.Split(", ")
+		let at = arguments.Index(value) + 1
+		if (at > 0) and (at < arguments.Length) and ((arguments(at) to Number) is Error)
+			return value + " must be a number"
+	NumberOptions + " must be numbers"
+Explained(problem Text, arguments Texts) Text
+	Sample.Explained("UnknownChoice:--quality", List(Text)) is QualityChoices
+	Sample.Explained("InvalidNumber", ("--count", "many")) is "--count must be a number"
+	Sample.Explained("UnknownOption:--colour", List(Text)).StartsWith("--colour is not an option")
+	Sample.Explained("Odd", List(Text)) is "Odd"
+	if problem is "InvalidNumber"
+		return Unnumbered(arguments)
+	if problem.StartsWith("UnknownChoice:")
+		return QualityChoices
+	let option = problem.Split(":").Last
+	problem.StartsWith("UnknownOption:") then option + " is not an option of H3Video, see H3Video --help" else problem

@@ -15,7 +15,7 @@ has output = "H3Video.mp4"
 constant LargeClip = 60000000
 constant BestPresetHelp = "presets of model, steps, attention and Spectrum (124 frames at 640x1152 on a 4090): best the model with the turbo LoRA of ComfyUI's H3 template ("
 constant TurboPresetHelp = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors in models/loras, left out above 8 steps or with a model or LoRA named turbo) 8 steps 14 s, "
-constant FastPresetsHelp = "fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps and fastest2steps 4 or 2 routed steps with the TaoMate 3 step LoRA instead (an 8 step turbo LoRA is an error there) 6.4 s and 4.5 s"
+constant FastPresetsHelp = "fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps and fastest2steps 4 or 2 routed steps with the TaoMate 3 step LoRA instead (or a given turbo LoRA) 6.4 s and 4.5 s"
 constant PromptHelp = ("UTF-8 prompt file, {a|b|c} picks one of them per video, or a folder of .txt prompts: an image uses the one of its name, else the next in sorted order", BestPresetHelp + TurboPresetHelp + FastPresetsHelp)
 constant StepsHelp = ("sampling steps, 0 for the ones of --quality", "blocks first:last (of 50) every other evaluated step after the first two reuses, like 5:45, 10:40 or 15:35, off for none; best uses off unless --skip is set")
 constant SamplerHelp = List(Text) + "euler, res_multistep, er_sde, euler_ancestral, dpmpp_2m_sde, gradient_estimation or lcm (the last four but gradient_estimation add noise every step)"
@@ -27,6 +27,7 @@ constant Help = PromptHelp + StepsHelp + SamplerHelp + SchedulerHelp + CountHelp
 constant FourStepArguments = ("--quality", "fastest4steps")
 constant TurboArguments = ("--lora", "a_turbo.safetensors")
 constant TurboNames = ("--lora", "h3/a_Turbo_v4.safetensors:1", "--lora", "8step.safetensors", "--lora", "b_8step.safetensors")
+constant GivenTurbo = "a_turbo.safetensors=1"
 constant GivenTaoMate = "x_taomate.safetensors=1"
 constant Miscounted = "--count must not be negative and --length at least 5"
 Preset Numbers
@@ -86,13 +87,10 @@ Unsupported Text
 	H3Options.Parsed(List(Text)).Unsupported is ""
 	H3Options.Parsed(("--sampler", "heun")).Unsupported.StartsWith("--sampler must be one of euler, ")
 	H3Options.Parsed(("--output", "a.gif")).Unsupported is "--output must end with .mp4"
-	H3Options.Parsed(FourStepArguments + TurboArguments).Unsupported.EndsWith("remove a_turbo.safetensors")
-	(H3Options.Parsed(TurboArguments).Unsupported is "") and (H3Options.Parsed(FourStepArguments).Unsupported is "")
+	H3Options.Parsed(FourStepArguments + TurboArguments).Unsupported is ""
 	let unlisted = Unlisted
 	if unlisted is not ""
 		return unlisted
-	if IsFew and (Turbos.Length > 0)
-		return "fastest4steps and fastest2steps use the TaoMate 3 step LoRA (added automatically), remove " + Turbos.First
 	output.EndsWith(".mp4") then "" else "--output must end with .mp4"
 Unlisted Text
 	H3Options.Parsed(List(Text)).Unlisted is ""
@@ -142,7 +140,8 @@ Loras Text
 Few(local ModelFiles, given Texts) Text
 	H3Options.Parsed(FourStepArguments).Few(ModelFiles("."), List(Text) + GivenTaoMate) is GivenTaoMate
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
-	let isGiven = Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0
+	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo
+	let isGiven = (Turbos.Length > 0) or (Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0)
 	let added = isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")
 	Text.Combine(added + given, ";")
 Shapes Numbers

@@ -27,8 +27,7 @@ Diagnosed(arguments Texts) Number
 		return Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
 	let conditions = Conditions(arguments(0))
 	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
-	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments)
-	0
+	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments).Length is 0 then 1 else 0
 Served(h3 H3, refiner H3Refiner, arguments Texts) Number
 	mutable decodings = List(H3Decoding)
 	mutable dumps = Process.InputLine
