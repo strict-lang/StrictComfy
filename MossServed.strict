@@ -1,11 +1,10 @@
 has batch MossBatch
 Completed(kept MossResident) Slow(MossResident)
 	let options = batch.options
-	let problem = options.Problem
+	let problem = options.Problem is "" then options.Located else options.Problem
 	if problem is not ""
 		batch.logger.Log(problem)
 		return MossResident(kept, code = 2)
-	options.Located
 	let started = Process.Elapsed
 	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
 	let template = batch.prompted is "" then batch.Templated else batch.prompted
