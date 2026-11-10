@@ -57,3 +57,11 @@ Freed Number
 	Encoding.Freed >= 0
 	let sizes = File(Checkpoint).Length + File(Encoder).Length
 	GpuMemory.Held + GpuMemory.Available > sizes then GpuMemory.Released else GpuMemory.Evicted
+FailedNumber(number Number) Boolean
+	MossFiles.FailedNumber(Error("x"))
+	MossFiles.FailedNumber(0) is false
+	number is Error
+FailedTexts(texts Texts) Boolean
+	MossFiles.FailedTexts(Error("x"))
+	MossFiles.FailedTexts(List(Text)) is false
+	texts is Error

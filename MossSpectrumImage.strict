@@ -27,8 +27,8 @@ Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Num
 	let spectrum = Configured(width, mode, steps, warmup, period, degree)
 	let before = Process.Elapsed
 	let moss = Moss.Loaded(model, lora)
-	logger.Log("loaded in " + (Process.Elapsed - before).Round(1) + " s")
-	MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
+	let compared = MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
+	logger.Log("loaded in " + (Process.Elapsed - before).Round(1) + " s, compared " + compared)
 	Sampled(moss, spectrum, data, Euler(steps, 5), context)
 Configured(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
 	Image.Configured(4, "on", 8, 3, 2, 2).history.maximum is 4 and Image.Configured(4, "off", 1, 0, 2, 2).steps is 1

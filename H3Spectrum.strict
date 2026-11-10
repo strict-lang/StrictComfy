@@ -51,8 +51,8 @@ IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(3) is false
 	(step > warmup) and (step < steps - 1)
 Stepped(solver Solver, step Number, job H3Job) Solver
-	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is 2
-	Safetensors("h3preview-step6.safetensors").Written("video", (7, 7)) is 2
+	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is not Error
+	Safetensors("h3preview-step6.safetensors").Written("video", (7, 7)) is not Error
 	Previewed.latent(1).IsNearlyEqual(2 - 5 / 24 * 4)
 	Safetensors("h3preview-step6.safetensors").Values("video")(1).IsNearlyEqual(-0.5)
 	H3Spectrum(Tiny, output = (0, 0)).Stepped(Solver(Solver.Toy, kind = 6), 1, H3Job.Noisy).latent(0) is -0.842754

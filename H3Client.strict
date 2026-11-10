@@ -1,25 +1,54 @@
 has logger
 has root Text
+constant MinimumRam = 68719476736
+constant MinimumVram = 10737418240
 Ran(given Texts) Number
 	if given is (Backend.Serving)
 		return H3Server(logger, Backended).Served
 	let arguments = given - MachineUse.Force
-	let rest = arguments - Backend.Local
+	let plain = Remote(logger).Without(arguments)
+	let rest = plain - Backend.Local
 	if MachineUse.IsChecked(arguments, root)
-		if Checked(rest, MachineUse.IsForced(given)) is not 0
+		if Granted(arguments, MachineUse.IsForced(given)) is not 0
 			return 1
-	let forwarded = Backended.Dispatched(arguments)
+	let forwarded = Backended.Dispatched(plain)
 	forwarded >= 0 then forwarded else H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed
 Backended Backend
 	H3Client(Logger, "artifacts/h3test").Backended.name is "H3Video"
 	Backend(logger, Resident(root), "H3Video")
-Checked(arguments Texts, forced Boolean) Number
+Asked(arguments Texts, forced Boolean) Text
+	H3Client(Logger, "artifacts/h3test").Asked(List(Text), false).StartsWith("need\tH3Video\t")
 	let options = H3Options.Parsed(arguments)
-	if options is Error
-		return 0
 	let model = options.files.Checkpoint
 	let encoder = options.files.Encoder
-	if (model is Error) or (encoder is Error)
+	let bytes = (File(model).Length, File(encoder).Length)
+	let use = MachineUse.Models(logger, "H3Video", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
+	let mode = forced then "force" else "wait"
+	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
+Granted(arguments Texts, forced Boolean) Slow(Number)
+	H3Client(Logger, "artifacts/h3test").Granted(List(Text), false) >= 0
+	let named = Remote(logger).Named(arguments)
+	named >= 0 then named else Continued(arguments, forced)
+Continued(arguments Texts, forced Boolean) Slow(Number)
+	H3Client(Logger, "artifacts/h3test").Continued(List(Text), false) >= 0
+	let line = Asked(arguments, forced)
+	if line is ""
 		return 0
+	let reply = Coordinator(logger).Sent(line)
+	let sent = Remote(logger).Sent(arguments, "", reply, line)
+	if sent >= 0
+		return sent
+	let settled = reply.StartsWith("wait") then Coordinator(logger).Resolved(line) else reply
+	if settled.StartsWith("refused")
+		return Refused(settled)
+	settled is "" then Checked(arguments, forced) else 0
+Refused(reply Text) Number
+	H3Client(Logger, "artifacts/h3test").Refused("refused\tH3Video") is 1
+	logger.Log(reply)
+	1
+Checked(arguments Texts, forced Boolean) Number
+	let options = H3Options.Parsed(arguments)
+	let model = options.files.Checkpoint
+	let encoder = options.files.Encoder
 	let growth = H3Resident.EncoderGrowth
 	MachineUse.Models(logger, "H3Video", File(model).Length, File(encoder).Length, growth, forced).Checked

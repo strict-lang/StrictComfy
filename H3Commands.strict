@@ -3,7 +3,6 @@ has file Text
 has arguments Texts
 constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
 constant Sized = "--length 5 --width 32 --height 32"
-constant Unsized = "--width and --height must be positive multiples of 32"
 Completed Number
 	let lines = Lines
 	if lines.Length is 0
@@ -42,7 +41,7 @@ Batches(lines Texts) Slow(List(H3Batch))
 		H3Batch(logger, H3Options.Parsed(words)).Expanded(words)
 Problem(batches List(H3Batch)) Text
 	Sample.Problem(Sample.Batches(Sample.Lines)) is ""
-	Sample.Problem(Sample.Batches(List(Text) + "--width 30")) is "Command 1: " + Unsized
+	Sample.Problem(Sample.Batches(List(Text) + "--length 4")) is "Command 1: " + H3Options.Miscounted
 	for batches
 		let problem = H3Inputs(value.options).Problem
 		if problem is not ""

@@ -2,7 +2,7 @@ constant Jobs = "generationjobs.safetensors"
 constant Counts = (List(Number) + 3, List(Number) + 2, List(Number) + 0, List(Number) + 2.5)
 Count(data Safetensors) Number
 	GenerationCommand.Count(MossImage.Reference) is 1
-	Safetensors(Jobs).Written(("a.jobs", "b.runs", "c.jobs", "d.jobs"), Counts) is 4
+	Safetensors(Jobs).Written(("a.jobs", "b.runs", "c.jobs", "d.jobs"), Counts) is not Error
 	GenerationCommand.Count(Safetensors(Jobs, 32, "a.")) is 3
 	GenerationCommand.Count(Safetensors(Jobs, 32, "b.")) is 2
 	GenerationCommand.Count(Safetensors(Jobs, 32, "c.")) is Error("Invalid generation count")

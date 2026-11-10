@@ -2,9 +2,9 @@ has logger
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
 Started(prompts Texts, images Texts, paths Texts) Number
-	Written(prompts, images, paths)
-	GpuMemory.Evicted
-	Process.Current.Started(Command(paths))
+	let written = Written(prompts, images, paths)
+	let evicted = GpuMemory.Evicted
+	(written is Error) or (evicted is Error) then 1 else Process.Current.Started(Command(paths))
 Command(paths Texts) Text
 	H3Encoding(Logger, ("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
 	mutable command = "encode \"" + Text.Combine(paths, ";") + "\""

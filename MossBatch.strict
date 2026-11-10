@@ -96,10 +96,18 @@ Expanded(arguments Texts) Slow(MossBatch)
 	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
 	if options.files.workflow is ""
-		return MossBatch(logger, options)
+		return MossBatch(logger, Noted)
 	let graph = ComfyGraph.Read(options.files.Workflow, MossWorkflow.Known)
 	let workflow = MossWorkflow(graph, ModelFiles(options.files.models).ComfyUI)
 	let settings = workflow.Arguments
 	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
 	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(graph.Skipped, ", "))
-	MossBatch(logger, MossOptions.Parsed(settings + arguments), "--prompt" is in arguments then "" else workflow.Prompt)
+	let prompt = "--prompt" is in arguments then "" else workflow.Prompt
+	MossBatch(logger, MossBatch(logger, MossOptions.Parsed(settings + arguments)).Noted, prompt)
+Noted MossOptions
+	MossBatch(Logger, MossOptions.Parsed(("--width", "720"))).Noted.width is 704
+	let fitted = options.Fitted
+	if (fitted.width is options.width) and (fitted.height is options.height)
+		return fitted
+	logger.Log("Moss size " + options.width + "x" + options.height + " changed to " + fitted.width + "x" + fitted.height)
+	fitted

@@ -53,9 +53,12 @@ Frame(path Text, size Numbers, cropped Boolean) Slow(Numbers)
 	Tiny.Frame("tinyframe.png", (1, 2), false)(3).IsNearlyEqual(94 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(17).IsNearlyEqual(137 / 255)
+	Framed(path, size, size, cropped)
+Framed(path Text, aspect Numbers, size Numbers, cropped Boolean) Slow(Numbers)
+	Tiny.Framed("tinyframe.png", (3, 3), (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	let image = ImageLoader(path).Loaded
 	let original = (image.Size.Height, image.Size.Width)
-	let box = cropped then Cropped(original, size) else (0, original(0), 0, original(1))
+	let box = cropped then Cropped(original, aspect) else (0, original(0), 0, original(1))
 	for Lanczos.Resized(Bytes(image.Colors, original(1), box), (box(1), box(3)), size)
 		value / Byte.Max
 Cropped(original Numbers, size Numbers) Numbers

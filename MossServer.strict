@@ -1,5 +1,8 @@
 has logger
 has backend Backend
+constant MinimumRam = 17179869184
+constant MinimumVram = 8589934592
+constant Sample = MossServer(Logger, Backend(Logger, Resident("artifacts/mosstest"), "MossImage"))
 Root Text
 	MossServer.Root.EndsWith("/artifacts/moss")
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/artifacts/moss"
@@ -10,11 +13,12 @@ Ran(given Texts) Number
 	if given is (Backend.Serving)
 		return Served
 	let arguments = given - MachineUse.Force
-	let rest = arguments - Backend.Local
+	let plain = Remote(logger).Without(arguments)
+	let rest = plain - Backend.Local
 	if MachineUse.IsChecked(arguments, backend.resident.root)
-		if Checked(rest, MachineUse.IsForced(given)) is not 0
+		if Granted(arguments, MachineUse.IsForced(given)) is not 0
 			return 1
-	let forwarded = backend.Dispatched(arguments)
+	let forwarded = backend.Dispatched(plain)
 	forwarded >= 0 then forwarded else Local(rest).code
 Local(arguments Texts) Slow(MossResident)
 	MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(MossResident(logger))
@@ -29,7 +33,7 @@ Served Number
 		let socket = backend.resident.Accepted(server, built)
 		kept = socket > 0 then Replied(socket, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
-		backend.Unpressed
+		kept = backend.Unpressed is Backend.Stopped then MossResident(kept, code = Backend.Stopped) else kept
 	backend.resident.Closed(server)
 Replied(socket Number, kept MossResident) Slow(MossResident)
 	let resident = backend.resident
@@ -41,29 +45,62 @@ Replied(socket Number, kept MossResident) Slow(MossResident)
 	let isFailed = served is Error
 	if isFailed
 		GpuMemory.Evicted
-	resident.Finished(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code))
-	resident.Released(request)
-	isFailed then MossResident(logger, true) else served
+	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	(isFailed or (closed is 1)) then MossResident(logger, true) else served
 Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
-	let isMoved = (folder is not home) and Directory.Change(folder)
+	Directory.Change(folder)
+	let isMoved = folder is not home
 	Socket.Output(socket)
 	let arguments = backend.resident.Arguments(request)
 	let served = MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
-		logger.Log(served to Text)
-		logger.Log("The run failed, the next one loads the models again")
-	backend.Unpressed
+		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
+	let stopped = backend.Unpressed
 	backend.Restored(isMoved, home)
-	served
-Checked(arguments Texts, forced Boolean) Number
+	stopped is Backend.Stopped then MossResident(kept, code = Backend.Stopped) else served
+Asked(arguments Texts, forced Boolean) Text
+	Sample.Asked(List(Text), false).StartsWith("need\tMossImage\t")
 	let options = MossOptions.Parsed(arguments)
-	if options is Error
-		return 0
 	let model = options.files.Checkpoint
 	let encoder = options.files.Encoder
-	if (model is Error) or (encoder is Error)
+	let bytes = (File(model).Length, File(encoder).Length)
+	let use = MachineUse.Models(logger, "MossImage", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
+	let mode = forced then "force" else "wait"
+	"need\tMossImage\tMossImage\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
+Granted(arguments Texts, forced Boolean) Slow(Number)
+	Sample.Granted(List(Text), false) >= 0
+	let named = Remote(logger).Named(arguments)
+	named >= 0 then named else Continued(arguments, forced)
+Continued(arguments Texts, forced Boolean) Slow(Number)
+	Sample.Continued(List(Text), false) >= 0
+	let line = Asked(arguments, forced)
+	if line is ""
 		return 0
+	let reply = Coordinator(logger).Sent(line)
+	let sent = Remote(logger).Sent(arguments, "", reply, line)
+	if sent >= 0
+		return sent
+	let settled = reply.StartsWith("wait") then Coordinator(logger).Resolved(line) else reply
+	if settled.StartsWith("refused")
+		return Refused(settled)
+	settled is "" then Checked(arguments, forced) else 0
+Ended(socket Number, code Number, request Text) Slow(Number)
+	Sample.Ended(0, 1, "broken") is 1
+	let ended = backend.resident.Finished(socket, code)
+	if ended is Error
+		logger.Log("The MossImage client left before the result was sent")
+		return backend.Freed(request)
+	backend.resident.Released(request)
+	0
+Refused(reply Text) Number
+	Sample.Refused("refused\tMossImage") is 1
+	logger.Log(reply)
+	1
+Checked(arguments Texts, forced Boolean) Number
+	let options = MossOptions.Parsed(arguments)
+	let model = options.files.Checkpoint
+	let encoder = options.files.Encoder
 	let growth = H3Resident.EncoderGrowth
 	MachineUse.Models(logger, "MossImage", File(model).Length, File(encoder).Length, growth, forced).Checked

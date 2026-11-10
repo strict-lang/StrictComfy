@@ -7,13 +7,13 @@ Problem Text
 	Sample.Problem is ""
 	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
 	H3Inputs(H3Options.Parsed(("--prompt", "web"))).Problem is "--prompt web has no txt files"
-	H3Inputs(H3Options.Parsed(("--width", "500"))).Problem is "--width and --height must be positive multiples of 32"
+	H3Inputs(H3Options.Parsed(("--width", "500"))).options.Fitted.width is 480
 	if Images.Length is 0
 		return "--image " + options.files.image + " has no png or jpg files"
 	if Prompts.Length is 0
 		return "--prompt " + options.prompt + " has no txt files"
 	options.Problem
-Images Texts
+Images Slow(Texts)
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")
 	Listed(options.files.image, ("png", "jpg", "jpeg")).Sorted
@@ -32,7 +32,7 @@ Count Number
 	Sample.Count is 1
 	Folder.Count is 2
 	options.count > 0 then options.count else Paired.Length
-Paired List(Texts)
+Paired Slow(List(Texts))
 	Sample.Paired is List(Texts) + ("", "prompt.txt")
 	Folder.Paired.Last.First.EndsWith("tinyframe.png")
 	let images = Images

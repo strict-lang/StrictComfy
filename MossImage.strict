@@ -5,17 +5,17 @@ constant Decoding = Safetensors("tinyvae.safetensors", 32, "reference.")
 constant Positional = "ComfyUI node backend arguments: - model loras spectrum, diagnostic arguments: dumps model lora vae"
 Run(arguments Texts) Number
 	if "--help" is in arguments
-		logger.Log("MossImage.exe [options] makes Moss images, " + Positional)
-		logger.Log(MossOptions.Usage)
+		logger.Log("MossImage.exe [options] makes Moss images, " + Positional + "\n" + MossOptions.Usage)
 		return 0
 	if (arguments.Length is 4) and (arguments(0) is "-")
 		return Served(Loaded(arguments(1), arguments(2)), arguments(3))
 	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
-	if Backend.IsServing(arguments)
-		return MossServer(logger, MossServer.Backended(logger)).Ran(arguments)
-	MossServer(logger, MossServer.Backended(logger)).Local(arguments).code
+	let server = MossServer(logger, MossServer.Backended(logger))
+	if "coordinator" is in arguments
+		return Coordinator(logger).Served
+	Backend.IsServing(arguments) then server.Ran(arguments) else server.Local(arguments).code
 Loaded(model Text, lora Text) Slow(Moss)
 	MossImage(Logger).Loaded("tinymoss.safetensors", "").layers.Length is 2
 	let started = Process.Elapsed
@@ -25,8 +25,10 @@ Loaded(model Text, lora Text) Slow(Moss)
 Served(moss Moss, mode Text) Number
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
-		Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
-		GpuMemory.Evicted
+		let made = Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
+		let evicted = GpuMemory.Evicted
+		if MossFiles.FailedTexts(made) or MossFiles.FailedNumber(evicted)
+			return 1
 		dumps = Process.InputLine
 	0
 Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
@@ -39,9 +41,8 @@ Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
 		let label = "Generation " + (index + 1) + "/" + count
 		let latent = sampling.Sampled(moss, job.Values("noise"), job.Values("context"), label)
 		Safetensors(path).Written("latent", latent)
-		GpuMemory.Released
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		path
+		MossFiles.FailedNumber(GpuMemory.Released) then path else path
 Configured(data Safetensors, mode Text) MossSampling
 	let columns = data.Shape("noise").Last
 	let steps = data.Values("steps").First
@@ -55,12 +56,13 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	let first = Safetensors(dumps + "/step0.safetensors", 64)
 	let sampled = sized.Generated(model, lora, Euler(8, 5), steps, first, context)
 	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
-	sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png")
+	if MossFiles.FailedNumber(sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
+		return
 Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Slow(Numbers)
 	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
 	let moss = Loaded(model, lora)
-	Compared(moss, step)
-	Sampled(moss, euler, steps, context)
+	let compared = Compared(moss, step)
+	MossFiles.FailedNumber(compared) then List(Number) else Sampled(moss, euler, steps, context)
 Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Slow(Number)
 	MossImage(Logger, 2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
 	let before = Process.Elapsed

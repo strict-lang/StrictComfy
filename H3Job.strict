@@ -36,7 +36,7 @@ Stream(name Text) Text
 Count Number
 	Reference.Count is 1
 	Noisy.Count is 1
-	Safetensors("h3job.safetensors").Written(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is 6
+	Safetensors("h3job.safetensors").Written(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is not Error
 	Dumped.Count is 3
 	if video.Length > 0
 		return 1

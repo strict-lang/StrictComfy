@@ -8,23 +8,23 @@ has skip = "off"
 has lora Texts = List(Text)
 has count = 1
 has seed = -1
-has width = 720
+has width = 704
 has height = 1280
 has output = "MossImage.jpg"
 has JsonOutput = false
-constant SlowPresetsHelp = "presets of steps, guidance and Spectrum (720x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, "
+constant SlowPresetsHelp = "presets of steps, guidance and Spectrum (704x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, "
 constant FastPresetsHelp = "fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s"
 constant PromptHelp = ("UTF-8 prompt file, {a|b|c} picks one of them per image, without prompt.txt the closeup street example", SlowPresetsHelp + FastPresetsHelp)
 constant StepsHelp = ("sampling steps, 8 or fewer add the DMD turbo LoRA (4 or fewer moss/moss_image_sft_4step_v2.0.safetensors when installed), 0 for the ones of --quality", "classifier-free guidance (cfg), 0 for the one of --quality")
 constant SpectrumHelp = ("off or spectrum<steps>_w<warmup>p<period> like spectrum8_w3p3 forecasts steps, empty for the one of --quality", "layers first:last (of 41) every other evaluated step from step 2 on reuses, like 6:36, off for none")
 constant CountHelp = ("LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image")
-constant SizeHelp = ("width in pixels, a multiple of 16", "height in pixels, a multiple of 16")
+constant SizeHelp = ("width in pixels, rounded down to a multiple of 32", "height in pixels, rounded down to a multiple of 32")
 constant OutputHelp = ("numbered output base (.jpg or .png), never overwritten, or a .safetensors that gets the encoded prompt (context) for the browser page instead of an image", "write the settings of every image next to it as .json")
 constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp
 Sampling(logger Logger) MossSampling
-	MossOptions.Parsed(List(Text)).Sampling(Logger) is MossSampling(Logger, 45, 8, 1, "off", 5, 2)
+	MossOptions.Parsed(List(Text)).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "off", 5, 2)
 	MossOptions.Parsed(("--quality", "fastest", "--width", "480")).Sampling(Logger).width is 30
-	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger) is MossSampling(Logger, 45, 8, 1, "on", 3, 3)
+	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "on", 3, 3)
 	MossOptions.Parsed(("--steps", "6", "--guidance", "3")).Sampling(Logger).guidance is 3
 	MossOptions.Parsed(("--spectrum", "spectrum8_w3p4")).Sampling(Logger).period is 4
 	MossOptions.Parsed(("--quality", "fastest2steps")).Sampling(Logger).period is 2
@@ -102,34 +102,36 @@ Distilled(specs Texts) Boolean
 	let combined = Text.Combine(specs, ";")
 	let dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
-Located Boolean
+Located Text
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is Error("FileNotFound:a_b.safetensors")
 	files.Checkpoint
 	Loras
 	files.Decoder
 	files.Encoder
 	files.Tokenizer
-	true
+	"ok"
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)
 Problem Text
 	MossOptions.Parsed(List(Text)).Problem is ""
-	MossOptions.Parsed(("--width", "500")).Problem is "--width and --height must be positive multiples of 16"
+	MossOptions.Parsed(("--width", "500")).Problem is ""
 	MossOptions.Parsed(("--count", "0")).Problem is "--count must be at least 1"
 	MossOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg, .png or .safetensors"
 	MossOptions.Parsed(("--output", "prompt.safetensors")).Problem is ""
 	MossOptions.Parsed(("--output", "a.png")).Problem is ""
-	if IsInvalidSize
-		return "--width and --height must be positive multiples of 16"
 	if count < 1
 		return "--count must be at least 1"
 	let valid = output.EndsWith(".jpg") or output.EndsWith(".png") or output.EndsWith(".safetensors")
 	valid then "" else "--output must end with .jpg, .png or .safetensors"
-IsInvalidSize Boolean
-	MossOptions.Parsed(("--width", "500")).IsInvalidSize
-	MossOptions.Parsed(("--width", "0")).IsInvalidSize
-	MossOptions.Parsed(("--height", "0")).IsInvalidSize
-	MossOptions.Parsed(("--height", "500")).IsInvalidSize
-	MossOptions.Parsed(List(Text)).IsInvalidSize is false
-	(width < 16) or (height < 16) or (width % 16 is not 0) or (height % 16 is not 0)
+Fitted MossOptions
+	MossOptions.Parsed(("--width", "720", "--height", "1280")).Fitted.width is 704
+	MossOptions.Parsed(("--width", "720", "--height", "1280")).Fitted.height is 1280
+	MossOptions.Parsed(("--width", "500")).Fitted.width is 480
+	MossOptions.Parsed(("--width", "0")).Fitted.width is 32
+	MossOptions.Parsed(("--height", "500")).Fitted.height is 480
+	let wide = ComfySize.Total.Snap(width, 32)
+	let high = ComfySize.Total.Snap(height, 32)
+	if (wide is width) and (high is height)
+		return value
+	MossOptions(value, width = wide, height = high)

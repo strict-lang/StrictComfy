@@ -40,7 +40,7 @@ Dispatched(arguments Texts) Number
 	(code is -1) and (Port is not 0) then Cleared else code
 Attempted(arguments Texts) Number
 	let isRunning = File(resident.root + Resident.Stamp).Exists
-	if (isRunning is false) and IsHostFull
+	if (isRunning is false) and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return -1
 	if (isRunning is false) and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
@@ -99,22 +99,23 @@ Paused Number
 	0
 Opened Number
 	let objects = resident.root + "/obj"
-	let hasObjects = Rooted and (Directory.Exists(objects) or Directory.Create(objects))
-	hasObjects then resident.Opened else 0
+	if Rooted and (Directory.Exists(objects) is false)
+		Directory.Create(objects)
+	(Rooted and Directory.Exists(objects)) then resident.Opened else 0
 Rooted Boolean
 	Sample.Rooted
 	let parent = Path(resident.root).PathOnly.text
-	let hasParent = Directory.Exists(parent) or Directory.Create(parent)
-	hasParent and (Directory.Exists(resident.root) or Directory.Create(resident.root))
+	if Directory.Exists(parent) is false
+		Directory.Create(parent)
+	if Directory.Exists(resident.root) is false
+		Directory.Create(resident.root)
+	Directory.Exists(parent) and Directory.Exists(resident.root)
 IsWanted(idle Number, built Number) Boolean
 	Sample.IsWanted(0, File(Process.Current.executable).Modified)
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
 	Sample.IsWanted(0, 0) is false
 	let hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
 	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
-IsHostFull Boolean
-	Sample.IsHostFull is Sample.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
-	IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 IsCrowded(needed Number, available Number, total Number) Boolean
 	Sample.IsCrowded(0, 10 * Gigabyte, 128 * Gigabyte)
 	Sample.IsCrowded(0, 11 * Gigabyte, 128 * Gigabyte) is false
@@ -133,10 +134,22 @@ IsOut(available Number, total Number) Boolean
 	Sample.IsOut(0, 128 * Gigabyte) is false
 	let least = total / LastShare < LowMemory then total / LastShare else LowMemory
 	(available > 0) and (available <= least)
-Restored(isMoved Boolean, home Text) Slow(Boolean)
+Restored(isMoved Boolean, home Text)
 	Socket.Output(0)
-	isMoved then Directory.Change(home) else false
-Unpressed Number
+	if isMoved
+		Directory.Change(home)
+Unpressed Slow(Number)
 	Sample.Unpressed >= 0
 	let available = GpuMemory.Available
-	(available > 0) and (available < LowDevice) then GpuMemory.Evicted + GpuMemory.Released else 0
+	if (available > 0) and (available < LowDevice)
+		GpuMemory.Yielded
+	let reply = Coordinator(logger).Sent("holding\t0\t" + GpuMemory.Held)
+	if reply is "free"
+		GpuMemory.Yielded
+	reply is "exit" then Backend.Stopped else 0
+Freed(request Text) Slow(Number)
+	Sample.Freed("broken") is 1
+	let told = Coordinator(logger).Sent("done")
+	let yielded = GpuMemory.Yielded
+	resident.Released(request)
+	(told is Error) or (yielded is Error) then 2 else 1

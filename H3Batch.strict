@@ -12,16 +12,24 @@ constant Turbo = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--model", "
 constant Vae = "FileNotFound:minimax_h3_video_vae_int8_convrot.safetensors"
 constant Longer = ("--models", ".", "--length", "22")
 Completed Number
-	let inputs = H3Inputs(options)
+	let ready = H3Batch(logger, Noted, pictured, prompt, commandLine)
+	let inputs = H3Inputs(ready.options)
 	let problem = inputs.Problem
 	if problem is not ""
 		logger.Log(problem)
 		return 2
 	let started = Process.Elapsed
-	let plan = Planned
-	let made = plan.batch.Videos(plan, Conditions(plan.prompts, plan.images, plan.paths))
+	let plan = ready.Planned
+	let made = plan.batch.Videos(plan, ready.Conditions(plan.prompts, plan.images, plan.paths))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
 	made
+Noted H3Options
+	H3Batch(Logger, H3Options.Parsed(("--width", "720"))).Noted.width is 704
+	let fitted = options.Fitted
+	if (fitted.width is options.width) and (fitted.height is options.height)
+		return fitted
+	logger.Log("H3 size " + options.width + "x" + options.height + " changed to " + fitted.width + "x" + fitted.height)
+	fitted
 Planned Slow(H3Plan)
 	let inputs = H3Inputs(options)
 	let batch = PromptBatch(logger, "Video")
@@ -77,8 +85,8 @@ Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), lat
 		let at = plan.paths.Unique.Index(plan.paths(index))
 		let keyframes = H3Inputs(options).Keyframes(pictured, plan.images(index), plan.images)
 		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes))
-		GpuMemory.Finished
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		GpuMemory.Finished
 	plan.seeds.Length
 Sampling(index Number, count Number, uploading Boolean) Text
 	Sample.Sampling(0, 2, true) is "Sampling video 1/2 with 8 steps, the first one uploads H3 into GPU VRAM"
@@ -128,10 +136,10 @@ Expanded(arguments Texts) Slow(H3Batch)
 	Workflowed.Expanded(Longer).options.length is 22 and Workflowed.Expanded(Longer).prompt is "a fox"
 	Workflowed.Expanded(("--models", ".", "--prompt", "b.txt")).prompt is ""
 	if options.files.workflow is ""
-		return H3Batch(logger, options, List(Numbers), "", arguments)
+		return H3Batch(logger, Noted, List(Numbers), "", arguments)
 	let workflow = H3Workflow(ComfyGraph.Read(options.files.Workflow, H3Workflow.Known), options.files.ComfyUI)
 	let settings = workflow.Arguments
 	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
 	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(workflow.graph.Skipped, ", "))
 	let prompted = "--prompt" is in arguments then "" else workflow.Prompt
-	H3Batch(logger, H3Options.Parsed(settings + arguments), pictured, prompted, arguments)
+	H3Batch(logger, H3Batch(logger, H3Options.Parsed(settings + arguments)).Noted, pictured, prompted, arguments)

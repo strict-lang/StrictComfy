@@ -13,10 +13,19 @@ Cached(prompts Texts, images Texts) Texts
 		Folder + "/context-" + HashCode(identity + value).number + "-" + value.Length + ".safetensors"
 Pictures(image Text) Texts
 	Sample.Pictures("").Length is 0
+	Sample.Pictures("tinyframe.png").First.IndexOf("768") > 0
 	Sample.Pictures("H3Batch.strict").First.StartsWith(" H3Batch.strict ")
 	for (image, options.files.lastImage)
 		if value is not ""
-			" " + value + " " + File(value).Length + " " + options.width + "x" + options.height
+			" " + value + " " + File(value).Length + " " + Mark(value)
+Mark(path Text) Text
+	Sample.Mark("tinyframe.png").IndexOf("768") > 0
+	let picture = ImageLoader(path).Loaded
+	if picture is Error
+		return " " + options.files.vision + " " + options.width + "x" + options.height
+	let encoder = H3Encoder(Logger, options.files, (options.height, options.width))
+	let seen = encoder.Viewed((picture.Size.Height, picture.Size.Width))
+	" " + options.files.vision + " " + seen(1) + "x" + seen(0)
 Missing(paths Texts) Numbers
 	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0
 	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors", "H3BatchMissing.safetensors")) is (1)

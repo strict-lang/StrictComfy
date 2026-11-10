@@ -18,7 +18,7 @@ Listened(server Number) Number
 		kept = socket > 0 then Trimmed(socket, request, kept) else kept
 		kept = socket > 0 then Replied(socket, request, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
-		backend.Unpressed
+		kept = backend.Unpressed is Backend.Stopped then H3Resident(kept, code = Backend.Stopped) else kept
 	backend.resident.Closed(server)
 Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
@@ -27,14 +27,16 @@ Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 		return kept
 	let home = Directory.Current
 	let folder = resident.Folder(request)
-	let isMoved = (folder is not home) and Directory.Change(folder)
+	Directory.Change(folder)
+	let isMoved = folder is not home
 	Socket.Output(socket)
 	let prepared = Prepared(arguments, kept)
 	backend.Restored(isMoved, home)
 	prepared is Error then kept else prepared
 Prepared(arguments Texts, kept H3Resident) Slow(H3Resident)
 	let batch = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)
-	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, backend.IsHostFull).Crowded(batch)
+	let full = backend.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, full).Crowded(batch)
 Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)
@@ -42,19 +44,43 @@ Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let skipped = H3Resident(kept, code = isStopping then Backend.Stopped else -1)
 	let served = isRunning then Ran(socket, request, kept) else skipped
 	let isFailed = served is Error
-	resident.Finished(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code))
-	resident.Released(request)
-	isFailed then H3Resident(logger) else served
+	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	(isFailed or (closed is 1)) then H3Resident(logger) else served
+Claimed Text
+	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video")).Claimed.EndsWith("9\n\n")
+	let root = backend.resident.root
+	if Directory.Exists(root) is false
+		Directory.Create(root)
+	let folder = root + "/obj"
+	if Directory.Exists(folder) is false
+		Directory.Create(folder)
+	if File(backend.resident.Freed).Exists
+		File(backend.resident.Freed).Delete
+	File(backend.resident.Freed + ".9").Write("9")
+	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
+Proved Slow(Boolean)
+	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video")).Proved
+	let request = Claimed
+	let code = Ended(0, 1, request)
+	(code is 1) and File(backend.resident.Freed).Exists
+Ended(socket Number, code Number, request Text) Slow(Number)
+	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video")).Ended(0, 1, "broken") is 1
+	let ended = backend.resident.Finished(socket, code)
+	if ended is Error
+		logger.Log("The H3Video client left before the result was sent")
+		return backend.Freed(request)
+	backend.resident.Released(request)
+	0
 Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
-	let isMoved = (folder is not home) and Directory.Change(folder)
+	Directory.Change(folder)
+	let isMoved = folder is not home
 	Socket.Output(socket)
 	let arguments = backend.resident.Arguments(request)
 	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
-		logger.Log(served to Text)
-		logger.Log("The run failed, the next one loads the models again")
-	backend.Unpressed
+		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
+	let stopped = backend.Unpressed
 	backend.Restored(isMoved, home)
-	served
+	stopped is Backend.Stopped then H3Resident(kept, code = Backend.Stopped) else served
