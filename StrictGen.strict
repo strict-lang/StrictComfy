@@ -1,0 +1,192 @@
+has logger
+constant Forever = 1000000000
+constant Preview = "StrictGenStep.jpg"
+Run(arguments Texts) Number
+	StrictGen(Logger).Run(List(Text) + "--help") is 0
+	if "--help" is in arguments
+		logger.Log("StrictGen.exe serves http://localhost:<port>, a local page for images and video")
+		return 0
+	Served(Port(arguments))
+Port(arguments Texts) Number
+	StrictGen(Logger).Port(List(Text)) is 0
+	StrictGen(Logger).Port(("--port", "8765")) is 8765
+	let at = arguments.Index("--port")
+	(at < 0) or (at + 1 >= arguments.Length) then 0 else arguments(at + 1) to Number
+Served(port Number) Number
+	StrictGen(Logger).Served(-1) is 0
+	let socket = Socket.Listen(port)
+	if socket is Error
+		return 0
+	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket))
+	Looped(socket, StrictGenQueue(logger))
+Looped(socket Number, queue StrictGenQueue) Number
+	StrictGen(Logger).Looped(0, StrictGenQueue.Empty) is 0
+	mutable state = queue
+	for Range(0, socket > 0 then Forever else 0)
+		let waiting = Socket.Waiting(socket) is 1
+		if waiting
+			let client = Socket.Accept(socket)
+			state = Answered(client, state)
+		state = waiting then state else state.Advanced
+		if waiting is false
+			Process.Wait(state.IsBusy then 0.05 else 0.02)
+	0
+Answered(client Number, queue StrictGenQueue) StrictGenQueue
+	if (client is Error) or (client <= 0)
+		return queue
+	let raw = Received(client)
+	let route = Route(raw)
+	if route is "/file"
+		SendFile(client, Query(raw, "path"))
+		return queue
+	let body = Body(raw)
+	let method = raw.Split("\r\n").First.Split(" ").First
+	if (method is "POST") and (route is "/run")
+		let next = queue.Added(Json(body).get("mode") to Text, StrictGenForm.Arguments(body), StrictGenForm.Summary(body))
+		Replied(client, "application/json", Status(next))
+		return next
+	if (method is "POST") and (route is "/stop")
+		let stopped = queue.Cleared
+		stopped.StopAll
+		Replied(client, "application/json", Status(stopped))
+		return stopped
+	if (method is "POST") and (route is "/import")
+		File("StrictGenWorkflow.json").Write(body.Split("\n"))
+		Replied(client, "application/json", StrictGenForm.Imported("StrictGenWorkflow.json"))
+		return queue
+	Replied(client, route is "/neighbor" then "text/plain" else (route is "/probe" then "text/plain" else (route is "/status" then "application/json" else "text/html")), Answer(route, raw, queue))
+	queue
+Answer(route Text, raw Text, queue StrictGenQueue) Text
+	if route is "/status"
+		return Status(queue)
+	if route is "/neighbor"
+		return Neighbor(Query(raw, "path"), Query(raw, "step") to Number)
+	if route is "/probe"
+		return Probed(Query(raw, "path"))
+	Page
+Status(queue StrictGenQueue) Slow(Text)
+	StrictGen(Logger).Status(StrictGenQueue.Empty).IndexOf("\"position\":\"0/0\"") >= 0
+	let stats = StrictGenStats(logger).Text
+	let step = Step(File("StrictGenJob.log").Exists then File("StrictGenJob.log").ReadLines else List(Text))
+	let head = stats.Substring(0, stats.Length - 1)
+	head + ",\"position\":" + queue.Position.Code + ",\"step\":" + step.Code + ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + Preview.Code + ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions) + ",\"recent\":" + Codes(queue.Recent) + ",\"waiting\":" + Codes(queue.Waiting) + ",\"machines\":" + Codes(Machines) + "}"
+Page Text
+	StrictGen(Logger).Page.IndexOf("StrictGen") >= 0
+	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/StrictGen.shell.html"
+	let path = File(beside).Exists then beside else "StrictGen.shell.html"
+	Text.Combine(File(path).ReadLines, "\n")
+Machines Texts
+	StrictGen(Logger).Machines.Index("any") >= 0
+	StrictGen(Logger).Machines.Index(Peers.Home) >= 0
+	List(Text) + "" + "any" + Peers.Named
+Neighbor(path Text, step Number) Text
+	StrictGen(Logger).Neighbor("", 1) is ""
+	if path is ""
+		return ""
+	let folder = Path(path).PathOnly.text
+	let extension = path.Lower.Split(".").Last
+	let files = StrictGenForm.Listed(folder is "" then "." else folder, List(Text) + extension)
+	StrictGenForm.Neighbor(files, path, step)
+Probed(path Text) Text
+	StrictGen(Logger).Probed("missing-clip.mp4") is ""
+	let line = StrictGenExtend(logger).Probe(path)
+	if line is ""
+		return ""
+	let parts = line.Split(",")
+	if parts.Length < 2
+		return ""
+	let width = ComfySize.Plain.Snap(parts(0).Trim to Number, 32)
+	let height = ComfySize.Plain.Snap(parts(1).Trim to Number, 32)
+	width + " " + height
+Step(lines Texts) Text
+	StrictGen(Logger).Step(("hello", "Step 3/8 in 151 ms")) is "Step 3/8 in 151 ms"
+	StrictGen(Logger).Step(List(Text) + "step 1 40 ms") is "step 1 40 ms"
+	StrictGen(Logger).Step(List(Text)) is ""
+	mutable found = ""
+	for lines
+		if value.Lower.IndexOf("step ") >= 0
+			found = value
+	found
+Codes(lines Texts) Text
+	StrictGen(Logger).Codes(("a", "b")) is "[\"a\",\"b\"]"
+	StrictGen(Logger).Codes(List(Text)) is "[]"
+	mutable quoted = List(Text)
+	for lines
+		quoted = quoted + value.Code
+	"[" + Text.Combine(quoted, ",") + "]"
+Route(raw Text) Text
+	StrictGen(Logger).Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
+	StrictGen(Logger).Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
+	StrictGen(Logger).Route("GET") is "/"
+	let parts = raw.Split("\r\n").First.Split(" ")
+	let target = parts.Length > 1 then parts(1) else "/"
+	let question = target.IndexOf("?")
+	question < 0 then target else target.Substring(0, question)
+Query(raw Text, name Text) Text
+	StrictGen(Logger).Query("GET /file?path=a.jpg HTTP/1.1\r\n\r\n", "path") is "a.jpg"
+	StrictGen(Logger).Query("GET /file?path=a+b.jpg HTTP/1.1\r\n\r\n", "path") is "a b.jpg"
+	let target = raw.Split("\r\n").First.Split(" ")
+	let full = target.Length > 1 then target(1) else ""
+	let question = full.IndexOf("?")
+	let query = question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)
+	for query.Split("&")
+		if value.StartsWith(name + "=")
+			return value.Substring(name.Length + 1, value.Length - name.Length - 1).Replace("+", " ").Replace("%20", " ").Replace("%2F", "/").Replace("%5C", "\\").Replace("%3A", ":")
+	""
+Body(raw Text) Text
+	StrictGen(Logger).Body("POST /run HTTP/1.1\r\n\r\n{\"a\":1}") is "{\"a\":1}"
+	StrictGen(Logger).Body("GET / HTTP/1.1\r\n\r\n") is ""
+	let separator = raw.IndexOf("\r\n\r\n")
+	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
+Received(client Number) Text
+	if (client is Error) or (client <= 0)
+		return ""
+	mutable bytes = List(Mutable(Number))
+	for Range(0, 500)
+		let pending = Socket.Pending(client)
+		if pending > 0
+			bytes = bytes + Socket.Receive(client, pending)
+		if Complete(Decoded(bytes))
+			return Decoded(bytes)
+		Process.Wait(0.01)
+	Decoded(bytes)
+Complete(raw Text) Boolean
+	StrictGen(Logger).Complete("GET / HTTP/1.1\r\n\r\n")
+	StrictGen(Logger).Complete("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")
+	StrictGen(Logger).Complete("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab") is false
+	let separator = raw.IndexOf("\r\n\r\n")
+	if separator < 0
+		return false
+	let start = raw.Lower.IndexOf("content-length: ")
+	let length = start < 0 then 0 else raw.Substring(start + 16, raw.Length - start - 16).Split("\r\n").First to Number
+	raw.Length - separator - 4 >= length
+Replied(client Number, kind Text, body Text)
+	let payload = Encoded(body)
+	let header = "HTTP/1.1 200 OK\r\nContent-Type: " + kind + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n"
+	Socket.Send(client, Encoded(header) + payload)
+	Socket.Close(client)
+SendFile(client Number, path Text)
+	if (path is "") or (File(path).Exists is false)
+		Replied(client, "text/plain", "missing")
+		return
+	let payload = File(path).ReadBytes
+	let header = "HTTP/1.1 200 OK\r\nContent-Type: " + Kind(path) + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"
+	Socket.Send(client, Encoded(header) + payload)
+	Socket.Close(client)
+Kind(path Text) Text
+	StrictGen(Logger).Kind("a.jpg") is "image/jpeg"
+	StrictGen(Logger).Kind("a.mp4") is "video/mp4"
+	StrictGen(Logger).Kind("a.png") is "image/png"
+	let extension = path.Lower.Split(".").Last
+	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else (((extension is "jpg") or (extension is "jpeg")) then "image/jpeg" else "application/octet-stream"))
+Encoded(text Text) Numbers
+	StrictGen(Logger).Encoded("Ab") is (65, 98)
+	for text
+		value.number
+Decoded(bytes Numbers) Text
+	StrictGen(Logger).Decoded((65, 98)) is "Ab"
+	Text.Combine(Letters(bytes), "")
+Letters(bytes Numbers) Texts
+	StrictGen(Logger).Letters((65, 98)) is ("A", "b")
+	for bytes
+		Character(value) to Text

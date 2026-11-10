@@ -61,7 +61,7 @@ Loading(loras Text) Text
 	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
 Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(List(Numbers))
-	let sampling = options.Sampling(logger)
+	let sampling = Previewed(options.Sampling(logger))
 	for seeds
 		let label = "Image " + (index + 1) + "/" + seeds.Length + " " + Path(outputs(index)).FileName.text
 		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))), label)
@@ -72,6 +72,14 @@ Decoded(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow
 	if Taef2Decoder.Is(path)
 		return MossDecoding(batch, Taef2Decoder.Loaded(path)).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, FluxDecoder.Loaded(path, 32)).Saved(latents, seeds, prompts, outputs)
+Previewed(sampling MossSampling) Slow(MossSampling)
+	Sample.Previewed(Sample.options.Sampling(Logger)).preview is ""
+	if options.preview is ""
+		return sampling
+	let path = ModelFiles(options.files.models).Located("taef2.safetensors", "vae_approx")
+	if path is Error
+		return sampling
+	MossSampling(sampling, preview = options.preview, previewer = Taef2Decoder.Loaded(path))
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	sampling.Sampled(moss, noise, context, label)

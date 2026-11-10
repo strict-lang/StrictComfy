@@ -22,7 +22,7 @@ constant SamplerHelp = List(Text) + "euler, res_multistep, er_sde, euler_ancestr
 constant SchedulerHelp = ("simple, sgm_uniform, normal, beta, beta57, linear_quadratic or hyperflow (HyperFlow's 8 step grid)", "LoRA path[:strength] in models/loras or anywhere, repeat for more")
 constant CountHelp = List(Text) + "videos per run, each with its own random seed and prompt choices unless --seed is given, 0 for one per image of an --image folder (or prompt of a --prompt folder), else 1; a folder makes N random ones"
 constant SeedHelp = ("seed of every video, -1 for a random one per video", "width in pixels, rounded down to a multiple of 32", "height in pixels, rounded down to a multiple of 32")
-constant OutputHelp = ("frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s)", "numbered output base (.mp4), never overwritten")
+constant OutputHelp = ("frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s); with --video this is only the new tail", "numbered output base (.mp4), never overwritten")
 constant Help = PromptHelp + StepsHelp + SamplerHelp + SchedulerHelp + CountHelp + SeedHelp + OutputHelp
 constant FourStepArguments = ("--quality", "fastest4steps")
 constant TurboArguments = ("--lora", "a_turbo.safetensors")
@@ -73,13 +73,26 @@ IsNoisy Boolean
 	H3Options.Parsed(("--sampler", "gradient_estimation")).IsNoisy is false
 	sampler is in ("er_sde", "euler_ancestral", "dpmpp_2m_sde", "lcm")
 Problem Text
+	H3Options.Parsed(("--video", "H3Files.strict")).files.video is "H3Files.strict"
+	H3Options.Parsed(("--context", "90")).files.context is 90
 	H3Options.Parsed(List(Text)).Problem is ""
 	H3Options.Parsed(("--width", "500")).Problem is ""
+	H3Options.Parsed(("--context", "10")).Problem is "--context must be 22, 39 or 90"
+	H3Options.Parsed(("--video", "clip.mov")).Problem is "--video must end with .mp4"
+	H3Options.Parsed(("--video", "missing-clip.mp4")).Problem is "--video missing-clip.mp4 was not found"
 	H3Options.Parsed(("--sampler", "heun")).Problem.StartsWith("--sampler must be one of euler, ")
 	H3Options.Parsed(("--count", "-1")).Problem is Miscounted and H3Options.Parsed(("--length", "4")).Problem is Miscounted
 	H3Options.Parsed(("--width", "720")).Fitted.width is 704
 	H3Options.Parsed(("--height", "500")).Fitted.height is 480
 	H3Options(width = 10).Fitted.width is 32 and H3Options(height = 10).Fitted.height is 32
+	if files.context is not in StrictGenExtend.Contexts
+		return "--context must be 22, 39 or 90"
+	if (files.video is not "") and (files.video.EndsWith(".mp4") is false)
+		return "--video must end with .mp4"
+	if (files.video is not "") and (File(files.video).Exists is false)
+		return "--video " + files.video + " was not found"
+	if (files.video is not "") and (files.image is not "")
+		return "--image is a still first frame; leave it empty when --video continues a clip"
 	if (count < 0) or (length < 5)
 		return Miscounted
 	Unsupported
@@ -144,11 +157,16 @@ Few(local ModelFiles, given Texts) Text
 	let isGiven = (Turbos.Length > 0) or (Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0)
 	let added = isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")
 	Text.Combine(added + given, ";")
+Clip Number
+	H3Options.Parsed(List(Text)).Clip is 124
+	H3Options.Parsed(("--video", "clip.mp4", "--length", "24", "--context", "22")).Clip is 56
+	H3Options.Parsed(("--length", "24")).Clip is 24
+	files.video is "" then length else StrictGenExtend(Logger).Total(files.context, length)
 Shapes Numbers
 	H3Options.Parsed(List(Text)).Shapes is (37, 72, 40, 207)
 	H3Options.Parsed(("--length", "5", "--width", "32", "--height", "32")).Shapes is (2, 2, 2, 8)
 	H3Options.Parsed(("--length", "125")).Shapes(0) is 42
-	let frames = ((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+	let frames = ((Clip - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
 	let audio = (frames / H3Format.FramesPerSecond * H3Format.AudioPerSecond).Round
 	let fitted = Fitted
 	((frames - 5) / H3Format.FrameGroup * 5 + 2, fitted.height / 16, fitted.width / 16, audio)

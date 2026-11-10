@@ -12,6 +12,7 @@ has width = 704
 has height = 1280
 has output = "MossImage.jpg"
 has JsonOutput = false
+has preview = ""
 constant SlowPresetsHelp = "presets of steps, guidance and Spectrum (704x1280 on a 3080): best 8 turbo steps 3.2 s, best25steps and best50steps without the turbo LoRA and cfg 2 18 s and 37 s, "
 constant FastPresetsHelp = "fast and faster with Spectrum 2.0 s and 1.6 s, fastest 4 steps 1.2 s, fastest2steps 0.77 s"
 constant PromptHelp = ("UTF-8 prompt file, {a|b|c} picks one of them per image, without prompt.txt the closeup street example", SlowPresetsHelp + FastPresetsHelp)
@@ -20,8 +21,10 @@ constant SpectrumHelp = ("off or spectrum<steps>_w<warmup>p<period> like spectru
 constant CountHelp = ("LoRA path[:strength] in models/loras or anywhere, repeat for more", "images per run, each with its own random seed and prompt choices unless --seed is given", "seed of every image, -1 for a random one per image")
 constant SizeHelp = ("width in pixels, rounded down to a multiple of 32", "height in pixels, rounded down to a multiple of 32")
 constant OutputHelp = ("numbered output base (.jpg or .png), never overwritten, or a .safetensors that gets the encoded prompt (context) for the browser page instead of an image", "write the settings of every image next to it as .json")
-constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp
+constant PreviewHelp = List(Text) + "JPEG written during the sampling steps, empty for none"
+constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp + PreviewHelp
 Sampling(logger Logger) MossSampling
+	MossOptions.Parsed(("--preview", "step.jpg")).preview is "step.jpg"
 	MossOptions.Parsed(List(Text)).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "off", 5, 2)
 	MossOptions.Parsed(("--quality", "fastest", "--width", "480")).Sampling(Logger).width is 30
 	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "on", 3, 3)

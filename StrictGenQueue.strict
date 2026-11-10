@@ -1,0 +1,103 @@
+has logger
+has modes Texts = List(Text)
+has commands Texts = List(Text)
+has lines Texts = List(Text)
+has pending Numbers = List(Number)
+has results Texts = List(Text)
+has captions Texts = List(Text)
+has current = -1
+has finished = 0
+has halted = false
+constant Empty = StrictGenQueue(Logger)
+Added(mode Text, command Texts, line Text) StrictGenQueue
+	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
+	Empty.Added("image", ("--width", "32"), "Image fox").Added("video", ("--length", "24"), "Video owl").pending.Length is 2
+	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
+	StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"), lines = lines + line, pending = pending + modes.Length, halted = false)
+Cleared StrictGenQueue
+	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
+	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.halted
+	StrictGenQueue(value, pending = List(Number), halted = true)
+Position Text
+	Empty.Position is "0/0"
+	Empty.Added("image", ("--width", "32"), "Image fox").Position is "0/1"
+	let running = current < 0 then 0 else 1
+	(finished + running) + "/" + (finished + running + pending.Length)
+Waiting Texts
+	Empty.Waiting.Length is 0
+	Empty.Added("image", ("--width", "32"), "Image fox").Waiting is ("Image fox")
+	let live = current < 0 then pending else List(Number) + current + pending
+	for live
+		lines(value)
+Recent Texts
+	Empty.Recent.Length is 0
+	let newest = results.Reverse
+	newest
+Quoted(words Texts) Text
+	Empty.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
+	Empty.Quoted(("--width", "32")) is "--width 32"
+	mutable line = ""
+	for words
+		let word = value.IndexOf(" ") < 0 then value else "\"" + value + "\""
+		line = line is "" then word else line + " " + word
+	line
+Found(rows Texts) Text
+	Empty.Found(("Saved a.jpg in 3 ms", "Wrote b.mp4")) is "b.mp4"
+	Empty.Found(List(Text) + "hello") is ""
+	mutable path = ""
+	for rows
+		let parts = value.Split(" ")
+		if (parts.Length > 1) and ((parts.First is "Saved") or (parts.First is "Wrote"))
+			path = parts(1)
+	path
+Executable(name Text) Text
+	Empty.Executable("MossImage").IndexOf("MossImage") >= 0
+	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+	let suffix = Process.OperatingSystem is "Windows" then ".exe" else ""
+	let file = folder + "/" + name + suffix
+	File(file).Exists then file else name + suffix
+Script(executable Text, arguments Text, log Text, done Text) Texts
+	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
+	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
+	let command = "\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1"
+	let mark = "echo DONE> \"" + done + "\""
+	(command, mark)
+Stopped(root Text) Slow(Number)
+	Empty.Stopped("StrictGenMissing") is 0
+	Forwarding(logger, root, "").Forwarded(List(Text) + "stop")
+StopAll Slow(Number)
+	Empty.Stopped("StrictGenMissing") is 0
+	Stopped(MossServer.Root)
+	Stopped(H3Artifacts(H3Options.Parsed(List(Text))).Folder)
+	0
+Advanced StrictGenQueue
+	Empty.Advanced.current is -1
+	if (pending.Length is 0) and (current < 0)
+		return value
+	current < 0 then (halted then value else Launch) else Polled
+Launch StrictGenQueue
+	let index = pending.First
+	let mode = modes(index)
+	let words = commands(index).Split("\n")
+	let previewed = mode is "image" then words + "--preview" + "StrictGenStep.jpg" else words
+	File("StrictGenJob.done").Delete
+	File("StrictGenStep.jpg").Delete
+	let executable = Executable(mode is "image" then "MossImage" else "H3Video")
+	let script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
+	File(script).Write(Script(executable, Quoted(previewed), "StrictGenJob.log", "StrictGenJob.done"))
+	let shell = Process.OperatingSystem is "Windows" then "cmd" else "sh"
+	let flag = Process.OperatingSystem is "Windows" then "/c \"" + script + "\"" else script
+	Process.Find(shell).Started(flag)
+	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = index)
+Polled StrictGenQueue
+	if File("StrictGenJob.done").Exists is false
+		return value
+	let rows = File("StrictGenJob.log").Exists then File("StrictGenJob.log").ReadLines else List(Text)
+	let path = Found(rows)
+	let caption = lines(current)
+	File("StrictGenJob.done").Delete
+	let done = StrictGenQueue(value, current = -1, finished = finished + 1, results = path is "" then results else results + path, captions = path is "" then captions else captions + caption)
+	halted then done else done.Advanced
+IsBusy Boolean
+	Empty.IsBusy is false
+	current >= 0

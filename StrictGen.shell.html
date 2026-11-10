@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StrictGen — images and video</title>
+<style>
+	html, body { margin: 0; height: 100%; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
+	body { display: flex; flex-direction: column; min-height: 100%; }
+	header { display: flex; gap: 10px; align-items: center; padding: 12px 16px; background: #0f151c; flex-wrap: wrap; }
+	header .grow { flex: 1; min-width: 180px; color: #8b97a5; font-size: 13px; }
+	main { flex: 1; min-height: 0; display: flex; gap: 24px; padding: 16px 24px 32px; box-sizing: border-box; }
+	section { width: min(460px, 46vw); display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
+	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
+	textarea { resize: vertical; min-height: 96px; }
+	.row { display: flex; gap: 10px; }
+	.row label, .row .field { flex: 1; min-width: 0; }
+	.modes { display: flex; gap: 6px; }
+	.modes button, button.small, button.ghost { font-size: 14px; padding: 6px 10px; background: #1f2933; color: #d8dee9; border: 0; border-radius: 8px; cursor: pointer; }
+	.modes button.on { background: #5fb3f6; color: #0b0f14; }
+	button.run { font: inherit; font-size: 18px; padding: 12px 18px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
+	button.stop { background: #e88388; color: #0b0f14; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+	.note { color: #e8b383; font-size: 13px; min-height: 1em; }
+	.hidden { display: none !important; }
+	#loras { display: flex; flex-direction: column; gap: 4px; }
+	.lora { display: flex; gap: 8px; align-items: center; }
+	.lora span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.lora input { width: 72px; }
+	#frame { flex: 1; min-height: 280px; background: #141b23; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; }
+	#frame img, #frame video { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+	#gallery { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8b97a5; }
+	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#queue { position: relative; }
+	#menu { position: absolute; z-index: 2; top: 100%; right: 0; background: #141b23; border: 1px solid #2b3540; border-radius: 8px; min-width: 280px; max-width: 420px; padding: 8px; }
+	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	details { color: #8b97a5; font-size: 13px; }
+	#log { min-height: 64px; max-height: 120px; overflow: auto; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
+	@media (max-width: 720px) {
+		main { flex-direction: column; }
+		section { width: 100%; }
+		section.view { order: -1; }
+	}
+</style>
+</head>
+<body>
+<header>
+	<button class="small" id="import">Import workflow</button>
+	<input id="workflow" type="file" accept=".json" hidden>
+	<div class="grow" id="meters">RAM — · VRAM — · GPU — · CPU —</div>
+	<button class="stop" id="stop">Stop</button>
+	<div id="queue"><button class="small" id="position">0/0</button><div id="menu" class="hidden"></div></div>
+	<label>Machine<select id="machine"><option value="">This PC</option><option value="any">any</option></select></label>
+	<button class="run" id="run">Run</button>
+</header>
+<main>
+	<section>
+		<div class="modes">
+			<button type="button" data-mode="image" class="on">Image</button>
+			<button type="button" data-mode="video">Video</button>
+			<button type="button" data-mode="extend">Extend</button>
+			<button type="button" data-mode="imagevideo">Image to video</button>
+		</div>
+		<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
+		<div id="inputs">
+			<label>Image or video
+				<div class="row">
+					<button class="small" id="inputPrev" type="button">&#9664;</button>
+					<input id="input" type="text" placeholder="png, jpg, or mp4">
+					<button class="small" id="inputPick" type="button">File</button>
+					<button class="small" id="inputNext" type="button">&#9654;</button>
+					<input id="inputFile" type="file" accept=".png,.jpg,.jpeg,.mp4" hidden>
+				</div>
+			</label>
+			<label>Recent<input id="recent" list="recentList" placeholder="this session"><datalist id="recentList"></datalist></label>
+			<label id="contextLabel">Context<select id="context"><option value="22" selected>22 frames</option><option value="39">39 frames</option><option value="90">90 frames</option></select></label>
+			<label id="lastLabel">Last frame<input id="lastImage" type="text" placeholder="optional png or jpg"></label>
+		</div>
+		<div class="row">
+			<label>Resolution<select id="size">
+				<option value="160 288">160p portrait</option><option value="288 160">160p landscape</option>
+				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
+				<option value="368 640">368p portrait</option><option value="640 368">368p landscape</option>
+				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
+				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
+				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
+				<option value="1088 1920">1088p portrait</option><option value="1920 1088">1088p landscape</option>
+				<option value="custom">Custom</option>
+			</select></label>
+			<label>Quality<select id="quality"></select></label>
+		</div>
+		<div class="row hidden" id="custom">
+			<label>Width<input id="width" type="number" min="32" step="32" value="480"></label>
+			<label>Height<input id="height" type="number" min="32" step="32" value="848"></label>
+		</div>
+		<div class="note" id="note"></div>
+		<label>Model
+			<div class="row">
+				<button class="small" id="modelPrev" type="button">&#9664;</button>
+				<input id="model" type="text" placeholder="default">
+				<button class="small" id="modelPick" type="button">File</button>
+				<button class="small" id="modelNext" type="button">&#9654;</button>
+			</div>
+		</label>
+		<label>LoRAs <button class="small" id="addLora" type="button">Add</button><div id="loras"></div></label>
+		<div class="row">
+			<label id="decoderLabel">Decoder<select id="decoder">
+				<option value="taef2" selected>taef2</option>
+				<option value="flux2-small-vae">flux2-small-vae</option>
+				<option value="flux2-vae">flux2-vae</option>
+			</select></label>
+			<label id="encoderLabel">Text encoder<div id="encoderName">default</div></label>
+			<label>Steps<input id="steps" type="number" min="0" step="1" value="0"></label>
+			<label>Skip<select id="skip"></select></label>
+		</div>
+		<div class="note" id="stepsNote"></div>
+		<label id="lengthLabel">Length<input id="length" type="number" min="24" step="24" value="124"></label>
+		<div class="note" id="lengthNote"></div>
+		<details>
+			<summary>Advanced</summary>
+			<div class="row">
+				<label>Seed<input id="seed" type="number" value="-1"></label>
+				<label>Count<input id="count" type="number" min="1" step="1" value="1"></label>
+				<label>Guidance<input id="guidance" type="number" min="0" step="0.5" value="0"></label>
+			</div>
+			<div class="row">
+				<label>Spectrum<input id="spectrum" type="text" placeholder="quality preset"></label>
+				<label>Sampler<select id="sampler"><option value="">default</option><option>euler</option><option>res_multistep</option><option>er_sde</option><option>euler_ancestral</option><option>dpmpp_2m_sde</option><option>gradient_estimation</option><option>lcm</option></select></label>
+				<label>Scheduler<select id="scheduler"><option value="">default</option><option>simple</option><option>sgm_uniform</option><option>normal</option><option>beta</option><option>beta57</option><option>linear_quadratic</option><option>hyperflow</option></select></label>
+			</div>
+			<div class="row">
+				<label>Vision<select id="vision"><option value="768">768</option><option value="off">off</option></select></label>
+				<label class="field"><input id="crop" type="checkbox" checked> crop first frame</label>
+				<label class="field"><input id="local" type="checkbox"> local</label>
+				<label class="field"><input id="force" type="checkbox"> force</label>
+			</div>
+			<label>Output<input id="output" type="text" placeholder="numbered default"></label>
+			<label>Models folder<input id="models" type="text" placeholder="ComfyUI models"></label>
+			<label>Text encoder file<input id="textEncoder" type="text"></label>
+			<div class="row">
+				<label>Video VAE<input id="vae" type="text"></label>
+				<label>Audio VAE<input id="audioVae" type="text"></label>
+			</div>
+		</details>
+		<pre id="log"></pre>
+	</section>
+	<section class="view">
+		<div id="frame"><span id="placeholder">The preview shows up here</span></div>
+		<div id="gallery">
+			<button class="small" id="back" type="button">&#9664;</button>
+			<span id="caption">No results yet</span>
+			<button class="small" id="forward" type="button">&#9654;</button>
+		</div>
+	</section>
+</main>
+<script>
+	const element = id => document.getElementById(id);
+	const snap = n => Math.max(32, Math.floor(Number(n) / 32) * 32);
+	const videoSnap = n => Math.ceil((Number(n) - 5) / 17) * 17 + 5;
+	const mossQuality = [["best", "best (8)"], ["best25steps", "best25steps"], ["best50steps", "best50steps"], ["fast", "fast"], ["faster", "faster"], ["fastest", "fastest (4)"], ["fastest2steps", "fastest2steps (2)"]];
+	const h3Quality = [["best", "best"], ["fast", "fast"], ["faster", "faster"], ["fastest4steps", "fastest4steps"], ["fastest2steps", "fastest2steps"]];
+	const mossSkip = ["off", "6:36"];
+	const h3Skip = ["off", "5:45", "10:40", "15:35"];
+	const state = { mode: "image", loras: [], results: [], captions: [], index: 0, paused: false, machines: false };
+	const fill = (select, pairs, chosen) => {
+		select.replaceChildren(...pairs.map(([value, label]) => new Option(label || value, value)));
+		select.value = chosen;
+	};
+	const sizeOf = () => {
+		if (element("size").value === "custom") return [snap(element("width").value), snap(element("height").value)];
+		const [width, height] = element("size").value.split(" ").map(Number);
+		return [snap(width), snap(height)];
+	};
+	const showMode = () => {
+		const mode = state.mode;
+		for (const button of document.querySelectorAll(".modes button")) button.classList.toggle("on", button.dataset.mode === mode);
+		const video = mode !== "image";
+		element("inputs").classList.toggle("hidden", mode === "image" || mode === "video");
+		element("contextLabel").classList.toggle("hidden", mode !== "extend");
+		element("lastLabel").classList.toggle("hidden", mode !== "imagevideo");
+		element("decoderLabel").classList.toggle("hidden", video);
+		element("encoderLabel").classList.toggle("hidden", video);
+		element("lengthLabel").classList.toggle("hidden", !video);
+		element("lengthNote").classList.toggle("hidden", !video);
+		element("guidance").parentElement.classList.toggle("hidden", video);
+		element("spectrum").parentElement.classList.toggle("hidden", video);
+		fill(element("quality"), video ? h3Quality : mossQuality, video ? "fast" : "fastest");
+		fill(element("skip"), (video ? h3Skip : mossSkip).map(value => [value, value]), video ? "5:45" : "off");
+		note();
+	};
+	const note = () => {
+		const [width, height] = sizeOf();
+		const typed = element("size").value === "custom" ? "" : element("size").value.split(" ").map(Number);
+		const changed = typed && (typed[0] !== width || typed[1] !== height);
+		element("note").textContent = width + "x" + height + (changed ? " after snapping to a multiple of 32" : "");
+		const steps = Number(element("steps").value) || 0;
+		element("stepsNote").textContent = steps === 0 ? "0 uses the quality preset" : steps + " steps";
+		if (state.mode === "image") return;
+		const length = Number(element("length").value) || 24;
+		const context = state.mode === "extend" ? Number(element("context").value) : 0;
+		const total = state.mode === "extend" ? videoSnap(context + length) : videoSnap(length);
+		const added = state.mode === "extend" ? total - context : total;
+		element("lengthNote").textContent = added + " frames, " + (added / 24).toFixed(1) + " s" + (state.mode === "extend" ? " new, clip " + total : "");
+	};
+	document.querySelectorAll(".modes button").forEach(button => button.onclick = () => { state.mode = button.dataset.mode; showMode(); });
+	element("size").onchange = () => { element("custom").classList.toggle("hidden", element("size").value !== "custom"); note(); };
+	element("width").oninput = note;
+	element("height").oninput = note;
+	element("steps").oninput = note;
+	element("length").oninput = note;
+	element("context").onchange = note;
+	const form = () => {
+		const [width, height] = sizeOf();
+		const body = {
+			mode: state.mode, prompt: element("prompt").value, width, height,
+			quality: element("quality").value, steps: Number(element("steps").value) || 0, skip: element("skip").value,
+			decoder: element("decoder").value, length: Number(element("length").value) || 24, context: Number(element("context").value) || 22,
+			model: element("model").value, loras: state.loras, seed: Number(element("seed").value), count: Number(element("count").value) || 1,
+			guidance: Number(element("guidance").value) || 0, spectrum: element("spectrum").value, sampler: element("sampler").value,
+			scheduler: element("scheduler").value, crop: element("crop").checked ? "true" : "false", vision: element("vision").value,
+			output: element("output").value, models: element("models").value, textEncoder: element("textEncoder").value,
+			vae: element("vae").value, audioVae: element("audioVae").value, local: element("local").checked, force: element("force").checked,
+			remote: element("machine").value
+		};
+		if (state.mode === "extend") body.video = element("input").value;
+		if (state.mode === "imagevideo") { body.image = element("input").value; body.lastImage = element("lastImage").value; }
+		return body;
+	};
+	const drawLoras = () => {
+		element("loras").replaceChildren(...state.loras.map((lora, index) => {
+			const row = document.createElement("div");
+			row.className = "lora";
+			const name = document.createElement("input");
+			name.type = "text"; name.value = lora.path; name.placeholder = "LoRA path";
+			name.onchange = () => lora.path = name.value;
+			const strength = document.createElement("input");
+			strength.type = "number"; strength.step = "0.05"; strength.value = lora.strength;
+			strength.onchange = () => lora.strength = Number(strength.value) || 0;
+			const remove = document.createElement("button");
+			remove.className = "small"; remove.type = "button"; remove.textContent = "Remove";
+			remove.onclick = () => { state.loras.splice(index, 1); drawLoras(); };
+			row.append(name, strength, remove);
+			return row;
+		}));
+	};
+	element("addLora").onclick = () => { state.loras.push({ path: "", strength: 1 }); drawLoras(); };
+	const neighbor = async (box, step) => {
+		if (!box.value) return;
+		const next = await fetch("/neighbor?path=" + encodeURIComponent(box.value) + "&step=" + step).then(r => r.text());
+		if (next) box.value = next;
+	};
+	element("modelPrev").onclick = () => neighbor(element("model"), -1);
+	element("modelNext").onclick = () => neighbor(element("model"), 1);
+	element("inputPrev").onclick = () => neighbor(element("input"), -1);
+	element("inputNext").onclick = () => neighbor(element("input"), 1);
+	element("inputPick").onclick = () => element("inputFile").click();
+	element("inputFile").onchange = () => { const file = element("inputFile").files[0]; if (file) element("input").value = file.name; };
+	element("modelPick").onclick = () => { const path = prompt("Model path", element("model").value); if (path !== null) element("model").value = path; };
+	element("input").onchange = async () => {
+		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
+		const size = await fetch("/probe?path=" + encodeURIComponent(element("input").value)).then(r => r.text());
+		if (!size) return;
+		element("size").value = "custom";
+		element("custom").classList.remove("hidden");
+		const [width, height] = size.split(" ");
+		element("width").value = width; element("height").value = height; note();
+	};
+	element("recent").onchange = () => {
+		const path = element("recent").value;
+		if (!path) return;
+		element("input").value = path;
+		state.mode = path.toLowerCase().endsWith(".mp4") ? "extend" : "imagevideo";
+		showMode();
+	};
+	const media = (path, node) => {
+		const url = "/file?path=" + encodeURIComponent(path) + "&t=" + Date.now();
+		if (path.toLowerCase().endsWith(".mp4")) {
+			const video = document.createElement("video");
+			video.src = url; video.autoplay = true; video.loop = true; video.muted = true;
+			video.onclick = () => { video.paused ? video.play() : video.pause(); state.paused = video.paused; };
+			node.replaceWith(video);
+			return video;
+		}
+		const image = document.createElement("img");
+		image.src = url; image.alt = path;
+		node.replaceWith(image);
+		return image;
+	};
+	const showResult = () => {
+		const count = state.results.length;
+		if (!count) { element("caption").textContent = "No results yet"; return; }
+		state.index = Math.max(0, Math.min(count - 1, state.index));
+		const path = state.results[state.index];
+		const node = element("frame").querySelector("img, video, span");
+		media(path, node);
+		element("caption").textContent = (state.index + 1) + "/" + count + " " + (state.captions[state.index] || path);
+	};
+	element("back").onclick = () => { state.index -= 1; showResult(); };
+	element("forward").onclick = () => { state.index += 1; showResult(); };
+	window.onkeydown = event => {
+		if (event.target.matches("input, textarea")) return;
+		if (event.code !== "Space") return;
+		const video = element("frame").querySelector("video");
+		if (!video) return;
+		event.preventDefault();
+		video.paused ? video.play() : video.pause();
+	};
+	const gb = bytes => (Number(bytes) / 1073741824).toFixed(1) + " GB";
+	const apply = fields => {
+		if (fields.mode) { state.mode = fields.mode; showMode(); }
+		if (fields.prompt) element("prompt").value = fields.prompt;
+		if (fields.width && fields.height) {
+			const value = fields.width + " " + fields.height;
+			element("size").value = [...element("size").options].some(option => option.value === value) ? value : "custom";
+			element("custom").classList.toggle("hidden", element("size").value !== "custom");
+			element("width").value = fields.width; element("height").value = fields.height;
+		}
+		if (fields.quality) element("quality").value = fields.quality;
+		if (fields.seed !== undefined) element("seed").value = fields.seed;
+		if (fields.image) element("input").value = fields.image;
+		if (fields.model) element("model").value = fields.model;
+		note();
+	};
+	element("import").onclick = () => element("workflow").click();
+	element("workflow").onchange = async () => {
+		const file = element("workflow").files[0];
+		if (!file) return;
+		const fields = await fetch("/import", { method: "POST", body: await file.text() }).then(r => r.json());
+		apply(fields);
+		element("workflow").value = "";
+	};
+	element("run").onclick = async () => {
+		await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) });
+	};
+	element("stop").onclick = () => fetch("/stop", { method: "POST" });
+	element("position").onclick = () => element("menu").classList.toggle("hidden");
+	const poll = async () => {
+		const status = await fetch("/status").then(r => r.json());
+		element("meters").textContent = "RAM " + gb(status.ram) + " / " + gb(status.ramTotal) + " · VRAM " + gb(status.vram) + " / " + gb(status.vramTotal) + " · GPU " + status.gpu + "% · CPU " + Math.round(status.cpu) + "%";
+		element("position").textContent = status.position || "0/0";
+		element("menu").replaceChildren(...(status.waiting || []).map(line => { const row = document.createElement("div"); row.textContent = line; return row; }));
+		if (!state.machines && status.machines) {
+			for (const name of status.machines) if (name && name !== "any" && ![...element("machine").options].some(option => option.value === name)) element("machine").add(new Option(name, name));
+			state.machines = true;
+		}
+		const list = element("recentList");
+		list.replaceChildren(...(status.recent || []).map(path => { const option = document.createElement("option"); option.value = path; return option; }));
+		if (status.step && !element("log").textContent.endsWith(status.step + "\n")) element("log").textContent += status.step + "\n";
+		const same = status.results && status.results.join() === state.results.join();
+		if (status.results && !same) {
+			const grew = status.results.length > state.results.length;
+			state.results = status.results; state.captions = status.captions || [];
+			if (grew) state.index = state.results.length - 1;
+			showResult();
+		}
+		if (status.busy && state.mode === "image") {
+			const node = element("frame").querySelector("img, video, span");
+			if (node && node.tagName !== "VIDEO") {
+				const image = node.tagName === "IMG" ? node : document.createElement("img");
+				image.src = "/file?path=" + encodeURIComponent(status.preview) + "&t=" + Date.now();
+				if (node !== image) node.replaceWith(image);
+			}
+		}
+	};
+	showMode();
+	setInterval(() => poll().catch(() => {}), 1000);
+	poll().catch(() => {});
+</script>
+</body>
+</html>

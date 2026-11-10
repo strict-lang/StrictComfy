@@ -3,6 +3,7 @@ has options H3Options
 has pictured List(Numbers) = List(Numbers)
 has prompt = ""
 has commandLine Texts = List(Text)
+has motion StrictGenExtend = StrictGenExtend.None
 constant Sample = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
 constant Workflowed = H3Batch(Logger, H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
@@ -56,11 +57,15 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	Directory.Create(H3Artifacts(options).Folder)
 	encoding.Started(prompts, images, paths)
 Videos(plan H3Plan, conditions List(Safetensors)) Slow(Number)
+	let batch = Armed
+	if batch.motion.problem is not ""
+		logger.Log(batch.motion.problem)
+		return 2
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	let latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
-	Prefetched((options.files.Decoder, options.files.Sound), "the VAEs")
-	Sampled(h3, refiner, plan, conditions, latents, true)
+	batch.Prefetched((options.files.Decoder, options.files.Sound), "the VAEs")
+	batch.Sampled(h3, refiner, plan, conditions, latents, true)
 	options.files.Freed
 	Decoded(latents, plan.images)
 LoraFiles Texts
@@ -101,7 +106,8 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2))
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
 	let rows = job.Keyed(keyframes, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
-	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices)
+	let pinned = motion.frames is 0 then job else H3Job(job, pinnedVideo = motion.video, pinnedAudio = motion.audio, pinFrames = motion.frames, pinAudio = motion.sound, pinTemporal = shapes(0), pinSpan = shapes(3), pinPlane = shapes(1) * shapes(2))
+	let keyed = H3Job(pinned, rows = rows, keyframes = H3Inputs(options).Indices)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Decoded(latents Texts, images Texts) Slow(Number)
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
@@ -117,7 +123,15 @@ Saved(decoding H3Decoding, latent Numbers, output Text) Slow(Number)
 	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
 	let path = PromptBatch(logger, "Video").Reserved(output)
-	H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), path)
+	StrictGenExtend(logger).Kept(path, latent, shapes, options.Clip)
+	if options.files.video is ""
+		return H3Frames(logger).Saved(decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), path)
+	StrictGenExtend(logger).Appended(options.files.video, decoded(0), decoded(1), (shapes(1) * 16, shapes(2) * 16), options.files.context, path)
+Armed Slow(H3Batch)
+	if options.files.video is ""
+		return value
+	let head = StrictGenExtend(logger).Head(options.files.video, options.files.context, options.height, options.width, options.files.Decoder, options.files.Sound)
+	H3Batch(value, motion = head)
 Pictured(images Texts) Slow(List(Numbers))
 	Sample.Pictured(List(Text) + "").Length is 0
 	Keyframed.Pictured(List(Text) + "") is Error(Vae) and Keyframed.Pictured(List(Text) + "tinyframe.png") is Error(Vae)

@@ -1,0 +1,276 @@
+has logger
+has problem = ""
+has video Numbers = List(Number)
+has audio Numbers = List(Number)
+has frames = 0
+has sound = 0
+has tall = 0
+has wide = 0
+constant Contexts = (22, 39, 90)
+constant None = StrictGenExtend(Logger)
+constant Sample = StrictGenExtend(Logger)
+IsContext(length Number) Boolean
+	Sample.IsContext(22) and Sample.IsContext(39) and Sample.IsContext(90)
+	Sample.IsContext(21) is false
+	Sample.IsContext(0) is false
+	length is in Contexts
+Total(context Number, added Number) Number
+	Sample.Total(22, 24) is 56
+	Sample.Total(22, 124) is 158
+	Sample.Total(39, 5) is 56
+	let raw = context + added
+	((raw - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+LatentCount(length Number) Number
+	Sample.LatentCount(22) is 7
+	Sample.LatentCount(39) is 12
+	Sample.LatentCount(90) is 27
+	let frames = ((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+	(frames - 5) / H3Format.FrameGroup * 5 + 2
+AudioCount(length Number) Number
+	Sample.AudioCount(22) is 37
+	Sample.AudioCount(39) is 65
+	Sample.AudioCount(90) is 150
+	(length / H3Format.FramesPerSecond * H3Format.AudioPerSecond).Round
+SoundDrop(context Number) Number
+	Sample.SoundDrop(22) is 29333
+	(context / H3Format.FramesPerSecond * H3Frames.SampleRate).Round
+LatentPath(path Text) Text
+	Sample.LatentPath("a.mp4") is "a.latent.safetensors"
+	Sample.LatentPath("dir/b.MP4") is "dir/b.latent.safetensors"
+	let dot = path.LastIndexOf(".")
+	(dot < 0 then path else path.Substring(0, dot)) + ".latent.safetensors"
+Ramp(count Number, start Number) Numbers
+	Sample.Ramp(3, 1) is (1, 2, 3)
+	for count
+		start + index
+Prepare Text
+	Sample.Prepare is "strictgen-tail.latent.safetensors"
+	let numbers = Ramp(10, 1) + Ramp(40, 11)
+	Safetensors("strictgen-tail.latent.safetensors").Written(("latent", "shape"), (numbers, (1, 10, 1, 1, 40, 44)))
+	"strictgen-tail.latent.safetensors"
+Tail(values Numbers, temporal Number, keep Number, plane Number) Numbers
+	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1) is (3, 4, 7, 8)
+	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 2) is (5, 6, 7, 8)
+	let channels = values.Length / temporal / plane
+	for channels * keep * plane
+		let at = index % plane
+		let time = (index / plane).Floor % keep
+		let channel = (index / (keep * plane)).Floor
+		values((channel * temporal + temporal - keep + time) * plane + at)
+FromLatent(path Text, context Number) StrictGenExtend
+	(Sample.Prepare is "strictgen-tail.latent.safetensors") and (Sample.FromLatent(Sample.Prepare, 22).frames is 7)
+	Sample.FromLatent(Sample.Prepare, 22).sound is 37
+	Sample.FromLatent(Sample.Prepare, 22).video.First is 4
+	Sample.FromLatent(Sample.Prepare, 22).video.Last is 10
+	Sample.FromLatent(Sample.Prepare, 22).audio.First is 14
+	Sample.FromLatent(Sample.Prepare, 22).audio.Last is 50
+	let data = Safetensors(path, 32)
+	let shape = data.Values("shape")
+	let channels = shape(0).Round
+	let temporal = shape(1).Round
+	let height = shape(2).Round
+	let width = shape(3).Round
+	let span = shape(4).Round
+	let pixels = shape(5).Round
+	let kept = LatentCount(context)
+	let heard = AudioCount(context)
+	if (temporal < kept) or (span < heard) or (pixels < context)
+		return StrictGenExtend(value, problem = "ShortLatent")
+	let count = channels * temporal * height * width
+	let latent = data.Values("latent")
+	let seen = Tail(latent.Slice(0, count), temporal, kept, height * width)
+	let listened = Tail(latent.Slice(count, latent.Length - count), span, heard, 1)
+	StrictGenExtend(value, video = seen, audio = listened, frames = kept, sound = heard, tall = height, wide = width)
+Head(path Text, context Number, height Number, width Number, vae Text, audioVae Text) Slow(StrictGenExtend)
+	(Sample.Prepare is "strictgen-tail.latent.safetensors") and (Sample.Head("strictgen-tail.mp4", 22, 16, 16, "", "").frames is 7)
+	let saved = LatentPath(path)
+	if File(saved).Exists is false
+		return FromMedia(path, context, width, height, vae, audioVae)
+	let read = FromLatent(saved, context)
+	if read.problem is not ""
+		return FromMedia(path, context, width, height, vae, audioVae)
+	(read.tall * 16 is height) and (read.wide * 16 is width) then read else FromMedia(path, context, width, height, vae, audioVae)
+FromMedia(path Text, context Number, width Number, height Number, vae Text, audioVae Text) Slow(StrictGenExtend)
+	let seconds = context / H3Format.FramesPerSecond + 1
+	let rgb = path + ".tail.rgb"
+	let pcm = path + ".tail.pcm"
+	let filmed = Process.RunTool("ffmpeg", Extract(path, rgb, width, height, seconds))
+	if filmed.Failed
+		return StrictGenExtend(value, problem = "FfmpegFailed")
+	let frame = width * height * 3
+	let raw = Scaled(Bytes(rgb))
+	File(rgb).Delete
+	let count = raw.Length / frame
+	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
+	if last.Length < context * frame
+		return StrictGenExtend(value, problem = "ShortVideo")
+	let pictured = EncodedFrames(last, context, width, height, vae)
+	if pictured is Error
+		return StrictGenExtend(value, problem = pictured to Text)
+	let recorded = Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds))
+	if recorded.Failed
+		return StrictGenExtend(value, problem = "FfmpegFailed")
+	let waveform = Pcm(Bytes(pcm))
+	File(pcm).Delete
+	let encoded = H3AudioEncoder.Loaded(Safetensors(audioVae, 32)).Encoded(waveform, AudioCount(context))
+	if encoded is Error
+		return StrictGenExtend(value, problem = encoded to Text)
+	StrictGenExtend(value, video = pictured, audio = encoded, frames = LatentCount(context), sound = AudioCount(context), tall = height / 16, wide = width / 16)
+EncodedFrames(frames Numbers, context Number, width Number, height Number, vae Text) Slow(Numbers)
+	if vae is ""
+		return Error("NoVideoEncoder")
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
+	let frame = width * height * 3
+	mutable joined = List(Number)
+	for Slots(context, LatentCount(context))
+		let image = Planar(frames.Slice(value * frame, frame))
+		joined = joined + picture.Encoded(image, (height, width))
+	joined
+Slots(frames Number, count Number) Numbers
+	Sample.Slots(22, 7).First is 0
+	Sample.Slots(22, 7).Last is 21
+	Sample.Slots(22, 7).Length is 7
+	Sample.Slots(5, 1) is (0)
+	for count
+		count is 1 then 0 else (index * (frames - 1) / (count - 1)).Round
+Planar(frame Numbers) Numbers
+	Sample.Planar((1, 2, 3, 4, 5, 6)) is (1, 4, 2, 5, 3, 6)
+	let pixels = frame.Length / 3
+	for frame.Length
+		let channel = (index / pixels).Floor
+		let pixel = index % pixels
+		frame(pixel * 3 + channel)
+Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
+	Sample.Mixed((1, 2, 3, 4, 5, 6, 7, 8), (30, 40, 70, 80), (1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1, 0) is (30, 40, 3, 4, 70, 80, 7, 8)
+	let level = sigma > (1 - H3Layout.Pinned) then (1 - H3Layout.Pinned) else sigma
+	for latent.Length
+		let time = (index / plane).Floor % temporal
+		let channel = (index / (temporal * plane)).Floor
+		let at = (channel * keep + time) * plane + index % plane
+		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
+Trimmed(frames Numbers, context Number, frame Number) Numbers
+	Sample.Trimmed((1, 2, 3, 4, 5, 6, 7, 8, 9), 1, 3) is (4, 5, 6, 7, 8, 9)
+	frames.Slice(context * frame, frames.Length - context * frame)
+Cut(waveform Numbers, drop Number) Numbers
+	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
+	let half = waveform.Length / 2
+	waveform.Slice(drop, half - drop) + waveform.Slice(half + drop, half - drop)
+Means(frame Numbers) Numbers
+	Sample.Means((2, 2, 2)).First is 2
+	let count = frame.Length / 3
+	mutable red = 0
+	mutable green = 0
+	mutable blue = 0
+	for count
+		red = red + frame(index * 3)
+		green = green + frame(index * 3 + 1)
+		blue = blue + frame(index * 3 + 2)
+	let mean = (red / count, green / count, blue / count)
+	mutable sr = 0
+	mutable sg = 0
+	mutable sb = 0
+	for count
+		sr = sr + (frame(index * 3) - mean(0)) * (frame(index * 3) - mean(0))
+		sg = sg + (frame(index * 3 + 1) - mean(1)) * (frame(index * 3 + 1) - mean(1))
+		sb = sb + (frame(index * 3 + 2) - mean(2)) * (frame(index * 3 + 2) - mean(2))
+	let scale = count < 2 then 0 else 1
+	mean + ((sr / count).SquareRoot * scale, (sg / count).SquareRoot * scale, (sb / count).SquareRoot * scale)
+Colored(source Numbers, tail Numbers, frame Number) Numbers
+	Sample.Colored((1, 2, 3), (2, 2, 2, 4, 4, 4), 3) is (1, 2, 3, 3, 4, 5)
+	let before = Means(source)
+	let after = Means(tail.Slice(0, frame))
+	for tail.Length
+		let channel = index % 3
+		let scale = after(channel + 3) < 0.000001 then 1 else before(channel + 3) / after(channel + 3)
+		(tail(index) - after(channel)) * scale + before(channel)
+Joined(source Numbers, tail Numbers) Numbers
+	Sample.Joined((1, 2), (3, 4)) is (1, 2, 3, 4)
+	source + tail
+Kept(path Text, latent Numbers, shapes Numbers, pixels Number) Number
+	let channels = H3Format.Channels
+	let count = channels * shapes(0) * shapes(1) * shapes(2)
+	let shape = (channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
+	Safetensors(LatentPath(path)).Written(("latent", "shape"), (latent, shape))
+	count
+Appended(source Text, frames Numbers, waveform Numbers, size Numbers, context Number, output Text) Slow(Number)
+	let frame = size(0) * size(1) * 3
+	if frames.Length < (context + 1) * frame
+		return Error("ShortVideo")
+	let drop = SoundDrop(context)
+	if waveform.Length < (drop + 1) * 2
+		return Error("ShortAudio")
+	let trimmed = Trimmed(frames, context, frame)
+	let heard = Cut(waveform, drop)
+	let last = LastFrame(source, size)
+	let matched = last.Length is frame then Colored(last, trimmed, frame) else trimmed
+	let tail = output + ".tail.mp4"
+	let saved = H3Frames(logger).Saved(matched, heard, size, tail)
+	if saved is Error
+		return saved
+	let merged = Process.RunTool("ffmpeg", Concat(source, tail, output))
+	File(tail).Delete
+	if merged.Failed
+		return Error("FfmpegFailed")
+	logger.Log("Wrote " + output)
+	0
+LastFrame(source Text, size Numbers) Numbers
+	let raw = source + ".join.rgb"
+	let filmed = Process.RunTool("ffmpeg", Still(source, raw, size(1), size(0)))
+	if filmed.Failed
+		return List(Number)
+	let frame = size(0) * size(1) * 3
+	let bytes = Scaled(Bytes(raw))
+	File(raw).Delete
+	bytes.Length >= frame then bytes.Slice(bytes.Length - frame, frame) else List(Number)
+Extract(path Text, output Text, width Number, height Number, seconds Number) Text
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).StartsWith("-y -loglevel error -sseof -2")
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).IndexOf("scale=32:48") > 0
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).EndsWith("\"a.rgb\"")
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\" -vf scale=" + width + ":" + height + " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
+ExtractAudio(path Text, output Text, seconds Number) Text
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).IndexOf("-ar 32000") > 0
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).EndsWith("\"a.pcm\"")
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\" -t " + seconds + " -ac 2 -ar " + H3Frames.SampleRate + " -f s16le \"" + output + "\""
+Still(path Text, output Text, width Number, height Number) Text
+	Sample.Still("a.mp4", "a.rgb", 8, 4).IndexOf("-frames:v 1") > 0
+	"-y -loglevel error -sseof -0.08 -i \"" + path + "\" -frames:v 1 -vf scale=" + width + ":" + height + " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
+Concat(source Text, tail Text, output Text) Text
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4").StartsWith("-y -loglevel error -i \"a.mp4\" -i \"b.mp4\"")
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4").EndsWith("\"c.mp4\"")
+	let filter = " -filter_complex \"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]\" -map \"[v]\" -map \"[a]\""
+	"-y -loglevel error -i \"" + source + "\" -i \"" + tail + "\"" + filter + " -c:v libx264 -crf 18 -preset faster -pix_fmt yuv420p -c:a aac -b:a 192k \"" + output + "\""
+Probe(path Text) Text
+	Sample.Probe("missing-clip.mp4") is ""
+	let result = Process.RunTool("ffprobe", ProbeLine(path))
+	result.Failed then "" else result.Output.Trim
+ProbeLine(path Text) Text
+	Sample.ProbeLine("a.mp4").StartsWith("-v error -select_streams v:0")
+	"-v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 \"" + path + "\""
+Pcm(bytes Numbers) Numbers
+	Sample.Pcm((0, 0, 0, 128)) is (0, -1)
+	Sample.Pcm((0, 128, 0, 0)).First is -1
+	Lefts(bytes) + Rights(bytes)
+Lefts(bytes Numbers) Numbers
+	Sample.Lefts((0, 0, 0, 128)) is (0)
+	let pairs = bytes.Length / 4
+	for pairs
+		Sampled(bytes, index * 4)
+Rights(bytes Numbers) Numbers
+	Sample.Rights((0, 0, 0, 128)) is (-1)
+	let pairs = bytes.Length / 4
+	for pairs
+		Sampled(bytes, index * 4 + 2)
+Sampled(bytes Numbers, at Number) Number
+	Sample.Sampled((0, 128), 0) is -1
+	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)
+	let unsigned = bytes(at) + bytes(at + 1) * 256
+	let signed = unsigned >= 32768 then unsigned - 65536 else unsigned
+	signed / 32768
+Scaled(bytes Numbers) Numbers
+	Sample.Scaled((0, 255)) is (0, 1)
+	for bytes
+		value / Byte.Max
+Bytes(path Text) Numbers
+	Sample.Bytes("StrictGenExtend.strict").Length > 0
+	for File(path).ReadBytes
+		value

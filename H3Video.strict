@@ -145,10 +145,14 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	mutable state = spectrum
 	mutable steps = H3StepLog(logger, job).Started
 	for spectrum.steps
+		seen = job.pinFrames is 0 then seen else Solver(seen, latent = job.HeldVideo(seen.latent, seen.sigmas(index)))
+		heard = job.pinAudio is 0 then heard else Solver(heard, latent = job.HeldAudio(heard.latent, heard.sigmas(index)))
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
 		seen = state.Stepped(seen, index, job)
 		heard = heard.Stepped(state.output, index, seen.latent.Length, job.Noise("audio", index))
 		steps = steps.Stepped(index, state, seen.latent, heard.latent)
+	seen = job.pinFrames is 0 then seen else Solver(seen, latent = job.HeldVideo(seen.latent, 0))
+	heard = job.pinAudio is 0 then heard else Solver(heard, latent = job.HeldAudio(heard.latent, 0))
 	seen.latent + heard.latent
 Help Number
 	H3Video(Logger).Help is 0

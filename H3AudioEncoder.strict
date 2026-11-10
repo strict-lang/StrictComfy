@@ -1,0 +1,173 @@
+has model Safetensors
+has problem = ""
+constant Tiny = H3AudioEncoder.Loaded(H3Conv.Model)
+constant Rates = (2, 4, 4, 5, 5)
+constant Dilations = (1, 3, 9)
+Loaded(model Safetensors) H3AudioEncoder
+	H3AudioEncoder.Loaded(H3Conv.Model).problem is "NoAudioEncoder"
+	if model.Entry("encoder.block.0.weight") is ""
+		return H3AudioEncoder(model, problem = "NoAudioEncoder")
+	H3AudioEncoder(model)
+Encoded(waveform Numbers, frames Number) Slow(Numbers)
+	Tiny.Encoded((1, -1), 4) is Error("NoAudioEncoder")
+	if problem is not ""
+		return Error(problem)
+	let wanted = frames * 800
+	let half = waveform.Length / 2
+	let left = Side(Fit(waveform.Slice(0, half), wanted))
+	let right = Side(Fit(waveform.Slice(half, half), wanted))
+	let mean = model.Values("latents_mean")
+	let deviation = model.Values("latents_std")
+	Interleaved(Normalized(Cropped(left, frames), mean, deviation), Normalized(Cropped(right, frames), mean, deviation), frames)
+Snaked(signal Numbers, alpha Numbers) Numbers
+	H3AudioEncoder.Snaked((0), (1)) is (0)
+	H3AudioEncoder.Snaked((1), (2)).First.IsNearlyEqual(1.4134109, 0.0001)
+	let channels = alpha.Length
+	for signal.Length
+		let raw = alpha(index % channels)
+		let scale = raw is 0 then 1 else raw
+		let wave = (Radians(scale * signal(index)) to Degrees).Sin.number
+		signal(index) + wave * wave / scale
+Down(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Number) Numbers
+	H3AudioEncoder.Down((1, 2, 3, 4, 5, 6, 7, 8), (0, 0, 0, 0), (5), 2, 1) is (5, 5, 5, 5)
+	H3AudioEncoder.Down((1, 2, 3, 4), (0, 1), (0), 2, 1) is (1, 3, 0)
+	H3AudioEncoder.Down((1, 9, 2, 8, 3, 7, 4, 6), (1, 0), (0), 2, 2) is (0, 2, 4)
+	let kernel = weights.Length / biases.Length / channels
+	let time = signal.Length / channels
+	let pad = ((stride + 1) / 2).Floor
+	let outTime = ((time + 2 * pad - kernel) / stride).Floor + 1
+	for outTime * biases.Length
+		Dot(signal, weights, biases, stride, channels, kernel, pad, time, (index / biases.Length).Floor, index % biases.Length)
+Dot(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Number, kernel Number, pad Number, time Number, at Number, output Number) Number
+	H3AudioEncoder.Dot((1, 2), (0, 0), (4), 2, 1, 2, 1, 2, 0, 0) is 4
+	H3AudioEncoder.Dot((3, 4), (0, 5), (1), 2, 1, 2, 1, 2, 0, 0) is 16
+	H3AudioEncoder.Dot((1, 2, 3, 4), (3, 4), (1), 1, 2, 1, 0, 2, 0, 0) is 12
+	mutable sum = biases(output)
+	for kernel * channels
+		let tap = (index / channels).Floor
+		let input = index % channels
+		let place = at * stride + tap - pad
+		let inside = (place >= 0) and (place < time)
+		let weight = (output * channels + input) * kernel + tap
+		sum = sum + (inside then signal(place * channels + input) * weights(weight) else 0)
+	sum
+Fit(samples Numbers, count Number) Numbers
+	H3AudioEncoder.Fit((1, 2, 3), 2) is (2, 3)
+	H3AudioEncoder.Fit((9, 8, 7), 1) is (7)
+	H3AudioEncoder.Fit((1), 3) is (0, 0, 1)
+	if samples.Length >= count
+		return samples.Slice(samples.Length - count, count)
+	Zeros(count - samples.Length) + samples
+Zeros(count Number) Numbers
+	H3AudioEncoder.Zeros(2) is (0, 0)
+	for count
+		0
+Added(left Numbers, right Numbers) Numbers
+	H3AudioEncoder.Added((1, 2), (3, 4)) is (4, 6)
+	for left.Length
+		left(index) + right(index)
+Side(samples Numbers) Slow(Numbers)
+	mutable state = H3Conv.Loaded(model, "encoder.block.0", 1).Output(samples)
+	for Rates
+		state = Block(state, index + 1, value)
+	state = Snaked(state, model.Values("encoder.block.6.alpha"))
+	Packed(Projected(H3Conv.Loaded(model, "encoder.block.7", 1).Output(state)), 32)
+Block(signal Numbers, block Number, stride Number) Slow(Numbers)
+	mutable state = signal
+	for 3
+		state = Unit(state, block, index)
+	let name = "encoder.block." + block + ".block.4"
+	let channels = 64 * (2 ^ (block - 1))
+	let snake = Snaked(state, model.Values("encoder.block." + block + ".block.3.alpha"))
+	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, channels)
+Unit(signal Numbers, block Number, unit Number) Slow(Numbers)
+	let prefix = "encoder.block." + block + ".block." + unit + ".block."
+	let hidden = H3Conv.Loaded(model, prefix + "1", Dilations(unit)).Output(Snaked(signal, model.Values(prefix + "0.alpha")))
+	let second = H3Conv.Loaded(model, prefix + "3", 1).Output(Snaked(hidden, model.Values(prefix + "2.alpha")))
+	Added(signal, second)
+Projected(signal Numbers) Slow(Numbers)
+	let normed = Norm(signal, "pre_block.norm1", 2048)
+	let attended = Added(signal, Attend(normed))
+	let reduced = Linear(attended, "pre_block.proj")
+	let mixed = Added(reduced, Mixer(Norm(reduced, "pre_block.norm2", 32)))
+	Linear(mixed, "mean_proj")
+Norm(signal Numbers, name Text, channels Number) Numbers
+	let weight = model.Values(name + ".weight")
+	let bias = model.Values(name + ".bias")
+	let time = signal.Length / channels
+	for signal.Length
+		let at = (index / channels).Floor
+		let start = at * channels
+		let shift = Shift(signal, start, channels)
+		(signal(index) - shift(0)) / shift(1) * weight(index % channels) + bias(index % channels)
+Shift(signal Numbers, start Number, channels Number) Numbers
+	mutable sum = 0
+	mutable square = 0
+	for channels
+		sum = sum + signal(start + index)
+	let mean = sum / channels
+	for channels
+		square = square + (signal(start + index) - mean) * (signal(start + index) - mean)
+	(mean, (square / channels + 0.00001).SquareRoot)
+Attend(signal Numbers) Slow(Numbers)
+	let mixed = H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(6144), 1, 1).Output(signal)
+	let biased = Biased(mixed)
+	let time = signal.Length / 2048
+	Attended(biased, time)
+Biased(mixed Numbers) Numbers
+	let query = model.Values("pre_block.attn.q_bias")
+	let seen = model.Values("pre_block.attn.v_bias")
+	for mixed.Length
+		let channel = index % 6144
+		let extra = channel < 2048 then query(channel) else (channel >= 4096 then seen(channel - 4096) else 0)
+		mixed(index) + extra
+Attended(mixed Numbers, time Number) Numbers
+	for time * 2048
+		let at = (index / 2048).Floor
+		let channel = index % 2048
+		Weighted(mixed, time, at, channel)
+Weighted(mixed Numbers, time Number, at Number, channel Number) Number
+	mutable sum = 0
+	mutable weight = 0
+	for time
+		let score = Score(mixed, at, index)
+		let share = score.Exponential
+		weight = weight + share
+		sum = sum + share * mixed(index * 6144 + 4096 + channel)
+	sum / (weight + 0.000000001)
+Score(mixed Numbers, at Number, other Number) Number
+	mutable sum = 0
+	for 2048
+		sum = sum + mixed(at * 6144 + index) * mixed(other * 6144 + 2048 + index)
+	sum / 2048.SquareRoot
+Linear(signal Numbers, name Text) Slow(Numbers)
+	let shape = model.Shape(name + ".weight")
+	let kernel = shape.Length > 2 then shape.Last else 1
+	let bias = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
+	H3Conv(model.Values(name + ".weight"), bias, kernel, 1).Output(signal)
+Packed(signal Numbers, channels Number) Numbers
+	H3AudioEncoder.Packed((1, 2, 3, 4), 2) is (1, 3, 2, 4)
+	let time = signal.Length / channels
+	for channels * time
+		signal((index % time) * channels + (index / time).Floor)
+Mixer(signal Numbers) Slow(Numbers)
+	let widened = Added(Linear(signal, "pre_block.mlp.w0"), Linear(signal, "pre_block.mlp.w1"))
+	Linear(widened, "pre_block.mlp.w2")
+Normalized(side Numbers, mean Numbers, deviation Numbers) Numbers
+	let frames = side.Length / 32
+	for side.Length
+		let channel = (index / frames).Floor
+		(side(index) - mean(channel)) / deviation(channel)
+Cropped(side Numbers, frames Number) Numbers
+	let have = side.Length / 32
+	for 32 * frames
+		let channel = (index / frames).Floor
+		let time = index % frames
+		let at = have >= frames then have - frames + time else time.Clamp(0, have - 1)
+		side(channel * have + at)
+Interleaved(left Numbers, right Numbers, frames Number) Numbers
+	for 32 * 2 * frames
+		let time = index % frames
+		let row = (index / frames).Floor
+		let channel = (row / 2).Floor
+		row % 2 is 0 then left(channel * frames + time) else right(channel * frames + time)

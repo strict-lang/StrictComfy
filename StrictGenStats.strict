@@ -1,0 +1,22 @@
+has logger
+constant Sample = StrictGenStats(Logger)
+Text Slow(Text)
+	Sample.Text.IndexOf("\"ram\"") >= 0
+	Sample.Text.IndexOf("\"cpu\"") >= 0
+	let total = GpuMemory.HostTotal
+	let free = GpuMemory.HostAvailable
+	let device = MachineUse(logger, "StrictGen", 0, 0).Device
+	let vram = device(0) > device(1) then device(0) - device(1) else 0
+	let ram = total > free then total - free else 0
+	"{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0) + ",\"gpu\":" + device(2) + ",\"cpu\":" + Processor + "}"
+Processor Slow(Number)
+	Sample.Processor >= 0
+	let windows = Process.OperatingSystem is "Windows"
+	let command = windows then "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average" else "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
+	let tool = windows then "powershell" else "sh"
+	let arguments = windows then "-NoProfile -Command \"" + command + "\"" else "-c \"" + command + "\""
+	let result = Process.RunTool(tool, arguments)
+	if result.Failed
+		return 0
+	let number = result.Output.Trim to Number
+	number is Error then 0 else number.Clamp(0, 100)
