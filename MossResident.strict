@@ -7,9 +7,13 @@ has prompts List(Text) = List(Text)
 has contexts List(Numbers) = List(Numbers)
 has mosses List(Moss) = List(Moss)
 has model = ""
+has taefs List(Taef2Decoder) = List(Taef2Decoder)
+has fluxes List(FluxDecoder) = List(FluxDecoder)
+has decoderFile = ""
 has code = 0
 constant MostPrompts = 100
 constant Spelled = MossResident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
+constant Unloaded = MossResident(Logger, taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinytaef2.safetensors")
 constant Cached = MossResident(Logger, true, prompts = ("a", "b"), contexts = ((1, 2), (3, 4)))
 Missing(unique Texts) Texts
 	Cached.Missing(("b", "c", "a")) is ("c")
@@ -74,3 +78,14 @@ Sampling(batch MossBatch) Slow(MossResident)
 	let staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, mosses = List(Moss) + moss, model = key)
+Decoders(path Text) Slow(MossResident)
+	MossResident(Logger).Decoders("tinytaef2.safetensors").taefs is (List(Taef2Decoder) + Taef2Decoder.Tiny)
+	Unloaded.Decoders("tinytaef2.safetensors").taefs.First is Taef2Decoder.None
+	Unloaded.Decoders("tinyvae.safetensors").fluxes.Length is 1
+	Unloaded.Decoders("tinyvae.safetensors").taefs.Length is 0
+	if path is decoderFile
+		return value
+	let emptied = MossResident(value, taefs = List(Taef2Decoder), fluxes = List(FluxDecoder), decoderFile = path)
+	if Taef2Decoder.Is(path)
+		return MossResident(emptied, taefs = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
+	MossResident(emptied, fluxes = List(FluxDecoder) + FluxDecoder.Loaded(path, 32))

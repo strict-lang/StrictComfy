@@ -44,14 +44,14 @@ Encoder(picked Numbers) Slow(Qwen3)
 Reworded(encoder Qwen3, picked Numbers) Slow(Qwen3)
 	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
-Images(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
+Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
 	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
 	let sampled = Process.Elapsed
-	let latents = Latents(moss, seeds, prompts, unique, contexts, outputs)
+	let latents = Latents(kept.mosses.First, seeds, prompts, unique, contexts, outputs)
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
 	options.files.Freed
 	let decoded = Process.Elapsed
-	let saved = Decoded(latents, seeds, prompts, outputs)
+	let saved = Decoded(kept, latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
 	saved.Length
 Loading(loras Text) Text
@@ -59,18 +59,17 @@ Loading(loras Text) Text
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
 	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
+Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
+	logger.Log("Decoding with " + kept.decoderFile)
+	let batch = MossBatch(logger, options, prompted)
+	if kept.taefs.Length is 1
+		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
+	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
 Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(List(Numbers))
 	let sampling = Previewed(options.Sampling(logger))
 	for seeds
 		let label = "Image " + (index + 1) + "/" + seeds.Length + " " + Path(outputs(index)).FileName.text
 		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))), label)
-Decoded(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
-	let path = options.files.Decoder
-	logger.Log("Decoding with " + path)
-	let batch = MossBatch(logger, options, prompted)
-	if Taef2Decoder.Is(path)
-		return MossDecoding(batch, Taef2Decoder.Loaded(path)).Saved(latents, seeds, prompts, outputs)
-	MossDecoding(batch, FluxDecoder.Loaded(path, 32)).Saved(latents, seeds, prompts, outputs)
 Previewed(sampling MossSampling) Slow(MossSampling)
 	Sample.Previewed(Sample.options.Sampling(Logger)).preview is ""
 	if options.preview is ""
