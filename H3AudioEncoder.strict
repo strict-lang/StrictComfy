@@ -84,7 +84,7 @@ Norm(signal Numbers, name Text, channels Number) Numbers
 	for signal.Length
 		let shift = Shift(signal, (index / channels).Floor * channels, channels)
 		(signal(index) - shift(0)) / shift(1) * weight(index % channels) + bias(index % channels)
-Shift(signal Numbers, start Number, channels Number) Numbers
+Shift(signal Numbers with value.Bits is 32, start Number, channels Number) Numbers
 	mutable sum = 0
 	mutable square = 0
 	for channels
