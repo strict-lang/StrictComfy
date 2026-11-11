@@ -125,14 +125,14 @@ Unpatched(rows Numbers, frames Number, height Number, width Number) Slow(Numbers
 	Still.Unpatched(Layer.Zeros(256) + 1 + Layer.Zeros(511), 1, 1, 1)(256) is 1
 	let wide = width * 16
 	let high = height * 16
-	let size = projection.weights.Length
-	for 3 * frames * Temporal * high * wide
+	let temporal = Temporal
+	for 3 * frames * temporal * high * wide
 		let x = index % wide
 		let y = (index / wide).Floor % high
-		let time = (index / (wide * high)).Floor % (frames * Temporal)
-		let token = ((time / Temporal).Floor * height + (y / 16).Floor) * width + (x / 16).Floor
-		let within = time % Temporal * 256 + y % 16 * 16 + x % 16
-		rows(token * size + (index / (wide * high * frames * Temporal)).Floor * size / 3 + within)
+		let time = (index / (wide * high)).Floor % (frames * temporal)
+		let token = ((time / temporal).Floor * height + (y / 16).Floor) * width + (x / 16).Floor
+		let within = time % temporal * 256 + y % 16 * 16 + x % 16
+		rows((token * 3 + (index / (wide * high * frames * temporal)).Floor) * temporal * 256 + within)
 Temporal Number
 	(Tiny.Temporal is 4) and (Still.Temporal is 1)
 	projection.weights.Length / StillRows
