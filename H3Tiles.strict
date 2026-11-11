@@ -2,12 +2,13 @@ has tile Number
 has overlap Number
 constant Tiny = H3Tiles(32, 16)
 constant Real = H3Tiles(256, 64)
+constant Lean = H3Tiles(256, 32)
 Starts(size Number) Numbers
 	Real.Starts(480) is (0, 112, 224)
 	Real.Starts(832) is (0, 192, 384, 576)
 	Real.Starts(496) is (0, 112, 240)
-	Tiny.Starts(64) is (0, 16, 32)
-	Tiny.Starts(16) is (0)
+	Lean.Starts(480) is (0, 224) and (Lean.Starts(832) is Real.Starts(832)) and (Lean.Starts(704) is (0, 224, 448))
+	Tiny.Starts(64) is (0, 16, 32) and (Tiny.Starts(16) is (0))
 	if size <= tile
 		return List(Number) + 0
 	let count = ((size - overlap) / (tile - overlap)).Ceiling

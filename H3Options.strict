@@ -93,6 +93,10 @@ Unlisted Text
 	if sampler is not in Samplers
 		return "--sampler must be one of " + Text.Combine(Samplers, ", ")
 	scheduler is not in Schedulers then "--scheduler must be one of " + Text.Combine(Schedulers, ", ") else ""
+Tiling H3Tiles
+	H3Options.Parsed(("--quality", "best")).Tiling is H3Tiles.Real
+	H3Options.Parsed(List(Text)).Tiling is H3Tiles.Lean and (H3Options.Parsed(FourStepArguments).Tiling is H3Tiles.Lean)
+	quality is H3Quality.Best then H3Tiles.Real else H3Tiles.Lean
 IsFew Boolean
 	H3Options.Parsed(("--quality", "fastest4steps")).IsFew
 	H3Options.Parsed(("--quality", "fastest2steps")).IsFew and (H3Options.Parsed(List(Text)).IsFew is false)

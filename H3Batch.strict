@@ -112,7 +112,7 @@ DecodedWith(decoding H3Decoding, latents Texts, images Texts)
 Saved(decoding H3Decoding, latent Numbers, output Text)
 	let before = Process.Elapsed
 	let shapes = options.Shapes
-	let decoded = decoding.Decoded(latent, shapes.Slice(0, 3))
+	let decoded = decoding.Tiled(options.Tiling).Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
 	let path = PromptBatch(logger, "Video").Reserved(output)
 	let size = (shapes(1) * 16, shapes(2) * 16)

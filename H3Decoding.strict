@@ -10,6 +10,10 @@ Decoded(latent Numbers, shape Numbers) Slow(List(Numbers))
 	let count = H3Format.Channels * shape(0) * shape(1) * shape(2)
 	let frames = vae.Decoded(latent.Slice(0, count), shape)
 	(frames, sound.Normalized(sound.Decoded(latent.Slice(count, latent.Length - count))))
+Tiled(tiling H3Tiles) H3Decoding
+	Tiny.Tiled(H3Tiles.Lean).vae.tiling is H3Tiles.Lean
+	Tiny.Tiled(H3Tiles.Lean).vae.decoder is Tiny.vae.decoder
+	H3Decoding(logger, H3Vae(vae.decoder, tiling), sound)
 Shapes(conditions List(Safetensors)) List(Numbers)
 	Safetensors("h3decode.safetensors").Written(("video", "decode"), ((1, 2, 3), List(Number) + 1)) is not Error
 	Tiny.Shapes(List(Safetensors) + Safetensors("h3decode.safetensors")).First is (3)
