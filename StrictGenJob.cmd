@@ -1,0 +1,2 @@
+"C:/code/GitHub/strict-lang/StrictComfy/Release/Windows/MossImage.exe" --width 704 --height 1280 --quality best --prompt StrictGenPrompt.txt --steps 8 --vae taef2.safetensors --skip off --lora D:\ComfyUI_windows_portable\ComfyUI\models\loras\moss\pussy_gape_closeup.safetensors:1 --count 10 --model moss-image-sft-dit-int8-convrot.safetensors --preview StrictGenStep-6.jpg > "StrictGenJob-6.log" 2>&1
+echo DONE> "StrictGenJob-6.done"

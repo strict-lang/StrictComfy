@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StrictGen — images and video</title>
 <style>
-	html, body { margin: 0; height: 100%; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
-	body { display: flex; flex-direction: column; min-height: 100%; }
-	header { display: flex; gap: 10px; align-items: center; padding: 12px 16px; background: #0f151c; flex-wrap: wrap; }
+	html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
+	body { display: flex; flex-direction: column; height: 100%; }
+	header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: #0f151c; flex: none; }
 	header .grow { flex: 1; min-width: 180px; color: #8b97a5; font-size: 13px; }
-	main { flex: 1; min-height: 0; display: flex; gap: 24px; padding: 16px 24px 32px; box-sizing: border-box; }
-	section { width: min(460px, 46vw); display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+	main { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 8px 16px; box-sizing: border-box; }
+	section.controls { width: min(480px, 42vw); overflow: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: none; }
+	section.view { flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
 	textarea { resize: vertical; min-height: 96px; }
@@ -27,15 +28,15 @@
 	.lora { display: flex; gap: 8px; align-items: center; }
 	.lora span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.lora input { width: 72px; }
-	#frame { flex: 1; min-height: 280px; background: #141b23; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; }
-	#frame img, #frame video { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
-	#gallery { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #8b97a5; }
+	#frame { position: relative; flex: none; overflow: hidden; }
+	#frame img, #frame video, #frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+	#gallery { flex: none; display: flex; gap: 8px; align-items: center; width: 100%; font-size: 13px; color: #8b97a5; padding-top: 8px; }
 	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	#queue { position: relative; }
 	#menu { position: absolute; z-index: 2; top: 100%; right: 0; background: #141b23; border: 1px solid #2b3540; border-radius: 8px; min-width: 280px; max-width: 420px; padding: 8px; }
 	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	details { color: #8b97a5; font-size: 13px; }
-	#log { min-height: 64px; max-height: 120px; overflow: auto; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
+	#log { min-height: 200px; max-height: 320px; overflow: auto; font: 13px ui-monospace, monospace; color: #d8dee9; white-space: pre-wrap; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
 	@media (max-width: 720px) {
 		main { flex-direction: column; }
 		section { width: 100%; }
@@ -50,11 +51,12 @@
 	<div class="grow" id="meters">RAM — · VRAM — · GPU — · CPU —</div>
 	<button class="stop" id="stop">Stop</button>
 	<div id="queue"><button class="small" id="position">0/0</button><div id="menu" class="hidden"></div></div>
-	<label>Machine<select id="machine"><option value="">This PC</option><option value="any">any</option></select></label>
+	<label>Machine<select id="machine"><option value="">Best machine</option><option value="local">This PC</option></select></label>
+	<label>Repeat<select id="repeat"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option><option value="10">10x</option><option value="20">20x</option></select></label>
 	<button class="run" id="run">Run</button>
 </header>
 <main>
-	<section>
+	<section class="controls">
 		<div class="modes">
 			<button type="button" data-mode="image" class="on">Image</button>
 			<button type="button" data-mode="video">Video</button>
@@ -102,7 +104,8 @@
 				<button class="small" id="modelNext" type="button">&#9654;</button>
 			</div>
 		</label>
-		<label>LoRAs <button class="small" id="addLora" type="button">Add</button><div id="loras"></div></label>
+		<label>LoRAs <button class="small" id="addLora" type="button">Add file</button><div id="loras"></div></label>
+		<label>Activity<pre id="log">Idle</pre></label>
 		<div class="row">
 			<label id="decoderLabel">Decoder<select id="decoder">
 				<option value="taef2" selected>taef2</option>
@@ -142,7 +145,6 @@
 				<label>Audio VAE<input id="audioVae" type="text"></label>
 			</div>
 		</details>
-		<pre id="log"></pre>
 	</section>
 	<section class="view">
 		<div id="frame"><span id="placeholder">The preview shows up here</span></div>
@@ -157,11 +159,28 @@
 	const element = id => document.getElementById(id);
 	const snap = n => Math.max(32, Math.floor(Number(n) / 32) * 32);
 	const videoSnap = n => Math.ceil((Number(n) - 5) / 17) * 17 + 5;
-	const mossQuality = [["best", "best (8)"], ["best25steps", "best25steps"], ["best50steps", "best50steps"], ["fast", "fast"], ["faster", "faster"], ["fastest", "fastest (4)"], ["fastest2steps", "fastest2steps (2)"]];
-	const h3Quality = [["best", "best"], ["fast", "fast"], ["faster", "faster"], ["fastest4steps", "fastest4steps"], ["fastest2steps", "fastest2steps"]];
+	const mossQuality = [["best", "best (8)"], ["best25steps", "best25steps (25)"], ["best50steps", "best50steps (50)"], ["fast", "fast (8)"], ["faster", "faster (8)"], ["fastest", "fastest (4)"], ["fastest2steps", "fastest2steps (2)"]];
+	const h3Quality = [["best", "best (8)"], ["fast", "fast (8)"], ["faster", "faster (8)"], ["fastest4steps", "fastest4steps (4)"], ["fastest2steps", "fastest2steps (2)"]];
+	const mossSteps = { best: 8, best25steps: 25, best50steps: 50, fast: 8, faster: 8, fastest: 4, fastest2steps: 2 };
+	const h3Steps = { best: 8, fast: 8, faster: 8, fastest4steps: 4, fastest2steps: 2 };
+	const mossModel = "moss-image-sft-dit-int8-convrot.safetensors";
+	const h3Model = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
 	const mossSkip = ["off", "6:36"];
 	const h3Skip = ["off", "5:45", "10:40", "15:35"];
-	const state = { mode: "image", loras: [], results: [], captions: [], index: 0, paused: false, machines: false };
+	const state = { mode: "image", loras: [], results: [], captions: [], examples: null, index: 0, paused: false, notice: "" };
+	const storeKey = "strictgen-modes";
+	const stored = () => { try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch { return {}; } };
+	const stepsFor = (mode, quality) => (mode === "image" ? mossSteps : h3Steps)[quality] || 8;
+	const defaultsFor = mode => {
+		const video = mode !== "image";
+		const quality = video ? "fast" : "fastest";
+		return {
+			prompt: video ? "a red fox walking through snow, cinematic" : "a red fox in a snowy forest at dawn, photo",
+			size: video ? "custom" : "480 848", width: video ? 640 : 480, height: video ? 1152 : 848,
+			quality, steps: stepsFor(mode, quality), skip: video ? "5:45" : "off", model: video ? h3Model : mossModel,
+			loras: [], decoder: "taef2", length: 124, context: 22, input: "", lastImage: ""
+		};
+	};
 	const fill = (select, pairs, chosen) => {
 		select.replaceChildren(...pairs.map(([value, label]) => new Option(label || value, value)));
 		select.value = chosen;
@@ -170,6 +189,32 @@
 		if (element("size").value === "custom") return [snap(element("width").value), snap(element("height").value)];
 		const [width, height] = element("size").value.split(" ").map(Number);
 		return [snap(width), snap(height)];
+	};
+	const snapshot = () => ({
+		prompt: element("prompt").value, size: element("size").value, width: Number(element("width").value), height: Number(element("height").value),
+		quality: element("quality").value, steps: Number(element("steps").value), skip: element("skip").value, model: element("model").value,
+		loras: state.loras, decoder: element("decoder").value, length: Number(element("length").value), context: Number(element("context").value),
+		input: element("input").value, lastImage: element("lastImage").value
+	});
+	const save = () => {
+		const all = stored();
+		all[state.mode] = snapshot();
+		localStorage.setItem(storeKey, JSON.stringify(all));
+	};
+	const applyFields = data => {
+		element("prompt").value = data.prompt;
+		element("size").value = [...element("size").options].some(option => option.value === data.size) ? data.size : "custom";
+		element("custom").classList.toggle("hidden", element("size").value !== "custom");
+		element("width").value = data.width; element("height").value = data.height;
+		element("quality").value = data.quality;
+		element("steps").value = data.steps;
+		element("skip").value = data.skip;
+		element("model").value = data.model;
+		state.loras = data.loras || [];
+		drawLoras();
+		element("decoder").value = data.decoder || "taef2";
+		element("length").value = data.length; element("context").value = data.context;
+		element("input").value = data.input || ""; element("lastImage").value = data.lastImage || "";
 	};
 	const showMode = () => {
 		const mode = state.mode;
@@ -184,17 +229,30 @@
 		element("lengthNote").classList.toggle("hidden", !video);
 		element("guidance").parentElement.classList.toggle("hidden", video);
 		element("spectrum").parentElement.classList.toggle("hidden", video);
-		fill(element("quality"), video ? h3Quality : mossQuality, video ? "fast" : "fastest");
-		fill(element("skip"), (video ? h3Skip : mossSkip).map(value => [value, value]), video ? "5:45" : "off");
+		const saved = stored()[mode] || defaultsFor(mode);
+		fill(element("quality"), video ? h3Quality : mossQuality, saved.quality);
+		fill(element("skip"), (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
+		applyFields(saved);
 		note();
 	};
+	const fit = () => {
+		const frame = element("frame"), view = document.querySelector("section.view"), main = document.querySelector("main");
+		const [width, height] = sizeOf();
+		const availH = main.clientHeight - 16 - element("gallery").offsetHeight - 8;
+		const availW = main.clientWidth - document.querySelector("section.controls").offsetWidth - 60;
+		const scale = Math.min(availW / width, availH / height);
+		const wide = Math.max(1, Math.floor(width * scale));
+		frame.style.width = wide + "px";
+		frame.style.height = Math.max(1, Math.floor(height * scale)) + "px";
+		view.style.width = wide + "px";
+	};
 	const note = () => {
+		fit();
 		const [width, height] = sizeOf();
 		const typed = element("size").value === "custom" ? "" : element("size").value.split(" ").map(Number);
 		const changed = typed && (typed[0] !== width || typed[1] !== height);
 		element("note").textContent = width + "x" + height + (changed ? " after snapping to a multiple of 32" : "");
-		const steps = Number(element("steps").value) || 0;
-		element("stepsNote").textContent = steps === 0 ? "0 uses the quality preset" : steps + " steps";
+		element("stepsNote").textContent = element("steps").value + " steps";
 		if (state.mode === "image") return;
 		const length = Number(element("length").value) || 24;
 		const context = state.mode === "extend" ? Number(element("context").value) : 0;
@@ -202,7 +260,8 @@
 		const added = state.mode === "extend" ? total - context : total;
 		element("lengthNote").textContent = added + " frames, " + (added / 24).toFixed(1) + " s" + (state.mode === "extend" ? " new, clip " + total : "");
 	};
-	document.querySelectorAll(".modes button").forEach(button => button.onclick = () => { state.mode = button.dataset.mode; showMode(); });
+	document.querySelectorAll(".modes button").forEach(button => button.onclick = () => { save(); state.mode = button.dataset.mode; showMode(); });
+	element("quality").onchange = () => { element("steps").value = stepsFor(state.mode, element("quality").value); note(); save(); };
 	element("size").onchange = () => { element("custom").classList.toggle("hidden", element("size").value !== "custom"); note(); };
 	element("width").oninput = note;
 	element("height").oninput = note;
@@ -215,7 +274,7 @@
 			mode: state.mode, prompt: element("prompt").value, width, height,
 			quality: element("quality").value, steps: Number(element("steps").value) || 0, skip: element("skip").value,
 			decoder: element("decoder").value, length: Number(element("length").value) || 24, context: Number(element("context").value) || 22,
-			model: element("model").value, loras: state.loras, seed: Number(element("seed").value), count: Number(element("count").value) || 1,
+			model: element("model").value, loras: state.loras, seed: Number(element("seed").value), count: Number(element("repeat").value) || 1,
 			guidance: Number(element("guidance").value) || 0, spectrum: element("spectrum").value, sampler: element("sampler").value,
 			scheduler: element("scheduler").value, crop: element("crop").checked ? "true" : "false", vision: element("vision").value,
 			output: element("output").value, models: element("models").value, textEncoder: element("textEncoder").value,
@@ -243,7 +302,6 @@
 			return row;
 		}));
 	};
-	element("addLora").onclick = () => { state.loras.push({ path: "", strength: 1 }); drawLoras(); };
 	const neighbor = async (box, step) => {
 		if (!box.value) return;
 		const next = await fetch("/neighbor?path=" + encodeURIComponent(box.value) + "&step=" + step).then(r => r.text());
@@ -253,9 +311,10 @@
 	element("modelNext").onclick = () => neighbor(element("model"), 1);
 	element("inputPrev").onclick = () => neighbor(element("input"), -1);
 	element("inputNext").onclick = () => neighbor(element("input"), 1);
-	element("inputPick").onclick = () => element("inputFile").click();
-	element("inputFile").onchange = () => { const file = element("inputFile").files[0]; if (file) element("input").value = file.name; };
-	element("modelPick").onclick = () => { const path = prompt("Model path", element("model").value); if (path !== null) element("model").value = path; };
+	const pick = async kind => (await fetch("/pick?kind=" + kind).then(response => response.text())).trim();
+	element("modelPick").onclick = async () => { const path = await pick("model"); if (path) { element("model").value = path; save(); } };
+	element("addLora").onclick = async () => { const path = await pick("lora"); if (path) { state.loras.push({ path, strength: 1 }); drawLoras(); save(); } };
+	element("inputPick").onclick = async () => { const path = await pick(state.mode === "extend" ? "video" : "image"); if (path) { element("input").value = path; save(); } };
 	element("input").onchange = async () => {
 		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
 		const size = await fetch("/probe?path=" + encodeURIComponent(element("input").value)).then(r => r.text());
@@ -272,28 +331,69 @@
 		state.mode = path.toLowerCase().endsWith(".mp4") ? "extend" : "imagevideo";
 		showMode();
 	};
-	const media = (path, node) => {
-		const url = "/file?path=" + encodeURIComponent(path) + "&t=" + Date.now();
+	const place = node => {
+		const frame = element("frame");
+		frame.appendChild(node);
+		const previous = [...frame.children].filter(child => child !== node);
+		requestAnimationFrame(() => previous.forEach(child => {
+			if (child.src && child.src.startsWith("blob:")) URL.revokeObjectURL(child.src);
+			child.remove();
+		}));
+	};
+	const media = path => {
+		const url = "/file?path=" + encodeURIComponent(path);
 		if (path.toLowerCase().endsWith(".mp4")) {
 			const video = document.createElement("video");
 			video.src = url; video.autoplay = true; video.loop = true; video.muted = true;
-			video.onclick = () => { video.paused ? video.play() : video.pause(); state.paused = video.paused; };
-			node.replaceWith(video);
-			return video;
+			video.onclick = () => { video.paused ? video.play() : video.pause(); };
+			place(video);
+			return;
 		}
-		const image = document.createElement("img");
-		image.src = url; image.alt = path;
-		node.replaceWith(image);
-		return image;
+		const image = new Image();
+		image.onload = () => place(image);
+		image.src = url;
 	};
+	const showNoise = () => {
+		const canvas = document.createElement("canvas");
+		canvas.width = 480; canvas.height = 640;
+		const context = canvas.getContext("2d");
+		const data = context.createImageData(canvas.width, canvas.height);
+		let seed = 74101;
+		for (let index = 0; index < data.data.length; index += 4) {
+			seed = (seed * 16807) % 2147483647;
+			const value = seed % 256;
+			data.data[index] = data.data[index + 1] = data.data[index + 2] = value;
+			data.data[index + 3] = 255;
+		}
+		context.putImageData(data, 0, 0);
+		place(canvas);
+	};
+	const showPreview = status => {
+		if (status.running !== state.running) { state.running = status.running; state.previewStamp = 0; showNoise(); }
+		if (!status.previewStamp || status.previewStamp === state.previewStamp || state.previewLoading) return;
+		state.previewLoading = true;
+		const stamp = status.previewStamp;
+		fetch("/file?path=" + encodeURIComponent(status.preview)).then(response => response.ok ? response.blob() : null).then(blob => {
+			state.previewLoading = false;
+			if (!blob || blob.size < 500) return;
+			const image = new Image();
+			const url = URL.createObjectURL(blob);
+			image.onload = () => { state.previewStamp = stamp; place(image); };
+			image.onerror = () => URL.revokeObjectURL(url);
+			image.src = url;
+		}).catch(() => { state.previewLoading = false; });
+	};
+	const gallery = () => [...(state.examples || []), ...state.results];
 	const showResult = () => {
-		const count = state.results.length;
-		if (!count) { element("caption").textContent = "No results yet"; return; }
-		state.index = Math.max(0, Math.min(count - 1, state.index));
-		const path = state.results[state.index];
-		const node = element("frame").querySelector("img, video, span");
-		media(path, node);
-		element("caption").textContent = (state.index + 1) + "/" + count + " " + (state.captions[state.index] || path);
+		const all = gallery();
+		if (!all.length) { element("caption").textContent = "No results yet"; return; }
+		state.index = Math.max(0, Math.min(all.length - 1, state.index));
+		const path = all[state.index];
+		media(path);
+		fit();
+		const examples = (state.examples || []).length;
+		const caption = state.index < examples ? "example" : (state.captions[state.index - examples] || path);
+		element("caption").textContent = (state.index + 1) + "/" + all.length + ", " + caption;
 	};
 	element("back").onclick = () => { state.index -= 1; showResult(); };
 	element("forward").onclick = () => { state.index += 1; showResult(); };
@@ -330,40 +430,57 @@
 		element("workflow").value = "";
 	};
 	element("run").onclick = async () => {
-		await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) });
+		save();
+		state.hold = true;
+		element("log").textContent = "Run started\n" + element("prompt").value.split("\n")[0];
+		try {
+			const status = await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
+			state.hold = false;
+			showStatus(status);
+		} catch (error) {
+			state.hold = false;
+			element("log").textContent = "Run started\n" + error;
+		}
 	};
 	element("stop").onclick = () => fetch("/stop", { method: "POST" });
 	element("position").onclick = () => element("menu").classList.toggle("hidden");
-	const poll = async () => {
-		const status = await fetch("/status").then(r => r.json());
-		element("meters").textContent = "RAM " + gb(status.ram) + " / " + gb(status.ramTotal) + " · VRAM " + gb(status.vram) + " / " + gb(status.vramTotal) + " · GPU " + status.gpu + "% · CPU " + Math.round(status.cpu) + "%";
-		element("position").textContent = status.position || "0/0";
-		element("menu").replaceChildren(...(status.waiting || []).map(line => { const row = document.createElement("div"); row.textContent = line; return row; }));
-		if (!state.machines && status.machines) {
-			for (const name of status.machines) if (name && name !== "any" && ![...element("machine").options].some(option => option.value === name)) element("machine").add(new Option(name, name));
-			state.machines = true;
-		}
+	const showStatus = status => {
+		const others = (status.peers || []).length;
+		const ram = status.ramTotal ? "RAM " + gb(status.ram) + " / " + gb(status.ramTotal) + " · VRAM " + gb(status.vram) + " / " + gb(status.vramTotal) + " · GPU " + status.gpu + "% · CPU " + Math.round(status.cpu) + "%" : "RAM — · VRAM — · GPU — · CPU —";
+		element("meters").textContent = ram + " · " + others + (others === 1 ? " other PC" : " other PCs");
+		element("position").textContent = status.position || "run 0 · queue 0 · done 0";
+		const row = text => { const line = document.createElement("div"); line.textContent = text; return line; };
+		const title = text => { const line = document.createElement("div"); line.textContent = text; line.style.color = "#8b97a5"; return line; };
+		element("menu").replaceChildren(title("Running"), row(status.running || "—"), title("Queued"), ...((status.queued || []).map(row)), title("Done"), ...((status.done || []).slice(-8).map(row)));
+		const machine = element("machine"), chosen = machine.value;
+		machine.replaceChildren(new Option("Best machine", ""), new Option("This PC", "local"));
+		for (const peer of status.peers || []) machine.add(new Option(peer.label, peer.address));
+		if ([...machine.options].some(option => option.value === chosen)) machine.value = chosen;
 		const list = element("recentList");
 		list.replaceChildren(...(status.recent || []).map(path => { const option = document.createElement("option"); option.value = path; return option; }));
-		if (status.step && !element("log").textContent.endsWith(status.step + "\n")) element("log").textContent += status.step + "\n";
+		if (!state.hold && typeof status.activity === "string" && element("log").textContent !== status.activity) {
+			element("log").textContent = status.activity;
+			element("log").scrollTop = element("log").scrollHeight;
+		}
+		if (status.examples && state.examples.join() !== status.examples.join()) state.examples = status.examples;
 		const same = status.results && status.results.join() === state.results.join();
 		if (status.results && !same) {
 			const grew = status.results.length > state.results.length;
 			state.results = status.results; state.captions = status.captions || [];
-			if (grew) state.index = state.results.length - 1;
+			if (grew) state.index = state.examples.length + state.results.length - 1;
 			showResult();
 		}
-		if (status.busy && state.mode === "image") {
-			const node = element("frame").querySelector("img, video, span");
-			if (node && node.tagName !== "VIDEO") {
-				const image = node.tagName === "IMG" ? node : document.createElement("img");
-				image.src = "/file?path=" + encodeURIComponent(status.preview) + "&t=" + Date.now();
-				if (node !== image) node.replaceWith(image);
-			}
-		}
+		if (status.busy && state.mode === "image") showPreview(status);
+		else state.previewStamp = 0;
 	};
+	const poll = async () => { showStatus(await fetch("/status").then(response => response.json())); };
+	document.querySelector("section").addEventListener("change", save);
+	state.examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => "MossWebExample" + number + ".jpg");
+	state.examples.forEach(path => { const image = new Image(); image.src = "/file?path=" + encodeURIComponent(path); });
+	showResult();
 	showMode();
-	setInterval(() => poll().catch(() => {}), 1000);
+	addEventListener("resize", fit);
+	setInterval(() => poll().catch(() => {}), 400);
 	poll().catch(() => {});
 </script>
 </body>

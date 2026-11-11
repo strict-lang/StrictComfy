@@ -1,6 +1,11 @@
 has logger
 constant Forever = 1000000000
+constant BusyWait = 0.05
+constant IdleWait = 0.02
+constant ReceivePolls = 500
 constant Preview = "StrictGenStep.jpg"
+constant OkHeader = "HTTP/1.1 200 OK\r\nContent-Type: "
+constant Fallback = "<!doctype html><html><head><title>StrictGen</title></head><body><p>StrictGen.shell.html was not found beside the program.</p></body></html>"
 Run(arguments Texts) Number
 	StrictGen(Logger).Run(List(Text) + "--help") is 0
 	if "--help" is in arguments
@@ -19,18 +24,31 @@ Served(port Number)
 	if socket is Error
 		return socket
 	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket))
-	Looped(socket, StrictGenQueue(logger))
-Looped(socket Number, queue StrictGenQueue)
-	StrictGen(Logger).Looped(0, StrictGenQueue.Empty) is not Error
+	logger.Log("Page " + Located)
+	let peers = StrictGenNet(logger).Opened(Socket.Port(socket)).Introduced
+	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
+	Looped(socket, StrictGenQueue(logger), peers)
+Looped(socket Number, queue StrictGenQueue, net StrictGenNet)
+	StrictGen(Logger).Looped(0, StrictGenQueue.Empty, StrictGenNet.Idle) is not Error
 	mutable state = queue
+	mutable peers = net
+	mutable meters = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
+	mutable metered = -100
 	for Range(0, socket > 0 then Forever else 0)
 		let waiting = Socket.Waiting(socket) is 1
 		if waiting
-			state = Answered(Socket.Accept(socket), state)
-		state = waiting then state else state.Advanced
+			state = Answered(Socket.Accept(socket), state, peers, meters)
+		else if Process.Elapsed - metered > 8
+			meters = StrictGenStats(logger).Text
+			metered = Process.Elapsed
+			peers = peers.Measured
+		let choice = state.NeedsAim then peers.Chosen(state.NextMode, state.Pin) else ""
+		state = choice is "" then state else state.Aimed(choice)
+		state = state.Advanced
+		peers = peers.Tick(state.IsBusy)
 		if waiting is false
-			Process.Wait(state.IsBusy then 0.05 else 0.02)
-Answered(client Number, queue StrictGenQueue) StrictGenQueue
+			Process.Wait(state.IsBusy then BusyWait else IdleWait)
+Answered(client Number, queue StrictGenQueue, net StrictGenNet, meters Text) StrictGenQueue
 	if (client is Error) or (client <= 0)
 		return queue
 	let raw = Received(client)
@@ -38,75 +56,52 @@ Answered(client Number, queue StrictGenQueue) StrictGenQueue
 	if route is "/file"
 		SendFile(client, Query(raw, "path"))
 		return queue
-	let body = Body(raw)
-	let method = raw.Split("\r\n").First.Split(" ").First
-	if (method is "POST") and (route is "/run")
-		let next = queue.Added(Json(body).get("mode") to Text, StrictGenForm.Arguments(body), StrictGenForm.Summary(body))
-		Replied(client, "application/json", Status(next))
-		return next
-	if (method is "POST") and (route is "/stop")
-		let stopped = queue.Cleared
-		stopped.StopAll
-		Replied(client, "application/json", Status(stopped))
-		return stopped
-	if (method is "POST") and (route is "/import")
-		File("StrictGenWorkflow.json").Write(body.Split("\n"))
-		Replied(client, "application/json", StrictGenForm.Imported("StrictGenWorkflow.json"))
+	if route is "/inbox"
+		Replied(client, "text/plain", Stored(Query(raw, "name"), Body(raw)))
 		return queue
-	Replied(client, route is "/neighbor" then "text/plain" else (route is "/probe" then "text/plain" else (route is "/status" then "application/json" else "text/html")), Answer(route, raw, queue))
-	queue
-Answer(route Text, raw Text, queue StrictGenQueue) Text
-	if route is "/status"
-		return Status(queue)
+	if route is "/job"
+		Replied(client, "text/plain", queue.Report(Query(raw, "id") to Number))
+		return queue
+	if route is "/pick"
+		Replied(client, "text/plain", Picked(Query(raw, "kind")))
+		return queue
+	let next = (route is "/run") or (route is "/stop") then queue.Posted(route, Body(raw)) else queue
+	let isJson = (route is "/run") or (route is "/stop") or (route is "/import") or (route is "/status")
+	let plain = (route is "/neighbor") or (route is "/probe")
+	Replied(client, isJson then "application/json" else (plain then "text/plain" else "text/html"), Answer(route, raw, next, net, meters))
+	next
+Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet, meters Text) Text
+	if route is "/import"
+		File("StrictGenWorkflow.json").Write(Body(raw).Split("\n"))
+		return StrictGenForm.Imported("StrictGenWorkflow.json")
+	if (route is "/status") or (route is "/run") or (route is "/stop")
+		let status = StrictGenStats(logger).Status(queue, net, meters)
+		let accepted = route is "/run" then queue.modes.Length - 1 else -1
+		return status.Substring(0, status.Length - 1) + ",\"accepted\":" + accepted + "}"
 	if route is "/neighbor"
-		return Neighbor(Query(raw, "path"), Query(raw, "step") to Number)
-	route is "/probe" then Probed(Query(raw, "path")) else Page
-Status(queue StrictGenQueue) Slow(Text)
-	StrictGen(Logger).Status(StrictGenQueue.Empty).IndexOf("\"position\":\"0/0\"") >= 0
-	let stats = StrictGenStats(logger).Text
-	let step = Step(File("StrictGenJob.log").Exists then File("StrictGenJob.log").ReadLines else List(Text))
-	let head = stats.Substring(0, stats.Length - 1)
-	head + ",\"position\":" + queue.Position.Code + ",\"step\":" + step.Code + ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + Preview.Code + ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions) + ",\"recent\":" + Codes(queue.Recent) + ",\"waiting\":" + Codes(queue.Waiting) + ",\"machines\":" + Codes(Machines) + "}"
+		return StrictGenForm.Stepped(Query(raw, "path"), Query(raw, "step") to Number)
+	route is "/probe" then StrictGenStats(logger).Probed(Query(raw, "path")) else Page
+Picked(kind Text) Text
+	let filter = kind is "lora" then "LoRA (*.safetensors)|*.safetensors" else (kind is "model" then "Model (*.safetensors;*.gguf)|*.safetensors;*.gguf" else "Media (*.png;*.jpg;*.jpeg;*.mp4)|*.png;*.jpg;*.jpeg;*.mp4")
+	let script = "Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; $d.Filter = '" + filter + "'; if ($d.ShowDialog() -eq 'OK') { $d.FileName }"
+	let result = Process.RunTool("powershell", "-STA -NoProfile -Command \"" + script + "\"")
+	result.Failed then "" else result.Output.Trim
+Stored(name Text, body Text) Text
+	Directory.Create("StrictGenInbox")
+	let path = "StrictGenInbox/" + (Process.Elapsed * 1000).Floor + "-" + (name is "" then "upload.bin" else name)
+	File(path).Write(StrictGenNet(logger).Unhex(body))
+	path
 Page Text
-	StrictGen(Logger).Page.IndexOf("StrictGen") >= 0
-	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/StrictGen.shell.html"
-	Text.Combine(File(File(beside).Exists then beside else "StrictGen.shell.html").ReadLines, "\n")
-Machines Texts
-	StrictGen(Logger).Machines.Index("any") >= 0
-	StrictGen(Logger).Machines.Index(Peers.Home) >= 0
-	List(Text) + "" + "any" + Peers.Named
-Neighbor(path Text, step Number) Text
-	StrictGen(Logger).Neighbor("", 1) is ""
-	if path is ""
-		return ""
-	let folder = Path(path).PathOnly.text
-	let extension = path.Lower.Split(".").Last
-	StrictGenForm.Neighbor(StrictGenForm.Listed(folder is "" then "." else folder, List(Text) + extension), path, step)
-Probed(path Text) Text
-	StrictGen(Logger).Probed("missing-clip.mp4") is ""
-	let line = StrictGenExtend(logger).Probe(path)
-	if line is ""
-		return ""
-	let parts = line.Split(",")
-	if parts.Length < 2
-		return ""
-	ComfySize.Plain.Snap(parts(0).Trim to Number, 32) + " " + ComfySize.Plain.Snap(parts(1).Trim to Number, 32)
-Step(lines Texts) Text
-	StrictGen(Logger).Step(("hello", "Step 3/8 in 151 ms")) is "Step 3/8 in 151 ms"
-	StrictGen(Logger).Step(List(Text) + "step 1 40 ms") is "step 1 40 ms"
-	StrictGen(Logger).Step(List(Text)) is ""
-	mutable found = ""
-	for lines
-		if value.Lower.IndexOf("step ") >= 0
-			found = value
-	found
-Codes(lines Texts) Text
-	StrictGen(Logger).Codes(("a", "b")) is "[\"a\",\"b\"]"
-	StrictGen(Logger).Codes(List(Text)) is "[]"
-	mutable quoted = List(Text)
-	for lines
-		quoted = quoted + value.Code
-	"[" + Text.Combine(quoted, ",") + "]"
+	StrictGen(Logger).Page.IndexOf("<html") >= 0
+	let found = Located
+	found is "" then Fallback else Text.Combine(File(found).ReadLines, "\n")
+Located Text
+	StrictGen(Logger).Located.EndsWith("StrictGen.shell.html")
+	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+	for (beside + "/StrictGen.shell.html", beside + "/../../StrictGen.shell.html", beside + "/../StrictGen.shell.html", "StrictGen.shell.html")
+		if File(value).Exists
+			return value
+	""
 Route(raw Text) Text
 	StrictGen(Logger).Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
 	StrictGen(Logger).Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
@@ -123,7 +118,8 @@ Query(raw Text, name Text) Text
 	let question = full.IndexOf("?")
 	for (question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)).Split("&")
 		if value.StartsWith(name + "=")
-			return value.Substring(name.Length + 1, value.Length - name.Length - 1).Replace("+", " ").Replace("%20", " ").Replace("%2F", "/").Replace("%5C", "\\").Replace("%3A", ":")
+			let part = value.Substring(name.Length + 1, value.Length - name.Length - 1).Replace("+", " ").Replace("%20", " ")
+			return part.Replace("%2F", "/").Replace("%5C", "\\").Replace("%3A", ":")
 	""
 Body(raw Text) Text
 	StrictGen(Logger).Body("POST /run HTTP/1.1\r\n\r\n{\"a\":1}") is "{\"a\":1}"
@@ -134,7 +130,7 @@ Received(client Number) Text
 	if (client is Error) or (client <= 0)
 		return ""
 	mutable bytes = List(Mutable(Number))
-	for Range(0, 500)
+	for Range(0, ReceivePolls)
 		let pending = Socket.Pending(client)
 		if pending > 0
 			bytes = bytes + Socket.Receive(client, pending)
@@ -154,7 +150,7 @@ Complete(raw Text) Boolean
 	raw.Length - separator - 4 >= length
 Replied(client Number, kind Text, body Text)
 	let payload = Encoded(body)
-	let header = "HTTP/1.1 200 OK\r\nContent-Type: " + kind + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n"
+	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n"
 	Socket.Send(client, Encoded(header) + payload)
 	Socket.Close(client)
 SendFile(client Number, path Text)
@@ -162,15 +158,17 @@ SendFile(client Number, path Text)
 		Replied(client, "text/plain", "missing")
 		return
 	let payload = File(path).ReadBytes
-	let header = "HTTP/1.1 200 OK\r\nContent-Type: " + Kind(path) + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"
-	Socket.Send(client, Encoded(header) + payload)
+	let cache = path.IndexOf("MossWebExample") >= 0 then "public, max-age=86400" else "no-store"
+	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
+	Socket.Send(client, Encoded(OkHeader + Kind(path) + length) + payload)
 	Socket.Close(client)
 Kind(path Text) Text
 	StrictGen(Logger).Kind("a.jpg") is "image/jpeg"
 	StrictGen(Logger).Kind("a.mp4") is "video/mp4"
 	StrictGen(Logger).Kind("a.png") is "image/png"
 	let extension = path.Lower.Split(".").Last
-	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else (((extension is "jpg") or (extension is "jpeg")) then "image/jpeg" else "application/octet-stream"))
+	let image = (extension is "jpg") or (extension is "jpeg") then "image/jpeg" else "application/octet-stream"
+	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
 Encoded(text Text) Numbers
 	StrictGen(Logger).Encoded("Ab") is (65, 98)
 	for text

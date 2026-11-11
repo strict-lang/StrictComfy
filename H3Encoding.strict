@@ -2,21 +2,20 @@ has logger
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
 Started(prompts Texts, images Texts, paths Texts) Number
-	let written = Written(prompts, images, paths)
+	Written(prompts, images, paths)
 	GpuMemory.Evicted
-	written is Error then 1 else Process.Current.Started(Command(paths))
+	Process.Current.Started(Command(paths))
 Command(paths Texts) Text
 	H3Encoding(Logger, ("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
 	mutable command = "encode \"" + Text.Combine(paths, ";") + "\""
 	for arguments
 		command = command + " \"" + value + "\""
 	command
-Written(prompts Texts, images Texts, paths Texts) Number
-	H3Encoding(Logger, List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is 1
+Written(prompts Texts, images Texts, paths Texts)
+	H3Encoding(Logger, List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
 	H3Encoding(Logger, List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
 	for paths
 		File(value + ".txt").Write(List(Text) + images(index) + prompts(index))
-	paths.Length
 Jobs(paths Texts) List(Texts)
 	H3Encoding(Logger, List(Text)).Jobs(List(Text)).Length is 0
 	H3Encoding(Logger, List(Text)).Jobs(List(Text) + "missing.txt") is Error("FileNotFound:missing.txt.txt")

@@ -57,6 +57,19 @@ Cropped(index Number) Boolean
 	H3Files.Parsed(("--crop=false")).Cropped(0) is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or (index is 1)
+Problem Text
+	H3Files.Parsed(("--context", "10")).Problem is "--context must be 22, 39 or 90"
+	H3Files.Parsed(("--video", "clip.mov")).Problem is "--video must end with .mp4"
+	H3Files.Parsed(("--video", "missing-clip.mp4")).Problem is "--video missing-clip.mp4 was not found"
+	if context is not in StrictGenExtend.Contexts
+		return "--context must be 22, 39 or 90"
+	if (video is not "") and (video.EndsWith(".mp4") is false)
+		return "--video must end with .mp4"
+	if (video is not "") and (File(video).Exists is false)
+		return "--video " + video + " was not found"
+	if (video is not "") and (image is not "")
+		return "--image is a still first frame; leave it empty when --video continues a clip"
+	""
 Freed
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length

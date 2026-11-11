@@ -1,29 +1,30 @@
 constant Picture = "{\"mode\":\"image\",\"prompt\":\"a fox\",\"width\":480,\"height\":848,\"quality\":\"fastest\",\"steps\":0,\"skip\":\"off\",\"count\":1,\"seed\":-1,\"decoder\":\"taef2\"}"
 constant Clip = "{\"mode\":\"extend\",\"prompt\":\"go on\",\"width\":640,\"height\":1152,\"quality\":\"fast\",\"steps\":0,\"skip\":\"5:45\",\"length\":24,\"context\":39,\"video\":\"in.mp4\",\"count\":1,\"seed\":7}"
+constant ExpectedPicture = ("--width", "480", "--height", "848", "--quality", "fastest", "--prompt", "StrictGenPrompt.txt", "--vae", "taef2.safetensors", "--skip", "off")
+constant ExpectedClip = ("--width", "640", "--height", "1152", "--quality", "fast", "--prompt", "StrictGenPrompt.txt", "--length", "24", "--context", "39", "--video", "in.mp4", "--skip", "5:45", "--seed", "7")
 Arguments(body Text) Texts
-	StrictGenForm.Arguments(Picture) is ("--width", "480", "--height", "848", "--quality", "fastest", "--prompt", "StrictGenPrompt.txt", "--vae", "taef2.safetensors", "--skip", "off")
-	StrictGenForm.Arguments(Clip) is ("--width", "640", "--height", "1152", "--quality", "fast", "--prompt", "StrictGenPrompt.txt", "--length", "24", "--context", "39", "--video", "in.mp4", "--skip", "5:45", "--seed", "7")
+	StrictGenForm.Arguments(Picture) is ExpectedPicture
+	StrictGenForm.Arguments(Clip) is ExpectedClip
 	let json = Json(body)
 	let mode = json.get("mode") to Text
 	let prompt = json.get("prompt") to Text
 	File("StrictGenPrompt.txt").Write(prompt.Split("\n"))
 	let sized = ("--width", json.get("width") to Text, "--height", json.get("height") to Text)
-	let quality = json.get("quality") to Text
-	let base = sized + (quality is "" then List(Text) else List(Text) + "--quality" + quality) + "--prompt" + "StrictGenPrompt.txt"
+	let base = sized + Pair("--quality", json.get("quality") to Text) + "--prompt" + "StrictGenPrompt.txt"
 	base + Optional(json, mode) + Loras(json) + Remote(json)
 Optional(json Json, mode Text) Texts
 	StrictGenForm.Optional(Json(Picture), "image") is ("--vae", "taef2.safetensors", "--skip", "off")
-	StrictGenForm.Optional(Json(Clip), "extend") is ("--length", "24", "--context", "39", "--video", "in.mp4", "--skip", "5:45")
+	StrictGenForm.Optional(Json(Clip), "extend") is ExpectedClip.Slice(8, 8)
 	let video = (mode is "video") or (mode is "extend") or (mode is "imagevideo")
 	let length = video then Pair("--length", json.get("length") to Text) else List(Text)
 	let context = mode is "extend" then Pair("--context", json.get("context") to Text) else List(Text)
 	let clip = mode is "extend" then Pair("--video", json.get("video") to Text) else List(Text)
 	let image = mode is "imagevideo" then Pair("--image", json.get("image") to Text) else List(Text)
-	let last = Pair("--last_image", json.get("lastImage") to Text)
 	let steps = json.get("steps") to Text
 	let counted = ((steps is "") or (steps is "0")) then List(Text) else Pair("--steps", steps)
-	let decoder = mode is "image" then Pair("--vae", Decoder(json.get("decoder") to Text)) else Pair("--vae", json.get("vae") to Text)
-	length + context + clip + image + last + counted + decoder + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
+	let vae = Pair("--vae", mode is "image" then Decoder(json.get("decoder") to Text) else json.get("vae") to Text)
+	let tail = vae + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
+	length + context + clip + image + Pair("--last_image", json.get("lastImage") to Text) + counted + tail
 Loras(json Json) Texts
 	StrictGenForm.Loras(Json("{\"loras\":[{\"path\":\"a.safetensors\",\"strength\":0.5}]}")).Last is "a.safetensors:0.5"
 	StrictGenForm.Loras(Json("{}")).Length is 0
@@ -34,22 +35,30 @@ Loras(json Json) Texts
 			words = words + "--lora" + (path + ":" + (value.get("strength") to Text))
 	words
 Remote(json Json) Texts
-	StrictGenForm.Remote(Json("{\"remote\":\"any\"}")) is ("--remote", "any")
+	StrictGenForm.Remote(Json("{\"remote\":\"any\"}")).Length is 0
 	StrictGenForm.Remote(Json("{\"remote\":\"\"}")).Length is 0
-	StrictGenForm.Remote(Json("{}")).Length is 0
-	let name = json.get("remote") to Text
+	StrictGenForm.Remote(Json("{\"force\":\"true\"}")) is ("--force")
+	StrictGenForm.Remote(Json("{\"local\":\"true\"}")) is ("--local")
+	StrictGenForm.Remote(Json("{\"force\":\"true\",\"local\":\"true\",\"seed\":7}")) is ("--force", "--local", "--seed", "7")
 	let flag = json.get("force") to Text is "true" then List(Text) + "--force" else List(Text)
 	let local = json.get("local") to Text is "true" then List(Text) + "--local" else List(Text)
-	(name is "" then List(Text) else List(Text) + "--remote" + name) + flag + local + More(json)
+	flag + local + More(json)
 More(json Json) Texts
-	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5,\"crop\":\"false\"}")) is ("--seed", "7", "--guidance", "2.5", "--crop=false")
+	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
 	let seed = json.get("seed") to Text
 	let guidance = json.get("guidance") to Text
 	let count = json.get("count") to Text
 	let seeded = ((seed is "") or (seed is "-1")) then "" else seed
 	let guided = ((guidance is "") or (guidance is "0")) then "" else guidance
 	let counted = ((count is "") or (count is "1")) then "" else count
-	Pair("--seed", seeded) + Pair("--guidance", guided) + Pair("--count", counted) + Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text) + Pair("--scheduler", json.get("scheduler") to Text) + Pair("--output", json.get("output") to Text) + Pair("--models", json.get("models") to Text) + Pair("--text_encoder", json.get("textEncoder") to Text) + Pair("--model", json.get("model") to Text) + Cropped(json) + Pair("--vision", Vision(json.get("vision") to Text))
+	let numbers = Pair("--seed", seeded) + Pair("--guidance", guided) + Pair("--count", counted)
+	let sampling = Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text)
+	numbers + sampling + Pair("--scheduler", json.get("scheduler") to Text) + Files(json)
+Files(json Json) Texts
+	StrictGenForm.Files(Json("{\"output\":\"a.mp4\",\"crop\":\"false\"}")) is ("--output", "a.mp4", "--crop=false")
+	let output = Pair("--output", json.get("output") to Text) + Pair("--models", json.get("models") to Text)
+	let models = Pair("--text_encoder", json.get("textEncoder") to Text) + Pair("--model", json.get("model") to Text)
+	output + models + Cropped(json) + Pair("--vision", Vision(json.get("vision") to Text))
 Cropped(json Json) Texts
 	StrictGenForm.Cropped(Json("{\"crop\":\"false\"}")) is ("--crop=false")
 	StrictGenForm.Cropped(Json("{}")).Length is 0
@@ -83,17 +92,20 @@ Imported(path Text) Text
 	StrictGenForm.Imported("tinymossworkflow.json").IndexOf("\"mode\":\"image\",") >= 0
 	StrictGenForm.Imported("tinyh3strictworkflow.json").IndexOf("\"mode\":\"imagevideo\"") >= 0
 	let text = Text.Combine(File(path).ReadLines, "\n")
-	let h3 = (text.IndexOf("StrictH3") >= 0) or (text.IndexOf("MiniMax") >= 0) or (text.IndexOf("SamplerCustomAdvanced") >= 0)
-	let arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
+	let isCustom = text.IndexOf("SamplerCustomAdvanced") >= 0
+	let h3 = (text.IndexOf("StrictH3") >= 0) or (text.IndexOf("MiniMax") >= 0) or isCustom
+	let moss = MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
+	let arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else moss
 	Described(Selected(h3 then "h3" else "moss", arguments), arguments)
 Described(mode Text, arguments Texts) Text
 	StrictGenForm.Described("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
 	let width = Taken(arguments, "--width")
 	let height = Taken(arguments, "--height")
 	let seed = Taken(arguments, "--seed")
-	let quality = Taken(arguments, "--quality")
-	let prompt = Taken(arguments, "--prompt")
-	"{\"mode\":" + mode.Code + ",\"width\":" + (width is "" then "0" else width) + ",\"height\":" + (height is "" then "0" else height) + ",\"seed\":" + (seed is "" then "-1" else seed) + ",\"quality\":" + quality.Code + ",\"prompt\":" + prompt.Code + ",\"image\":" + Taken(arguments, "--image").Code + ",\"model\":" + Taken(arguments, "--model").Code + "}"
+	let size = (width is "" then "0" else width) + ",\"height\":" + (height is "" then "0" else height)
+	let head = "{\"mode\":" + mode.Code + ",\"width\":" + size + ",\"seed\":" + (seed is "" then "-1" else seed)
+	let body = ",\"quality\":" + Taken(arguments, "--quality").Code + ",\"prompt\":" + Taken(arguments, "--prompt").Code
+	head + body + ",\"image\":" + Taken(arguments, "--image").Code + ",\"model\":" + Taken(arguments, "--model").Code + "}"
 Taken(arguments Texts, name Text) Text
 	StrictGenForm.Taken(("--width", "480", "--height", "848"), "--width") is "480"
 	StrictGenForm.Taken(("--width", "480"), "--height") is ""
@@ -104,9 +116,13 @@ Summary(body Text) Text
 	StrictGenForm.Summary(Clip).StartsWith("Extend go on 640x1152 fast")
 	let json = Json(body)
 	let mode = json.get("mode") to Text
-	let label = mode is "image" then "Image" else (mode is "video" then "Video" else (mode is "extend" then "Extend" else "Image to video"))
+	let video = mode is "video" then "Video" else (mode is "extend" then "Extend" else "Image to video")
+	let label = (mode is "image" then "Image" else video) + " " + (json.get("prompt") to Text).Split("\n").First
+	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
 	let model = json.get("model") to Text
-	label + " " + (json.get("prompt") to Text).Split("\n").First + " " + (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text) + " " + (model is "" then "default" else Path(model).FileName.text)
+	let count = json.get("count") to Text
+	let times = (count is "") or (count is "1") or (count is "0") then "" else " x" + count
+	label + " " + size + " " + (model is "" then "default" else Path(model).FileName.text) + times
 Neighbor(paths Texts, current Text, step Number) Text
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", 1) is "c.png"
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", -1) is "a.png"
@@ -124,3 +140,10 @@ Listed(folder Text, extensions Texts) Texts
 		if extensions.Index(value.Lower.Split(".").Last) >= 0
 			files.Add(value)
 	files.Sorted
+Stepped(path Text, step Number) Text
+	StrictGenForm.Stepped("", 1) is ""
+	if path is ""
+		return ""
+	let folder = Path(path).PathOnly.text
+	let extension = path.Lower.Split(".").Last
+	Neighbor(Listed(folder is "" then "." else folder, List(Text) + extension), path, step)

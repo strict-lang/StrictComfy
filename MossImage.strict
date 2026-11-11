@@ -8,7 +8,7 @@ Run(arguments Texts) Number
 		logger.Log("MossImage.exe [options] makes Moss images, " + Positional + "\n" + MossOptions.Usage)
 		return 0
 	if (arguments.Length is 4) and (arguments(0) is "-")
-		return Served(Loaded(arguments(1), arguments(2)), arguments(3))
+		return Served(Loaded(arguments(1), arguments(2)), arguments(3)) then 0 else 1
 	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
@@ -22,15 +22,15 @@ Loaded(model Text, lora Text) Slow(Moss)
 	let moss = Moss.Loaded(model, lora)
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	moss
-Served(moss Moss, mode Text) Number
+Served(moss Moss, mode Text) Boolean
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		let made = Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
 		GpuMemory.Evicted
 		if MossFiles.FailedTexts(made)
-			return 1
+			return false
 		dumps = Process.InputLine
-	0
+	true
 Generations(moss Moss, data Safetensors, mode Text, dumps Text) Slow(Texts)
 	let sampling = Configured(data, mode)
 	let count = GenerationCommand.Count(data)

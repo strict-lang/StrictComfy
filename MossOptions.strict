@@ -103,6 +103,7 @@ Distilled(specs Texts) Boolean
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
 Located Text
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
+	MossOptions.Parsed(("--models", ".", "--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--text_encoder", "tinymoss.safetensors")).Named("") is ""
 	let model = files.Checkpoint
 	let loras = Loras
 	let decoder = files.Decoder
@@ -110,9 +111,11 @@ Located Text
 	let tokenizer = files.Tokenizer
 	let early = (model is Error) then (model to Text) else ((loras is Error) then (loras to Text) else "")
 	let late = (decoder is Error) then (decoder to Text) else ((encoder is Error) then (encoder to Text) else "")
-	let problem = early + late + ((tokenizer is Error) then (tokenizer to Text) else "")
-	let named = problem.Lines.First.Replace("Error: ", "")
-	problem is "" then "" else named.Replace("FileNotFound:", "Model file not found: ")
+	Named(early + late + ((tokenizer is Error) then (tokenizer to Text) else ""))
+Named(problem Text) Text
+	MossOptions.Parsed(List(Text)).Named("") is ""
+	MossOptions.Parsed(List(Text)).Named("Error: FileNotFound:a.safetensors\nnext") is "Model file not found: a.safetensors"
+	problem is "" then "" else problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)

@@ -1,0 +1,129 @@
+has logger
+constant Sample = StrictGenClip(Logger)
+constant ConcatFilter = " -filter_complex \"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]\" -map \"[v]\" -map \"[a]\""
+constant ConcatCodec = " -c:v libx264 -crf 18 -preset faster -pix_fmt yuv420p -c:a aac -b:a 192k \""
+constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 \""
+constant SignedShortLimit = 32768
+constant UnsignedShortRange = 65536
+TailRgb(path Text, context Number, width Number, height Number) Slow(Numbers)
+	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed")
+	let rgb = path + ".tail.rgb"
+	if Process.RunTool("ffmpeg", Extract(path, rgb, width, height, context / H3Format.FramesPerSecond + 1)).Failed
+		return Error("FfmpegFailed")
+	let frame = width * height * 3
+	let raw = Scaled(File(rgb).ReadBytes)
+	File(rgb).Delete
+	let count = raw.Length / frame
+	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
+	last.Length < context * frame then Error("ShortVideo") else last
+TailPcm(path Text, seconds Number) Slow(Numbers)
+	Sample.TailPcm("missing-clip.mp4", 2) is Error("FfmpegFailed")
+	let pcm = path + ".tail.pcm"
+	if Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds)).Failed
+		return Error("FfmpegFailed")
+	let waveform = Pcm(File(pcm).ReadBytes)
+	File(pcm).Delete
+	waveform
+Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) Slow(None)
+	Sample.Appended("a.mp4", (1, 2, 3), (1, 2), (1, 1), 22, "b.mp4") is Error("ShortVideo")
+	let frame = size(0) * size(1) * 3
+	if video.Length < (context + 1) * frame
+		return Error("ShortVideo")
+	let drop = StrictGenExtend.None.SoundDrop(context)
+	if waveform.Length < (drop + 1) * 2
+		return Error("ShortAudio")
+	let last = LastFrame(source, size)
+	let trimmed = Trimmed(video, context, frame)
+	let matched = last.Length is frame then Colored(last, trimmed, frame) else trimmed
+	Merged(source, matched, Cut(waveform, drop), size, output)
+Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Slow(None)
+	let tail = output + ".tail.mp4"
+	let saved = H3Frames(logger).Saved(video, audio, size, tail)
+	if saved is Error
+		return saved
+	let merged = Process.RunTool("ffmpeg", Concat(source, tail, output))
+	File(tail).Delete
+	if merged.Failed
+		return Error("FfmpegFailed")
+	logger.Log("Wrote " + output)
+Trimmed(video Numbers, context Number, frame Number) Numbers
+	Sample.Trimmed((1, 2, 3, 4, 5, 6, 7, 8, 9), 1, 3) is (4, 5, 6, 7, 8, 9)
+	video.Slice(context * frame, video.Length - context * frame)
+Cut(waveform Numbers, drop Number) Numbers
+	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
+	let half = waveform.Length / 2
+	waveform.Slice(drop, half - drop) + waveform.Slice(half + drop, half - drop)
+Means(frame Numbers) Numbers
+	Sample.Means((2, 2, 2)).First is 2
+	let count = frame.Length / 3
+	mutable red = 0
+	mutable green = 0
+	mutable blue = 0
+	for count
+		red = red + frame(index * 3)
+		green = green + frame(index * 3 + 1)
+		blue = blue + frame(index * 3 + 2)
+	let mean = (red / count, green / count, blue / count)
+	mean + Deviations(frame, mean, count)
+Deviations(frame Numbers, mean Numbers, count Number) Numbers
+	Sample.Deviations((2, 2, 2), (2, 2, 2), 1) is (0, 0, 0)
+	mutable sr = 0
+	mutable sg = 0
+	mutable sb = 0
+	for count
+		sr = sr + (frame(index * 3) - mean(0)) * (frame(index * 3) - mean(0))
+		sg = sg + (frame(index * 3 + 1) - mean(1)) * (frame(index * 3 + 1) - mean(1))
+		sb = sb + (frame(index * 3 + 2) - mean(2)) * (frame(index * 3 + 2) - mean(2))
+	let scale = count < 2 then 0 else 1
+	((sr / count).SquareRoot * scale, (sg / count).SquareRoot * scale, (sb / count).SquareRoot * scale)
+Colored(source Numbers, tail Numbers, frame Number) Numbers
+	Sample.Colored((1, 2, 3), (2, 2, 2, 4, 4, 4), 3) is (1, 2, 3, 3, 4, 5)
+	let before = Means(source)
+	let after = Means(tail.Slice(0, frame))
+	for tail.Length
+		let channel = index % 3
+		let scale = after(channel + 3) < 0.000001 then 1 else before(channel + 3) / after(channel + 3)
+		(tail(index) - after(channel)) * scale + before(channel)
+LastFrame(source Text, size Numbers) Numbers
+	let raw = source + ".join.rgb"
+	let args = "-y -loglevel error -sseof -0.08 -i \"" + source + "\" -frames:v 1 -vf scale=" + size(1) + ":" + size(0)
+	if Process.RunTool("ffmpeg", args + " -f rawvideo -pix_fmt rgb24 \"" + raw + "\"").Failed
+		return List(Number)
+	let frame = size(0) * size(1) * 3
+	let bytes = Scaled(File(raw).ReadBytes)
+	File(raw).Delete
+	bytes.Length >= frame then bytes.Slice(bytes.Length - frame, frame) else List(Number)
+Extract(path Text, output Text, width Number, height Number, seconds Number) Text
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).StartsWith("-y -loglevel error -sseof -2")
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).IndexOf("scale=32:48") > 0
+	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).EndsWith("\"a.rgb\"")
+	let scale = " -vf scale=" + width + ":" + height + " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\"" + scale
+ExtractAudio(path Text, output Text, seconds Number) Text
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).IndexOf("-ar 32000") > 0
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).EndsWith("\"a.pcm\"")
+	let format = " -t " + seconds + " -ac 2 -ar " + H3Frames.SampleRate + " -f s16le \"" + output + "\""
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\"" + format
+Concat(source Text, tail Text, output Text) Text
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4").StartsWith("-y -loglevel error -i \"a.mp4\" -i \"b.mp4\"")
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4").EndsWith("\"c.mp4\"")
+	"-y -loglevel error -i \"" + source + "\" -i \"" + tail + "\"" + ConcatFilter + ConcatCodec + output + "\""
+Probe(path Text) Text
+	Sample.Probe("missing-clip.mp4") is ""
+	let result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")
+	result.Failed then "" else result.Output.Trim
+Pcm(bytes Numbers) Numbers
+	Sample.Pcm((0, 0, 0, 128)) is (0, -1)
+	Sample.Pcm((0, 128, 0, 0)).First is -1
+	let frames = bytes.Length / 4
+	for frames * 2
+		Sampled(bytes, index < frames then index * 4 else (index - frames) * 4 + 2)
+Sampled(bytes Numbers, at Number) Number
+	Sample.Sampled((0, 128), 0) is -1
+	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)
+	let unsigned = bytes(at) + bytes(at + 1) * 256
+	(unsigned >= SignedShortLimit then unsigned - UnsignedShortRange else unsigned) / SignedShortLimit
+Scaled(bytes Numbers) Numbers
+	Sample.Scaled((0, 255)) is (0, 1)
+	for bytes
+		value / Byte.Max

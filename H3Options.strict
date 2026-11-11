@@ -30,6 +30,8 @@ constant TurboNames = ("--lora", "h3/a_Turbo_v4.safetensors:1", "--lora", "8step
 constant GivenTurbo = "a_turbo.safetensors=1"
 constant GivenTaoMate = "x_taomate.safetensors=1"
 constant Miscounted = "--count must not be negative and --length at least 5"
+constant Samplers = ("euler", "res_multistep", "er_sde", "euler_ancestral", "dpmpp_2m_sde", "gradient_estimation", "lcm")
+constant Schedulers = ("simple", "sgm_uniform", "normal", "beta", "beta57", "linear_quadratic", "hyperflow")
 Preset Numbers
 	H3Options.Parsed(List(Text)).Preset is (8, 1, 0)
 	H3Options.Parsed(("--quality", "faster")).Preset is (8, 1, 2)
@@ -62,19 +64,11 @@ Skipped Numbers
 	let last = parts.Last to Number
 	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= H3Format.Blocks)
 	valid then (first, last) else Error("InvalidSkip")
-Samplers Texts
-	H3Options.Parsed(List(Text)).Samplers(2) is "er_sde"
-	("euler", "res_multistep", "er_sde", "euler_ancestral", "dpmpp_2m_sde", "gradient_estimation", "lcm")
-Schedulers Texts
-	H3Options.Parsed(List(Text)).Schedulers(5) is "linear_quadratic"
-	("simple", "sgm_uniform", "normal", "beta", "beta57", "linear_quadratic", "hyperflow")
 IsNoisy Boolean
 	H3Options.Parsed(("--sampler", "lcm")).IsNoisy
 	H3Options.Parsed(("--sampler", "gradient_estimation")).IsNoisy is false
 	sampler is in ("er_sde", "euler_ancestral", "dpmpp_2m_sde", "lcm")
 Problem Text
-	H3Options.Parsed(("--video", "H3Files.strict")).files.video is "H3Files.strict"
-	H3Options.Parsed(("--context", "90")).files.context is 90
 	H3Options.Parsed(List(Text)).Problem is ""
 	H3Options.Parsed(("--width", "500")).Problem is ""
 	H3Options.Parsed(("--context", "10")).Problem is "--context must be 22, 39 or 90"
@@ -82,18 +76,9 @@ Problem Text
 	H3Options.Parsed(("--video", "missing-clip.mp4")).Problem is "--video missing-clip.mp4 was not found"
 	H3Options.Parsed(("--sampler", "heun")).Problem.StartsWith("--sampler must be one of euler, ")
 	H3Options.Parsed(("--count", "-1")).Problem is Miscounted and H3Options.Parsed(("--length", "4")).Problem is Miscounted
-	H3Options.Parsed(("--width", "720")).Fitted.width is 704
-	H3Options.Parsed(("--height", "500")).Fitted.height is 480
+	H3Options.Parsed(("--width", "720")).Fitted.width is 704 and H3Options.Parsed(("--height", "500")).Fitted.height is 480
 	H3Options(width = 10).Fitted.width is 32 and H3Options(height = 10).Fitted.height is 32
-	if files.context is not in StrictGenExtend.Contexts
-		return "--context must be 22, 39 or 90"
-	if (files.video is not "") and (files.video.EndsWith(".mp4") is false)
-		return "--video must end with .mp4"
-	if (files.video is not "") and (File(files.video).Exists is false)
-		return "--video " + files.video + " was not found"
-	if (files.video is not "") and (files.image is not "")
-		return "--image is a still first frame; leave it empty when --video continues a clip"
-	(count < 0) or (length < 5) then Miscounted else Unsupported
+	files.Problem is not "" then files.Problem else ((count < 0) or (length < 5) then Miscounted else Unsupported)
 Unsupported Text
 	H3Options.Parsed(List(Text)).Unsupported is ""
 	H3Options.Parsed(("--sampler", "heun")).Unsupported.StartsWith("--sampler must be one of euler, ")

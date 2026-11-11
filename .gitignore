@@ -85,3 +85,4 @@ Release/*
 h3preview-step6.safetensors
 strictgen-tail.latent.safetensors
 StrictGenPrompt.txt
+smoke-prompt.txt
