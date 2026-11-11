@@ -4,6 +4,7 @@ has textEncoder = ""
 has models = ""
 has workflow = ""
 constant FourSteps = "moss/moss_image_sft_4step_v2.0.safetensors"
+constant Spare = 4294967296
 constant Dmd = "moss/dmd_turbo_lora.safetensors"
 constant ModelKindsHelp = "Moss int8 Convrot model file or a 4 bit .gguf (LoRAs merged, like moss_image_sft_turbo-Q4_K_M.gguf for 8 steps), "
 constant ModelNamesHelp = "a name in models/diffusion_models or a path, empty for moss-image-sft-dit-int8-convrot.safetensors"
@@ -59,6 +60,10 @@ Freed
 		GpuMemory.Released
 	else
 		GpuMemory.Evicted
+Eased
+	Encoding.Eased is not Error
+	if GpuMemory.Available < Spare
+		Freed
 FailedNumber(number Number) Boolean
 	MossFiles.FailedNumber(Error("x"))
 	MossFiles.FailedNumber(0) is false

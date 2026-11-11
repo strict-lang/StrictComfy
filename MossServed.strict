@@ -15,7 +15,7 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) Slow(M
 	if batch.options.output.EndsWith(".safetensors")
 		Safetensors(batch.options.output).Written("context", c.First)
 		return MossResident(encoded, code = 0)
-	batch.options.files.Freed
+	batch.options.files.Eased
 	let decoding = encoded.Sampling(batch).Decoders(batch.options.files.Decoder)
 	let made = batch.Images(decoding, seeds, prompts, prompts.Unique, c)
 	batch.options.files.Freed

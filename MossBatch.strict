@@ -49,7 +49,7 @@ Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts L
 	let sampled = Process.Elapsed
 	let latents = Latents(kept.mosses.First, seeds, prompts, unique, contexts, outputs)
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
-	options.files.Freed
+	options.files.Eased
 	let decoded = Process.Elapsed
 	let saved = Decoded(kept, latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
