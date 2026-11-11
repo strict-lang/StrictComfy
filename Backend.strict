@@ -6,6 +6,8 @@ constant StartSeconds = 30
 constant PollSeconds = 0.2
 constant CheckSeconds = 5
 constant Gone = -2
+constant Unserved = -1
+constant Crashed = 1
 constant IdleSeconds = 900
 constant LowMemory = 4294967296
 constant Gigabyte = 1073741824
@@ -43,12 +45,13 @@ Dispatched(arguments Texts) Number
 Attempted(arguments Texts) Number
 	let isRunning = File(resident.root + Resident.Stamp).Exists
 	if (isRunning is false) and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
-		return -1
+		return Unserved
+	let forwarding = Forwarding(logger, resident.root)
 	if (isRunning is false) and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
-		Forwarding(logger, resident.root).Started("")
+		forwarding.Started("")
 	let port = Waited(StartSeconds)
-	port > 0 then Forwarding(logger, resident.root).Answered(resident, port, arguments) else (port is Gone then 1 else -1)
+	port > 0 then forwarding.Answered(resident, port, arguments) else (port is Gone then Crashed else Unserved)
 Waited(seconds Number) Number
 	Sample.Waited(0) is 0
 	let started = Process.Elapsed
@@ -98,18 +101,18 @@ Paused(checked Number) Numbers
 	Process.Wait(PollSeconds)
 	(0, checked)
 Opened Number
-	let objects = resident.root + "/obj"
-	if Rooted and (Directory.Exists(objects) is false)
-		Directory.Create(objects)
-	(Rooted and Directory.Exists(objects)) then resident.Opened else 0
+	Rooted then resident.Opened else 0
 Rooted Boolean
 	Sample.Rooted
 	let parent = Path(resident.root).PathOnly.text
+	let objects = resident.root + "/obj"
 	if Directory.Exists(parent) is false
 		Directory.Create(parent)
 	if Directory.Exists(resident.root) is false
 		Directory.Create(resident.root)
-	Directory.Exists(parent) and Directory.Exists(resident.root)
+	if Directory.Exists(objects) is false
+		Directory.Create(objects)
+	Directory.Exists(parent) and Directory.Exists(resident.root) and Directory.Exists(objects)
 IsWanted(idle Number, built Number) Boolean
 	Sample.IsWanted(0, File(Process.Current.executable).Modified)
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
@@ -137,18 +140,17 @@ Restored(isMoved Boolean, home Text)
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)
-Unpressed Slow(Number)
-	Sample.Unpressed >= 0
+Unpressed Slow(Boolean)
+	Sample.Unpressed
 	let available = GpuMemory.Available
 	if (available > 0) and (available < LowDevice)
 		GpuMemory.Yielded
 	let reply = Coordinator(logger, coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
 		GpuMemory.Yielded
-	reply is "exit" then Backend.Stopped else 0
-Freed(request Text) Slow(Number)
-	Sample.Freed("broken") is 1
-	let told = Coordinator(logger, coordinator).Sent("done")
+	reply is not "exit"
+Freed(request Text) Slow(Boolean)
+	Sample.Freed("broken")
 	GpuMemory.Yielded
 	resident.Released(request)
-	told is Error then 2 else 1
+	Coordinator(logger, coordinator).Sent("done") is not "exit"

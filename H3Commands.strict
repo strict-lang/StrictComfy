@@ -3,30 +3,30 @@ has file Text
 has arguments Texts
 constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
 constant Sized = "--length 5 --width 32 --height 32"
-Completed Number
+Completed Boolean
 	let lines = Lines
 	if lines.Length is 0
 		logger.Log("No commands in " + file + ", write the H3Video options of one batch of videos per line (# for comments)")
-		return 2
+		return false
 	let batches = Batches(lines)
 	let problem = Problem(batches)
 	if problem is not ""
 		logger.Log(problem)
-		return 2
+		return false
 	Generated(batches, lines.Length)
-Generated(batches List(H3Batch), count Number) Slow(Number)
+Generated(batches List(H3Batch), count Number) Slow(Boolean)
 	let started = Process.Elapsed
 	let plans = Planned(batches)
 	if Encoded(plans) is not 0
 		logger.Log("The text encoder failed, see its output above")
-		return 1
+		return false
 	let first = plans.First.batch
 	first.Prefetched((first.options.files.Decoder, first.options.files.Sound), "the VAEs")
 	let videos = Sampled(plans)
 	Decoded(plans)
 	let commands = count is 1 then " command" else " commands"
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + videos + " videos from " + count + commands)
-	0
+	true
 Lines Texts
 	Sample.Lines is (Sized + " --seed 7", Sized + " --prompt \"a b.txt\"")
 	H3Commands(Logger, "missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")

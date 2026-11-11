@@ -11,13 +11,13 @@ Ran(given Texts) Number
 	let arguments = given - MachineUse.Force
 	let plain = Remote(logger).Without(arguments)
 	let rest = plain - Backend.Local
-	if Unparsed(rest) is not ""
-		return Refused(Unparsed(rest))
+	if Refused(Unparsed(rest))
+		return 1
 	if MachineUse.IsChecked(arguments, root)
 		if Granted(arguments, MachineUse.IsForced(given)) is not 0
 			return 1
 	let forwarded = Backended.Dispatched(plain)
-	forwarded >= 0 then forwarded else H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed
+	forwarded >= 0 then forwarded else (H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed then 0 else 2)
 Backended Backend
 	Sample.Backended.name is "H3Video"
 	Backend(logger, Resident(root), "H3Video", coordinator)
@@ -43,10 +43,12 @@ Continued(arguments Texts, forced Boolean) Slow(Number)
 	if settled.StartsWith("refused")
 		return Use(arguments, forced).Explained(settled)
 	settled is "" then Use(arguments, forced).Checked else 0
-Refused(reply Text) Number
-	Sample.Refused("refused\tH3Video") is 1
-	logger.Log(reply)
-	1
+Refused(reply Text) Boolean
+	Sample.Refused("refused\tH3Video")
+	Sample.Refused("") is false
+	if reply is not ""
+		logger.Log(reply)
+	reply is not ""
 Use(arguments Texts, forced Boolean) MachineUse
 	Sample.Use(List(Text), true).isForced
 	let files = Options(arguments).files

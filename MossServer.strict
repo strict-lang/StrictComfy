@@ -33,7 +33,7 @@ Served Number
 		let socket = backend.resident.Accepted(server, built)
 		kept = socket > 0 then Replied(socket, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
-		kept = backend.Unpressed is Backend.Stopped then MossResident(kept, code = Backend.Stopped) else kept
+		kept = backend.Unpressed then kept else MossResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 Replied(socket Number, kept MossResident) Slow(MossResident)
 	let resident = backend.resident
@@ -46,7 +46,7 @@ Replied(socket Number, kept MossResident) Slow(MossResident)
 	if isFailed
 		GpuMemory.Evicted
 	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
-	(isFailed or (closed is 1)) then MossResident(logger, true) else served
+	(isFailed or closed) then MossResident(logger, true) else served
 Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
@@ -57,9 +57,9 @@ Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	let served = MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	let stopped = backend.Unpressed
+	let unpressed = backend.Unpressed
 	backend.Restored(isMoved, home)
-	stopped is Backend.Stopped then MossResident(kept, code = Backend.Stopped) else served
+	unpressed then served else MossResident(kept, code = Backend.Stopped)
 Asked(arguments Texts, forced Boolean) Text
 	Sample.Asked(List(Text), false).StartsWith("need\tMossImage\t")
 	let use = Use(arguments, forced)
@@ -82,13 +82,13 @@ Continued(arguments Texts, forced Boolean) Slow(Number)
 	if settled.StartsWith("refused")
 		return Use(arguments, forced).Explained(settled)
 	settled is "" then Use(arguments, forced).Checked else 0
-Ended(socket Number, code Number, request Text) Slow(Number)
-	Sample.Ended(0, 1, "broken") is 1
+Ended(socket Number, code Number, request Text) Slow(Boolean)
+	Sample.Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The MossImage client left before the result was sent")
 		return backend.Freed(request)
 	backend.resident.Released(request)
-	0
+	false
 Use(arguments Texts, forced Boolean) MachineUse
 	Sample.Use(List(Text), true).isForced
 	let files = MossOptions.Parsed(arguments).files

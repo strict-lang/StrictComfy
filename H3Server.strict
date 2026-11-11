@@ -16,7 +16,7 @@ Listened(server Number) Number
 		kept = socket > 0 then Trimmed(socket, request, kept) else kept
 		kept = socket > 0 then Replied(socket, request, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
-		kept = backend.Unpressed is Backend.Stopped then H3Resident(kept, code = Backend.Stopped) else kept
+		kept = backend.Unpressed then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
@@ -46,7 +46,7 @@ Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let served = isRunning then Ran(socket, request, kept) else skipped
 	let isFailed = served is Error
 	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
-	(isFailed or (closed is 1)) then H3Resident(logger) else served
+	(isFailed or closed) then H3Resident(logger) else served
 Claimed Text
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Claimed.EndsWith("9\n\n")
 	let root = backend.resident.root
@@ -61,14 +61,14 @@ Claimed Text
 	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
 Proved Slow(Boolean)
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
-	(Ended(0, 1, Claimed) is 1) and File(backend.resident.Freed).Exists
-Ended(socket Number, code Number, request Text) Slow(Number)
-	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken") is 1
+	Ended(0, 1, Claimed) and File(backend.resident.Freed).Exists
+Ended(socket Number, code Number, request Text) Slow(Boolean)
+	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.Freed(request)
 	backend.resident.Released(request)
-	0
+	false
 Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
@@ -79,6 +79,6 @@ Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	let stopped = backend.Unpressed
+	let unpressed = backend.Unpressed
 	backend.Restored(isMoved, home)
-	stopped is Backend.Stopped then H3Resident(kept, code = Backend.Stopped) else served
+	unpressed then served else H3Resident(kept, code = Backend.Stopped)
