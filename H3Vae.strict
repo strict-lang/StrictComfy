@@ -11,6 +11,16 @@ constant Dropped = 3
 constant Padding = 3
 constant Ratio = 4
 constant Blended = 5
+constant LatentMeans1 = (0.858090341091156, -0.9606591463088989, 1.0661640167236328, -0.5090325474739075, -0.2727581858634949, -1.3675414323806763, -0.2553254961967468, -0.26907554268836975)
+constant LatentMeans2 = (-0.5376840829849243, -0.0464097298681736, 0.6657370328903198, 0.19690127670764923, -0.5460608005523682, -0.4035342037677765, -0.23683024942874908, 0.25928452610969543)
+constant LatentMeans3 = (-0.30133944749832153, 0.211341992020607, -1.1206848621368408, 0.3581933379173279, -0.04225143790245056, 0.2604829967021942, 0.22864092886447906, 0.7056031823158264)
+constant LatentMeans = LatentMeans1 + LatentMeans2 + LatentMeans3
+constant LatentDeviations1 = (1.2223774194717407, 1.2767263650894165, 1.68317747116088865, 1.7549455165863037, 1.5636216402053833, 2.194143533706665, 0.96531379222869875, 1.05698859691619875)
+constant LatentDeviations2 = (0.841948926448822, 0.7729952931404114, 1.8955937623977661, 0.946841835975647, 0.7996809482574463, 0.44988900423049925, 0.7197399735450745, 0.69362932443618775)
+constant LatentDeviations3 = (2.961095094680786, 2.7694199085235595, 3.0496184825897215, 2.1088054180145265, 3.276226282119751, 3.1627357006073, 2.28168129920959475, 2.6127843856811525)
+constant LatentDeviations = LatentDeviations1 + LatentDeviations2 + LatentDeviations3
+constant Image = Safetensors("tinyh3imagevae.safetensors", 32)
+constant Picture = H3Vae(H3Decoder.Still, H3Tiles.Tiny)
 Decoded(latent Numbers, shape Numbers) Slow(Numbers)
 	(Pixels.Length is 359424) and Pixels(15000).IsNearlyEqual(0.7706, 0.01) and Pixels(359423).IsNearlyEqual(0.486, 0.01)
 	let latents = decoder.Denormalized(latent)
@@ -24,6 +34,19 @@ Decoded(latent Numbers, shape Numbers) Slow(Numbers)
 		shared = canvas
 		completion.Report(index + 1)
 	frames + Finished(shared, List(Number), Tokens * Ratio + Padding, Blended)
+Statistics(model Safetensors) List(Numbers)
+	H3Vae.Statistics(Image)(1) is LatentDeviations
+	H3Vae.Statistics(Image)(0)(23) is H3Vae.Statistics(H3Decoder.Model)(0)(23)
+	if model.Entry("latents_mean") is ""
+		return (LatentMeans, LatentDeviations)
+	(model.Values("latents_mean"), model.Values("latents_std"))
+Still(latent Numbers, height Number, width Number) Slow(Numbers)
+	Picture.Still(Image.Values("reference.latent"), 3, 4)(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
+	MossImage(Logger).Error(Picture.Still(Image.Values("reference.latent"), 3, 4), Image.Values("reference.pixels")) < 0.01
+	let canvas = Canvas(decoder.Denormalized(latent), height, width, 1)
+	let plane = canvas.Length / 3
+	for canvas
+		(value * Deviation((index / plane).Floor) + Mean((index / plane).Floor)).Clamp(0, 1)
 Finished(canvas Numbers, previous Numbers, first Number, count Number) Slow(Numbers)
 	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean
 	let older = previous.Length > 0
@@ -40,11 +63,11 @@ Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Slow(Number
 		let own = canvas((channel * shape(4) + shape(0) + frame) * plane + pixel)
 		let before = source((channel * shape(4) + shape(3) + frame.Clamp(0, shape(2) - 1)) * plane + pixel)
 		((before + (own - before) * (frame / shape(2)).Clamp(0, 1)) * colors(channel + 3) + colors(channel)).Clamp(0, 1)
-Canvas(window Numbers, height Number, width Number) Slow(Numbers)
+Canvas(window Numbers, height Number, width Number, frames = 7) Slow(Numbers)
 	Tiny.Canvas(H3Decoder.Window, 2, 2).Length is 86016
 	let ys = tiling.Starts(height * 16)
 	let xs = tiling.Starts(width * 16)
-	let tiles = Tiles(window, ys, xs, (Tokens + Shared, height, width))
+	let tiles = Tiles(window, ys, xs, (frames, height, width))
 	let size = (tiling.Length(height * 16), tiling.Length(width * 16))
 	let strips = Columns(tiles, xs, Table(xs, width * 16, size(1)), (ys.Length, size(0), size(1), width * 16))
 	Rows(strips, ys, Table(ys, height * 16, size(0)), (size(0), height * 16, width * 16))

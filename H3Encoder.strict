@@ -3,6 +3,7 @@ has files H3Files
 has frame Numbers = (832, 480)
 has visions List(QwenVision) = List(QwenVision)
 has prefetched Texts = List(Text)
+has label = "<Picture #>: "
 constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
 constant TinyVision = QwenVision.Loaded(Safetensors("../Strict/NeuralNetworks/tinyqwenvision.safetensors", 32, "visual."), 2, (0, 1, 2))
@@ -22,7 +23,7 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 Tokenizer Slow(Gpt2Tokens)
 	Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 EncodedWith(encoder Qwen3, tokens Gpt2Tokens, prompts Texts, images Texts, paths Texts) Slow(Number)
-	let loaded = H3Encoder(logger, files, frame, Visions)
+	let loaded = H3Encoder(value, visions = Visions)
 	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
 	if reading is not ""
 		logger.Log(reading + " while encoding")
@@ -75,8 +76,9 @@ Pictures(labels List(Numbers)) List(Numbers)
 Labels(tokens Gpt2Tokens) List(Numbers)
 	Tiny.Labels(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens")).Length is 0
 	Both.Labels(Spelled) is ((0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 8), (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 8))
+	H3Encoder(Both, label = "Picture #: ").Labels(Spelled).Last is (1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 8)
 	for files.Images
-		tokens.Encoded("<Picture " + (index + 1) + ">: ")
+		tokens.Encoded(label.Replace("#", (index + 1) to Text))
 Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 	Tiny.Tokens(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens"), ("ab", "")) is ((3), (151643))
 	for prompts

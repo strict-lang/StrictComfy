@@ -18,7 +18,7 @@ Loaded(path Text, loras = "") Slow(H3)
 	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
 	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
-	let heard = H3Lora(loras).Dense(model, "audio_patch_proj")
+	let heard = H3Lora(loras).Optional(model, "audio_patch_proj")
 	let table = model.Values("adaln_t_table")
 	let loaded = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
 	H3(patches, heard, table, model.Values("rope.inv_freq"), loaded, H3Final.Loaded(model, loras))

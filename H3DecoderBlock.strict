@@ -7,10 +7,11 @@ has down Batch
 has firstScale Numbers
 has secondScale Numbers
 has rotated Boolean
+has half Number = 24
 constant Model = Safetensors("tinyh3vae.safetensors")
 constant Tiny = H3DecoderBlock.Loaded(Model, "decoder.transformer_blocks.0.")
 constant Decoding = Rope(64, 24)
-Loaded(model Safetensors, prefix Text) Slow(H3DecoderBlock)
+Loaded(model Safetensors, prefix Text, pairs = 24) Slow(H3DecoderBlock)
 	Tiny.rotated is false
 	let rows = Safetensors(model.path, 32, model.prefix + prefix)
 	let first = rows.Values("norm1.weight")
@@ -21,7 +22,7 @@ Loaded(model Safetensors, prefix Text) Slow(H3DecoderBlock)
 	let lowered = Projection(rows, "ff.w2")
 	let quantized = rows.Entry("attn.to_qkv.comfy_quant") is not ""
 	let scaled = rows.Values("scale1")
-	H3DecoderBlock(first, second, attended, projected, raised, lowered, scaled, rows.Values("scale2"), quantized)
+	H3DecoderBlock(first, second, attended, projected, raised, lowered, scaled, rows.Values("scale2"), quantized, pairs)
 Projection(rows Safetensors, name Text) Slow(Batch)
 	Tiny.Projection(Safetensors(Model.path, 32, "decoder.transformer_blocks.0."), "ff.w2").weights.Length is 256
 	Batch(H3Block.Projection(rows, name), rows.Values(name + ".bias"))
@@ -74,7 +75,7 @@ Rotated(combined Numbers, start Number, width Number, rotation Numbers, scales N
 		column < Decoding.head then (own + other) * scales((first / Decoding.head).Floor) * factor else 0
 Paired(within Number) Number
 	(Tiny.Paired(0) is Decoding.half) and (Tiny.Paired(Decoding.half) is 0) and (Tiny.Paired(60) is 60)
-	let half = Decoding.half
+	(H3DecoderBlock(Tiny, half = 16).Paired(0) is 16) and (H3DecoderBlock(Tiny, half = 16).Paired(40) is 40)
 	within < half then within + half else (within < 2 * half then within - half else within)
 Widened(numbers Numbers, factor Number) Slow(Numbers)
 	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2

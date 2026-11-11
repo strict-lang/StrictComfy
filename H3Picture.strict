@@ -1,19 +1,26 @@
 has encoder H3VaeEncoder
 has tiling H3Tiles
 constant Statistics = 2 * H3Format.Channels
+constant LowestVariance = -30
+constant HighestVariance = 20
 constant Tiny = H3Picture(H3VaeEncoder.Tiny, H3Tiles.Tiny)
 constant Image = H3VaeEncoder.Model.Values("reference.image")
 constant Reference = H3VaeEncoder.Model.Values("reference.latent")
 constant Latent = Tiny.Encoded(Image, (48, 64))
-Encoded(image Numbers, size Numbers) Slow(Numbers)
+constant Tiles = Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32))
+constant Sample = Safetensors("tinyh3imagevae.safetensors", 32).Values("reference.sampled")
+constant Sampled = Tiny.Encoded(Image, (48, 64), MersenneTwister.Seeded(42).Normals(288))
+Encoded(image Numbers, size Numbers, noise = List(Number)) Slow(Numbers)
 	Latent.Length is 288
 	Latent(0).IsNearlyEqual(Reference(0), 0.01)
 	Latent(5).IsNearlyEqual(Reference(5), 0.01)
 	Latent(18).IsNearlyEqual(Reference(18), 0.01)
 	Latent(287).IsNearlyEqual(Reference(287), 0.01)
+	Sampled(5).IsNearlyEqual(Sample(5), 0.01) and Sampled(287).IsNearlyEqual(Sample(287), 0.01)
+	MossImage(Logger).Error(Sampled, Sample) < 0.01
 	let ys = tiling.Starts(size(0))
 	let xs = tiling.Starts(size(1))
-	Blended(Moments(image, size, ys, xs), ys, xs, size)
+	Normalized(Moments(image, size, ys, xs), ys, xs, size, noise)
 Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) Slow(List(Numbers))
 	Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32)).Length is 6
 	let tall = tiling.Length(size(0))
@@ -21,7 +28,17 @@ Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) Slow(List(Numbers))
 	for ys.Length * xs.Length
 		let box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
 		encoder.Moments(encoder.Pixels(image, size, box, H3Vae.Mean + H3Vae.Deviation)).Completed
-Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers) Slow(Numbers)
+Normalized(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Numbers) Slow(Numbers)
+	Tiny.Normalized(Tiles, (0, 16), (0, 16, 32), (48, 64), List(Number))(5) is Latent(5)
+	let means = Blended(moments, ys, xs, size, 0)
+	let spread = noise.Length is 0 then means else Blended(moments, ys, xs, size, H3Format.Channels)
+	let plane = means.Length / H3Format.Channels
+	for means
+		let channel = (index / plane).Floor
+		let deviation = (0.5 * spread(index).Clamp(LowestVariance, HighestVariance)).Exponential
+		let sampled = noise.Length is 0 then value else value + deviation * noise(index)
+		(sampled - encoder.Means(channel)) / encoder.Deviations(channel)
+Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number) Slow(Numbers)
 	let plane = size(0) * size(1) / 256
 	let tall = tiling.Length(size(0)) / 16
 	let wide = tiling.Length(size(1)) / 16
@@ -30,7 +47,7 @@ Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers) Slow(Number
 		let column = index % (size(1) / 16)
 		let above = tiling.Owner(ys, row * 16)
 		let left = tiling.Owner(xs, column * 16)
-		let place = (above, left, row - ys(above) / 16, column - xs(left) / 16, (index / plane).Floor)
+		let place = (above, left, row - ys(above) / 16, column - xs(left) / 16, (index / plane).Floor + offset)
 		Value(moments, place, (xs.Length, tall, wide, Extent(ys, above, tall), Extent(xs, left, wide)))
 Value(moments List(Numbers), place Numbers, extents Numbers) Number
 	let tile = place(0) * extents(0) + place(1)
@@ -42,8 +59,7 @@ Value(moments List(Numbers), place Numbers, extents Numbers) Number
 	let leftward = place(1) > 0 and place(3) < extents(4)
 	let besideColumn = extents(2) - extents(4) + place(3)
 	let beside = leftward then moments(tile - 1)((place(2) * extents(2) + besideColumn) * Statistics + place(4)) else 0
-	let blended = leftward then beside * (1 - place(3) / extents(4)) + vertical * place(3) / extents(4) else vertical
-	(blended - encoder.Means(place(4))) / encoder.Deviations(place(4))
+	leftward then beside * (1 - place(3) / extents(4)) + vertical * place(3) / extents(4) else vertical
 Extent(starts Numbers, at Number, size Number) Number
 	Tiny.Extent((0, 16), 1, 2) is 1
 	Tiny.Extent((0, 16), 0, 2) is 0

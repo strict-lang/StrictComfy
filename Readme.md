@@ -78,7 +78,16 @@ H3Video.exe starts a backend in the background the first time, which keeps the t
 
 MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept. `--local` and `MossImage.exe stop` work like for H3Video.
 
-Before loading models, both check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. `--force` (or `STRICT_FORCE=1`, also for the LLM programs in Strict) runs anyway, which is very slow or fails while the others hold the memory. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
+`Release/Windows/H3Image.exe` makes images with MiniMax H3 Image, with `--image` it edits that image (the prompt is the edit instruction and can call it `<Picture 1>`). `--prompt` takes a prompt file or the prompt itself:
+
+```
+H3Image.exe --prompt "a red fox in fresh snow at sunrise, photo"
+H3Image.exe --image taxi.png --prompt "Replace the taxi in <Picture 1> with a pink ice-cream truck"
+```
+
+It needs `diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors` and `vae/minimax_h3_image_vae_fp16.safetensors` of ComfyUI's H3 Image templates and the same `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` text encoder as H3Video. The default is 6 steps at 2048x2048 (or the edited image's size with its short side between 1024 and 2048), the steps the model's output heads are distilled for, like ComfyUI's template; `--width`, `--height`, `--steps`, `--count`, `--seed` and `--lora` change that. The text encoder runs in its own process first, encoded prompts are cached in `artifacts/h3image`. On a 4090 a 1024x1024 image samples in 3.6 s (ComfyUI 6.3 s warm) and a run with a new prompt takes 31 s in total (ComfyUI 46 s cold); at 2048x2048 each further image of a `--count` run samples in about 5 s and decodes in 4.5 s. There is no backend yet, every run loads the models again.
+
+Before loading models, all three check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. `--force` (or `STRICT_FORCE=1`, also for the LLM programs in Strict) runs anyway, which is very slow or fails while the others hold the memory. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
 
 ## Building from source
 
@@ -87,8 +96,10 @@ With [Strict](https://github.com/strict-lang/Strict) on the PATH, in this folder
 ```
 strict build MossImage windows
 strict build H3Video windows
+strict build H3Image windows
 strict build MossImage linux
 strict build H3Video linux
+strict build H3Image linux
 ```
 
 Tests: `python test_generate.py` with ComfyUI's Python, `strict test MossImage.strict`, `strict check .`

@@ -1,0 +1,162 @@
+has logger
+has options H3ImageOptions = Defaults
+constant Defaults = H3ImageOptions.Parsed(List(Text))
+constant Folder = "/artifacts/h3image"
+constant Label = "Picture #: "
+constant Reference = 42
+constant Tiny = H3Image(Logger, H3ImageOptions.Parsed(("--models", ".", "--width", "64", "--height", "64", "--steps", "2")))
+constant Edit = H3Image(Logger, H3ImageOptions.Parsed(("--image", "tinyframe.png")))
+Run(arguments Texts) Number
+	H3Image(Logger).Run(List(Text) + "--help") is 0
+	H3Image(Logger).Run(List(Text) + "--colour") is 2
+	if "--help" is in arguments
+		logger.Log("H3Image.exe [options] makes images with H3 Image, --image edits one\n" + H3ImageOptions.Usage)
+		return 0
+	let given = arguments - MachineUse.Force
+	if (given.Length > 1) and (given(0) is "encode")
+		return H3Image(logger, H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
+	Parsed(given, arguments)
+Parsed(given Texts, arguments Texts) Number
+	H3Image(Logger).Parsed(("--count", "many"), List(Text)) is 2
+	let parsed = H3ImageOptions.Parsed(given)
+	if parsed is Error
+		logger.Log((parsed to Text).Lines.First.Replace("Error: ", ""))
+		return 2
+	H3Image(logger, parsed).Checked(arguments)
+Checked(arguments Texts) Slow(Number)
+	H3Image(Logger, H3ImageOptions.Parsed(("--steps", "0"))).Checked(List(Text)) is 2
+	Tiny.Checked(List(Text)) is 2
+	let problem = options.Problem is "" then Missing else options.Problem
+	if problem is not ""
+		logger.Log(problem)
+		return 2
+	let sizes = (File(options.Checkpoint).Length, File(options.Encoder).Length)
+	let forced = MachineUse.IsForced(arguments)
+	let use = MachineUse.Models(logger, "H3Image", sizes(0), sizes(1), H3Resident.EncoderGrowth, forced)
+	use.Checked is 0 then Made(arguments - MachineUse.Force) else 1
+Missing Text
+	Tiny.Missing.EndsWith("FileNotFound:" + H3ImageOptions.Base)
+	let checkpoint = options.Checkpoint
+	let decoder = options.Decoder
+	let encoder = options.Encoder
+	if checkpoint is Error
+		return (checkpoint to Text).Lines.First.Replace("Error: ", "")
+	if decoder is Error
+		return (decoder to Text).Lines.First.Replace("Error: ", "")
+	encoder is Error then (encoder to Text).Lines.First.Replace("Error: ", "") else ""
+Made(arguments Texts) Slow(Number)
+	let started = Process.Elapsed
+	let batch = PromptBatch(logger, "Image")
+	let seeds = batch.Seeds(options.Seed, options.count)
+	let prompts = batch.Prompts(List(Text) + options.Prompted, seeds)
+	let paths = Cached(prompts)
+	let contexts = Contexts(prompts, paths, arguments)
+	let latents = Sampled(contexts, paths, seeds, Referenced)
+	let saved = Saved(latents, batch.Outputs(options.output, options.count))
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
+	0
+Encoded(arguments Texts) Slow(Number)
+	let paths = arguments(1).Split(";")
+	let jobs = H3Encoding(logger, List(Text)).Jobs(paths)
+	let seen = options.image is "" then (32, 32) else options.Vision(options.Original)
+	let model = List(Text) + options.Checkpoint
+	let encoder = H3Encoder(logger, options.Files, seen, List(QwenVision), model, Label)
+	encoder.Encoded(H3Inputs.Sample.Column(jobs, 1), H3Inputs.Sample.Column(jobs, 0), paths) > 0 then 0 else 1
+Cached(prompts Texts) Slow(Texts)
+	Tiny.Cached(("a", "b")).First is not Tiny.Cached(("a", "b")).Last
+	Tiny.Cached(List(Text) + "a").First is not Edit.Cached(List(Text) + "a").First
+	Tiny.Cached(List(Text) + "a").First is Tiny.Context(H3Batch.Encoder + "\n\na", 1)
+	let named = options.textEncoder is "" then H3Batch.Encoder else options.textEncoder
+	let pictured = options.image is "" then "" else options.image + " " + File(options.image).Length
+	for prompts
+		Context(named + "\n" + pictured + "\n" + value, value.Length)
+Context(identity Text, length Number) Text
+	Tiny.Context("a", 1).EndsWith(Folder + "/context-" + HashCode("a").number + "-1.safetensors")
+	H3Artifacts.Sample.Root + Folder + "/context-" + HashCode(identity).number + "-" + length + ".safetensors"
+Contexts(prompts Texts, paths Texts, arguments Texts) Slow(List(Safetensors))
+	let artifacts = H3Artifacts.Sample
+	let missing = artifacts.Missing(paths)
+	if missing.Length is 0
+		logger.Log("Using cached prompt conditioning")
+	else
+		Directory.Create(artifacts.Root + "/artifacts")
+		Directory.Create(artifacts.Root + Folder)
+		logger.Log("Starting the text encoder in its own process for " + missing.Length + " prompts")
+		let inputs = H3Inputs.Sample
+		let images = inputs.Picked(List(Text) + options.image, Layer.Zeros(missing.Length))
+		H3Encoding(logger, arguments).Started(inputs.Picked(prompts, missing), images, inputs.Picked(paths, missing))
+	artifacts.Read(paths)
+Pictured Slow(Numbers)
+	Tiny.Pictured.Length is 0
+	Edit.Pictured is (64, 128)
+	if options.image is ""
+		return List(Number)
+	for options.Scaled(options.Original, 1024, 2 * 1024)
+		value / 16
+Referenced Slow(List(Numbers))
+	Tiny.Referenced.Length is 0
+	let size = Pictured
+	if size.Length is 0
+		return List(Numbers)
+	logger.Log("Encoding " + options.image + " at " + size(1) * 16 + "x" + size(0) * 16 + " with the H3 Image VAE")
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.Decoder, 32)), H3Tiles.Real)
+	let noise = MersenneTwister.Seeded(Reference).Normals(H3Format.Channels * size(0) * size(1))
+	let pixels = (size(0) * 16, size(1) * 16)
+	List(Numbers) + picture.Encoded(picture.Frame(options.image, pixels, false), pixels, noise)
+Sampled(contexts List(Safetensors), paths Texts, seeds Numbers, references List(Numbers)) Slow(List(Numbers))
+	let model = Loaded
+	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
+	for seeds
+		let context = contexts(paths.Unique.Index(paths(index)))
+		let before = Process.Elapsed
+		let text = refiner.Refined(context.Values("context"))
+		let latent = Generated(model, text, context.Values("tags"), value, references)
+		logger.Log("Image " + (index + 1) + "/" + seeds.Length + " sampled in " + (Process.Elapsed - before).Round(2) + " s")
+		GpuMemory.Finished
+		latent
+Loaded Slow(H3ImageModel)
+	let started = Process.Elapsed
+	logger.Log("Loading H3 Image " + ModelFiles("").Described(options.Checkpoint) + " from disk into memory")
+	let model = H3ImageModel.Loaded(options.Checkpoint, options.Loras)
+	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(options.Loras).Report)
+	model
+Target Slow(Numbers)
+	(Tiny.Target is (64, 64)) and (Edit.Target is (1024, 2048))
+	options.Size(options.Original)
+Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Slow(Numbers)
+	Tiny.Generated(H3ImageModel.Tiny, H3ImageModel.Prompt, (1, 1, 1), 3, List(Numbers)).Length is 384
+	let size = Target
+	let layout = H3ImageLayout(tags, Pictured, size(0) / 16, size(1) / 16)
+	let conditions = model.Conditioned(references, layout, seed)
+	let sigmas = model.Sigmas(options.steps)
+	let completion = Completion(logger, "Sampling", options.steps, Process.Elapsed)
+	mutable solver = Solver(0, sigmas, MersenneTwister.Seeded(seed).Normals(H3Format.Channels * layout.Patches * 4))
+	for options.steps
+		completion.Report(index)
+		let output = model.Output(solver.latent, sigmas(index), sigmas(index + 1), text, layout, conditions)
+		solver = solver.Stepped(output, index)
+	solver.latent
+Saved(latents List(Numbers), outputs Texts) Slow(Texts)
+	GpuMemory.Released
+	GpuMemory.Freed(File(options.Decoder).Length + H3Files.DecodeRoom)
+	let size = Target
+	logger.Log("Decoding with " + options.Decoder)
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(options.Decoder, 32)), H3Tiles.Real)
+	for latents
+		let started = Process.Elapsed
+		let path = PromptBatch(logger, "Image").Saving(outputs(index), options.output)
+		Written(path, vae.Still(value, size(0) / 16, size(1) / 16), size)
+		logger.Log("Saved " + path + " in " + (Process.Elapsed - started).Round(2) + " s")
+		path
+Written(path Text, pixels Numbers, size Numbers)
+	Tiny.Written("artifacts/H3ImageTest.png", (0, 1, 0.5, 0.25, 0, 1), (1, 2)) is not Error
+	let plane = size(0) * size(1)
+	let interleaved = Interleaved(pixels, plane)
+	if path.Lower.EndsWith(".png")
+		ImageSaver(path).Save(Image(Size(size(1), size(0)), FluxImage(logger).Colors(interleaved)))
+	else
+		ImageCodec.SaveJpeg(path, interleaved, size(1), MossBatch.JpegQuality)
+Interleaved(pixels Numbers, plane Number) Numbers
+	Tiny.Interleaved((1, 2, 3, 4, 5, 6), 2) is (1, 3, 5, 2, 4, 6)
+	for pixels.Length
+		pixels(index % 3 * plane + (index / 3).Floor)

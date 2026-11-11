@@ -84,6 +84,10 @@ Dense(weights Safetensors, name Text) Slow(Batch)
 	Half.Dense(H3Block.Model, "video_patch_proj").biases is not MossText.Dense(H3Block.Model, "video_patch_proj").biases
 	let batch = MossText.Dense(weights, name)
 	loras is "" then batch else Batch(Weighted(weights, batch.weights, name), Changed(name, "diff_b", batch.biases))
+Optional(weights Safetensors, name Text) Slow(Batch)
+	H3Lora("").Optional(H3Block.Model, "audio").weights.Length is 0
+	H3Lora("").Optional(H3Block.Model, "video_patch_proj") is Dense(H3Block.Model, "video_patch_proj")
+	weights.Entry(name + ".weight") is "" then Batch(List(Numbers), Layer.Unbiased) else Dense(weights, name)
 Values(weights Safetensors, name Text) Slow(Numbers)
 	Half.Values(H3Block.Model, "blocks.1.norm1") is H3Block.Model.Values("blocks.1.norm1.weight")
 	Half.Values(H3Block.Model, "blocks.0.norm1") is not H3Block.Model.Values("blocks.0.norm1.weight")

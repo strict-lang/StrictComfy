@@ -1,0 +1,83 @@
+has tags Numbers
+has references Numbers
+has height Number
+has width Number
+constant Tiny = H3ImageLayout((1, 0, 1), (2, 4), 4, 4)
+constant Plain = H3ImageLayout((1, 1, 1), List(Number), 4, 4)
+constant Two = H3ImageLayout((1, 0, 1), (2, 4, 2, 6), 4, 4)
+constant Expected = Safetensors("tinyh3image.safetensors", 32).Values("reference.positions")
+Words Number
+	Tiny.Words is 3
+	tags.Length
+Pictures Number
+	Tiny.Pictures is 1
+	Plain.Pictures is 0
+	references.Length / 2
+Size(picture Number) Number
+	Tiny.Size(0) is 2
+	Two.Size(1) is 3
+	references(2 * picture) * references(2 * picture + 1) / 4
+Start(picture Number) Number
+	Tiny.Start(1) is 2
+	mutable rows = 0
+	for picture
+		rows = rows + Size(index)
+	rows
+Conditions Number
+	Tiny.Conditions is 2
+	Plain.Conditions is 0
+	Start(Pictures)
+Patches Number
+	Tiny.Patches is 4
+	height * width / 4
+Tokens Number
+	Tiny.Tokens is 9
+	Words + Conditions + Patches
+Picture(row Number) Number
+	(Two.Picture(1) is 0) and (Two.Picture(2) is 1) and (Two.Picture(4) is 1)
+	mutable picture = 0
+	for Pictures
+		if row >= Start(index)
+			picture = index
+	picture
+Positions Numbers
+	Tiny.Positions.Length is 27
+	Tiny.Positions(10).IsNearlyEqual(Expected(10))
+	Tiny.Positions(26).IsNearlyEqual(Expected(26))
+	for Tokens * 3
+		Position((index / 3).Floor, index % 3)
+Position(token Number, axis Number) Number
+	(Tiny.Position(1, 0) is 1) and (Tiny.Position(1, 1) is 0)
+	Tiny.Position(3, 2).IsNearlyEqual(-6.627417)
+	Tiny.Position(4, 1).IsNearlyEqual(4.686292)
+	(Tiny.Position(8, 0) is 4) and (Tiny.Position(8, 2) is 16) and (Plain.Position(3, 0) is 3)
+	(Two.Position(8, 1) is 0) and (Two.Position(10, 1) is 16) and (Two.Position(9, 2) is 16)
+	(Two.Position(11, 0) is 5) and (Two.Position(5, 0) is 4)
+	if token < Words
+		return axis is 0 then token else 0
+	let row = token - Words
+	row >= Conditions then Grid(height, width).Seen(row - Conditions, axis, Words + Pictures) else Referenced(row, axis)
+Referenced(row Number, axis Number) Number
+	Two.Referenced(2, 2).IsNearlyEqual(-11.712813) and Two.Referenced(4, 2).IsNearlyEqual(25.237604)
+	let picture = Picture(row)
+	let size = Grid(references(2 * picture), references(2 * picture + 1))
+	size.Seen(row - Start(picture), axis, Words + picture)
+Grid(high Number, wide Number) H3Layout
+	Tiny.Grid(2, 4).Patches is 2
+	H3Layout(List(Number), List(Number), 0, 1, high, wide)
+Times(sigma Number) Numbers
+	Tiny.Times(0.75) is (0.25, 0.999)
+	Plain.Times(0.75) is (0.25)
+	Tiny.Times(0.0005) is (0.9995)
+	let seen = List(Number) + (1 - sigma)
+	Pictures is 0 then seen else (seen + Pinned(sigma)).Unique.Sorted
+Pinned(sigma Number) Number
+	Tiny.Pinned(0.75) is H3Layout.Pinned
+	1 - sigma > H3Layout.Pinned then 1 - sigma else H3Layout.Pinned
+Rows(sigma Number) Numbers
+	Tiny.Rows(0.75) is (6, 0, 6, 18, 18, 0, 0, 0, 0)
+	Plain.Rows(1) is (6, 6, 6, 0, 0, 0, 0)
+	Tiny.Rows(0.0005) is (6, 0, 6, 0, 0, 0, 0, 0, 0)
+	let pinned = (Times(sigma).Length - 1) * 3 * 6
+	for Tokens
+		index < Words then tags(index) * 6 else index < Words + Conditions then pinned else 0
