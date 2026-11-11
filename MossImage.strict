@@ -56,7 +56,7 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	let sized = MossImage(logger, steps.Shape("noise").Last)
 	let first = Safetensors(dumps + "/step0.safetensors", 64)
 	let sampled = sized.Generated(model, lora, Euler(8, 5), steps, first, context)
-	logger.Log("latent error " + Error(sampled, steps.Values("latent")))
+	logger.Log("latent error " + RelativeError(sampled, steps.Values("latent")))
 	if MossFiles.FailedNumber(sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
 		return
 Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Slow(Numbers)
@@ -89,12 +89,12 @@ Compared(moss Moss, step Safetensors) Slow(Number)
 	let context = step.Values("context")
 	let vector = moss.TimeEmbedded(step.Values("timestep").First)
 	let modulation = moss.blockModulation.Sums(vector)
-	logger.Log("time embedding error " + Error(vector, step.Values("time_embedding")))
-	logger.Log("modulation error " + Error(modulation, step.Values("shared_block_modulation")))
+	logger.Log("time embedding error " + RelativeError(vector, step.Values("time_embedding")))
+	logger.Log("modulation error " + RelativeError(modulation, step.Values("shared_block_modulation")))
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
 	let video = moss.video.Sums(Moss.Transposed(step.Values("x"), moss.video.weights.First.Length))
-	logger.Log("text embedder error " + Error(text, step.Values("text_embedder")))
-	logger.Log("video embedder error " + Error(video, step.Values("video_embedder")))
+	logger.Log("text embedder error " + RelativeError(text, step.Values("text_embedder")))
+	logger.Log("video embedder error " + RelativeError(video, step.Values("video_embedder")))
 	Layered(moss, step, video + text, modulation)
 Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Slow(Number)
 	MossImage(Logger, 4).Layered(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
@@ -104,13 +104,13 @@ Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Slow(Nu
 	mutable error = 0
 	for moss.layers
 		state = value.Output(state, modulation, rotation)
-		error = Error(state, step.Values("layers." + index))
+		error = RelativeError(state, step.Values("layers." + index))
 		logger.Log("layer " + index + " error " + error)
 	error
-Error(values Numbers with value.Bits is 32, expected Numbers with value.Bits is 32) Number
-	MossImage(Logger).Error((1, 2), (1, 2)) is 0
-	MossImage(Logger).Error((2, 0), (1, 0)) is 1
-	MossImage(Logger).Error((3, 0), (2, 0)) is 0.5
+RelativeError(values Numbers with value.Bits is 32, expected Numbers with value.Bits is 32) Number
+	MossImage(Logger).RelativeError((1, 2), (1, 2)) is 0
+	MossImage(Logger).RelativeError((2, 0), (1, 0)) is 1
+	MossImage(Logger).RelativeError((3, 0), (2, 0)) is 0.5
 	mutable difference = 0
 	mutable size = 0
 	for expected

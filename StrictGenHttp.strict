@@ -1,0 +1,102 @@
+constant ReceivePolls = 500
+constant OkHeader = "HTTP/1.1 200 OK\r\nContent-Type: "
+constant HexDigits = "0123456789abcdef"
+Route(raw Text) Text
+	StrictGenHttp.Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
+	StrictGenHttp.Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
+	StrictGenHttp.Route("GET") is "/"
+	let parts = raw.Split("\r\n").First.Split(" ")
+	let target = parts.Length > 1 then parts(1) else "/"
+	let question = target.IndexOf("?")
+	question < 0 then target else target.Substring(0, question)
+Query(raw Text, name Text) Text
+	StrictGenHttp.Query("GET /file?path=a.jpg HTTP/1.1\r\n\r\n", "path") is "a.jpg"
+	StrictGenHttp.Query("GET /file?path=a+b.jpg HTTP/1.1\r\n\r\n", "path") is "a b.jpg"
+	let target = raw.Split("\r\n").First.Split(" ")
+	let full = target.Length > 1 then target(1) else ""
+	let question = full.IndexOf("?")
+	for (question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)).Split("&")
+		if value.StartsWith(name + "=")
+			let part = value.Substring(name.Length + 1, value.Length - name.Length - 1).Replace("+", " ").Replace("%20", " ")
+			return part.Replace("%2F", "/").Replace("%5C", "\\").Replace("%3A", ":")
+	""
+Body(raw Text) Text
+	StrictGenHttp.Body("POST /run HTTP/1.1\r\n\r\n{\"a\":1}") is "{\"a\":1}"
+	StrictGenHttp.Body("GET / HTTP/1.1\r\n\r\n") is ""
+	let separator = raw.IndexOf("\r\n\r\n")
+	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
+Received(client Number) Text
+	if (client is Error) or (client <= 0)
+		return ""
+	mutable bytes = List(Mutable(Number))
+	for Range(0, ReceivePolls)
+		let pending = Socket.Pending(client)
+		if pending > 0
+			bytes = bytes + Socket.Receive(client, pending)
+		if Complete(Decoded(bytes))
+			return Decoded(bytes)
+		Process.Wait(0.01)
+	Decoded(bytes)
+Complete(raw Text) Boolean
+	StrictGenHttp.Complete("GET / HTTP/1.1\r\n\r\n")
+	StrictGenHttp.Complete("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")
+	StrictGenHttp.Complete("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab") is false
+	let separator = raw.IndexOf("\r\n\r\n")
+	if separator < 0
+		return false
+	let start = raw.Lower.IndexOf("content-length: ")
+	let length = start < 0 then 0 else raw.Substring(start + 16, raw.Length - start - 16).Split("\r\n").First to Number
+	raw.Length - separator - 4 >= length
+Replied(client Number, kind Text, body Text)
+	let payload = Encoded(body)
+	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n"
+	Socket.Send(client, Encoded(header) + payload)
+	Socket.Close(client)
+SendFile(client Number, path Text)
+	if (path is "") or (File(path).Exists is false)
+		Replied(client, "text/plain", "missing")
+		return
+	let payload = File(path).ReadBytes
+	let cache = path.IndexOf("MossWebExample") >= 0 then "public, max-age=86400" else "no-store"
+	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
+	Socket.Send(client, Encoded(OkHeader + Kind(path) + length) + payload)
+	Socket.Close(client)
+Kind(path Text) Text
+	StrictGenHttp.Kind("a.jpg") is "image/jpeg"
+	StrictGenHttp.Kind("a.mp4") is "video/mp4"
+	StrictGenHttp.Kind("a.png") is "image/png"
+	let extension = path.Lower.Split(".").Last
+	let image = (extension is "jpg") or (extension is "jpeg") then "image/jpeg" else "application/octet-stream"
+	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
+Hex(bytes Numbers) Text
+	StrictGenHttp.Hex((255, 16)) is "ff10"
+	mutable text = ""
+	for bytes
+		text = text + Digits((value / 16).Floor) + Digits(value % 16)
+	text
+Unhex(text Text) Numbers
+	StrictGenHttp.Unhex("ff10") is (255, 16)
+	StrictGenHttp.Unhex("abc") is (171)
+	mutable bytes = List(Mutable(Number))
+	for Range(0, (text.Length / 2).Floor)
+		bytes.Add(Nibble(text(index * 2)) * 16 + Nibble(text(index * 2 + 1)))
+	bytes
+Digits(digit Number) Text
+	HexDigits(digit.Clamp(0, HexDigits.Length - 1)) to Text
+Nibble(letter Text) Number
+	mutable found = 0
+	for HexDigits
+		if value is letter.Lower
+			found = index
+	found
+Encoded(text Text) Numbers
+	StrictGenHttp.Encoded("Ab") is (65, 98)
+	for text
+		value.number
+Decoded(bytes Numbers) Text
+	StrictGenHttp.Decoded((65, 98)) is "Ab"
+	Text.Combine(Letters(bytes), "")
+Letters(bytes Numbers) Texts
+	StrictGenHttp.Letters((65, 98)) is ("A", "b")
+	for bytes
+		Character(value) to Text

@@ -22,6 +22,8 @@ constant CountHelp = ("LoRA path[:strength] in models/loras or anywhere, repeat 
 constant SizeHelp = ("width in pixels, rounded down to a multiple of 32", "height in pixels, rounded down to a multiple of 32")
 constant OutputHelp = ("numbered output base (.jpg or .png), never overwritten, or a .safetensors that gets the encoded prompt (context) for the browser page instead of an image", "write the settings of every image next to it as .json")
 constant PreviewHelp = List(Text) + "JPEG written during the sampling steps, empty for none"
+constant TinyModels = ("--models", ".", "--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--text_encoder", "tinymoss.safetensors")
+constant MissingModel = "Error: FileNotFound:a.safetensors\nnext"
 constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp + PreviewHelp
 Sampling(logger Logger) MossSampling
 	MossOptions.Parsed(("--preview", "step.jpg")).preview is "step.jpg"
@@ -103,7 +105,7 @@ Distilled(specs Texts) Boolean
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
 Located Text
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
-	MossOptions.Parsed(("--models", ".", "--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--text_encoder", "tinymoss.safetensors")).Named("") is ""
+	MossOptions.Parsed(TinyModels).Named("") is ""
 	let model = files.Checkpoint
 	let loras = Loras
 	let decoder = files.Decoder
@@ -114,8 +116,10 @@ Located Text
 	Named(early + late + ((tokenizer is Error) then (tokenizer to Text) else ""))
 Named(problem Text) Text
 	MossOptions.Parsed(List(Text)).Named("") is ""
-	MossOptions.Parsed(List(Text)).Named("Error: FileNotFound:a.safetensors\nnext") is "Model file not found: a.safetensors"
-	problem is "" then "" else problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")
+	MossOptions.Parsed(List(Text)).Named(MissingModel) is "Model file not found: a.safetensors"
+	if problem is ""
+		return ""
+	problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")
 Specs Texts
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)

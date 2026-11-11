@@ -12,7 +12,7 @@ Deltas Slow(List(MossLora))
 	Fours.Deltas.Length is 4
 	MossTuning(Fours.rows, "").Deltas.Length is 0
 	Floats.Deltas.Length is 0
-	MossImage(Logger).Error(Output, Reference) < 0.1
+	MossImage(Logger).RelativeError(Output, Reference) < 0.1
 	if (loras is "") or (rows.Entry("o.weight_scale") is "") or (rows.Entry("o.comfy_quant") is not "")
 		return List(MossLora)
 	let qkv = Stacked("q.").Placed(0).Stacked(Stacked("k.").Placed(1)).Stacked(Stacked("v.").Placed(2))

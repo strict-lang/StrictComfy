@@ -64,8 +64,8 @@ Hidden(latent Numbers, text Numbers, layout H3ImageLayout, conditions Numbers) S
 Output(latent Numbers, sigma Number, next Number, text Numbers, layout H3ImageLayout, conditions Numbers) Slow(Numbers)
 	Edited(0).IsNearlyEqual(Model.Values("edit.output")(0), 0.05)
 	Edited(383).IsNearlyEqual(Model.Values("edit.output")(383), 0.05)
-	MossImage(Logger).Error(Edited, Model.Values("edit.output")) < 0.03
-	MossImage(Logger).Error(Created, Model.Values("plain.output")) < 0.03
+	MossImage(Logger).RelativeError(Edited, Model.Values("edit.output")) < 0.03
+	MossImage(Logger).RelativeError(Created, Model.Values("plain.output")) < 0.03
 	let curves = h3.Curves(layout.Times(sigma))
 	let starts = layout.Rows(sigma)
 	let rotation = Rotation(layout)

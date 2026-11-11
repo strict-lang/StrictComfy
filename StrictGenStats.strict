@@ -3,6 +3,7 @@ constant Sample = StrictGenStats(Logger)
 constant WindowsCpu = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average"
 constant LinuxCpu = "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
 constant Measured = "StrictGenCpu.txt"
+constant Queued = StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")
 constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
 Text Slow(Text)
 	Sample.Text.IndexOf("\"ram\"") >= 0
@@ -22,30 +23,47 @@ Processor Slow(Number)
 	let result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
 	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
 	(result.Failed or (number is Error)) then 0 else number.Clamp(0, 100)
-Status(queue StrictGenQueue, net StrictGenNet, meters Text) Text
-	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle, Blank).IndexOf("\"position\":\"run 0") >= 0
-	let stats = meters is "" then Blank else meters
-	let log = queue.jobLog
-	let step = queue.IsBusy and (log is not "") and File(log).Exists then Step(File(log).ReadLines) else ""
-	let preview = queue.jobPreview is "" then StrictGen.Preview else queue.jobPreview
+Status(queue StrictGenQueue, net StrictGenNet) Text
+	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"run 0") >= 0
+	let stats = net.meters is "" then Blank else net.meters
+	let preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
 	let stamp = (preview is not "") and File(preview).Exists then File(preview).Length else 0
-	let head = stats.Substring(0, stats.Length - 1) + ",\"position\":" + queue.Position.Code + ",\"step\":" + step.Code
-	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code + ",\"previewStamp\":" + stamp
+	let position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
+	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
+	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
+	head + Made(queue) + ",\"peers\":" + Peers(net) + "}"
+Made(queue StrictGenQueue) Text
+	Sample.Made(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
 	let made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
-	let running = queue.current < 0 then "" else queue.lines(queue.current)
-	let lists = ",\"recent\":" + Codes(queue.Recent) + ",\"running\":" + running.Code + ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
-	let activity = ",\"activity\":" + Activity(queue).Code + ",\"examples\":" + Codes(Examples)
-	head + busy + made + lists + ",\"notice\":" + queue.notice.Code + activity + ",\"peers\":" + Peers(net) + "}"
+	let running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
+	let recent = ",\"recent\":" + Codes(Recent(queue)) + ",\"running\":" + running.Code
+	let lists = ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
+	let activity = ",\"notice\":" + queue.notice.Code + ",\"activity\":" + Activity(queue).Code
+	made + recent + lists + activity + ",\"examples\":" + Codes(Examples)
 Activity(queue StrictGenQueue) Text
 	Sample.Activity(StrictGenQueue.Empty) is "Idle\n"
-	Sample.Activity(StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")).IndexOf("Run started") >= 0
-	Sample.Activity(StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")).IndexOf("Queued") >= 0
-	let head = queue.notice is "" then (queue.IsBusy or (queue.pending.Length > 0) then "Run started\n" else "Idle\n") else queue.notice + "\n"
-	let running = queue.current < 0 then "" else "Running: " + queue.lines(queue.current) + "\n"
-	let queued = queue.pending.Length is 0 then "" else "Queued:\n" + outer.Text.Combine(Lines(queue, queue.pending), "\n") + "\n"
-	let done = queue.captions.Length is 0 then "" else "Done:\n" + outer.Text.Combine(queue.captions, "\n") + "\n"
-	let log = queue.IsBusy and (queue.jobLog is not "") and File(queue.jobLog).Exists then outer.Text.Combine(File(queue.jobLog).ReadLines, "\n") else ""
-	head + running + queued + done + log
+	Sample.Activity(Queued).IndexOf("Run started") >= 0
+	Sample.Activity(Queued).IndexOf("Queued") >= 0
+	let state = queue.IsBusy or (queue.pending.Length > 0) then "Run started" else "Idle"
+	let head = (queue.notice is "" then state else queue.notice) + "\n"
+	let running = queue.job.current < 0 then "" else "Running: " + queue.lines(queue.job.current) + "\n"
+	let queued = queue.pending.Length is 0 then "" else "Queued:\n" + Joined(Lines(queue, queue.pending)) + "\n"
+	let done = queue.captions.Length is 0 then "" else "Done:\n" + Joined(queue.captions) + "\n"
+	head + running + queued + done + Joined(queue.job.Logged)
+Joined(lines Texts) Text
+	Sample.Joined(("a", "b")) is "a\nb"
+	outer.Text.Combine(lines, "\n")
+Position(queue StrictGenQueue) Text
+	Sample.Position(StrictGenQueue.Empty) is "run 0 · queue 0 · done 0"
+	Sample.Position(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is "run 0 · queue 1 · done 0"
+	"run " + (queue.job.current < 0 then 0 else 1) + " · queue " + queue.pending.Length + " · done " + queue.finished
+Waiting(queue StrictGenQueue) Texts
+	Sample.Waiting(StrictGenQueue.Empty).Length is 0
+	Sample.Waiting(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is ("Image fox")
+	Lines(queue, queue.job.current < 0 then queue.pending else List(Number) + queue.job.current + queue.pending)
+Recent(queue StrictGenQueue) Texts
+	Sample.Recent(StrictGenQueue.Empty).Length is 0
+	queue.results.Reverse
 Lines(queue StrictGenQueue, ids Numbers) Texts
 	for ids
 		queue.lines(value)
@@ -89,7 +107,7 @@ Codes(lines Texts) Text
 	"[" + outer.Text.Combine(quoted, ",") + "]"
 Probed(path Text) Text
 	Sample.Probed("missing-clip.mp4") is ""
-	let line = StrictGenClip(logger).Probe(path)
+	let line = File(path).Exists then StrictGenClip(logger).Probe(path) else ""
 	if line is ""
 		return ""
 	let parts = line.Split(",")

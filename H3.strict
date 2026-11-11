@@ -15,7 +15,7 @@ constant Fenced = H3(Tiny, blocks = Tiny.blocks + H3Block(Tiny.blocks(0), attent
 constant Word = Prompt.Slice(0, 256)
 Loaded(path Text, loras = "") Slow(H3)
 	Tiny.blocks.Length is 2
-	MossImage(Logger).Error(H3Lora.Forward, H3Lora.Outputs) < 0.03
+	MossImage(Logger).RelativeError(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
 	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
 	let heard = H3Lora(loras).Optional(model, "audio_patch_proj")

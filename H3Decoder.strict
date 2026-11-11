@@ -15,6 +15,7 @@ constant Turning = Tiny.Rotations(7, 2, 2)
 constant Circle = 6.283185307179586
 constant StillRows = 768
 constant PlanarHalf = 16
+constant StillBits = 8
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
 Loaded(model Safetensors) Slow(H3Decoder)
 	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)
@@ -33,8 +34,9 @@ Blocks(model Safetensors) Slow(List(H3DecoderBlock))
 	Tiny.Blocks(Model).Length is 2
 	(Tiny.blocks.First.half is 24) and (Still.blocks.First.half is 16)
 	let half = model.Shape("decoder.proj_out.weight")(0) is StillRows then PlanarHalf else H3DecoderBlock.Decoding.half
+	let bits = half is PlanarHalf then StillBits else 32
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length
-		H3DecoderBlock.Loaded(model, "decoder.transformer_blocks." + index + ".", half)
+		H3DecoderBlock.Loaded(model, "decoder.transformer_blocks." + index + ".", half, bits)
 Split(values Numbers, width Number) Slow(List(Numbers))
 	Tiny.Split((1, 2, 3, 4), 2) is ((1, 2), (3, 4))
 	for values.Length / width

@@ -7,8 +7,8 @@ Measured(step Number, before Number, latent Numbers, data Safetensors, suffix Te
 		return Error("Empty Moss latent")
 	let next = "x." + (step + 1)
 	let reference = data.Entry(next) is "" then "latent" else next
-	let image = MossImage(logger)
-	let compared = data.Entry(reference) is "" then "" else ", error " + image.Error(latent, data.Values(reference))
+	let moss = MossImage(logger)
+	let compared = data.Entry(reference) is "" then "" else ", error " + moss.RelativeError(latent, data.Values(reference))
 	let elapsed = ((Process.Elapsed - before) * 1000).Round
 	logger.Log("step " + step + " " + elapsed + " ms" + compared + suffix)
 	elapsed

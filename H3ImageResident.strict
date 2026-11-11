@@ -7,7 +7,11 @@ has models List(H3ImageModel) = List(H3ImageModel)
 has refiners List(H3Refiner) = List(H3Refiner)
 has model = ""
 has decoders List(H3Vae) = List(H3Vae)
-has decoderFile = ""
+has pictures List(H3Picture) = List(H3Picture)
+has vaeFile = ""
+has visions List(QwenVision) = List(QwenVision)
+has references List(Numbers) = List(Numbers)
+has referenceKey = ""
 has code = 0
 constant Tiny = H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors", "--vae", "tinyh3imagevae.safetensors"))
 constant TinyFiles = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
@@ -37,12 +41,42 @@ Loaded(options H3ImageOptions) Slow(H3ImageModel)
 	loaded
 Decoding(path Text) Slow(H3ImageResident)
 	Sampled.Decoding(Tiny.Decoder).decoders.Length is 1
-	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).decoderFile is Tiny.Decoder
-	if (path is decoderFile) and (decoders.Length is 1)
+	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).vaeFile is Tiny.Decoder
+	Sampled.Picturing(H3VaeEncoder.Model.path).Decoding(Tiny.Decoder).pictures.Length is 0
+	if (path is vaeFile) and (decoders.Length is 1)
 		return value
 	logger.Log("Loading the H3 Image VAE " + ModelFiles("").Described(path) + Staying)
 	let vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
-	H3ImageResident(value, decoders = List(H3Vae) + vae, decoderFile = path)
+	let kept = path is vaeFile then pictures else List(H3Picture)
+	H3ImageResident(value, decoders = List(H3Vae) + vae, pictures = kept, vaeFile = path)
+Picturing(path Text) Slow(H3ImageResident)
+	Sampled.Picturing(H3VaeEncoder.Model.path).pictures.Length is 1
+	Sampled.Picturing(H3VaeEncoder.Model.path).vaeFile is H3VaeEncoder.Model.path
+	if (path is vaeFile) and (pictures.Length is 1)
+		return value
+	logger.Log("Loading the H3 Image VAE encoder" + Staying)
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
+	let kept = path is vaeFile then decoders else List(H3Vae)
+	H3ImageResident(value, pictures = List(H3Picture) + picture, decoders = kept, vaeFile = path)
+Referencing(image H3Image) Slow(H3ImageResident)
+	Sampled.Referencing(H3Image.Tiny).references.Length is 0
+	Sampled.Referencing(H3Image.Tiny).pictures.Length is 0
+	let path = image.options.image
+	let file = File(path)
+	let key = path is "" then "" else image.options.Decoder + "|" + path + "|" + file.Length + "|" + file.Modified
+	if key is referenceKey
+		return value
+	if key is ""
+		return H3ImageResident(value, references = List(Numbers), referenceKey = "")
+	let picturing = Picturing(image.options.Decoder)
+	H3ImageResident(picturing, references = image.Referenced(picturing.pictures.First), referenceKey = key)
+Seeing(files H3Files) Slow(H3ImageResident)
+	Encoded.Seeing(TinyFiles).visions.Length is 0
+	if (files.Images.Length is 0) or (visions.Length is 1)
+		return value
+	logger.Log("Loading the vision encoder of " + ModelFiles("").Described(files.Encoder) + Staying)
+	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
+	H3ImageResident(value, visions = List(QwenVision) + vision)
 Encoding(files H3Files) Slow(H3ImageResident)
 	(Encoded.encoders.Length is 1) and (Encoded.tokenizers.Length is 1)
 	Encoded.Encoding(TinyFiles).encoderFile is Encoded.encoderFile
@@ -53,17 +87,19 @@ Encoding(files H3Files) Slow(H3ImageResident)
 	let encoder = H3Encoder(logger, files)
 	let loaded = encoder.Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s" + Staying)
-	let tokenizer = List(Gpt2Tokens) + encoder.Tokenizer
-	H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder, tokenizers = tokenizer)
+	let encoded = H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder)
+	H3ImageResident(encoded, tokenizers = List(Gpt2Tokens) + encoder.Tokenizer, visions = List(QwenVision))
 Trimmed(options H3ImageOptions) Slow(H3ImageResident)
 	Encoded.Trimmed(Tiny).encoders.Length is 1
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
+	if GpuMemory.Held + GpuMemory.Available < File(options.Checkpoint).Length + File(encoderFile).Length
+		GpuMemory.Evicted
 	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
 	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	if (encoders.Length is 0) or (isKept and (isCrowded is false))
 		return value
 	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
-	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", tokenizers = List(Gpt2Tokens))
+	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", visions = List(QwenVision))
 Staying Text
 	Kept.Staying.StartsWith(", it stays")
 	H3ImageResident(Logger).Staying is ""

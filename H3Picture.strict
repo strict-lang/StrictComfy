@@ -17,7 +17,7 @@ Encoded(image Numbers, size Numbers, noise = List(Number)) Slow(Numbers)
 	Latent(18).IsNearlyEqual(Reference(18), 0.01)
 	Latent(287).IsNearlyEqual(Reference(287), 0.01)
 	Sampled(5).IsNearlyEqual(Sample(5), 0.01) and Sampled(287).IsNearlyEqual(Sample(287), 0.01)
-	MossImage(Logger).Error(Sampled, Sample) < 0.01
+	MossImage(Logger).RelativeError(Sampled, Sample) < 0.01
 	let ys = tiling.Starts(size(0))
 	let xs = tiling.Starts(size(1))
 	Normalized(Moments(image, size, ys, xs), ys, xs, size, noise)

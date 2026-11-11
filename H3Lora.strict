@@ -17,7 +17,7 @@ Tuning(prefix Text) Slow(List(MossLora))
 	H3Lora("").Tuning("blocks.0.").Length is 0
 	Half.Tuning("blocks.1.")(3).rank is 5
 	H3Lora(Reference.path).Tuning("blocks.1.")(3).up.Length is 256 * 5
-	MossImage(Logger).Error(Quarters.Tuning("blocks.0.")(0).Delta(Normed), Reference.Values("qkv")) < 0.005
+	MossImage(Logger).RelativeError(Quarters.Tuning("blocks.0.")(0).Delta(Normed), Reference.Values("qkv")) < 0.005
 	if loras is ""
 		return List(MossLora)
 	for Linears
@@ -73,8 +73,8 @@ Swapped(lora MossLora, flipped Boolean) MossLora
 Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
 	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
-	MossImage(Logger).Error(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
-	MossImage(Logger).Error(MossLora.FoursOutput, MossBlock.Layered) < 0.1
+	MossImage(Logger).RelativeError(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
+	MossImage(Logger).RelativeError(MossLora.FoursOutput, MossBlock.Layered) < 0.1
 	let lora = Stacked(prefix + name + ".")
 	if lora.rank is 0
 		return rows.Quantized(name)

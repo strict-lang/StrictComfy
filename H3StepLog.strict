@@ -20,7 +20,7 @@ Stepped(step Number, state H3Spectrum, video Numbers, audio Numbers) Slow(H3Step
 Logged(waiting Boolean) Number
 	Timed.Logged(true) is 2
 	H3StepLog(Timed, logged = 1).Logged(false) is 2
-	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is 2
+	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is (GpuMemory.Elapsed(0, 1) is -1 then 0 else 2)
 	H3StepLog(Timed, logged = 2).Logged(true) is 2
 	mutable count = logged
 	for as long as Continues(count, waiting)
@@ -28,12 +28,13 @@ Logged(waiting Boolean) Number
 	count
 Continues(count Number, waiting Boolean) Boolean
 	Timed.Continues(0, false) and Timed.Continues(1, true)
-	(Timed.Continues(2, true) is false) and H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, false)
+	Timed.Continues(2, true) is false
+	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, false) is (GpuMemory.Elapsed(0, 1) is not -1)
 	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, true)
 	(count < notes.Length) and (waiting or IsDone(count))
 IsDone(step Number) Boolean
 	Timed.IsDone(0)
-	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0)
+	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0) is (GpuMemory.Elapsed(0, 1) is not -1)
 	H3StepLog(Timed, stamps = (-1, 0, 1)).IsDone(0) is false
 	H3StepLog(Timed, stamps = (0, 1, -1)).IsDone(1)
 	(stamps(step + 1) < 0) or (GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1)
@@ -59,5 +60,5 @@ Errors(step Number, count Number, video Numbers, audio Numbers) Slow(Text)
 		return ""
 	if (job.file.Entry("video." + step) is "") or (job.Count is not count)
 		return ""
-	let seen = MossImage(logger).Error(video, job.file.Values("video." + step))
-	", video error " + seen + ", audio error " + MossImage(logger).Error(audio, job.file.Values("audio." + step))
+	let seen = MossImage(logger).RelativeError(video, job.file.Values("video." + step))
+	", video error " + seen + ", audio error " + MossImage(logger).RelativeError(audio, job.file.Values("audio." + step))

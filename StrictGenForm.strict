@@ -2,6 +2,9 @@ constant Picture = "{\"mode\":\"image\",\"prompt\":\"a fox\",\"width\":480,\"hei
 constant Clip = "{\"mode\":\"extend\",\"prompt\":\"go on\",\"width\":640,\"height\":1152,\"quality\":\"fast\",\"steps\":0,\"skip\":\"5:45\",\"length\":24,\"context\":39,\"video\":\"in.mp4\",\"count\":1,\"seed\":7}"
 constant ExpectedPicture = ("--width", "480", "--height", "848", "--quality", "fastest", "--prompt", "StrictGenPrompt.txt", "--vae", "taef2.safetensors", "--skip", "off")
 constant ExpectedClip = ("--width", "640", "--height", "1152", "--quality", "fast", "--prompt", "StrictGenPrompt.txt", "--length", "24", "--context", "39", "--video", "in.mp4", "--skip", "5:45", "--seed", "7")
+constant Forced = "{\"force\":\"true\",\"local\":\"true\",\"seed\":7}"
+constant Modes = ("image", "video", "extend", "h3image")
+constant Titles = ("Image", "Video", "Extend", "H3 Image")
 Arguments(body Text) Texts
 	StrictGenForm.Arguments(Picture) is ExpectedPicture
 	StrictGenForm.Arguments(Clip) is ExpectedClip
@@ -42,7 +45,7 @@ Remote(json Json) Texts
 	StrictGenForm.Remote(Json("{\"remote\":\"\"}")).Length is 0
 	StrictGenForm.Remote(Json("{\"force\":\"true\"}")) is ("--force")
 	StrictGenForm.Remote(Json("{\"local\":\"true\"}")) is ("--local")
-	StrictGenForm.Remote(Json("{\"force\":\"true\",\"local\":\"true\",\"seed\":7}")) is ("--force", "--local", "--seed", "7")
+	StrictGenForm.Remote(Json(Forced)) is ("--force", "--local", "--seed", "7")
 	StrictGenImage.Flags(json) + More(json)
 More(json Json) Texts
 	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
@@ -113,9 +116,8 @@ Summary(body Text) Text
 	StrictGenForm.Summary(Clip).StartsWith("Extend go on 640x1152 fast")
 	StrictGenForm.Summary(StrictGenImage.Edit).StartsWith("H3 Image night 1024x1024")
 	let json = Json(body)
-	let mode = json.get("mode") to Text
-	let video = mode is "video" then "Video" else mode is "extend" then "Extend" else mode is "h3image" then "H3 Image" else "Image to video"
-	let label = (mode is "image" then "Image" else video) + " " + (json.get("prompt") to Text).Split("\n").First
+	let at = Modes.Index(json.get("mode") to Text)
+	let label = (at < 0 then "Image to video" else Titles(at)) + " " + (json.get("prompt") to Text).Split("\n").First
 	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
 	let model = json.get("model") to Text
 	let count = json.get("count") to Text

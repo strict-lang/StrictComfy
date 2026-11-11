@@ -23,7 +23,7 @@ Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 Tokenizer Slow(Gpt2Tokens)
 	Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 EncodedWith(encoder Qwen3, tokens Gpt2Tokens, prompts Texts, images Texts, paths Texts) Slow(Number)
-	let loaded = H3Encoder(value, visions = Visions)
+	let loaded = visions.Length > 0 then value else H3Encoder(value, visions = Visions)
 	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
 	if reading is not ""
 		logger.Log(reading + " while encoding")

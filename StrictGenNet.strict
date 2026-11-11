@@ -9,17 +9,21 @@ has gpu = ""
 has busy = false
 has seenGpu = false
 has shouted = -100
+has meters = ""
+has metered = -100
 constant BeaconPort = 17441
 constant FreshSeconds = 30
 constant MossMb = 6144
 constant H3Mb = 8192
 constant Gigabyte = 1024
 constant Query = "--query-gpu=name,memory.total,memory.free --format=csv,noheader,nounits"
-constant HexDigits = "0123456789abcdef"
 constant Idle = StrictGenNet(Logger)
 constant Big = "10.0.0.3\t59139\t24576\t20000\t60000\t0\tNVIDIA GeForce RTX 4090\t100"
 constant Small = "10.0.0.4\t59140\t10240\t8000\t30000\t0\tNVIDIA GeForce RTX 3080\t100"
 constant BusyCard = "10.0.0.3\t59139\t24576\t2000\t60000\t1\tNVIDIA GeForce RTX 4090\t100"
+constant Seen = StrictGenNet(Idle, seenGpu = true)
+constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
+constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
 Opened(port Number) StrictGenNet
 	let socket = Socket.Beacon(StrictGenNet.BeaconPort)
 	if socket is Error
@@ -32,15 +36,20 @@ Measured StrictGenNet
 	let whole = parts.Length < 3 then 0 else parts(1).Trim to Number
 	let available = parts.Length < 3 then 0 else parts(2).Trim to Number
 	let memory = GpuMemory.HostAvailable / 1048576
-	StrictGenNet(value, gpu = named, total = whole is Error then 0 else whole, free = available is Error then 0 else available, ram = memory, seenGpu = true)
+	let sized = StrictGenNet(value, gpu = named, total = whole is Error then 0 else whole, ram = memory, seenGpu = true)
+	StrictGenNet(sized, free = available is Error then 0 else available)
+Refreshed StrictGenNet
+	if Process.Elapsed - metered <= 8
+		return value
+	StrictGenNet(value, meters = StrictGenStats(logger).Text, metered = Process.Elapsed).Measured
 Introduced StrictGenNet
 	Shouted
 Shouted StrictGenNet
 	if beacon <= 0
 		return StrictGenNet(value, shouted = Process.Elapsed)
-	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
-	let shouted = Socket.Shout(beacon, StrictGenNet.BeaconPort, Encoded(line))
-	if shouted is Error
+	let state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
+	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state
+	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
 Heard StrictGenNet
@@ -62,10 +71,9 @@ Noted(line Text, now Number) StrictGenNet
 	let port = parts(2) to Number
 	if (port is Error) or (port is httpPort)
 		return value
-	let peer = parts(0) + "\t" + parts(2) + "\t" + parts(3) + "\t" + parts(4) + "\t" + parts(5) + "\t" + parts(6) + "\t" + parts(7) + "\t" + now
+	let peer = Text.Combine((parts(0), parts(2), parts(3), parts(4), parts(5), parts(6), parts(7)), "\t") + "\t" + now
 	let known = Address(peer)
-	let isNew = (known is in Addresses) is false
-	if isNew
+	if (known is in Addresses) is false
 		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + ((parts(3) to Number) / Gigabyte).Round(1) + " GB")
 	StrictGenNet(value, peers = Kept(peer, known))
 Addresses Texts
@@ -84,23 +92,23 @@ Address(peer Text) Text
 Chosen(mode Text, pin Text) Text
 	Idle.Chosen("image", "") is "local"
 	Idle.Chosen("video", "") is "local"
-	StrictGenNet(Idle, seenGpu = true).Chosen("image", "") is "none"
-	StrictGenNet(Idle, seenGpu = true).Chosen("video", "") is "none"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000).Chosen("image", "") is "local"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000).Chosen("video", "") is "local"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000, peers = (Big, Small)).Chosen("image", "") is "local"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000, peers = (Big, Small)).Chosen("video", "") is "10.0.0.3:59139"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000, peers = (Big, Small)).Chosen("extend", "local") is "local"
-	StrictGenNet(Idle, seenGpu = true, total = 10240, free = 8000, peers = (BusyCard, Small)).Chosen("video", "") is "local"
-	StrictGenNet(Idle, seenGpu = true, peers = List(Text) + Big).Chosen("image", "") is "10.0.0.3:59139"
-	StrictGenNet(Idle, seenGpu = true, peers = List(Text) + BusyCard).Chosen("video", "") is "none"
-	StrictGenNet(Idle, total = 10240, free = 8000, peers = (Big, Small)).Chosen("video", "10.0.0.4:59140") is "10.0.0.4:59140"
+	Seen.Chosen("image", "") is "none"
+	Seen.Chosen("video", "") is "none"
+	Mixed.Chosen("extend", "local") is "local"
+	Roomy.Chosen("image", "") is "local"
+	StrictGenNet(Mixed, seenGpu = false).Chosen("video", "10.0.0.4:59140") is "10.0.0.4:59140"
 	if pin is "local"
 		return Fits(mode, total, free) then "local" else "none"
 	if (pin is not "") and (pin is not "any")
 		return Pinned(mode, pin) then pin else "none"
-	if seenGpu is false
-		return "local"
+	seenGpu is false then "local" else Automatic(mode)
+Automatic(mode Text) Text
+	Roomy.Automatic("video") is "local"
+	Mixed.Automatic("image") is "local"
+	Mixed.Automatic("video") is "10.0.0.3:59139"
+	StrictGenNet(Roomy, peers = (BusyCard, Small)).Automatic("video") is "local"
+	StrictGenNet(Seen, peers = List(Text) + Big).Automatic("image") is "10.0.0.3:59139"
+	StrictGenNet(Seen, peers = List(Text) + BusyCard).Automatic("video") is "none"
 	let video = IsLarge(mode)
 	let better = video then Best(total, H3Mb) else ""
 	if better is not ""
@@ -115,8 +123,8 @@ Best(floor Number, least Number) Text
 		let whole = parts.Length > 2 then parts(2) to Number else 0
 		let available = parts.Length > 3 then parts(3) to Number else 0
 		let recent = (parts.Last to Number is Error) or ((Process.Elapsed - (parts.Last to Number)) < FreshSeconds)
-		let working = (parts.Length > 5) and (parts(5) is "0") and (whole > largest) and (whole >= least) and (available >= 4096) and recent
-		if working
+		let roomy = (whole > largest) and (whole >= least) and (available >= 4096) and recent
+		if (parts.Length > 5) and (parts(5) is "0") and roomy
 			largest = whole
 			chosen = Address(value)
 	chosen
@@ -143,119 +151,3 @@ Labels Texts
 		let parts = value.Split("\t")
 		let whole = parts.Length > 2 then (parts(2) to Number) / Gigabyte else 0
 		Address(value) + "\t" + parts(6) + " " + whole.Round(1) + " GB"
-Delivered(endpoint Text, body Text) Text
-	let parts = endpoint.Split(":")
-	if parts.Length < 2
-		return "error\t" + endpoint
-	let prepared = Prepared(parts(0), parts(1) to Number, body)
-	let response = Posted(parts(0), parts(1) to Number, "/run", Marked(prepared))
-	if response is ""
-		return "error\t" + endpoint + " did not answer"
-	let accepted = Json(response).get("accepted") to Text
-	(accepted is "") or (accepted is "-1") then "error\tThe other StrictGen did not queue the job" else accepted
-Prepared(host Text, port Number, body Text) Text
-	let json = Json(body)
-	let video = json.get("video") to Text
-	let image = json.get("image") to Text
-	let sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
-	image is "" then sent else Rewritten(sent, image, Uploaded(host, port, image))
-Uploaded(host Text, port Number, path Text) Text
-	if (path is "") or (File(path).Exists is false)
-		return path
-	let name = Path(path).FileName.text
-	let saved = Posted(host, port, "/inbox?name=" + name, Hex(File(path).ReadBytes))
-	saved is "" then path else saved
-Asked(endpoint Text, id Number) Text
-	let parts = endpoint.Split(":")
-	parts.Length < 2 then "error\tmissing" else Posted(parts(0), parts(1) to Number, "/job?id=" + id, "")
-Saved(endpoint Text, path Text) Text
-	let parts = endpoint.Split(":")
-	if (parts.Length < 2) or (path is "")
-		return ""
-	let bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
-	if bytes.Length is 0
-		return ""
-	Directory.Create("StrictGenInbox")
-	let local = "StrictGenInbox/" + Path(path).FileName.text
-	File(local).Write(bytes)
-	local
-Posted(host Text, port Number, path Text, body Text) Text
-	let header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + Encoded(body).Length + "\r\nConnection: close\r\n\r\n"
-	Decoded(After(Exchanged(host, port, Encoded(header) + Encoded(body))))
-Gotten(host Text, port Number, path Text) Numbers
-	let header = "GET " + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n"
-	After(Exchanged(host, port, Encoded(header)))
-Exchanged(host Text, port Number, bytes Numbers) Numbers
-	let socket = Socket.Try(host, port, 2)
-	if socket is Error
-		return List(Number)
-	if Socket.Send(socket, bytes) is Error
-		let failed = Socket.Close(socket)
-		return failed is Error then List(Number) else List(Number)
-	let response = Read(socket)
-	let closed = Socket.Close(socket)
-	closed is Error then response else response
-Read(socket Number) Numbers
-	mutable bytes = List(Mutable(Number))
-	for Range(0, 2000)
-		let pending = Socket.Pending(socket)
-		if pending > 0
-			bytes = bytes + Socket.Receive(socket, pending)
-		if Finished(bytes)
-			return bytes
-		Process.Wait(0.01)
-	bytes
-Finished(bytes Numbers) Boolean
-	let end = HeaderEnd(bytes)
-	if end < 0
-		return false
-	let header = Decoded(bytes.Slice(0, end)).Lower
-	let start = header.IndexOf("content-length: ")
-	let length = start < 0 then 0 else header.Substring(start + 16, header.Length - start - 16).Split("\r\n").First to Number
-	bytes.Length - end >= (length is Error then 0 else length)
-HeaderEnd(bytes Numbers) Number
-	Idle.HeaderEnd((13, 10, 13, 10, 65)) is 4
-	Idle.HeaderEnd((13, 10)) is -1
-	for bytes
-		if (index + 3 < bytes.Length) and (bytes(index) is 13) and (bytes(index + 1) is 10) and (bytes(index + 2) is 13) and (bytes(index + 3) is 10)
-			return index + 4
-	-1
-After(bytes Numbers) Numbers
-	let end = HeaderEnd(bytes)
-	end < 0 then List(Number) else bytes.Slice(end, bytes.Length - end)
-Marked(body Text) Text
-	Idle.Marked("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
-	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1, body.Length - 1) else body
-Rewritten(body Text, path Text, saved Text) Text
-	(saved is "") or (saved is path) then body else body.Replace(Escaped(path), Escaped(saved))
-Escaped(path Text) Text
-	path.Replace("\\", "\\\\").Replace("\"", "\\\"")
-Hex(bytes Numbers) Text
-	Idle.Hex((255, 16)) is "ff10"
-	mutable text = ""
-	for bytes
-		text = text + Digits((value / 16).Floor) + Digits(value % 16)
-	text
-Unhex(text Text) Numbers
-	Idle.Unhex("ff10") is (255, 16)
-	Idle.Unhex("abc") is (171)
-	mutable bytes = List(Mutable(Number))
-	for Range(0, (text.Length / 2).Floor)
-		bytes.Add(Nibble(text(index * 2)) * 16 + Nibble(text(index * 2 + 1)))
-	bytes
-Digits(value Number) Text
-	HexDigits.Substring(value.Clamp(0, 15), 1)
-Nibble(letter Text) Number
-	mutable found = 0
-	for HexDigits
-		if value is letter.Lower
-			found = index
-	found
-Encoded(text Text) Numbers
-	for text
-		value.number
-Decoded(bytes Numbers) Text
-	Text.Combine(Letters(bytes), "")
-Letters(bytes Numbers) Texts
-	for bytes
-		Character(value) to Text

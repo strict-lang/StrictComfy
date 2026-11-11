@@ -21,6 +21,7 @@ constant LatentDeviations3 = (2.961095094680786, 2.7694199085235595, 3.049618482
 constant LatentDeviations = LatentDeviations1 + LatentDeviations2 + LatentDeviations3
 constant Image = Safetensors("tinyh3imagevae.safetensors", 32)
 constant Picture = H3Vae(H3Decoder.Still, H3Tiles.Tiny)
+constant StillPixels = Picture.Still(Image.Values("reference.latent"), 3, 4)
 Decoded(latent Numbers, shape Numbers) Slow(Numbers)
 	(Pixels.Length is 359424) and Pixels(15000).IsNearlyEqual(0.7706, 0.01) and Pixels(359423).IsNearlyEqual(0.486, 0.01)
 	let latents = decoder.Denormalized(latent)
@@ -41,8 +42,8 @@ Statistics(model Safetensors) List(Numbers)
 		return (LatentMeans, LatentDeviations)
 	(model.Values("latents_mean"), model.Values("latents_std"))
 Still(latent Numbers, height Number, width Number) Slow(Numbers)
-	Picture.Still(Image.Values("reference.latent"), 3, 4)(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
-	MossImage(Logger).Error(Picture.Still(Image.Values("reference.latent"), 3, 4), Image.Values("reference.pixels")) < 0.01
+	StillPixels(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
+	MossImage(Logger).RelativeError(StillPixels, Image.Values("reference.pixels")) < 0.01
 	let canvas = Canvas(decoder.Denormalized(latent), height, width, 1)
 	let plane = canvas.Length / 3
 	for canvas

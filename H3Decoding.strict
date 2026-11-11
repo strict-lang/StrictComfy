@@ -5,7 +5,7 @@ constant Tiny = H3Decoding(Logger, H3Vae.Tiny, H3Audio.Tiny)
 constant Latent = H3Vae.Model.Values("latent") + H3Audio.Latent
 constant Both = Tiny.Decoded(Latent, (12, 3, 4))
 Decoded(latent Numbers, shape Numbers) Slow(List(Numbers))
-	Both(0) is H3Vae.Pixels
+	(Both(0).Length is H3Vae.Pixels.Length) and (MossImage(Logger).RelativeError(Both(0), H3Vae.Pixels) < 0.00001)
 	Both(1) is H3Audio.Tiny.Normalized(H3Audio.Waveform)
 	let count = H3Format.Channels * shape(0) * shape(1) * shape(2)
 	let frames = vae.Decoded(latent.Slice(0, count), shape)

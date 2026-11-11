@@ -39,7 +39,7 @@ Projected(input Numbers) Numbers
 	Expanded(DownProjected(input, rank), 0, rank)
 Delta(input Numbers) Slow(Numbers)
 	Tiny.Delta(MossBlock.Input).Length is 4864
-	MossImage(Logger).Error(Tiny.Delta(MossBlock.Input), Query) < 0.005
+	MossImage(Logger).RelativeError(Tiny.Delta(MossBlock.Input), Query) < 0.005
 	for Projected(input)
 		value / Gain
 Dense Slow(Numbers)
@@ -49,7 +49,7 @@ Dense Slow(Numbers)
 		value / Gain
 Applied(loras List(MossLora), linear Number, base Numbers, input Numbers) Slow(Numbers)
 	MossLora.Applied(List(MossLora), 0, (1, 2), (3, 4)) is (1, 2)
-	MossImage(Logger).Error(MossLora.Applied(List(MossLora) + Tiny, 0, Query, MossBlock.Input), Query * 2) < 0.005
+	MossImage(Logger).RelativeError(MossLora.Applied(List(MossLora) + Tiny, 0, Query, MossBlock.Input), Query * 2) < 0.005
 	MossLora.Applied(List(MossLora) + MossLora(Tiny, rank = 0), 0, (1, 2), (3, 4)) is (1, 2)
 	if loras.Length is 0
 		return base
@@ -61,7 +61,7 @@ ScaledAdded(base Numbers, delta Numbers) BFloat16s
 Stacked(other MossLora) Slow(MossLora)
 	MossLora(Tiny, rank = 0).Stacked(Tiny).up is Tiny.up
 	Tiny.Stacked(Tiny).rank is 16
-	MossImage(Logger).Error(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
+	MossImage(Logger).RelativeError(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
 	rank is 0 then other else MossLora(down + other.down, Widened(other), rank + other.rank, columns)
 Widened(other MossLora) Slow(BFloat16s)
 	MossLora(Tiny, up = (1, 2, 3, 4), rank = 2).Widened(MossLora(Tiny, up = (5, 6), rank = 1)) is (1, 2, 5, 3, 4, 6)

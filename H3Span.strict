@@ -8,8 +8,8 @@ constant Tiny = H3Span(1, 2)
 constant Cached = H3Span.Tiny.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
 constant Skipped = H3Span.Cached.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
 Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, allowed Boolean) Slow(H3Span)
-	MossImage(Logger).Error(Cached.output, H3.Forward) < 0.005
-	Skipped.skipped and (MossImage(Logger).Error(Skipped.output, Cached.output) < 0.00001)
+	MossImage(Logger).RelativeError(Cached.output, H3.Forward) < 0.005
+	Skipped.skipped and (MossImage(Logger).RelativeError(Skipped.output, Cached.output) < 0.00001)
 	if first is last
 		return H3Span(value, output = h3.Output(latent, sound, sigma, text, layout, conditions, rotation))
 	let curves = h3.Curves(layout.Times(sigma))

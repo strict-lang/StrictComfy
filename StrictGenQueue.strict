@@ -9,13 +9,8 @@ has bodies Texts = List(Text)
 has pins Texts = List(Text)
 has outcomes Texts = List(Text)
 has aim = ""
-has remote = ""
-has remoteId = -1
 has notice = ""
-has jobLog = ""
-has jobDone = ""
-has jobPreview = ""
-has current = -1
+has job = StrictGenJob
 has finished = 0
 has halted = false
 constant Empty = StrictGenQueue(Logger)
@@ -23,8 +18,9 @@ Added(mode Text, command Texts, line Text, body Text = "", pin Text = "") Strict
 	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Added("video", ("--length", "24"), "owl").pending.Length is 2
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
-	let queued = StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"), bodies = bodies + body, pins = pins + pin, outcomes = outcomes + "")
-	StrictGenQueue(queued, lines = lines + line, pending = pending + (modes.Length), halted = false)
+	let queued = StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"))
+	let kept = StrictGenQueue(queued, bodies = bodies + body, pins = pins + pin, outcomes = outcomes + "")
+	StrictGenQueue(kept, lines = lines + line, pending = pending + (modes.Length), halted = false)
 Cleared StrictGenQueue
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.halted
@@ -35,73 +31,15 @@ Posted(route Text, body Text) Slow(StrictGenQueue)
 	if route is "/run"
 		let json = Json(body)
 		let pin = json.get("placed") to Text is "true" then "local" else json.get("remote") to Text
-		if current < 0
+		if job.current < 0
 			File("StrictGenJob.log").Delete
 		let added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenForm.Summary(body), body, pin)
-		let marked = StrictGenQueue(added, notice = "Run started")
-		return pin is "local" then marked.Aimed("local") else marked
-	let stopped = Cleared
-	stopped.StopAll
-	stopped
-Position Text
-	Empty.Position is "run 0 · queue 0 · done 0"
-	Empty.Added("image", ("--width", "32"), "Image fox").Position is "run 0 · queue 1 · done 0"
-	"run " + (current < 0 then 0 else 1) + " · queue " + pending.Length + " · done " + finished
-Waiting Texts
-	Empty.Waiting.Length is 0
-	Empty.Added("image", ("--width", "32"), "Image fox").Waiting is ("Image fox")
-	for (current < 0 then pending else List(Number) + current + pending)
-		lines(value)
-Recent Texts
-	Empty.Recent.Length is 0
-	results.Reverse
-Quoted(words Texts) Text
-	Empty.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
-	Empty.Quoted(("--width", "32")) is "--width 32"
-	mutable line = ""
-	for words
-		let word = value.IndexOf(" ") < 0 then value else "\"" + value + "\""
-		line = line is "" then word else line + " " + word
-	line
-Found(rows Texts) Texts
-	Empty.Found(("Saved a.jpg in 3 ms", "Wrote b.mp4")) is ("a.jpg", "b.mp4")
-	Empty.Found(List(Text) + "hello").Length is 0
-	for rows
-		let parts = value.Split(" ")
-		if (parts.Length > 1) and ((parts.First is "Saved") or (parts.First is "Wrote"))
-			parts(1)
-Existing(paths Texts) Texts
-	Empty.Existing(("StrictGenQueue.strict", "StrictGenMissing.mp4")) is ("StrictGenQueue.strict")
-	for paths
-		if File(value).Exists
-			value
-IsPreviewed(index Number) Boolean
-	Empty.Added("image", ("--quality", "best"), "fox").IsPreviewed(0)
-	Empty.Added("image", ("--quality", "fastest2steps"), "fox").IsPreviewed(0) is false
-	Empty.Added("video", ("--quality", "best"), "owl").IsPreviewed(0) is false
-	(modes(index) is "image") and (commands(index).IndexOf("--quality\nfastest") < 0)
-Executable(name Text) Text
-	Empty.Executable("MossImage").IndexOf("MossImage") >= 0
-	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
-	let suffix = Process.OperatingSystem is "Windows" then ".exe" else ""
-	let file = folder + "/" + name + suffix
-	File(file).Exists then file else name + suffix
-Script(executable Text, arguments Text, log Text, done Text) Texts
-	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
-	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
-	("\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1", "echo DONE> \"" + done + "\"")
-Stopped(program Text) Slow(None)
-	Empty.Stopped("StrictGenMissing") is not Error
-	let executable = Executable(program)
-	if (executable.StartsWith(program) is false) and Process.RunTool(executable, "stop").Failed
-		return Error("ServersNotStopped: " + program)
-StopAll Slow(None)
-	Stopped("MossImage")
-	Stopped("H3Video")
-	Stopped("H3Image")
+		return StrictGenQueue(added, notice = "Run started", aim = (pin is "local" then "local" else added.aim))
+	StrictGenJob.StopAll
+	Cleared
 Advanced StrictGenQueue
-	Empty.Advanced.current is -1
-	current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
+	Empty.Advanced.job.current is -1
+	job.current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
 Launch StrictGenQueue
 	if aim is ""
 		return value
@@ -110,62 +48,46 @@ Launch StrictGenQueue
 	if aim.IndexOf(":") >= 0
 		return Sent(aim)
 	let index = pending.First
-	let mode = modes(index)
-	let words = commands(index).Split("\n")
-	let preview = "StrictGenStep-" + index + ".jpg"
-	let log = "StrictGenJob-" + index + ".log"
-	let done = "StrictGenJob-" + index + ".done"
-	let previewed = IsPreviewed(index) then words + "--preview" + preview else words
-	File(done).Delete
-	File(preview).Delete
-	let executable = Executable(Program(mode))
-	let script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
-	File(script).Write(Script(executable, Quoted(previewed), log, done))
-	let started = Started(script)
-	if started is false
+	let executable = StrictGenJob.Executable(StrictGenJob.Program(modes(index)))
+	let local = StrictGenJob.Local(index)
+	if local.Started(executable, modes(index), commands(index)) is false
 		return Refused("Could not start " + executable)
-	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = index, aim = "", jobLog = log, jobDone = done, jobPreview = preview)
-Program(mode Text) Text
-	(Empty.Program("image") is "MossImage") and (Empty.Program("h3image") is "H3Image")
-	Empty.Program("extend") is "H3Video"
-	mode is "image" then "MossImage" else mode is "h3image" then "H3Image" else "H3Video"
+	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = local, aim = "")
 Refused(reason Text) StrictGenQueue
-	let index = pending.First
 	let left = pending.Slice(1, pending.Length - 1)
-	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = Noted(index, "error\t" + reason))
+	let outcome = Noted(pending.First, "error\t" + reason)
+	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
 Sent(endpoint Text) StrictGenQueue
 	let index = pending.First
-	let id = StrictGenNet(logger).Delivered(endpoint, bodies.Length > index then bodies(index) else "")
+	let id = StrictGenRemote.Delivered(endpoint, bodies.Length > index then bodies(index) else "")
 	if (id is "") or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
-	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = index, remote = endpoint, remoteId = id to Number, aim = "")
-Started(script Text) Boolean
-	let isWindows = Process.OperatingSystem is "Windows"
-	if isWindows is false
-		return Process.Find("sh").Started(script) is 0
-	let result = Process.RunTool("cmd", "/c start \"StrictGen\" /MIN /D \"" + Directory.Current + "\" cmd /c \".\\" + script + "\"")
-	result.Failed is false
+	let remote = StrictGenJob.Remote(index, endpoint, id to Number)
+	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = remote, aim = "")
 Polled StrictGenQueue
-	if remote is not ""
+	if job.remote is not ""
 		return Remote
-	if (jobDone is "") or (File(jobDone).Exists is false)
+	if (job.done is "") or (File(job.done).Exists is false)
 		return value
-	let paths = Existing(Found(File(jobLog).Exists then File(jobLog).ReadLines else List(Text)))
-	File(jobDone).Delete
-	Finished(paths, paths.Length is 0 then "The run finished without an output file" else lines(current))
+	let paths = job.Existing(job.Found(job.Logged))
+	File(job.done).Delete
+	Finished(paths, paths.Length is 0 then "The run finished without an output file" else lines(job.current))
 Remote StrictGenQueue
-	let answer = StrictGenNet(logger).Asked(remote, remoteId)
+	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First
 	if (answer is "wait") or (kind is "wait") or (answer is "")
 		return value
 	if kind is "error"
 		return Finished(List(Text), answer)
-	let path = StrictGenNet(logger).Saved(remote, answer.Split("\t").Last)
-	Finished(path is "" then List(Text) else List(Text) + path, path is "" then "The other StrictGen sent no file" else lines(current))
+	let path = StrictGenRemote.Saved(job.remote, answer.Split("\t").Last)
+	if path is ""
+		return Finished(List(Text), "The other StrictGen sent no file")
+	Finished(List(Text) + path, lines(job.current))
 Finished(paths Texts, caption Text) StrictGenQueue
-	let note = paths.Length is 0 then caption else notice
-	let recorded = paths.Length is 0 then "error\t" + caption else "file\t" + paths.Last
-	let done = StrictGenQueue(value, current = -1, remote = "", remoteId = -1, finished = finished + 1, results = results + paths, captions = Captions(paths, caption), outcomes = Noted(current, recorded), notice = note, jobLog = "", jobDone = "", jobPreview = "")
+	let empty = paths.Length is 0
+	let recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
+	let made = StrictGenQueue(value, results = results + paths, captions = Captions(paths, caption), outcomes = recorded)
+	let done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = (empty then caption else notice))
 	halted then done else done.Advanced
 Captions(paths Texts, caption Text) Texts
 	mutable kept = captions
@@ -174,10 +96,10 @@ Captions(paths Texts, caption Text) Texts
 	kept
 IsBusy Boolean
 	Empty.IsBusy is false
-	current >= 0
+	job.current >= 0
 NeedsAim Boolean
 	Empty.NeedsAim is false
-	(pending.Length > 0) and (current < 0) and (aim is "") and (halted is false)
+	(pending.Length > 0) and (job.current < 0) and (aim is "") and (halted is false)
 NextMode Text
 	Empty.NextMode is ""
 	Empty.Added("video", ("--length", "24"), "owl").NextMode is "video"
@@ -194,7 +116,9 @@ Report(id Number) Text
 	Empty.Added("image", ("--width", "32"), "fox").Report(0) is "wait"
 	if (id < 0) or (id >= modes.Length)
 		return "error\tmissing"
-	(id is current) or (id is in pending) then "wait" else (outcomes.Length > id then (outcomes(id) is "" then "wait" else outcomes(id)) else "wait")
+	if (id is job.current) or (id is in pending) or (outcomes.Length <= id)
+		return "wait"
+	outcomes(id) is "" then "wait" else outcomes(id)
 Noted(at Number, text Text) Texts
 	mutable items = List(Mutable(Text))
 	for Range(0, modes.Length)

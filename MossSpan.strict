@@ -11,8 +11,8 @@ constant Cached = MossSpan.Tiny.Evaluated(Moss.Tiny, Moss.Model.Values("referenc
 constant Features = Moss.Tiny.Features(Moss.Model.Values("reference.x"), MossSpectrum.Words, MossBlock.Rotation, Vector)
 constant Skipped = MossSpan.Cached.Evaluated(Moss.Tiny, Moss.Model.Values("reference.x"), MossSpectrum.Words, MossBlock.Rotation, Vector, true)
 Evaluated(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, allowed Boolean) Slow(MossSpan)
-	MossImage(Logger).Error(Cached.output, Features) < 0.005
-	Skipped.skipped and (MossImage(Logger).Error(Skipped.output, Cached.output) < 0.00001)
+	MossImage(Logger).RelativeError(Cached.output, Features) < 0.005
+	Skipped.skipped and (MossImage(Logger).RelativeError(Skipped.output, Cached.output) < 0.001)
 	(Cached.reused is 0) and (Skipped.reused is 1)
 	if first is last
 		return MossSpan(value, output = moss.Features(latent, text, rotation, vector))

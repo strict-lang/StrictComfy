@@ -15,7 +15,7 @@ Loaded(path Text, loras = "") Slow(H3Refiner)
 Refined(context Numbers) Slow(Numbers)
 	Tiny.Refined(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
-	MossImage(Logger).Error(Tuned.Refined(H3.Model.Values("context")), H3Lora.Refined) < 0.02
+	MossImage(Logger).RelativeError(Tuned.Refined(H3.Model.Values("context")), H3Lora.Refined) < 0.02
 	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
 	mutable hidden = condition.Sums(context)
 	for refiner

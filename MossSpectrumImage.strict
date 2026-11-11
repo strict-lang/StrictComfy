@@ -17,7 +17,7 @@ Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context
 Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup Number, period Number, degree Number)
 	let data = Safetensors(dumps + "/steps.safetensors", 64)
 	let latent = Generated(dumps, model, lora, mode, steps, warmup, period, degree)
-	logger.Log("latent error " + MossImage(logger).Error(latent, data.Values("latent")))
+	logger.Log("latent error " + MossImage(logger).RelativeError(latent, data.Values("latent")))
 	let sized = MossImage(logger, data.Shape("noise").Last)
 	sized.Saved(latent, data, FluxDecoder.Loaded(vae, 32), dumps + "/moss-spectrum-" + mode + ".png")
 Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Number, period Number, degree Number) Numbers
