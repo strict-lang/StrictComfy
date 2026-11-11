@@ -27,7 +27,7 @@ constant Latent = Json("{\"type\": \"EmptyLatentImage\", \"widgets_values\": [10
 Arguments Texts
 	Tiny.Arguments.Length is 24
 	Tiny.Arguments(3) is "moss/tinylora.safetensors:0.5"
-	Tiny.Arguments.Last is "./output/tinymoss_.png"
+	Tiny.Arguments.Last is "./output/tinymoss_.jpg"
 	let sampler = Sampler
 	let latent = graph.Origin(ComfyInputs(graph).Source(sampler, "latent_image"))
 	Model(ComfyInputs(graph).Source(sampler, "model")) + Sampling(sampler) + Size(latent) + Files + Output
@@ -94,12 +94,12 @@ Loader(type Text, name Text, option Text) Texts
 	let loaders = graph.Active(List(Text) + type)
 	loaders.Length is 1 then (option, graph.Text(loaders(0), name, 0)) else List(Text)
 Output Texts
-	Tiny.Output is ("--output", "./output/tinymoss_.png")
-	Empty.Output is ("--output", "./output/MossImage_.png")
-	Several.Output is ("--output", "./output/named_.png")
+	Tiny.Output is ("--output", "./output/tinymoss_.jpg")
+	Empty.Output is ("--output", "./output/MossImage_.jpg")
+	Several.Output is ("--output", "./output/named_.jpg")
 	let saved = graph.Active(List(Text) + "SaveImage")
 	let prefix = saved.Length is 0 then "MossImage" else graph.Text(saved(0), "filename_prefix", 0)
-	("--output", comfyui + "/output/" + prefix + "_.png")
+	("--output", comfyui + "/output/" + prefix + "_.jpg")
 Prompt Text
 	Tiny.Prompt is "a {red|blue} fox"
 	graph.Text(graph.Origin(ComfyInputs(graph).Source(Sampler, "positive")), "text", 0)

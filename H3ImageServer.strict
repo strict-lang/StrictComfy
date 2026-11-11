@@ -1,0 +1,112 @@
+has logger
+has backend Backend
+constant MinimumRam = 68719476736
+constant MinimumVram = 10737418240
+constant Sample = H3ImageServer(Logger, Backend(Logger, Resident("artifacts/h3imagetest"), "H3Image", Backend.Nowhere))
+Root Text
+	H3ImageServer.Root.EndsWith(H3Image.Folder)
+	H3Artifacts.Sample.Root + H3Image.Folder
+Backended(logging Logger) Backend
+	H3ImageServer.Backended(Logger).name is "H3Image"
+	Backend(logging, Resident(Root), "H3Image")
+Ran(given Texts) Number
+	Sample.Ran(("--colour", "--local")) is 1
+	Sample.Ran(("--steps", "0", "--local")) is 1
+	if given is (Backend.Serving)
+		return Served
+	if given is (Resident.Stopping)
+		return backend.Dispatched(given)
+	let plain = Remote(logger).Without(given - MachineUse.Force)
+	let parsed = H3ImageOptions.Parsed(plain - Backend.Local)
+	if Refused(parsed is Error then (parsed to Text).Lines.First.Replace("Error: ", "") else Problem(parsed))
+		return 1
+	Checked(given, plain, parsed)
+Refused(problem Text) Boolean
+	Sample.Refused("") is false
+	Sample.Refused("--steps must be at least 1")
+	if problem is not ""
+		logger.Log(problem)
+	problem is not ""
+Problem(parsed H3ImageOptions) Text
+	Sample.Problem(H3ImageOptions.Parsed(("--models", "."))).StartsWith("FileNotFound:")
+	parsed.Problem is "" then H3Image(logger, parsed).Missing else parsed.Problem
+Checked(given Texts, plain Texts, parsed H3ImageOptions) Slow(Number)
+	let arguments = given - MachineUse.Force
+	if MachineUse.IsChecked(arguments, backend.resident.root)
+		if Granted(arguments, MachineUse.IsForced(given)) is not 0
+			return 1
+	let forwarded = backend.Dispatched(plain)
+	let served = H3ImageServed(H3Image(logger, parsed), plain - Backend.Local)
+	forwarded >= 0 then forwarded else served.Completed(H3ImageResident(logger)).code
+Served Number
+	let server = backend.Opened
+	if server is 0
+		return 1
+	let built = File(Process.Current.executable).Modified
+	mutable kept = H3ImageResident(logger, true)
+	mutable last = Process.Elapsed
+	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
+		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
+		kept = socket > 0 then Replied(socket, kept) else kept
+		last = socket > 0 then Process.Elapsed else last
+		kept = backend.Unpressed then kept else H3ImageResident(kept, code = Backend.Stopped)
+	backend.resident.Closed(server)
+Replied(socket Number, kept H3ImageResident) Slow(H3ImageResident)
+	let resident = backend.resident
+	let request = resident.Requested(socket)
+	let isStopping = resident.Arguments(request) is (Resident.Stopping)
+	let isRunning = resident.IsCurrent(request) and (isStopping is false)
+	let skipped = H3ImageResident(kept, code = isStopping then Backend.Stopped else -1)
+	let served = isRunning then Ran(socket, request, kept) else skipped
+	let isFailed = served is Error
+	if isFailed
+		GpuMemory.Evicted
+	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	(isFailed or closed) then H3ImageResident(logger, true) else served
+Ran(socket Number, request Text, kept H3ImageResident) Slow(H3ImageResident)
+	let home = Directory.Current
+	let folder = backend.resident.Folder(request)
+	Directory.Change(folder)
+	let isMoved = folder is not home
+	Socket.Output(socket)
+	let arguments = backend.resident.Arguments(request)
+	let served = H3ImageServed(H3Image(logger, H3ImageOptions.Parsed(arguments)), arguments).Completed(kept)
+	if served is Error
+		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
+	let unpressed = backend.Unpressed
+	backend.Restored(isMoved, home)
+	unpressed then served else H3ImageResident(kept, code = Backend.Stopped)
+Asked(arguments Texts, forced Boolean) Text
+	Sample.Asked(List(Text), false).StartsWith("need\tH3Image\t")
+	let use = Use(arguments, forced)
+	let mode = forced then "force" else "wait"
+	"need\tH3Image\tH3Image\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
+Granted(arguments Texts, forced Boolean) Slow(Number)
+	Sample.Granted(List(Text), false) >= 0
+	let named = Remote(logger).Named(arguments)
+	named >= 0 then named else Continued(arguments, forced)
+Continued(arguments Texts, forced Boolean) Slow(Number)
+	Sample.Continued(List(Text), false) >= 0
+	let line = Asked(arguments, forced)
+	if line is ""
+		return 0
+	let reply = Coordinator(logger, backend.coordinator).Sent(line)
+	let sent = Remote(logger).Sent(arguments, "", reply, line)
+	if sent >= 0
+		return sent
+	let settled = reply.StartsWith("wait") then Coordinator(logger, backend.coordinator).Resolved(line) else reply
+	if settled.StartsWith("refused")
+		return Use(arguments, forced).Explained(settled)
+	settled is "" then Use(arguments, forced).Checked else 0
+Ended(socket Number, code Number, request Text) Slow(Boolean)
+	Sample.Ended(0, 1, "broken")
+	if backend.resident.Finished(socket, code) is Error
+		logger.Log("The H3Image client left before the result was sent")
+		return backend.Freed(request)
+	backend.Freed(request, false)
+Use(arguments Texts, forced Boolean) MachineUse
+	Sample.Use(List(Text), true).isForced
+	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
+	let options = H3ImageOptions.Parsed(Remote(logger).Without(arguments) - Backend.Local)
+	let bytes = (File(options.Checkpoint).Length, File(options.Encoder).Length)
+	MachineUse.Models(logger, "H3Image", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)

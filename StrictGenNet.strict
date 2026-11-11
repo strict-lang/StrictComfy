@@ -101,7 +101,7 @@ Chosen(mode Text, pin Text) Text
 		return Pinned(mode, pin) then pin else "none"
 	if seenGpu is false
 		return "local"
-	let video = (mode is "video") or (mode is "extend") or (mode is "imagevideo")
+	let video = IsLarge(mode)
 	let better = video then Best(total, H3Mb) else ""
 	if better is not ""
 		return better
@@ -125,8 +125,12 @@ Fits(mode Text, whole Number, available Number) Boolean
 	Idle.Fits("image", 2048, 2048) is false
 	Idle.Fits("video", 10240, 8000)
 	Idle.Fits("video", 4096, 4000) is false
-	let video = (mode is "video") or (mode is "extend") or (mode is "imagevideo")
-	(whole >= (video then H3Mb else MossMb)) and (available >= 4096)
+	Idle.Fits("h3image", 4096, 4000) is false
+	(whole >= (IsLarge(mode) then H3Mb else MossMb)) and (available >= 4096)
+IsLarge(mode Text) Boolean
+	Idle.IsLarge("extend") and Idle.IsLarge("h3image")
+	Idle.IsLarge("image") is false
+	(mode is "video") or (mode is "extend") or (mode is "imagevideo") or (mode is "h3image")
 Pinned(mode Text, address Text) Boolean
 	for peers
 		if Address(value) is address

@@ -1,0 +1,28 @@
+constant Edit = "{\"mode\":\"h3image\",\"prompt\":\"night\",\"width\":1024,\"height\":1024,\"quality\":\"fast\",\"steps\":6,\"skip\":\"5:45\",\"image\":\"fox.png\",\"sampler\":\"lcm\",\"seed\":7,\"count\":2,\"vae\":\"v.safetensors\"}"
+constant Full = "{\"output\":\"o.png\",\"models\":\"m\",\"textEncoder\":\"t\",\"model\":\"d\",\"loras\":[{\"path\":\"l\",\"strength\":1}]}"
+constant Filed = ("--lora", "l:1", "--output", "o.png", "--models", "m", "--text_encoder", "t", "--model", "d")
+constant Expected = ("--width", "1024", "--height", "1024", "--prompt", "StrictGenPrompt.txt", "--image", "fox.png", "--steps", "6", "--seed", "7", "--count", "2", "--vae", "v.safetensors")
+Arguments(json Json) Texts
+	StrictGenImage.Arguments(Json(Edit)) is Expected.Slice(6, 10)
+	StrictGenImage.Arguments(Json("{\"steps\":0,\"local\":\"true\"}")) is ("--local")
+	StrictGenImage.Arguments(Json(Full)) is Filed
+	let steps = json.get("steps") to Text
+	let counted = steps is "0" then List(Text) else StrictGenForm.Pair("--steps", steps)
+	let numbers = Named(json, "--image", "image") + counted + Numbered(json)
+	let files = Named(json, "--output", "output") + Named(json, "--models", "models")
+	let models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
+	numbers + StrictGenForm.Loras(json) + files + models + Named(json, "--vae", "vae") + Flags(json)
+Named(json Json, option Text, field Text) Texts
+	StrictGenImage.Named(Json("{\"vae\":\"v\"}"), "--vae", "vae") is ("--vae", "v")
+	StrictGenForm.Pair(option, json.get(field) to Text)
+Numbered(json Json) Texts
+	StrictGenImage.Numbered(Json("{\"seed\":-1,\"count\":1}")).Length is 0
+	StrictGenImage.Numbered(Json("{\"seed\":7,\"count\":3}")) is ("--seed", "7", "--count", "3")
+	let seed = json.get("seed") to Text
+	let count = json.get("count") to Text
+	let seeded = seed is "-1" then "" else seed
+	StrictGenForm.Pair("--seed", seeded) + StrictGenForm.Pair("--count", count is "1" then "" else count)
+Flags(json Json) Texts
+	StrictGenImage.Flags(Json("{\"force\":\"true\",\"local\":\"true\"}")) is ("--force", "--local")
+	let flag = json.get("force") to Text is "true" then List(Text) + "--force" else List(Text)
+	flag + (json.get("local") to Text is "true" then List(Text) + "--local" else List(Text))

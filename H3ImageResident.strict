@@ -1,0 +1,70 @@
+has logger
+has isKept = false
+has encoders List(Qwen3) = List(Qwen3)
+has encoderFile = ""
+has tokenizers List(Gpt2Tokens) = List(Gpt2Tokens)
+has models List(H3ImageModel) = List(H3ImageModel)
+has refiners List(H3Refiner) = List(H3Refiner)
+has model = ""
+has decoders List(H3Vae) = List(H3Vae)
+has decoderFile = ""
+has code = 0
+constant Tiny = H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors", "--vae", "tinyh3imagevae.safetensors"))
+constant TinyFiles = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
+constant Freeing = "Freeing the text encoder"
+constant None = H3ImageResident(Logger)
+constant Kept = H3ImageResident(Logger, true)
+constant Sampled = Kept.Sampling(Tiny)
+constant Encoded = Kept.Encoding(TinyFiles)
+Sampling(options H3ImageOptions) Slow(H3ImageResident)
+	(Sampled.models.Length is 1) and (Sampled.refiners.Length is 1)
+	Sampled.Sampling(Tiny).model is Sampled.model
+	let key = options.Checkpoint + "|" + options.Loras
+	if (key is model) and (models.Length is 1)
+		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
+		return value
+	GpuMemory.Released
+	let loaded = Loaded(options)
+	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
+	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
+Loaded(options H3ImageOptions) Slow(H3ImageModel)
+	None.Loaded(Tiny).heads.Length is 6
+	let started = Process.Elapsed
+	logger.Log("Loading H3 Image " + ModelFiles("").Described(options.Checkpoint) + " from disk into memory")
+	let loaded = H3ImageModel.Loaded(options.Checkpoint, options.Loras)
+	let report = H3Lora(options.Loras).Report + Staying
+	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + report)
+	loaded
+Decoding(path Text) Slow(H3ImageResident)
+	Sampled.Decoding(Tiny.Decoder).decoders.Length is 1
+	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).decoderFile is Tiny.Decoder
+	if (path is decoderFile) and (decoders.Length is 1)
+		return value
+	logger.Log("Loading the H3 Image VAE " + ModelFiles("").Described(path) + Staying)
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
+	H3ImageResident(value, decoders = List(H3Vae) + vae, decoderFile = path)
+Encoding(files H3Files) Slow(H3ImageResident)
+	(Encoded.encoders.Length is 1) and (Encoded.tokenizers.Length is 1)
+	Encoded.Encoding(TinyFiles).encoderFile is Encoded.encoderFile
+	if (files.Encoder is encoderFile) and (encoders.Length is 1)
+		return value
+	let started = Process.Elapsed
+	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
+	let encoder = H3Encoder(logger, files)
+	let loaded = encoder.Loaded
+	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s" + Staying)
+	let tokenizer = List(Gpt2Tokens) + encoder.Tokenizer
+	H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder, tokenizers = tokenizer)
+Trimmed(options H3ImageOptions) Slow(H3ImageResident)
+	Encoded.Trimmed(Tiny).encoders.Length is 1
+	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
+	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
+	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	if (encoders.Length is 0) or (isKept and (isCrowded is false))
+		return value
+	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
+	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", tokenizers = List(Gpt2Tokens))
+Staying Text
+	Kept.Staying.StartsWith(", it stays")
+	H3ImageResident(Logger).Staying is ""
+	isKept then ", it stays loaded for the next runs" else ""

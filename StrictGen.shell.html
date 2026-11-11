@@ -62,10 +62,11 @@
 			<button type="button" data-mode="video">Video</button>
 			<button type="button" data-mode="extend">Extend</button>
 			<button type="button" data-mode="imagevideo">Image to video</button>
+			<button type="button" data-mode="h3image">H3 Image</button>
 		</div>
 		<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
 		<div id="inputs">
-			<label>Image or video
+			<label id="inputLabel">Image or video
 				<div class="row">
 					<button class="small" id="inputPrev" type="button">&#9664;</button>
 					<input id="input" type="text" placeholder="png, jpg, or mp4">
@@ -87,9 +88,10 @@
 				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
 				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
 				<option value="1088 1920">1088p portrait</option><option value="1920 1088">1088p landscape</option>
+				<option value="1024 1024">1024 square</option><option value="2048 2048">2048 square</option>
 				<option value="custom">Custom</option>
 			</select></label>
-			<label>Quality<select id="quality"></select></label>
+			<label id="qualityLabel">Quality<select id="quality"></select></label>
 		</div>
 		<div class="row hidden" id="custom">
 			<label>Width<input id="width" type="number" min="32" step="32" value="480"></label>
@@ -114,7 +116,7 @@
 			</select></label>
 			<label id="encoderLabel">Text encoder<div id="encoderName">default</div></label>
 			<label>Steps<input id="steps" type="number" min="0" step="1" value="0"></label>
-			<label>Skip<select id="skip"></select></label>
+			<label id="skipLabel">Skip<select id="skip"></select></label>
 		</div>
 		<div class="note" id="stepsNote"></div>
 		<label id="lengthLabel">Length<input id="length" type="number" min="24" step="24" value="124"></label>
@@ -123,7 +125,6 @@
 			<summary>Advanced</summary>
 			<div class="row">
 				<label>Seed<input id="seed" type="number" value="-1"></label>
-				<label>Count<input id="count" type="number" min="1" step="1" value="1"></label>
 				<label>Guidance<input id="guidance" type="number" min="0" step="0.5" value="0"></label>
 			</div>
 			<div class="row">
@@ -141,16 +142,18 @@
 			<label>Models folder<input id="models" type="text" placeholder="ComfyUI models"></label>
 			<label>Text encoder file<input id="textEncoder" type="text"></label>
 			<div class="row">
-				<label>Video VAE<input id="vae" type="text"></label>
+				<label>VAE<input id="vae" type="text"></label>
 				<label>Audio VAE<input id="audioVae" type="text"></label>
 			</div>
 		</details>
 	</section>
 	<section class="view">
 		<div id="frame"><span id="placeholder">The preview shows up here</span></div>
+		<div class="note" id="progress"></div>
 		<div id="gallery">
 			<button class="small" id="back" type="button">&#9664;</button>
 			<span id="caption">No results yet</span>
+			<button class="small" id="reuse" type="button">Animate</button>
 			<button class="small" id="forward" type="button">&#9654;</button>
 		</div>
 	</section>
@@ -165,13 +168,22 @@
 	const h3Steps = { best: 8, fast: 8, faster: 8, fastest4steps: 4, fastest2steps: 2 };
 	const mossModel = "moss-image-sft-dit-int8-convrot.safetensors";
 	const h3Model = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
+	const h3ImageModel = "minimax_h3_image_pruned_int8_convrot.safetensors";
+	const isVideo = mode => mode === "video" || mode === "extend" || mode === "imagevideo";
 	const mossSkip = ["off", "6:36"];
 	const h3Skip = ["off", "5:45", "10:40", "15:35"];
 	const state = { mode: "image", loras: [], results: [], captions: [], examples: null, index: 0, paused: false, notice: "" };
 	const storeKey = "strictgen-modes";
+	const timesKey = "strictgen-times";
+	const times = () => { try { return JSON.parse(localStorage.getItem(timesKey) || "{}"); } catch { return {}; } };
+	const seconds = since => ((performance.now() - since) / 1000).toFixed(1) + " s";
 	const stored = () => { try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch { return {}; } };
-	const stepsFor = (mode, quality) => (mode === "image" ? mossSteps : h3Steps)[quality] || 8;
+	const stepsFor = (mode, quality) => mode === "h3image" ? 6 : (mode === "image" ? mossSteps : h3Steps)[quality] || 8;
 	const defaultsFor = mode => {
+		if (mode === "h3image") return {
+			prompt: "a red fox in a snowy birch forest at sunrise, soft golden light, detailed fur, photo", size: "2048 2048", width: 2048, height: 2048,
+			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "taef2", length: 124, context: 22, input: "", lastImage: ""
+		};
 		const video = mode !== "image";
 		const quality = video ? "fast" : "fastest";
 		return {
@@ -219,26 +231,38 @@
 	const showMode = () => {
 		const mode = state.mode;
 		for (const button of document.querySelectorAll(".modes button")) button.classList.toggle("on", button.dataset.mode === mode);
-		const video = mode !== "image";
-		element("inputs").classList.toggle("hidden", mode === "image" || mode === "video");
+		const video = isVideo(mode), edit = mode === "h3image", moss = mode === "image";
+		element("inputs").classList.toggle("hidden", moss || mode === "video");
+		element("inputLabel").firstChild.textContent = edit ? "Image to edit (optional)" : "Image or video";
 		element("contextLabel").classList.toggle("hidden", mode !== "extend");
 		element("lastLabel").classList.toggle("hidden", mode !== "imagevideo");
-		element("decoderLabel").classList.toggle("hidden", video);
-		element("encoderLabel").classList.toggle("hidden", video);
+		element("decoderLabel").classList.toggle("hidden", !moss);
+		element("encoderLabel").classList.toggle("hidden", !moss);
+		element("qualityLabel").classList.toggle("hidden", edit);
+		element("skipLabel").classList.toggle("hidden", edit);
 		element("lengthLabel").classList.toggle("hidden", !video);
 		element("lengthNote").classList.toggle("hidden", !video);
-		element("guidance").parentElement.classList.toggle("hidden", video);
-		element("spectrum").parentElement.classList.toggle("hidden", video);
+		element("guidance").parentElement.classList.toggle("hidden", !moss);
+		element("spectrum").parentElement.classList.toggle("hidden", !moss);
+		element("sampler").parentElement.classList.toggle("hidden", edit);
+		element("scheduler").parentElement.classList.toggle("hidden", edit);
+		element("vision").parentElement.classList.toggle("hidden", edit);
+		element("crop").parentElement.classList.toggle("hidden", edit);
+		element("audioVae").parentElement.classList.toggle("hidden", !video);
 		const saved = stored()[mode] || defaultsFor(mode);
-		fill(element("quality"), video ? h3Quality : mossQuality, saved.quality);
-		fill(element("skip"), (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
+		fill(element("quality"), edit ? [["", "default"]] : video ? h3Quality : mossQuality, saved.quality);
+		fill(element("skip"), edit ? [["", "off"]] : (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
 		applyFields(saved);
 		note();
+	};
+	const timed = () => {
+		const length = isVideo(state.mode) ? element("length").value : "";
+		return [state.mode, element("quality").value, element("steps").value, sizeOf().join("x"), length, element("repeat").value].join(" ");
 	};
 	const fit = () => {
 		const frame = element("frame"), view = document.querySelector("section.view"), main = document.querySelector("main");
 		const [width, height] = sizeOf();
-		const availH = main.clientHeight - 16 - element("gallery").offsetHeight - 8;
+		const availH = main.clientHeight - 16 - element("gallery").offsetHeight - element("progress").offsetHeight - 8;
 		const availW = main.clientWidth - document.querySelector("section.controls").offsetWidth - 60;
 		const scale = Math.min(availW / width, availH / height);
 		const wide = Math.max(1, Math.floor(width * scale));
@@ -251,9 +275,10 @@
 		const [width, height] = sizeOf();
 		const typed = element("size").value === "custom" ? "" : element("size").value.split(" ").map(Number);
 		const changed = typed && (typed[0] !== width || typed[1] !== height);
-		element("note").textContent = width + "x" + height + (changed ? " after snapping to a multiple of 32" : "");
+		const last = times()[timed()];
+		element("note").textContent = width + "x" + height + (changed ? " after snapping to a multiple of 32" : "") + (last ? ", took " + last + " last time" : "");
 		element("stepsNote").textContent = element("steps").value + " steps";
-		if (state.mode === "image") return;
+		if (!isVideo(state.mode)) return;
 		const length = Number(element("length").value) || 24;
 		const context = state.mode === "extend" ? Number(element("context").value) : 0;
 		const total = state.mode === "extend" ? videoSnap(context + length) : videoSnap(length);
@@ -283,6 +308,7 @@
 		};
 		if (state.mode === "extend") body.video = element("input").value;
 		if (state.mode === "imagevideo") { body.image = element("input").value; body.lastImage = element("lastImage").value; }
+		if (state.mode === "h3image") body.image = element("input").value;
 		return body;
 	};
 	const drawLoras = () => {
@@ -325,11 +351,7 @@
 		element("width").value = width; element("height").value = height; note();
 	};
 	element("recent").onchange = () => {
-		const path = element("recent").value;
-		if (!path) return;
-		element("input").value = path;
-		state.mode = path.toLowerCase().endsWith(".mp4") ? "extend" : "imagevideo";
-		showMode();
+		reuse(element("recent").value);
 	};
 	const place = node => {
 		const frame = element("frame");
@@ -344,7 +366,7 @@
 		const url = "/file?path=" + encodeURIComponent(path);
 		if (path.toLowerCase().endsWith(".mp4")) {
 			const video = document.createElement("video");
-			video.src = url; video.autoplay = true; video.loop = true; video.muted = true;
+			video.src = url; video.autoplay = true; video.loop = true; video.muted = true; video.controls = true;
 			video.onclick = () => { video.paused ? video.play() : video.pause(); };
 			place(video);
 			return;
@@ -394,7 +416,18 @@
 		const examples = (state.examples || []).length;
 		const caption = state.index < examples ? "example" : (state.captions[state.index - examples] || path);
 		element("caption").textContent = (state.index + 1) + "/" + all.length + ", " + caption;
+		element("reuse").textContent = path.toLowerCase().endsWith(".mp4") ? "Extend" : "Animate";
 	};
+	const reuse = path => {
+		if (!path) return;
+		save();
+		state.mode = path.toLowerCase().endsWith(".mp4") ? "extend" : "imagevideo";
+		showMode();
+		element("input").value = path;
+		element("input").onchange();
+		save();
+	};
+	element("reuse").onclick = () => reuse(gallery()[state.index]);
 	element("back").onclick = () => { state.index -= 1; showResult(); };
 	element("forward").onclick = () => { state.index += 1; showResult(); };
 	window.onkeydown = event => {
@@ -432,6 +465,7 @@
 	element("run").onclick = async () => {
 		save();
 		state.hold = true;
+		state.clicked = state.busy ? null : { key: timed(), at: performance.now(), results: state.results.length };
 		element("log").textContent = "Run started\n" + element("prompt").value.split("\n")[0];
 		try {
 			const status = await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
@@ -462,6 +496,18 @@
 			element("log").textContent = status.activity;
 			element("log").scrollTop = element("log").scrollHeight;
 		}
+		if (status.busy && !state.busy) state.began = performance.now();
+		const waiting = (status.queued || []).length;
+		if (status.busy) element("progress").textContent = "Running " + seconds(state.began) + (waiting ? ", " + waiting + " queued" : "") + (status.step ? " · " + status.step : "");
+		else if (state.busy) element("progress").textContent = "Done in " + seconds(state.began);
+		if (state.clicked && !status.busy && !waiting && status.results && status.results.length > state.clicked.results) {
+			const all = times();
+			all[state.clicked.key] = seconds(state.clicked.at);
+			localStorage.setItem(timesKey, JSON.stringify(all));
+			state.clicked = null;
+			note();
+		}
+		state.busy = status.busy;
 		if (status.examples && state.examples.join() !== status.examples.join()) state.examples = status.examples;
 		const same = status.results && status.results.join() === state.results.join();
 		if (status.results && !same) {
@@ -480,8 +526,8 @@
 	showResult();
 	showMode();
 	addEventListener("resize", fit);
-	setInterval(() => poll().catch(() => {}), 400);
-	poll().catch(() => {});
+	const watch = async () => { await poll().catch(() => {}); setTimeout(watch, state.busy || state.clicked ? 100 : 400); };
+	watch();
 </script>
 </body>
 </html>

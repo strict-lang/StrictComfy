@@ -60,8 +60,7 @@ Position(token Number, axis Number) Number
 Referenced(row Number, axis Number) Number
 	Two.Referenced(2, 2).IsNearlyEqual(-11.712813) and Two.Referenced(4, 2).IsNearlyEqual(25.237604)
 	let picture = Picture(row)
-	let size = Grid(references(2 * picture), references(2 * picture + 1))
-	size.Seen(row - Start(picture), axis, Words + picture)
+	Grid(references(2 * picture), references(2 * picture + 1)).Seen(row - Start(picture), axis, Words + picture)
 Grid(high Number, wide Number) H3Layout
 	Tiny.Grid(2, 4).Patches is 2
 	H3Layout(List(Number), List(Number), 0, 1, high, wide)

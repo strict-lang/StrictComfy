@@ -78,8 +78,7 @@ Final(hidden Numbers, curves Numbers, layout H3ImageLayout, weights Numbers) Slo
 	let width = h3.final.norm.Length
 	let first = (layout.Words + layout.Conditions) * width
 	let target = Safetensors.Part(hidden, first, hidden.Length - first, 1)
-	let modulation = h3.final.modulation.Sums(curves)
-	let normed = H3Block.Modulated(target, h3.final.norm, modulation, Layer.Zeros(layout.Patches), 0)
+	let normed = H3Block.Modulated(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
 	for h3.final.Unpatched(Headed(normed, weights), layout.Grid(layout.height, layout.width))
 		-value
 Headed(normed Numbers, weights Numbers) Slow(Numbers)

@@ -70,6 +70,16 @@ Found(rows Texts) Texts
 		let parts = value.Split(" ")
 		if (parts.Length > 1) and ((parts.First is "Saved") or (parts.First is "Wrote"))
 			parts(1)
+Existing(paths Texts) Texts
+	Empty.Existing(("StrictGenQueue.strict", "StrictGenMissing.mp4")) is ("StrictGenQueue.strict")
+	for paths
+		if File(value).Exists
+			value
+IsPreviewed(index Number) Boolean
+	Empty.Added("image", ("--quality", "best"), "fox").IsPreviewed(0)
+	Empty.Added("image", ("--quality", "fastest2steps"), "fox").IsPreviewed(0) is false
+	Empty.Added("video", ("--quality", "best"), "owl").IsPreviewed(0) is false
+	(modes(index) is "image") and (commands(index).IndexOf("--quality\nfastest") < 0)
 Executable(name Text) Text
 	Empty.Executable("MossImage").IndexOf("MossImage") >= 0
 	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
@@ -80,14 +90,15 @@ Script(executable Text, arguments Text, log Text, done Text) Texts
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	Empty.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
 	("\"" + executable + "\" " + arguments + " > \"" + log + "\" 2>&1", "echo DONE> \"" + done + "\"")
-Stopped(root Text) Slow(None)
+Stopped(program Text) Slow(None)
 	Empty.Stopped("StrictGenMissing") is not Error
-	if Forwarding(logger, root, "").Forwarded(List(Text) + "stop") is not 0
-		return Error("ServersNotStopped: " + root)
+	let executable = Executable(program)
+	if (executable.StartsWith(program) is false) and Process.RunTool(executable, "stop").Failed
+		return Error("ServersNotStopped: " + program)
 StopAll Slow(None)
-	Empty.Stopped("StrictGenMissing") is not Error
-	Stopped(MossServer.Root)
-	Stopped(H3Artifacts(H3Options.Parsed(List(Text))).Folder)
+	Stopped("MossImage")
+	Stopped("H3Video")
+	Stopped("H3Image")
 Advanced StrictGenQueue
 	Empty.Advanced.current is -1
 	current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
@@ -104,16 +115,20 @@ Launch StrictGenQueue
 	let preview = "StrictGenStep-" + index + ".jpg"
 	let log = "StrictGenJob-" + index + ".log"
 	let done = "StrictGenJob-" + index + ".done"
-	let previewed = mode is "image" then words + "--preview" + preview else words
+	let previewed = IsPreviewed(index) then words + "--preview" + preview else words
 	File(done).Delete
 	File(preview).Delete
-	let executable = Executable(mode is "image" then "MossImage" else "H3Video")
+	let executable = Executable(Program(mode))
 	let script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
 	File(script).Write(Script(executable, Quoted(previewed), log, done))
 	let started = Started(script)
 	if started is false
 		return Refused("Could not start " + executable)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), current = index, aim = "", jobLog = log, jobDone = done, jobPreview = preview)
+Program(mode Text) Text
+	(Empty.Program("image") is "MossImage") and (Empty.Program("h3image") is "H3Image")
+	Empty.Program("extend") is "H3Video"
+	mode is "image" then "MossImage" else mode is "h3image" then "H3Image" else "H3Video"
 Refused(reason Text) StrictGenQueue
 	let index = pending.First
 	let left = pending.Slice(1, pending.Length - 1)
@@ -128,14 +143,14 @@ Started(script Text) Boolean
 	let isWindows = Process.OperatingSystem is "Windows"
 	if isWindows is false
 		return Process.Find("sh").Started(script) is 0
-	let result = Process.RunTool("cmd", "/c start \"StrictGen\" /MIN /D \"" + Directory.Current + "\" cmd /c \"" + script + "\"")
+	let result = Process.RunTool("cmd", "/c start \"StrictGen\" /MIN /D \"" + Directory.Current + "\" cmd /c \".\\" + script + "\"")
 	result.Failed is false
 Polled StrictGenQueue
 	if remote is not ""
 		return Remote
 	if (jobDone is "") or (File(jobDone).Exists is false)
 		return value
-	let paths = Found(File(jobLog).Exists then File(jobLog).ReadLines else List(Text))
+	let paths = Existing(Found(File(jobLog).Exists then File(jobLog).ReadLines else List(Text)))
 	File(jobDone).Delete
 	Finished(paths, paths.Length is 0 then "The run finished without an output file" else lines(current))
 Remote StrictGenQueue

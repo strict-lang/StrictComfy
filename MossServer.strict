@@ -30,7 +30,7 @@ Served Number
 	mutable kept = MossResident(logger, true)
 	mutable last = Process.Elapsed
 	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
-		let socket = backend.resident.Accepted(server, built)
+		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
 		kept = socket > 0 then Replied(socket, kept) else kept
 		last = socket > 0 then Process.Elapsed else last
 		kept = backend.Unpressed then kept else MossResident(kept, code = Backend.Stopped)
@@ -87,10 +87,10 @@ Ended(socket Number, code Number, request Text) Slow(Boolean)
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The MossImage client left before the result was sent")
 		return backend.Freed(request)
-	backend.resident.Released(request)
-	false
+	backend.Freed(request, false)
 Use(arguments Texts, forced Boolean) MachineUse
 	Sample.Use(List(Text), true).isForced
-	let files = MossOptions.Parsed(arguments).files
+	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
+	let files = MossOptions.Parsed(Remote(logger).Without(arguments) - Backend.Local).files
 	let bytes = (File(files.Checkpoint).Length, File(files.Encoder).Length)
 	MachineUse.Models(logger, "MossImage", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)

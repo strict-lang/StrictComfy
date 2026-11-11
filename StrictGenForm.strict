@@ -5,11 +5,14 @@ constant ExpectedClip = ("--width", "640", "--height", "1152", "--quality", "fas
 Arguments(body Text) Texts
 	StrictGenForm.Arguments(Picture) is ExpectedPicture
 	StrictGenForm.Arguments(Clip) is ExpectedClip
+	StrictGenForm.Arguments(StrictGenImage.Edit) is StrictGenImage.Expected
 	let json = Json(body)
 	let mode = json.get("mode") to Text
 	let prompt = json.get("prompt") to Text
 	File("StrictGenPrompt.txt").Write(prompt.Split("\n"))
 	let sized = ("--width", json.get("width") to Text, "--height", json.get("height") to Text)
+	if mode is "h3image"
+		return sized + "--prompt" + "StrictGenPrompt.txt" + StrictGenImage.Arguments(json)
 	let base = sized + Pair("--quality", json.get("quality") to Text) + "--prompt" + "StrictGenPrompt.txt"
 	base + Optional(json, mode) + Loras(json) + Remote(json)
 Optional(json Json, mode Text) Texts
@@ -40,18 +43,12 @@ Remote(json Json) Texts
 	StrictGenForm.Remote(Json("{\"force\":\"true\"}")) is ("--force")
 	StrictGenForm.Remote(Json("{\"local\":\"true\"}")) is ("--local")
 	StrictGenForm.Remote(Json("{\"force\":\"true\",\"local\":\"true\",\"seed\":7}")) is ("--force", "--local", "--seed", "7")
-	let flag = json.get("force") to Text is "true" then List(Text) + "--force" else List(Text)
-	let local = json.get("local") to Text is "true" then List(Text) + "--local" else List(Text)
-	flag + local + More(json)
+	StrictGenImage.Flags(json) + More(json)
 More(json Json) Texts
 	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
-	let seed = json.get("seed") to Text
 	let guidance = json.get("guidance") to Text
-	let count = json.get("count") to Text
-	let seeded = ((seed is "") or (seed is "-1")) then "" else seed
 	let guided = ((guidance is "") or (guidance is "0")) then "" else guidance
-	let counted = ((count is "") or (count is "1")) then "" else count
-	let numbers = Pair("--seed", seeded) + Pair("--guidance", guided) + Pair("--count", counted)
+	let numbers = StrictGenImage.Numbered(json) + Pair("--guidance", guided)
 	let sampling = Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text)
 	numbers + sampling + Pair("--scheduler", json.get("scheduler") to Text) + Files(json)
 Files(json Json) Texts
@@ -114,9 +111,10 @@ Taken(arguments Texts, name Text) Text
 Summary(body Text) Text
 	StrictGenForm.Summary(Picture).StartsWith("Image a fox 480x848 fastest")
 	StrictGenForm.Summary(Clip).StartsWith("Extend go on 640x1152 fast")
+	StrictGenForm.Summary(StrictGenImage.Edit).StartsWith("H3 Image night 1024x1024")
 	let json = Json(body)
 	let mode = json.get("mode") to Text
-	let video = mode is "video" then "Video" else (mode is "extend" then "Extend" else "Image to video")
+	let video = mode is "video" then "Video" else mode is "extend" then "Extend" else mode is "h3image" then "H3 Image" else "Image to video"
 	let label = (mode is "image" then "Image" else video) + " " + (json.get("prompt") to Text).Split("\n").First
 	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
 	let model = json.get("model") to Text

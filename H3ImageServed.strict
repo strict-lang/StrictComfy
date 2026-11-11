@@ -1,0 +1,44 @@
+has image H3Image
+has arguments Texts
+constant Tiny = H3ImageServed(H3Image.Tiny, List(Text))
+Completed(kept H3ImageResident) Slow(H3ImageResident)
+	Tiny.Completed(H3ImageResident.None).code is 2
+	let options = image.options
+	let problem = options.Problem is "" then image.Missing else options.Problem
+	if problem is not ""
+		image.logger.Log(problem)
+		return H3ImageResident(kept, code = 2)
+	let started = Process.Elapsed
+	let batch = PromptBatch(image.logger, "Image")
+	let seeds = batch.Seeds(options.Seed, options.count)
+	Prompted(kept, seeds, batch.Prompts(List(Text) + options.Prompted, seeds), started)
+Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) Slow(H3ImageResident)
+	let options = image.options
+	let paths = image.Cached(prompts)
+	let encoded = Encoded(kept, prompts, paths)
+	let references = image.Referenced
+	let sampling = encoded.Sampling(options)
+	let contexts = H3Artifacts.Sample.Read(paths)
+	let latents = image.Sampled(sampling.models.First, sampling.refiners.First, contexts, paths, seeds, references)
+	let decoding = sampling.Decoding(options.Decoder)
+	let outputs = PromptBatch(image.logger, "Image").Outputs(options.output, options.count)
+	let saved = image.Saved(decoding.decoders.First, latents, outputs)
+	image.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
+	H3ImageResident(decoding, code = 0)
+Encoded(kept H3ImageResident, prompts Texts, paths Texts) Slow(H3ImageResident)
+	let missing = H3Artifacts.Sample.Missing(paths)
+	if missing.Length is 0
+		image.logger.Log("Using cached prompt conditioning")
+		return kept
+	if kept.isKept is false
+		return image.Contexts(prompts, paths, arguments) is not Error then kept else Error("TextEncoderFailed")
+	Directory.Create(H3Artifacts.Sample.Root + "/artifacts")
+	Directory.Create(H3Artifacts.Sample.Root + H3Image.Folder)
+	let encoding = kept.Encoding(image.options.Files)
+	let made = Contexted(encoding, H3Inputs.Sample.Picked(prompts, missing), H3Inputs.Sample.Picked(paths, missing))
+	image.logger.Log("Encoded " + made + " prompts with the loaded text encoder")
+	encoding.Trimmed(image.options)
+Contexted(encoding H3ImageResident, prompts Texts, paths Texts) Slow(Number)
+	let images = H3Inputs.Sample.Picked(List(Text) + image.options.image, Layer.Zeros(prompts.Length))
+	let reading = encoding.models.Length is 1 then List(Text) else List(Text) + image.options.Checkpoint
+	image.Encoder(reading).EncodedWith(encoding.encoders.First, encoding.tokenizers.First, prompts, images, paths)

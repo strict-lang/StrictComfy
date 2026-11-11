@@ -10,7 +10,7 @@ has model = ""
 has vae = ""
 has textEncoder = ""
 has models = ""
-has output = "H3Image.png"
+has output = "H3Image.jpg"
 constant Base = "minimax_h3_image_pruned_int8_convrot.safetensors"
 constant Vae = "minimax_h3_image_vae_fp16.safetensors"
 constant Area = 2048
@@ -20,7 +20,7 @@ constant StepsHelp = ("sampling steps, 6 match the model's distilled heads (Comf
 constant LoraHelp = List(Text) + "LoRA path[:strength] in models/loras or anywhere, repeat for more"
 constant ModelHelp = ("H3 Image model file, a name in models/diffusion_models or a path, empty for " + Base, "H3 Image VAE file, a name in models/vae or a path, empty for " + Vae)
 constant EncoderHelp = ("Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for " + H3Batch.Encoder, "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
-constant OutputHelp = List(Text) + "numbered output base (.png or .jpg), never overwritten"
+constant OutputHelp = List(Text) + "numbered output base (.jpg or .png), never overwritten"
 constant Help = PromptHelp + SizeHelp + StepsHelp + LoraHelp + ModelHelp + EncoderHelp + OutputHelp
 constant Stacked = ("--lora", "tinyqkvlora.safetensors", "--lora", "tinylora.safetensors")
 constant Local = H3ImageOptions.Parsed(("--models", "."))
@@ -76,11 +76,12 @@ Scaled(original Numbers, low Number, high Number) Numbers
 		((value * scale / 32).Round * 32, 32).Maximum
 Problem Text
 	Local.Problem is ""
+	Local.output is "H3Image.jpg"
 	H3ImageOptions.Parsed(("--steps", "0")).Problem is "--steps and --count must be at least 1"
-	H3ImageOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .png or .jpg"
+	H3ImageOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg or .png"
 	H3ImageOptions.Parsed(("--image", "missing.png")).Problem is "--image missing.png was not found"
 	if (steps < 1) or (count < 1)
 		return "--steps and --count must be at least 1"
-	if (output.Lower.EndsWith(".png") or output.Lower.EndsWith(".jpg")) is false
-		return "--output must end with .png or .jpg"
+	if (output.Lower.EndsWith(".jpg") or output.Lower.EndsWith(".png")) is false
+		return "--output must end with .jpg or .png"
 	(image is "") or File(image).Exists then "" else "--image " + image + " was not found"
