@@ -2,6 +2,7 @@ has logger
 constant Sample = StrictGenStats(Logger)
 constant WindowsCpu = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average"
 constant LinuxCpu = "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
+constant Measured = "StrictGenCpu.txt"
 constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
 Text Slow(Text)
 	Sample.Text.IndexOf("\"ram\"") >= 0
@@ -16,14 +17,11 @@ Text Slow(Text)
 Processor Slow(Number)
 	Sample.Processor >= 0
 	let windows = Process.OperatingSystem is "Windows"
-	let command = windows then WindowsCpu else LinuxCpu
-	let tool = windows then "powershell" else "sh"
-	let arguments = windows then "-NoProfile -Command \"" + command + "\"" else "-c \"" + command + "\""
-	let result = Process.RunTool(tool, arguments)
-	if result.Failed
-		return 0
-	let number = result.Output.Trim to Number
-	number is Error then 0 else number.Clamp(0, 100)
+	let last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
+	let later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" > " + Measured + " 2>nul"
+	let result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
+	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
+	(result.Failed or (number is Error)) then 0 else number.Clamp(0, 100)
 Status(queue StrictGenQueue, net StrictGenNet, meters Text) Text
 	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle, Blank).IndexOf("\"position\":\"run 0") >= 0
 	let stats = meters is "" then Blank else meters

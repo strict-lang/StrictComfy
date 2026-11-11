@@ -149,8 +149,10 @@ Unpressed Slow(Boolean)
 	if reply is "free"
 		GpuMemory.Yielded
 	reply is not "exit"
-Freed(request Text) Slow(Boolean)
+Freed(request Text, isGone = true) Slow(Boolean)
 	Sample.Freed("broken")
-	GpuMemory.Yielded
+	Sample.Freed("broken", false) is false
+	if isGone
+		GpuMemory.Yielded
 	resident.Released(request)
-	Coordinator(logger, coordinator).Sent("done") is not "exit"
+	(Coordinator(logger, coordinator).Sent("done") is "exit") or isGone

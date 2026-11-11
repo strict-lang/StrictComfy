@@ -11,7 +11,7 @@ Listened(server Number) Number
 	mutable kept = H3Resident(logger)
 	mutable last = Process.Elapsed
 	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
-		let socket = backend.resident.Accepted(server, built)
+		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
 		let request = socket > 0 then backend.resident.Requested(socket) else ""
 		kept = socket > 0 then Trimmed(socket, request, kept) else kept
 		kept = socket > 0 then Replied(socket, request, kept) else kept
@@ -67,8 +67,7 @@ Ended(socket Number, code Number, request Text) Slow(Boolean)
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.Freed(request)
-	backend.resident.Released(request)
-	false
+	backend.Freed(request, false)
 Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
