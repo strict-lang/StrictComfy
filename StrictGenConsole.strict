@@ -24,7 +24,8 @@ Shown(id Number, rows Texts, first Number, until Number)
 	Sample.Shown(0, ("0\ta", "1.5\tb"), 1, 2) is not Error
 	for Range(first, until.Clamp(first, rows.Length))
 		let parts = rows(value).Split("\t")
-		logger.Log("Run " + (id + 1) + " " + parts.First + "s: " + parts.Last)
+		if parts.Last.Trim is not ""
+			logger.Log("Run " + (id + 1) + " " + parts.First + "s: " + parts.Last.Trim)
 Ended(queue StrictGenQueue, id Number, first Number)
 	Sample.Ended(Added, 0, 0) is not Error
 	let file = "StrictGenJob-" + id + ".timed"

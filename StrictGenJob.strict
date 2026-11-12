@@ -19,7 +19,8 @@ Remote(at Number, endpoint Text, id Number) StrictGenJob
 	StrictGenJob(value, current = at, remote = endpoint, remoteId = id)
 Logged Texts
 	StrictGenJob.Logged.Length is 0
-	(current >= 0) and (log is not "") and File(log).Exists then File(log).ReadLines else List(Text)
+	let rows = (current >= 0) and (log is not "") and File(log).Exists then File(log).ReadLines else List(Text)
+	(rows.Length > 0) and (rows.Last.Trim is "") then rows.Slice(0, rows.Length - 1) else rows
 Timed(rows Texts) StrictGenJob
 	StrictGenJob.Local(1).Timed(("a", "b")).times.Length is 2
 	StrictGenJob(StrictGenJob.Local(1), times = List(Number) + 1).Timed(("a", "b")).times(0) is 1
