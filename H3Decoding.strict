@@ -31,7 +31,7 @@ Shapes(conditions List(Safetensors)) List(Numbers)
 	Tiny.Shapes(List(Safetensors) + H3Video.Reference).First.Length is 0
 	for conditions
 		value.Entry("decode") is "" then List(Number) else H3Job(value).VideoShape
-Written(file Text, shape Numbers, index Number) Slow(Number)
+Written(file Text, shape Numbers, index Number) Slow(None)
 	Safetensors("h3test-latent.safetensors").Written("latent", Latent) is not Error
 	Tiny.Written("h3test", (24, 12, 3, 4), 0) is not Error
 	File("h3test-decoded.rgb").Length is 359424
@@ -41,4 +41,3 @@ Written(file Text, shape Numbers, index Number) Slow(Number)
 	File(file + "-decoded.rgb").Write(H3Frames(logger).Bytes(decoded(0)))
 	Safetensors(file + "-decoded.safetensors").Written("audio", decoded(1))
 	logger.Log("decoded " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-	File(file + "-decoded.safetensors").Length

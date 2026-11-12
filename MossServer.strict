@@ -24,8 +24,8 @@ Local(arguments Texts) Slow(MossResident)
 	MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(MossResident(logger))
 Served Number
 	let server = backend.Opened
-	if server is 0
-		return 1
+	server is 0 then 1 else Listened(server)
+Listened(server Number) Number
 	let built = File(Process.Current.executable).Modified
 	mutable kept = MossResident(logger, true)
 	mutable last = Process.Elapsed
@@ -35,6 +35,7 @@ Served Number
 		last = socket > 0 then Process.Elapsed else last
 		kept = backend.Unpressed then kept else MossResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
+	Backend.Clean
 Replied(socket Number, kept MossResident) Slow(MossResident)
 	let resident = backend.resident
 	let request = resident.Requested(socket)

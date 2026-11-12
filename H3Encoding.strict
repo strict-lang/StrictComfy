@@ -2,6 +2,8 @@ has logger
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
 Started(prompts Texts, images Texts, paths Texts) Number
+	let noun = prompts.Length is 1 then " prompt" else " prompts"
+	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
 	Written(prompts, images, paths)
 	GpuMemory.Evicted
 	Process.Current.Started(Command(paths))

@@ -40,8 +40,8 @@ Checked(given Texts, plain Texts, parsed H3ImageOptions) Slow(Number)
 	forwarded >= 0 then forwarded else served.Completed(H3ImageResident(logger)).code
 Served Number
 	let server = backend.Opened
-	if server is 0
-		return 1
+	server is 0 then 1 else Listened(server)
+Listened(server Number) Number
 	let built = File(Process.Current.executable).Modified
 	mutable kept = H3ImageResident(logger, true)
 	mutable last = Process.Elapsed
@@ -51,6 +51,7 @@ Served Number
 		last = socket > 0 then Process.Elapsed else last
 		kept = backend.Unpressed then kept else H3ImageResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
+	Backend.Clean
 Replied(socket Number, kept H3ImageResident) Slow(H3ImageResident)
 	let resident = backend.resident
 	let request = resident.Requested(socket)

@@ -106,7 +106,7 @@ Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers
 	let layout = H3Layout(shaped, keyframes = keyframes, shift = numbers(1), routing = numbers(5))
 	let rows = job.Rows(condition)
 	if File(dumps + "/step0.safetensors").Exists
-		Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1)
+		logger.Log("step 0 error " + Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1))
 	let count = numbers(0) is 0 then job.Count else numbers(0)
 	let span = H3Span(numbers(6), numbers(7))
 	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
