@@ -11,9 +11,7 @@ Arguments(json Json) Texts
 	let numbers = Named(json, "--image", "image") + counted + Numbered(json)
 	let files = Named(json, "--output", "output") + Named(json, "--models", "models")
 	let models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
-	let givenVae = json.get("vae") to Text
-	let vae = StrictGenForm.Pair("--vae", StrictGenForm.Decoder(givenVae is "" then json.get("decoder") to Text else givenVae))
-	numbers + StrictGenForm.Loras(json) + files + models + vae + Flags(json)
+	numbers + StrictGenForm.Loras(json) + files + models + StrictGenForm.Vae(json) + Flags(json)
 Named(json Json, option Text, field Text) Texts
 	StrictGenImage.Named(Json("{\"vae\":\"v\"}"), "--vae", "vae") is ("--vae", "v")
 	StrictGenForm.Pair(option, json.get(field) to Text)

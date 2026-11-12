@@ -74,7 +74,7 @@ H3Video.exe --quality faster --image first.jpg
 
 `--help` lists every option.
 
-H3Video.exe starts a backend in the background the first time, which keeps the text encoder, H3 and the VAEs loaded for the next runs: a second video with a new prompt skips loading them (on a 4090 23 s instead of 59 s). The backend keeps its RAM and VRAM between runs and ends after 15 minutes without a run or when RAM runs low. On a machine with too little RAM to keep everything, runs load the models themselves. `--local` runs without the backend, `H3Video.exe stop` ends it.
+H3Video.exe starts a backend in the background the first time, which keeps the text encoder, H3 and the VAEs loaded for the next runs: a second video with a new prompt skips loading them (on a 4090 23 s instead of 59 s). The backend keeps its RAM and VRAM between runs and ends after 15 minutes without a run or when RAM runs low. On a machine with too little RAM to keep everything, runs load the models themselves. `--local` runs without the backend, `H3Video.exe stop` ends it. `--vae taeh3.safetensors` (madebyollin's TAEHV for H3 in models/vae_approx) decodes a draft video, mainly for `fastest4steps` and `fastest2steps` previews: on a 3080 a 124 frame 640x1152 video with its sound decodes in 1.1-1.5 s instead of 15-19 s with the H3 video VAE, 32.8 dB from it and visibly softer.
 
 MossImage.exe does the same with the text encoder and Moss (it needs 24 GB of RAM free to start): on a 3080 a second 480p image takes 1.8 s instead of 13.6 s, 3 s with a new prompt. Prompts already encoded are kept. `--local` and `MossImage.exe stop` work like for H3Video.
 

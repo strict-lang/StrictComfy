@@ -15,6 +15,16 @@ Located(name Text, folder Text) Text
 		return name
 	let inside = Folder + "/" + folder + "/" + name
 	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
+Decoder(vae Text, fallback Text) Text
+	ModelFiles(".").Decoder("", "tinyh3vae.safetensors") is "tinyh3vae.safetensors"
+	ModelFiles(".").Decoder("missing.safetensors", "a") is Error("FileNotFound:missing.safetensors")
+	let folder = File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
+	Located(vae is "" then fallback else vae, folder)
+VaeEncoder(vae Text, fallback Text) Text
+	ModelFiles(".").VaeEncoder("tinyh3vae.safetensors", "a") is "tinyh3vae.safetensors"
+	ModelFiles(".").VaeEncoder("tinytaeh3.safetensors", "a") is Error("FileNotFound:a")
+	let decoder = Decoder(vae, fallback)
+	(decoder is Error) or (Taeh3Decoder.Is(decoder) is false) then decoder else Located(fallback, "vae")
 Specs(loras Texts) Texts
 	ModelFiles("").Specs(List(Text) + "tinylora.safetensors:0.5") is ("tinylora.safetensors=0.5")
 	for loras

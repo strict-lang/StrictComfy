@@ -28,9 +28,7 @@ Optional(json Json, mode Text) Texts
 	let image = mode is "imagevideo" then Pair("--image", json.get("image") to Text) else List(Text)
 	let steps = json.get("steps") to Text
 	let counted = ((steps is "") or (steps is "0")) then List(Text) else Pair("--steps", steps)
-	let givenVae = json.get("vae") to Text
-	let vae = Pair("--vae", Decoder(givenVae is "" then json.get("decoder") to Text else givenVae))
-	let tail = vae + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
+	let tail = Vae(json) + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
 	length + context + clip + image + Pair("--last_image", json.get("lastImage") to Text) + counted + tail
 Loras(json Json) Texts
 	StrictGenForm.Loras(Json("{\"loras\":[{\"path\":\"a.safetensors\",\"strength\":0.5}]}")).Last is "a.safetensors:0.5"
@@ -69,14 +67,15 @@ Vision(text Text) Text
 	StrictGenForm.Vision("off") is "off"
 	StrictGenForm.Vision("") is ""
 	(text is "") or (text is "768") then "" else text
-Decoder(name Text) Text
-	StrictGenForm.Decoder("taef2") is "taef2.safetensors"
-	StrictGenForm.Decoder("flux2-vae") is "flux2-vae.safetensors"
-	StrictGenForm.Decoder("flux2-small-vae") is "full_encoder_small_decoder.safetensors"
-	StrictGenForm.Decoder("custom.safetensors") is "custom.safetensors"
-	if (name is "") or name.EndsWith(".safetensors")
-		return name
-	name is "flux2-small-vae" then "full_encoder_small_decoder.safetensors" else name + ".safetensors"
+Vae(json Json) Texts
+	StrictGenForm.Vae(Json("{\"decoder\":\"taef2\"}")) is ("--vae", "taef2.safetensors")
+	StrictGenForm.Vae(Json("{\"decoder\":\"flux2-small-vae\"}")) is ("--vae", "full_encoder_small_decoder.safetensors")
+	StrictGenForm.Vae(Json("{\"vae\":\"v.safetensors\",\"decoder\":\"taef2\"}")) is ("--vae", "v.safetensors")
+	StrictGenForm.Vae(Json("{\"decoder\":\"\"}")).Length is 0
+	let given = json.get("vae") to Text
+	let name = given is "" then json.get("decoder") to Text else given
+	let named = (name is "") or name.EndsWith(".safetensors") then name else name + ".safetensors"
+	Pair("--vae", named is "flux2-small-vae.safetensors" then "full_encoder_small_decoder.safetensors" else named)
 Pair(name Text, text Text) Texts
 	StrictGenForm.Pair("--seed", "").Length is 0
 	StrictGenForm.Pair("--seed", "7") is ("--seed", "7")

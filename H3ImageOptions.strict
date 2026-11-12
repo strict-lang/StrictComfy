@@ -32,13 +32,11 @@ Checkpoint Text
 	ModelFiles(models).Located(model is "" then Base else model, "diffusion_models")
 Decoder Text
 	Local.Decoder is Error("FileNotFound:" + Vae)
-	let folder = File(ModelFiles(models).Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
-	ModelFiles(models).Located(vae is "" then Vae else vae, folder)
+	ModelFiles(models).Decoder(vae, Vae)
 VaeEncoder Text
 	H3ImageOptions.Parsed(("--vae", "tinyh3imagevae.safetensors")).VaeEncoder is "tinyh3imagevae.safetensors"
 	H3ImageOptions.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error("FileNotFound:" + Vae)
-	let decoder = Decoder
-	(decoder is Error) or (Taeh3Decoder.Is(decoder) is false) then decoder else ModelFiles(models).Located(Vae, "vae")
+	ModelFiles(models).VaeEncoder(vae, Vae)
 Encoder Text
 	Local.Encoder is Error("FileNotFound:" + H3Batch.Encoder)
 	Files.Encoder

@@ -35,13 +35,11 @@ every method without a return type changed its bytecode in that compiler, so cle
 
 ## Can be done on the 3080 (10 GB)
 
-1. **taeh3 for H3Video** (user asked for it as a fast preview decoder, mainly for fastest4steps/fastest2steps): the
-   full multi-frame TAEHV decode. Reference: `comfy/taesd/taehv.py` (apply_model_with_memblocks, non-parallel: frames
-   run depth first, a MemBlock's past is the same block's input of the previous frame, TGrow splits a frame into
-   stride frames) and its H3 chunking in `TAEHV.decode` (pad to chunks of 5 latents = 20 frames, drop the first 3 frames
-   of every chunk, then the last 12). Taeh3Decoder.Decoded is the one-latent special case (Ran, Remembered, Grown,
-   Shuffled, the tiny fixture tinytaeh3.safetensors comes from ComfyUI's own TAEHV blocks). H3Video's decode path:
-   H3Vae.Decoded / H3Decoding; an option like H3Image's `--vae taeh3.safetensors`.
+1. **taeh3 for H3Video** done (2026-11-12, 3080): `--vae taeh3.safetensors` (models/vae_approx), Taeh3Decoder.Frames
+   runs the blocks frame by frame like taehv.py's parallel mode (a MemBlock's past is the previous frame's input), keeps
+   frames whose index % 20 >= 3 (the last 12 of TAEHV.decode are its padding for 5k-3 latents). Matches ComfyUI on the
+   tiny fixture and at 43 dB (two h264 encodes) on a real 124 frame 640x1152 latent; 32.8 dB from the H3 video VAE.
+   Decode with sound 1.1-1.5 s against 15-19 s for the video VAE (ComfyUI's taeh3 alone: 4.6 s warm on the 3080).
 2. **Moss on the 3080 for the website**: 10 image batches per preset with the new default decoder and with
    `--vae taef2.safetensors` (website wants both where the difference is over 10 %), plus MossWeb 480p with each decoder
    (Release/Web, C:/StrictDumps/vae/webrun.mjs now takes a "decoder" per run).
