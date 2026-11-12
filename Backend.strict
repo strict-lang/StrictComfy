@@ -79,12 +79,14 @@ IsGone Boolean
 Cleared Number
 	let objects = resident.root + "/obj"
 	let forwarding = Forwarding(logger, resident.root)
+	let killed = forwarding.Killed
 	forwarding.Kept(objects, Forwarding.Output)
 	forwarding.Kept(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
-	if (Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")) is 0
-		logger.Log("(nothing, see " + objects + "/server.previous*.log)")
-	forwarding.Killed + Gone
+	let kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
+	if (kept is 0) and ((Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors)) is 0)
+		logger.Log("(nothing in " + objects + "/server.log)")
+	killed + Gone
 Printed(path Text) Number
 	Sample.Printed("missing.log") is 0
 	if File(path).Exists is false
