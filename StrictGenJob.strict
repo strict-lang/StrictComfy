@@ -5,6 +5,7 @@ has preview = ""
 has remote = ""
 has remoteId = -1
 constant Detached = "/c start \"StrictGen\" /MIN /D \""
+constant PromptLine = "Prompt: "
 Local(at Number) StrictGenJob
 	StrictGenJob.Local(2).log is "StrictGenJob-2.log"
 	StrictGenJob.Local(2).current is 2
@@ -48,6 +49,11 @@ Found(rows Texts) Texts
 		let parts = value.Split(" ")
 		if (parts.Length > 1) and ((parts.First is "Saved") or (parts.First is "Wrote"))
 			parts(1)
+Prompts(rows Texts) Texts
+	StrictGenJob.Prompts(("Image 1/1, seed 2", "Prompt: a red fox", "Saved a.jpg")) is ("a red fox")
+	for rows
+		if value.StartsWith(PromptLine)
+			value.Substring(PromptLine.Length, value.Length - PromptLine.Length)
 Existing(paths Texts) Texts
 	StrictGenJob.Existing(("StrictGenJob.strict", "StrictGenMissing.mp4")) is ("StrictGenJob.strict")
 	for paths

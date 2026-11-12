@@ -69,30 +69,33 @@ Polled StrictGenQueue
 		return Remote
 	if (job.done is "") or (File(job.done).Exists is false)
 		return value
-	let paths = job.Existing(job.Found(job.Logged))
+	let rows = job.Logged
+	let paths = job.Existing(job.Found(rows))
 	File(job.done).Delete
-	Finished(paths, paths.Length is 0 then "The run finished without an output file" else lines(job.current))
+	let caption = paths.Length is 0 then "The run finished without an output file" else lines(job.current)
+	Finished(paths, caption, job.Prompts(rows))
 Remote StrictGenQueue
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First
 	if (answer is "wait") or (kind is "wait") or (answer is "")
 		return value
 	if kind is "error"
-		return Finished(List(Text), answer)
+		return Finished(List(Text), answer, List(Text))
 	let path = StrictGenRemote.Saved(job.remote, answer.Split("\t").Last)
 	if path is ""
-		return Finished(List(Text), "The other StrictGen sent no file")
-	Finished(List(Text) + path, lines(job.current))
-Finished(paths Texts, caption Text) StrictGenQueue
+		return Finished(List(Text), "The other StrictGen sent no file", List(Text))
+	Finished(List(Text) + path, lines(job.current), List(Text))
+Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue
 	let empty = paths.Length is 0
 	let recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
-	let made = StrictGenQueue(value, results = results + paths, captions = Captions(paths, caption), outcomes = recorded)
+	let shown = Captions(paths, caption, prompts)
+	let made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
 	let done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = (empty then caption else notice))
 	halted then done else done.Advanced
-Captions(paths Texts, caption Text) Texts
+Captions(paths Texts, caption Text, prompts Texts) Texts
 	mutable kept = captions
 	for paths
-		kept = kept + caption
+		kept = kept + (index < prompts.Length then prompts(index) else caption)
 	kept
 IsBusy Boolean
 	Empty.IsBusy is false

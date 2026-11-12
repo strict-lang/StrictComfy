@@ -119,7 +119,8 @@ Summary(body Text) Text
 	StrictGenForm.Summary(StrictGenImage.Edit).StartsWith("H3 Image night 1024x1024")
 	let json = Json(body)
 	let at = Modes.Index(json.get("mode") to Text)
-	let label = (at < 0 then "Image to video" else Titles(at)) + " " + (json.get("prompt") to Text).Split("\n").First
+	let template = (json.get("prompt") to Text).Split("\n").First
+	let label = (at < 0 then "Image to video" else Titles(at)) + " " + PromptBatch.Sample.Shown(template)
 	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
 	let model = json.get("model") to Text
 	let count = json.get("count") to Text

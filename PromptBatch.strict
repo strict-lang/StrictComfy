@@ -36,6 +36,18 @@ Expanded(template Text, seed Number) Text
 	for draws.Length - 1
 		expanded = Chosen(expanded, draws(index))
 	expanded.IndexOf("{") >= 0 then Error("UnclosedBrace") else expanded
+Simplified(template Text) Text
+	Sample.Simplified("a {big|small} {red|{dark|light} blue} cat") is "a big red cat"
+	(Sample.Simplified("a cat") is "a cat") and (Sample.Simplified("a } b") is "a } b")
+	mutable text = template
+	for template.Count("}")
+		let next = text.IndexOf("}") < 0 then text else Chosen(text, 0)
+		text = next is Error then text else next
+	text
+Shown(template Text) Text
+	Sample.Shown("a {red|grey} fox") is "a red fox (randomized)"
+	Sample.Shown("a fox") is "a fox"
+	Simplified(template) + (template.IndexOf("{") >= 0 then " (randomized)" else "")
 Chosen(text Text, draw Number) Text
 	Sample.Chosen("a {b|c} d", 1) is "a c d"
 	Sample.Chosen("{x|y}", 4) is "x"
