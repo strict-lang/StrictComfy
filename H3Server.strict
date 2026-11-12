@@ -18,6 +18,7 @@ Listened(server Number) Number
 		last = socket > 0 then Process.Elapsed else last
 		kept = backend.Unpressed then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
+	Backend.Clean
 Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let resident = backend.resident
 	let arguments = resident.Arguments(request)

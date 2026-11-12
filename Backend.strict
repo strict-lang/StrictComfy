@@ -8,6 +8,7 @@ constant CheckSeconds = 5
 constant Gone = -2
 constant Unserved = -1
 constant Crashed = 1
+constant Clean = 0
 constant IdleSeconds = 900
 constant LowMemory = 4294967296
 constant Gigabyte = 1073741824
