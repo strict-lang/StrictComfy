@@ -32,6 +32,21 @@ Output(map FeatureMap) Slow(FeatureMap)
 	let second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
 	let shortcut = skip.weights.Length is 0 then input else skip.Projected(input)
 	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
+Remembered(map FeatureMap, past FeatureMap) Slow(FeatureMap)
+	Taeh3Decoder.Tiny.blocks.First.Remembered(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
+	let doubled = 2 * map.channels
+	let joined = FeatureMap(Joined(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))
+	let first = convolutions(0).Applied(joined, joined.Identity, Activation.Linear)
+	let second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
+	let shortcut = skip.weights.Length is 0 then map else skip.Projected(map)
+	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
+Joined(own Numbers, past Numbers, channels Number) Numbers
+	Plain.Joined((1, 2, 3, 4), (5, 6, 7, 8), 2) is (1, 2, 5, 6, 3, 4, 7, 8)
+	let doubled = 2 * channels
+	for 2 * own.Length
+		let within = index % doubled
+		let pixel = (index / doubled).Floor
+		within < channels then own(pixel * channels + within) else past(pixel * channels + within - channels)
 Rectified(map FeatureMap) FeatureMap
 	Pooling.Rectified(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
 	map.Applied(map.Identity, Activation.Relu)

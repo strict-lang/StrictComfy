@@ -1,53 +1,93 @@
 has entry Convolution
 has blocks List(Taef2Block)
-has upsamples List(Convolution)
+has grows List(Convolution)
+has narrows List(Convolution)
 has exit Convolution
 constant Path = "tinytaeh3.safetensors"
-constant Model = Safetensors(Path, 32)
+constant Model = Safetensors(Path, 32, "decoder.")
 constant Tiny = Taeh3Decoder.Loaded(Path)
-constant Layers = (3, 4, 5, 8, 9, 10, 13, 14, 15, 18, 19, 22)
-constant UpsampleLayers = (7, 12, 17, 21)
-constant Doubling = (2, 5, 8, 10)
-constant Reference = Model.Values("reference.pixels")
-constant Pixels = Tiny.Decoded(Model.Values("latent"), 3)
+constant Layers = (3, 4, 5, 9, 10, 11, 15, 16, 17)
+constant GrowLayers = (7, 13, 19)
+constant NarrowLayers = (8, 14, 20)
+constant Channels = 24
+constant Patches = 12
+constant Corners = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1, 1)
+constant Latent = Safetensors(Path).Values("latent")
+constant Reference = Safetensors(Path).Values("reference.pixels")
+constant Pixels = Tiny.Decoded(Latent, 3)
+constant Narrow = FeatureMap(Layer.Zeros(16), 2, 4, Layer.Zeros(4))
+constant Started = Tiny.Entered(Latent, 3)
 Loaded(path Text) Slow(Taeh3Decoder)
-	Tiny.blocks.Length is 12
-	Tiny.upsamples.Length is 4
-	Tiny.blocks(6).skip.biases.Length is 4
-	let model = Safetensors(path, 32)
-	Taeh3Decoder(FluxResnet.Convolved(model, "1"), Blocks(model), Upsamples(model), FluxResnet.Convolved(model, "23"))
+	(Tiny.blocks.Length is 9) and (Tiny.grows.Length is 3) and (Tiny.narrows.Length is 3)
+	Tiny.grows(1).biases.Length is 16
+	let model = Safetensors(path, 32, "decoder.")
+	let entered = FluxResnet.Convolved(model, "1")
+	Taeh3Decoder(entered, Blocks(model), Grows(model), Narrows(model), FluxResnet.Convolved(model, "22"))
 Is(path Text) Boolean
 	Taeh3Decoder.Is(Path)
 	Taeh3Decoder.Is("tinytaef2.safetensors") is false
-	Safetensors(path).Entry("23.weight") is not ""
+	Safetensors(path).Entry("decoder.22.weight") is not ""
 Blocks(model Safetensors) Slow(List(Taef2Block))
-	Tiny.Blocks(Model)(5).convolutions.Length is 3
+	Tiny.Blocks(Model)(8).convolutions.Length is 3
 	for Layers
 		Taef2Block.Loaded(model, (value to Text) + ".")
-Upsamples(model Safetensors) Slow(List(Convolution))
-	Tiny.Upsamples(Model).First.biases is Layer.Zeros(8)
-	for UpsampleLayers
-		let upsample = FluxResnet.Convolved(model, value to Text)
-		Convolution(upsample.Folds, upsample.biases)
+Grows(model Safetensors) Slow(List(Convolution))
+	Tiny.Grows(Model).First.biases.Length is 8
+	for GrowLayers
+		FluxResnet.Convolved(model, (value to Text) + ".conv")
+Narrows(model Safetensors) Slow(List(Convolution))
+	Tiny.Narrows(Model).Last.biases is Layer.Zeros(4)
+	for NarrowLayers
+		let narrow = FluxResnet.Convolved(model, value to Text)
+		Convolution(narrow.Folds, narrow.biases)
 Decoded(latent Numbers, width Number) Slow(Numbers)
 	Pixels.Length is 4608
-	Pixels(239).IsNearlyEqual(Reference(239), 0.001) and Pixels(2959).IsNearlyEqual(Reference(2959), 0.001)
+	Pixels(1537).IsNearlyEqual(Reference(1537), 0.002) and Pixels(3071).IsNearlyEqual(Reference(3071), 0.002)
 	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
-	let channels = entry.weights.Length / entry.biases.Length / 9
-	let map = FeatureMap(Clamped(Moss.Transposed(latent, channels)), width, channels, Layer.Zeros(channels))
-	let state = Upsampled(Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear)))
-	let pixels = exit.Applied(state, state.Identity, Activation.Linear).Completed
-	for Moss.Transposed(pixels, pixels.Length / 3)
-		value.Clamp(0, 1)
-Clamped(values Numbers) Numbers
-	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
-	for values
-		3 * Activation.Tanh.Output(value / 3)
-Upsampled(map FeatureMap) Slow(FeatureMap)
-	Tiny.Upsampled(FeatureMap(Layer.Zeros(48), 3, 8, Layer.Zeros(8))).width is 48
+	let second = Ran(narrows(0).Doubled(Grown(Ran(Entered(latent, width), 0), 0, 0)), 1)
+	let last = Remembered(narrows(1).Doubled(Grown(second, 1, 0)), narrows(1).Doubled(Grown(second, 1, 1)))
+	let final = narrows(2).Doubled(Grown(last, 2, 1))
+	Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width)
+Entered(latent Numbers, width Number) Slow(FeatureMap)
+	Started.channels is 8
+	let clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
+	let map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
+	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
+Ran(map FeatureMap, group Number) Slow(FeatureMap)
+	Tiny.Ran(Started, 0).channels is 8
 	mutable state = map
-	for blocks
-		state = value.Output(state)
-		if index is in Doubling
-			state = upsamples(Doubling.Index(index)).Doubled(state)
+	let first = group * 3
+	for 3
+		state = blocks(first + index).Remembered(state, Empty(state))
 	state
+Remembered(earlier FeatureMap, later FeatureMap) Slow(FeatureMap)
+	Tiny.Remembered(Narrow, Narrow).values.Length is 16
+	mutable before = earlier
+	mutable after = later
+	for 3
+		let block = blocks(6 + index)
+		after = block.Remembered(after, before)
+		before = block.Remembered(before, Empty(before))
+	after
+Empty(map FeatureMap) FeatureMap
+	Tiny.Empty(Started).values is Layer.Zeros(48)
+	FeatureMap(Layer.Zeros(map.values.Length), map.width, map.channels, Layer.Zeros(map.channels))
+Grown(map FeatureMap, which Number, frame Number) Slow(FeatureMap)
+	Tiny.Grown(Started, 1, 1).channels is 8
+	let grown = grows(which).Projected(map).Completed
+	let channels = map.channels
+	let total = grows(which).biases.Length
+	FeatureMap(Picked(grown, total, frame * channels, channels), map.width, channels, Layer.Zeros(channels))
+Picked(values Numbers, total Number, start Number, count Number) Numbers
+	Tiny.Picked((1, 2, 3, 4, 5, 6), 3, 1, 2) is (2, 3, 5, 6)
+	for values.Length / total * count
+		values((index / count).Floor * total + start + index % count)
+Shuffled(pixels Numbers, width Number) Numbers
+	Tiny.Shuffled(Corners, 1) is Corners
+	let plane = 4 * pixels.Length / Patches
+	let wide = 2 * width
+	for 3 * plane
+		let y = (index % plane / wide).Floor
+		let x = index % wide
+		let source = ((y / 2).Floor * width + (x / 2).Floor) * Patches + (index / plane).Floor * 4 + y % 2 * 2 + x % 2
+		pixels(source).Clamp(0, 1)

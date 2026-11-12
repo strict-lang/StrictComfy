@@ -16,7 +16,6 @@ constant Circle = 6.283185307179586
 constant StillRows = 768
 constant PlanarHalf = 16
 constant StillBits = 8
-constant PlanarWidth = 1024
 constant FramePosition = -0.8571428571428572
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
 Loaded(model Safetensors) Slow(H3Decoder)
@@ -35,8 +34,7 @@ Loaded(model Safetensors) Slow(H3Decoder)
 Blocks(model Safetensors) Slow(List(H3DecoderBlock))
 	Tiny.Blocks(Model).Length is 2
 	(Tiny.blocks.First.half is 24) and (Still.blocks.First.half is 16)
-	let still = model.Shape("decoder.proj_out.weight")(0) is StillRows
-	let planar = still and (model.Shape("decoder.x_embedder.weight")(0) is PlanarWidth)
+	let planar = (model.Shape("decoder.proj_out.weight")(0) is StillRows) and (model.Entry("decoder.mask_token") is not "")
 	let half = planar then PlanarHalf else H3DecoderBlock.Decoding.half
 	let bits = planar then StillBits else 32
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length

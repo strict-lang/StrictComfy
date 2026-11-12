@@ -16,7 +16,7 @@ Ran(given Texts) Number
 	let plain = Remote(logger).Without(arguments)
 	let rest = plain - Backend.Local
 	if MachineUse.IsChecked(arguments, backend.resident.root)
-		if Granted(arguments, MachineUse.IsForced(given)) is not 0
+		if IsGranted(arguments, MachineUse.IsForced(given)) is false
 			return 1
 	let forwarded = backend.Dispatched(plain)
 	forwarded >= 0 then forwarded else Local(rest).code
@@ -65,23 +65,23 @@ Asked(arguments Texts, forced Boolean) Text
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"
 	"need\tMossImage\tMossImage\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
-Granted(arguments Texts, forced Boolean) Slow(Number)
-	Sample.Granted(List(Text), false) >= 0
+IsGranted(arguments Texts, forced Boolean) Slow(Boolean)
+	Sample.IsGranted(List(Text), false) is not Error
 	let named = Remote(logger).Named(arguments)
-	named >= 0 then named else Continued(arguments, forced)
-Continued(arguments Texts, forced Boolean) Slow(Number)
-	Sample.Continued(List(Text), false) >= 0
+	named >= 0 then named is 0 else IsContinued(arguments, forced)
+IsContinued(arguments Texts, forced Boolean) Slow(Boolean)
+	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
 	if line is ""
-		return 0
+		return true
 	let reply = Coordinator(logger, backend.coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
 	if sent >= 0
-		return sent
+		return sent is 0
 	let settled = reply.StartsWith("wait") then Coordinator(logger, backend.coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
-		return Use(arguments, forced).Explained(settled)
-	settled is "" then Use(arguments, forced).Checked else 0
+		Use(arguments, forced).Explained(settled)
+	(settled.StartsWith("refused") is false) and ((settled is not "") or Use(arguments, forced).Checked)
 Ended(socket Number, code Number, request Text) Slow(Boolean)
 	Sample.Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
