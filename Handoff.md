@@ -48,6 +48,19 @@ every method without a return type changed its bytecode in that compiler, so cle
 3. P-H3 and taeh3 for H3Image on a 10 GB card: does P-H3 (3.1 GB int8) still fit next to the streamed H3 Image at
    1024? Time decode only.
 
+## Done on the 4090 after the handoff (2026-11-12 morning)
+
+- H3Image vs ComfyUI, warm, new prompt per run, same files (nvfp4 text encoder, no upsampler), ComfyUI as a running
+  server: 1 MP 4.6 vs 6.9 s, 4 MP 6.8 vs 13.1 s, 8.3 MP (2880²) 10.5 vs 20.1 s, 16.8 MP (4096²) 20.4 vs 27.2 s.
+  The user's earlier 23/30/35 s ComfyUI numbers were a different setup (25 GB int8 encoder, upsampler).
+  At 16 MP our sampling is 13.7 s: attention 19 ms and int8 GEMMs ~20 ms per block, both near the 4090's peak; about
+  1 s per 3 steps of weight uploads because activations crowd the VRAM (a runtime streaming topic).
+- Decode + save (1/4/8/16 MP): image VAE 0.19/0.6/1.25/2.65 s, P-H3 0.33/1.06/2.2/4.7 s, taeh3 0.03/0.14/0.26/0.53 s.
+- Moss 4090, 10 image batches, per image: fastest2steps 0.39 (taef2, Flux 2 0.53), fastest 0.46 (taef2, 0.65),
+  faster 0.82 (taef2 0.65), fast 0.84 (taef2 0.72), best 1.19 (taef2 1.07).
+- Website (strict-lang.org 6c69ba2) and Readme updated with these. Scripts: C:/StrictDumps/h3image (queue.py,
+  comfy.sh, strict.sh), C:/StrictDumps/moss1112.
+
 ## Needs the 4090 (24 GB), do on the AiServer
 
 1. **H3Image benchmark at 1, 4, 8 and 16 MP** (1024², 2048², 3840x2160 or 2880², 4096²) warm, new prompt per run,
