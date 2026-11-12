@@ -117,14 +117,14 @@ Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, reference
 		let output = model.Output(solver.latent, sigmas(index), sigmas(index + 1), text, layout, conditions)
 		solver = solver.Stepped(output, index)
 	solver.latent
-Saved(vae H3Vae, latents List(Numbers), outputs Texts) Slow(Texts)
+Saved(vae H3ImageVae, latents List(Numbers), outputs Texts) Slow(Texts)
 	GpuMemory.Released
 	GpuMemory.Freed(File(options.Decoder).Length + H3Files.DecodeRoom)
 	let size = Target
 	for latents
 		let started = Process.Elapsed
 		let path = PromptBatch(logger, "Image").Saving(outputs(index), options.output)
-		Written(path, vae.Still(value, size(0) / 16, size(1) / 16), size)
+		Written(path, vae.Pixels(value, size(0) / 16, size(1) / 16), size)
 		logger.Log("Saved " + path + " in " + (Process.Elapsed - started).Round(2) + " s")
 		path
 Written(path Text, pixels Numbers, size Numbers)

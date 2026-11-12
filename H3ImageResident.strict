@@ -6,9 +6,7 @@ has tokenizers List(Gpt2Tokens) = List(Gpt2Tokens)
 has models List(H3ImageModel) = List(H3ImageModel)
 has refiners List(H3Refiner) = List(H3Refiner)
 has model = ""
-has decoders List(H3Vae) = List(H3Vae)
-has pictures List(H3Picture) = List(H3Picture)
-has vaeFile = ""
+has vae = H3ImageVae.None
 has visions List(QwenVision) = List(QwenVision)
 has references List(Numbers) = List(Numbers)
 has referenceKey = ""
@@ -40,36 +38,30 @@ Loaded(options H3ImageOptions) Slow(H3ImageModel)
 	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + report)
 	loaded
 Decoding(path Text) Slow(H3ImageResident)
-	Sampled.Decoding(Tiny.Decoder).decoders.Length is 1
-	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).vaeFile is Tiny.Decoder
-	Sampled.Picturing(H3VaeEncoder.Model.path).Decoding(Tiny.Decoder).pictures.Length is 0
-	if (path is vaeFile) and (decoders.Length is 1)
+	Sampled.Decoding(Tiny.Decoder).vae.decoders.Length is 1
+	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).vae.decoderFile is Tiny.Decoder
+	if vae.IsDecoding(path)
 		return value
-	logger.Log("Loading the H3 Image VAE " + ModelFiles("").Described(path) + Staying)
-	let vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
-	let kept = path is vaeFile then pictures else List(H3Picture)
-	H3ImageResident(value, decoders = List(H3Vae) + vae, pictures = kept, vaeFile = path)
+	logger.Log("Loading the H3 Image decoder " + ModelFiles("").Described(path) + Staying)
+	H3ImageResident(value, vae = vae.Decoding(path))
 Picturing(path Text) Slow(H3ImageResident)
-	Sampled.Picturing(H3VaeEncoder.Model.path).pictures.Length is 1
-	Sampled.Picturing(H3VaeEncoder.Model.path).vaeFile is H3VaeEncoder.Model.path
-	if (path is vaeFile) and (pictures.Length is 1)
+	Sampled.Picturing(H3VaeEncoder.Model.path).vae.pictures.Length is 1
+	if vae.IsPicturing(path)
 		return value
 	logger.Log("Loading the H3 Image VAE encoder" + Staying)
-	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
-	let kept = path is vaeFile then decoders else List(H3Vae)
-	H3ImageResident(value, pictures = List(H3Picture) + picture, decoders = kept, vaeFile = path)
+	H3ImageResident(value, vae = vae.Picturing(path))
 Referencing(image H3Image) Slow(H3ImageResident)
 	Sampled.Referencing(H3Image.Tiny).references.Length is 0
-	Sampled.Referencing(H3Image.Tiny).pictures.Length is 0
+	Sampled.Referencing(H3Image.Tiny).vae.pictures.Length is 0
 	let path = image.options.image
 	let file = File(path)
-	let key = path is "" then "" else image.options.Decoder + "|" + path + "|" + file.Length + "|" + file.Modified
+	let key = path is "" then "" else image.options.VaeEncoder + "|" + path + "|" + file.Length + "|" + file.Modified
 	if key is referenceKey
 		return value
 	if key is ""
 		return H3ImageResident(value, references = List(Numbers), referenceKey = "")
-	let picturing = Picturing(image.options.Decoder)
-	H3ImageResident(picturing, references = image.Referenced(picturing.pictures.First), referenceKey = key)
+	let picturing = Picturing(image.options.VaeEncoder)
+	H3ImageResident(picturing, references = image.Referenced(picturing.vae.pictures.First), referenceKey = key)
 Seeing(files H3Files) Slow(H3ImageResident)
 	Encoded.Seeing(TinyFiles).visions.Length is 0
 	if (files.Images.Length is 0) or (visions.Length is 1)

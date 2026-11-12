@@ -8,8 +8,8 @@ constant Spare = 4294967296
 constant Dmd = "moss/dmd_turbo_lora.safetensors"
 constant ModelKindsHelp = "Moss int8 Convrot model file or a 4 bit .gguf (LoRAs merged, like moss_image_sft_turbo-Q4_K_M.gguf for 8 steps), "
 constant ModelNamesHelp = "a name in models/diffusion_models or a path, empty for moss-image-sft-dit-int8-convrot.safetensors"
-constant DecoderKindsHelp = "image decoder: taef2.safetensors (tiny, fastest), the Flux 2 VAE flux2-vae.safetensors or the FLUX.2 small decoder (its full_encoder_small_decoder.safetensors), "
-constant DecoderNamesHelp = "a name in models/vae or models/vae_approx or a path, empty for taef2.safetensors when it is in models/vae_approx, else flux2-vae.safetensors"
+constant DecoderKindsHelp = "image decoder: the Flux 2 VAE flux2-vae.safetensors, taef2.safetensors (tiny, 0.1 s faster per 720p image) or the FLUX.2 small decoder (its full_encoder_small_decoder.safetensors), "
+constant DecoderNamesHelp = "a name in models/vae or models/vae_approx or a path, empty for flux2-vae.safetensors (taef2.safetensors from models/vae_approx with fastest and fastest2steps or without the Flux 2 VAE)"
 constant EncoderKindsHelp = "Qwen3.5 9B text encoder file (int8 Convrot or a .gguf like Qwen3.5-9B-Q4_K_M.gguf), a name in models/text_encoders or a path, "
 constant EncoderNamesHelp = "empty for qwen3.5_9b_int8_convrot.safetensors; its tokenizer folder qwen35_tokenizer is used from next to it, else from ComfyUI"
 constant ModelHelp = (ModelKindsHelp + ModelNamesHelp, DecoderKindsHelp + DecoderNamesHelp, EncoderKindsHelp + EncoderNamesHelp)
@@ -35,8 +35,15 @@ Decoder Text
 	MossFiles.Parsed(("--models", ".")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	if vae is not ""
 		return Located(vae, File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae")
-	let tiny = Folder + "/vae_approx/taef2.safetensors"
-	File(tiny).Exists then tiny else Located("flux2-vae.safetensors", "vae")
+	let full = Located("flux2-vae.safetensors", "vae")
+	(full is Error) and File(Tiny).Exists then Tiny else full
+Tiny Text
+	Local.Tiny is "./vae_approx/taef2.safetensors"
+	Folder + "/vae_approx/taef2.safetensors"
+Fast Text
+	Local.Fast is "tinyvae.safetensors"
+	MossFiles.Parsed(("--models", ".")).Fast is Error("FileNotFound:flux2-vae.safetensors")
+	(vae is "") and File(Tiny).Exists then Tiny else Decoder
 Encoder Text
 	Local.Encoder is Error("FileNotFound:qwen3.5_9b_int8_convrot.safetensors")
 	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Encoder is "tinymoss.safetensors"

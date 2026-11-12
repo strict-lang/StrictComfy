@@ -18,7 +18,7 @@ constant PromptHelp = ("UTF-8 prompt file or the prompt itself, {a|b|c} picks on
 constant SizeHelp = ("width in pixels, rounded to a multiple of 32, 0 for 2048 or the --image width scaled to a short side of 1024 to 2048", "height in pixels, 0 like --width")
 constant StepsHelp = ("sampling steps, 6 match the model's distilled heads (ComfyUI's template), fewer are faster and rougher", "seed of every image, -1 for a random one per image", "images per run")
 constant LoraHelp = List(Text) + "LoRA path[:strength] in models/loras or anywhere, repeat for more"
-constant ModelHelp = ("H3 Image model file, a name in models/diffusion_models or a path, empty for " + Base, "H3 Image VAE file, a name in models/vae or a path, empty for " + Vae)
+constant ModelHelp = ("H3 Image model file, a name in models/diffusion_models or a path, empty for " + Base, "decoder: the H3 Image VAE, p-h3-image_vae_int8_convrot.safetensors (cleaner faces, slower) or taeh3.safetensors (tiny draft, edits encode with the H3 Image VAE), a name in models/vae or models/vae_approx or a path, empty for " + Vae)
 constant EncoderHelp = ("Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for " + H3Batch.Encoder, "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
 constant OutputHelp = List(Text) + "numbered output base (.jpg or .png), never overwritten"
 constant Help = PromptHelp + SizeHelp + StepsHelp + LoraHelp + ModelHelp + EncoderHelp + OutputHelp
@@ -30,7 +30,13 @@ Checkpoint Text
 	ModelFiles(models).Located(model is "" then Base else model, "diffusion_models")
 Decoder Text
 	Local.Decoder is Error("FileNotFound:" + Vae)
-	ModelFiles(models).Located(vae is "" then Vae else vae, "vae")
+	let folder = File(ModelFiles(models).Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
+	ModelFiles(models).Located(vae is "" then Vae else vae, folder)
+VaeEncoder Text
+	H3ImageOptions.Parsed(("--vae", "tinyh3imagevae.safetensors")).VaeEncoder is "tinyh3imagevae.safetensors"
+	H3ImageOptions.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error("FileNotFound:" + Vae)
+	let decoder = Decoder
+	(decoder is Error) or (Taeh3Decoder.Is(decoder) is false) then decoder else ModelFiles(models).Located(Vae, "vae")
 Encoder Text
 	Local.Encoder is Error("FileNotFound:" + H3Batch.Encoder)
 	Files.Encoder

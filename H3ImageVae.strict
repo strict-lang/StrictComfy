@@ -1,0 +1,34 @@
+has decoderFile Text
+has decoders List(H3Vae)
+has tinies List(Taeh3Decoder)
+has pictureFile Text
+has pictures List(H3Picture)
+constant None = H3ImageVae("", List(H3Vae), List(Taeh3Decoder), "", List(H3Picture))
+constant Image = "tinyh3imagevae.safetensors"
+constant Decoder = None.Decoding(Image)
+constant Tiny = None.Decoding(Taeh3Decoder.Path)
+IsDecoding(path Text) Boolean
+	Decoder.IsDecoding(Image)
+	None.IsDecoding(Image) is false
+	(path is decoderFile) and (decoders.Length + tinies.Length is 1)
+Decoding(path Text) Slow(H3ImageVae)
+	(Decoder.decoders.Length is 1) and (Decoder.tinies.Length is 0)
+	(Tiny.tinies.Length is 1) and (Tiny.decoders.Length is 0)
+	if Taeh3Decoder.Is(path)
+		let tiny = List(Taeh3Decoder) + Taeh3Decoder.Loaded(path)
+		return H3ImageVae(value, decoderFile = path, decoders = List(H3Vae), tinies = tiny)
+	let vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
+	H3ImageVae(value, decoderFile = path, decoders = List(H3Vae) + vae, tinies = List(Taeh3Decoder))
+IsPicturing(path Text) Boolean
+	None.Picturing(H3VaeEncoder.Model.path).IsPicturing(H3VaeEncoder.Model.path)
+	Decoder.IsPicturing(Image) is false
+	(path is pictureFile) and (pictures.Length is 1)
+Picturing(path Text) Slow(H3ImageVae)
+	None.Picturing(H3VaeEncoder.Model.path).pictures.Length is 1
+	Decoder.Picturing(H3VaeEncoder.Model.path).decoders.Length is 1
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
+	H3ImageVae(value, pictureFile = path, pictures = List(H3Picture) + picture)
+Pixels(latent Numbers, height Number, width Number) Slow(Numbers)
+	Tiny.Pixels(Taeh3Decoder.Model.Values("latent"), 2, 3) is Taeh3Decoder.Pixels
+	Decoder.Pixels(H3Vae.Image.Values("reference.latent"), 3, 4) is H3Vae.StillPixels
+	tinies.Length is 1 then tinies.First.Decoded(latent, width) else decoders.First.Still(latent, height, width)

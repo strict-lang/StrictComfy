@@ -110,7 +110,8 @@
 		<label>Activity<pre id="log">Idle</pre></label>
 		<div class="row">
 			<label id="decoderLabel">Decoder<select id="decoder">
-				<option value="taef2" selected>taef2</option>
+				<option value="" selected>auto</option>
+				<option value="taef2">taef2</option>
 				<option value="flux2-small-vae">flux2-small-vae</option>
 				<option value="flux2-vae">flux2-vae</option>
 			</select></label>
@@ -182,7 +183,7 @@
 	const defaultsFor = mode => {
 		if (mode === "h3image") return {
 			prompt: "a red fox in a snowy birch forest at sunrise, soft golden light, detailed fur, photo", size: "2048 2048", width: 2048, height: 2048,
-			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "taef2", length: 124, context: 22, input: "", lastImage: ""
+			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "", length: 124, context: 22, input: "", lastImage: ""
 		};
 		const video = mode !== "image";
 		const quality = video ? "fast" : "fastest";
@@ -190,7 +191,7 @@
 			prompt: video ? "a red fox walking through snow, cinematic" : "a red fox in a snowy forest at dawn, photo",
 			size: video ? "custom" : "480 848", width: video ? 640 : 480, height: video ? 1152 : 848,
 			quality, steps: stepsFor(mode, quality), skip: video ? "5:45" : "off", model: video ? h3Model : mossModel,
-			loras: [], decoder: "taef2", length: 124, context: 22, input: "", lastImage: ""
+			loras: [], decoder: "", length: 124, context: 22, input: "", lastImage: ""
 		};
 	};
 	const fill = (select, pairs, chosen) => {
@@ -224,7 +225,7 @@
 		element("model").value = data.model;
 		state.loras = data.loras || [];
 		drawLoras();
-		element("decoder").value = data.decoder || "taef2";
+		element("decoder").value = data.decoder || "";
 		element("length").value = data.length; element("context").value = data.context;
 		element("input").value = data.input || ""; element("lastImage").value = data.lastImage || "";
 	};

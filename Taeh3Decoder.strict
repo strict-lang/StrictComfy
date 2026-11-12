@@ -1,0 +1,53 @@
+has entry Convolution
+has blocks List(Taef2Block)
+has upsamples List(Convolution)
+has exit Convolution
+constant Path = "tinytaeh3.safetensors"
+constant Model = Safetensors(Path, 32)
+constant Tiny = Taeh3Decoder.Loaded(Path)
+constant Layers = (3, 4, 5, 8, 9, 10, 13, 14, 15, 18, 19, 22)
+constant UpsampleLayers = (7, 12, 17, 21)
+constant Doubling = (2, 5, 8, 10)
+constant Reference = Model.Values("reference.pixels")
+constant Pixels = Tiny.Decoded(Model.Values("latent"), 3)
+Loaded(path Text) Slow(Taeh3Decoder)
+	Tiny.blocks.Length is 12
+	Tiny.upsamples.Length is 4
+	Tiny.blocks(6).skip.biases.Length is 4
+	let model = Safetensors(path, 32)
+	Taeh3Decoder(FluxResnet.Convolved(model, "1"), Blocks(model), Upsamples(model), FluxResnet.Convolved(model, "23"))
+Is(path Text) Boolean
+	Taeh3Decoder.Is(Path)
+	Taeh3Decoder.Is("tinytaef2.safetensors") is false
+	Safetensors(path).Entry("23.weight") is not ""
+Blocks(model Safetensors) Slow(List(Taef2Block))
+	Tiny.Blocks(Model)(5).convolutions.Length is 3
+	for Layers
+		Taef2Block.Loaded(model, (value to Text) + ".")
+Upsamples(model Safetensors) Slow(List(Convolution))
+	Tiny.Upsamples(Model).First.biases is Layer.Zeros(8)
+	for UpsampleLayers
+		let upsample = FluxResnet.Convolved(model, value to Text)
+		Convolution(upsample.Folds, upsample.biases)
+Decoded(latent Numbers, width Number) Slow(Numbers)
+	Pixels.Length is 4608
+	Pixels(239).IsNearlyEqual(Reference(239), 0.001) and Pixels(2959).IsNearlyEqual(Reference(2959), 0.001)
+	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
+	let channels = entry.weights.Length / entry.biases.Length / 9
+	let map = FeatureMap(Clamped(Moss.Transposed(latent, channels)), width, channels, Layer.Zeros(channels))
+	let state = Upsampled(Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear)))
+	let pixels = exit.Applied(state, state.Identity, Activation.Linear).Completed
+	for Moss.Transposed(pixels, pixels.Length / 3)
+		value.Clamp(0, 1)
+Clamped(values Numbers) Numbers
+	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
+	for values
+		3 * Activation.Tanh.Output(value / 3)
+Upsampled(map FeatureMap) Slow(FeatureMap)
+	Tiny.Upsampled(FeatureMap(Layer.Zeros(48), 3, 8, Layer.Zeros(8))).width is 48
+	mutable state = map
+	for blocks
+		state = value.Output(state)
+		if index is in Doubling
+			state = upsamples(Doubling.Index(index)).Doubled(state)
+	state

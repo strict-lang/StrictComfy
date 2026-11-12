@@ -16,6 +16,8 @@ constant Circle = 6.283185307179586
 constant StillRows = 768
 constant PlanarHalf = 16
 constant StillBits = 8
+constant PlanarWidth = 1024
+constant FramePosition = -0.8571428571428572
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
 Loaded(model Safetensors) Slow(H3Decoder)
 	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)
@@ -33,8 +35,10 @@ Loaded(model Safetensors) Slow(H3Decoder)
 Blocks(model Safetensors) Slow(List(H3DecoderBlock))
 	Tiny.Blocks(Model).Length is 2
 	(Tiny.blocks.First.half is 24) and (Still.blocks.First.half is 16)
-	let half = model.Shape("decoder.proj_out.weight")(0) is StillRows then PlanarHalf else H3DecoderBlock.Decoding.half
-	let bits = half is PlanarHalf then StillBits else 32
+	let still = model.Shape("decoder.proj_out.weight")(0) is StillRows
+	let planar = still and (model.Shape("decoder.x_embedder.weight")(0) is PlanarWidth)
+	let half = planar then PlanarHalf else H3DecoderBlock.Decoding.half
+	let bits = planar then StillBits else 32
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length
 		H3DecoderBlock.Loaded(model, "decoder.transformer_blocks." + index + ".", half, bits)
 Split(values Numbers, width Number) Slow(List(Numbers))
@@ -66,8 +70,14 @@ Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	Turning(3649) is 0
 	Still.Rotations(1, 2, 2).Length is 1152
 	let half = blocks.First.half
-	let coordinates = half is PlanarHalf then Planar(height, width) else Coordinates(frames, height, width)
+	let still = Temporal is 1 then Pinned(height, width) else Coordinates(frames, height, width)
+	let coordinates = half is PlanarHalf then Planar(height, width) else still
 	Rope(H3DecoderBlock.Decoding.head, half).Table(coordinates + Layer.Zeros(3 * H3Format.Registers), Frequencies, Circle)
+Pinned(height Number, width Number) Slow(Numbers)
+	Tiny.Pinned(2, 2)(0) is FramePosition
+	Tiny.Pinned(2, 2)(4) is Tiny.Coordinates(1, 2, 2)(4)
+	for Coordinates(1, height, width)
+		index % 3 is 0 then FramePosition else value
 Frequencies Slow(Numbers)
 	Tiny.Frequencies(1).IsNearlyEqual(0.5623413)
 	Tiny.Frequencies.Length is 8

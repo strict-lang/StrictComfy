@@ -2,6 +2,7 @@ has convolutions List(Convolution)
 has expand Convolution
 has norm GroupNorm
 has contract Convolution
+has skip Convolution
 constant Unused = Convolution(List(Number), List(Number))
 constant Unnormed = GroupNorm(List(Number), List(Number), 1)
 constant Model = Safetensors("tinytaef2.safetensors", 32, "decoder.layers.")
@@ -13,10 +14,12 @@ Loaded(model Safetensors, prefix Text) Slow(Taef2Block)
 	Pooling.norm.groups is 4
 	Plain.expand.weights.Length is 0
 	let block = Safetensors(model.path, 32, model.prefix + prefix)
+	let skipped = block.Entry("skip.weight") is "" then Unused else FluxResnet.Convolved(block, "skip")
 	if block.Entry("pool.0.weight") is ""
-		return Taef2Block(Convolutions(block), Unused, Unnormed, Unused)
+		return Taef2Block(Convolutions(block), Unused, Unnormed, Unused, skipped)
 	let pooled = GroupNorm(block.Values("pool.1.weight"), block.Values("pool.1.bias"), 4)
-	Taef2Block(Convolutions(block), FluxResnet.Convolved(block, "pool.0"), pooled, FluxResnet.Convolved(block, "pool.3"))
+	let contracted = FluxResnet.Convolved(block, "pool.3")
+	Taef2Block(Convolutions(block), FluxResnet.Convolved(block, "pool.0"), pooled, contracted, skipped)
 Convolutions(block Safetensors) Slow(List(Convolution))
 	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
 	for (0, 2, 4)
@@ -27,7 +30,8 @@ Output(map FeatureMap) Slow(FeatureMap)
 	let input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
 	let first = convolutions(0).Applied(input, input.Identity, Activation.Linear)
 	let second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
-	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(input))
+	let shortcut = skip.weights.Length is 0 then input else skip.Projected(input)
+	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
 Rectified(map FeatureMap) FeatureMap
 	Pooling.Rectified(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
 	map.Applied(map.Identity, Activation.Relu)

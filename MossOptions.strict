@@ -108,12 +108,16 @@ Located Text
 	MossOptions.Parsed(TinyModels).Named("") is ""
 	let model = files.Checkpoint
 	let loras = Loras
-	let decoder = files.Decoder
+	let decoder = Decoder
 	let encoder = files.Encoder
 	let tokenizer = files.Tokenizer
 	let early = (model is Error) then (model to Text) else ((loras is Error) then (loras to Text) else "")
 	let late = (decoder is Error) then (decoder to Text) else ((encoder is Error) then (encoder to Text) else "")
 	Named(early + late + ((tokenizer is Error) then (tokenizer to Text) else ""))
+Decoder Text
+	MossOptions.Parsed(TinyModels).Decoder is "tinyvae.safetensors"
+	MossOptions.Parsed(("--models", ".", "--quality", "fastest")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
+	quality is in (MossQuality.Fastest, MossQuality.Fastest2Steps) then files.Fast else files.Decoder
 Named(problem Text) Text
 	MossOptions.Parsed(List(Text)).Named("") is ""
 	MossOptions.Parsed(List(Text)).Named(MissingModel) is "Model file not found: a.safetensors"

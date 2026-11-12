@@ -20,7 +20,7 @@ Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) Slo
 	let latents = image.Sampled(sampling, H3Artifacts.Sample.Read(paths), paths, seeds)
 	let decoding = sampling.Decoding(options.Decoder)
 	let outputs = PromptBatch(image.logger, "Image").Outputs(options.output, options.count)
-	let saved = image.Saved(decoding.decoders.First, latents, outputs)
+	let saved = image.Saved(decoding.vae, latents, outputs)
 	image.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
 	H3ImageResident(decoding, code = 0)
 Encoded(kept H3ImageResident, prompts Texts, paths Texts) Slow(H3ImageResident)
