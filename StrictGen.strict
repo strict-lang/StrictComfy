@@ -5,12 +5,8 @@ constant IdleWait = 0.02
 constant Preview = "StrictGenStep.jpg"
 constant Shell = "StrictGen.shell.html"
 constant Fallback = "<!doctype html><html><head><title>StrictGen</title></head><body><p>StrictGen.shell.html was not found beside the program.</p></body></html>"
-constant LoraFilter = "LoRA (*.safetensors)|*.safetensors"
-constant ModelFilter = "Model (*.safetensors;*.gguf)|*.safetensors;*.gguf"
-constant MediaFilter = "Media (*.png;*.jpg;*.jpeg;*.mp4)|*.png;*.jpg;*.jpeg;*.mp4"
-constant Forms = "Add-Type -AssemblyName System.Windows.Forms; "
-constant Dialog = Forms + "$d = New-Object System.Windows.Forms.OpenFileDialog; $d.Filter = '"
-constant Shown = "'; if ($d.ShowDialog() -eq 'OK') { $d.FileName }"
+constant Inputs = "input"
+constant Outputs = "output"
 Run(arguments Texts) Number
 	StrictGen(Logger).Run(List(Text) + "--help") is 0
 	if "--help" is in arguments
@@ -30,6 +26,8 @@ Served(port Number)
 		return socket
 	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket))
 	logger.Log("Page " + Located)
+	Directory.Create(Inputs)
+	Directory.Create(Outputs)
 	let peers = StrictGenNet(logger).Opened(Socket.Port(socket)).Introduced
 	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
 	Looped(socket, StrictGenQueue(logger), peers)
@@ -52,20 +50,29 @@ Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue
 Answered(client Number, queue StrictGenQueue, net StrictGenNet) StrictGenQueue
 	if (client is Error) or (client <= 0)
 		return queue
-	let raw = StrictGenHttp.Received(client)
-	let route = StrictGenHttp.Route(raw)
-	if route is "/file"
-		StrictGenHttp.SendFile(client, StrictGenHttp.Query(raw, "path"))
+	let bytes = StrictGenHttp.Received(client)
+	if IsSent(client, bytes)
 		return queue
+	let raw = StrictGenHttp.Decoded(bytes)
+	let route = StrictGenHttp.Route(raw)
 	let next = (route is "/run") or (route is "/stop") then queue.Posted(route, StrictGenHttp.Body(raw)) else queue
 	StrictGenHttp.Replied(client, Typed(route), Answer(route, raw, next, net))
 	next
+IsSent(client Number, bytes Numbers) Boolean
+	StrictGen(Logger).IsSent(0, StrictGenHttp.Encoded("GET /status HTTP/1.1\r\n\r\n")) is false
+	let head = StrictGenHttp.Head(bytes)
+	let route = StrictGenHttp.Route(head)
+	if route is "/file"
+		StrictGenHttp.SendFile(client, StrictGenHttp.Query(head, "path"))
+	if route is "/inbox"
+		StrictGenHttp.Replied(client, "text/plain", Stored(StrictGenHttp.Query(head, "name"), StrictGenHttp.Payload(bytes)))
+	route is in ("/file", "/inbox")
 Typed(route Text) Text
 	StrictGen(Logger).Typed("/status") is "application/json"
 	StrictGen(Logger).Typed("/job") is "text/plain"
 	StrictGen(Logger).Typed("/") is "text/html"
 	let isJson = route is in ("/run", "/stop", "/import", "/status")
-	let plain = route is in ("/neighbor", "/probe", "/inbox", "/job", "/pick")
+	let plain = route is in ("/neighbor", "/probe", "/job", "/list")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text
 	if route is "/import"
@@ -77,23 +84,19 @@ Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text
 		return status.Substring(0, status.Length - 1) + ",\"accepted\":" + accepted + "}"
 	Typed(route) is "text/plain" then Plain(route, raw, queue) else Page
 Plain(route Text, raw Text, queue StrictGenQueue) Text
-	if route is "/inbox"
-		return Stored(StrictGenHttp.Query(raw, "name"), StrictGenHttp.Body(raw))
 	if route is "/job"
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)
-	if route is "/pick"
-		return Picked(StrictGenHttp.Query(raw, "kind"))
+	if route is "/list"
+		let files = StrictGenFiles(StrictGenHttp.Query(raw, "models"))
+		return Text.Combine(files.Listed(StrictGenHttp.Query(raw, "kind")), "\n")
 	if route is "/neighbor"
 		return StrictGenForm.Stepped(StrictGenHttp.Query(raw, "path"), StrictGenHttp.Query(raw, "step") to Number)
 	StrictGenStats(logger).Probed(StrictGenHttp.Query(raw, "path"))
-Picked(kind Text) Text
-	let filter = kind is "lora" then LoraFilter else (kind is "model" then ModelFilter else MediaFilter)
-	let result = Process.RunTool("powershell", "-STA -NoProfile -Command \"" + Dialog + filter + Shown + "\"")
-	result.Failed then "" else result.Output.Trim
-Stored(name Text, body Text) Text
-	Directory.Create("StrictGenInbox")
-	let path = "StrictGenInbox/" + (Process.Elapsed * 1000).Floor + "-" + (name is "" then "upload.bin" else name)
-	File(path).Write(StrictGenHttp.Unhex(body))
+Stored(name Text, bytes Numbers) Text
+	StrictGen(Logger).Stored("a/b/upload-test.bin", (1, 2)) is "input/upload-test.bin"
+	Directory.Create(Inputs)
+	let path = Inputs + "/" + (name is "" then "upload.bin" else Path(name.Replace("\\", "/")).FileName.text)
+	File(path).Write(bytes)
 	path
 Page Text
 	StrictGen(Logger).Page.IndexOf("<html") >= 0

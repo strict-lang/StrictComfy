@@ -70,14 +70,20 @@
 				<div class="row">
 					<button class="small" id="inputPrev" type="button">&#9664;</button>
 					<input id="input" type="text" placeholder="png, jpg, or mp4">
-					<button class="small" id="inputPick" type="button">File</button>
+					<button class="small" id="inputPick" type="button">Upload</button>
 					<button class="small" id="inputNext" type="button">&#9654;</button>
 					<input id="inputFile" type="file" accept=".png,.jpg,.jpeg,.mp4" hidden>
 				</div>
 			</label>
 			<label>Recent<input id="recent" list="recentList" placeholder="this session"><datalist id="recentList"></datalist></label>
 			<label id="contextLabel">Context<select id="context"><option value="22" selected>22 frames</option><option value="39">39 frames</option><option value="90">90 frames</option></select></label>
-			<label id="lastLabel">Last frame<input id="lastImage" type="text" placeholder="optional png or jpg"></label>
+			<label id="lastLabel">Last frame
+				<div class="row">
+					<input id="lastImage" type="text" placeholder="optional png or jpg">
+					<button class="small" id="lastPick" type="button">Upload</button>
+					<input id="lastFile" type="file" accept=".png,.jpg,.jpeg" hidden>
+				</div>
+			</label>
 		</div>
 		<div class="row">
 			<label>Resolution<select id="size">
@@ -98,15 +104,14 @@
 			<label>Height<input id="height" type="number" min="32" step="32" value="848"></label>
 		</div>
 		<div class="note" id="note"></div>
-		<label>Model
+		<label>Model<select id="model"></select></label>
+		<label>LoRAs
 			<div class="row">
-				<button class="small" id="modelPrev" type="button">&#9664;</button>
-				<input id="model" type="text" placeholder="default">
-				<button class="small" id="modelPick" type="button">File</button>
-				<button class="small" id="modelNext" type="button">&#9654;</button>
+				<select id="loraChoice"></select>
+				<button class="small" id="addLora" type="button">Add</button>
 			</div>
+			<div id="loras"></div>
 		</label>
-		<label>LoRAs <button class="small" id="addLora" type="button">Add file</button><div id="loras"></div></label>
 		<label>Activity<pre id="log">Idle</pre></label>
 		<div class="row">
 			<label id="decoderLabel">Decoder<select id="decoder">
@@ -201,6 +206,10 @@
 		select.replaceChildren(...pairs.map(([value, label]) => new Option(label || value, value)));
 		select.value = chosen;
 	};
+	const choose = (select, value) => {
+		if (value && ![...select.options].some(option => option.value === value)) select.add(new Option(value.split("/").pop(), value));
+		select.value = value || "";
+	};
 	const sizeOf = () => {
 		if (element("size").value === "custom") return [snap(element("width").value), snap(element("height").value)];
 		const [width, height] = element("size").value.split(" ").map(Number);
@@ -225,7 +234,7 @@
 		element("quality").value = data.quality;
 		element("steps").value = data.steps;
 		element("skip").value = data.skip;
-		element("model").value = data.model;
+		choose(element("model"), data.model);
 		state.loras = data.loras || [];
 		drawLoras();
 		element("decoder").value = data.decoder || "";
@@ -256,7 +265,9 @@
 		fill(element("decoder"), edit ? h3ImageDecoders : video ? h3VideoDecoders : mossDecoders, saved.decoder || "");
 		fill(element("quality"), edit ? [["", "default"]] : video ? h3Quality : mossQuality, saved.quality);
 		fill(element("skip"), edit ? [["", "off"]] : (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
+		element("inputFile").accept = mode === "extend" ? ".mp4" : ".png,.jpg,.jpeg";
 		applyFields(saved);
+		refreshFiles();
 		note();
 	};
 	const timed = () => {
@@ -337,14 +348,44 @@
 		const next = await fetch("/neighbor?path=" + encodeURIComponent(box.value) + "&step=" + step).then(r => r.text());
 		if (next) box.value = next;
 	};
-	element("modelPrev").onclick = () => neighbor(element("model"), -1);
-	element("modelNext").onclick = () => neighbor(element("model"), 1);
 	element("inputPrev").onclick = () => neighbor(element("input"), -1);
 	element("inputNext").onclick = () => neighbor(element("input"), 1);
-	const pick = async kind => (await fetch("/pick?kind=" + kind).then(response => response.text())).trim();
-	element("modelPick").onclick = async () => { const path = await pick("model"); if (path) { element("model").value = path; save(); } };
-	element("addLora").onclick = async () => { const path = await pick("lora"); if (path) { state.loras.push({ path, strength: 1 }); drawLoras(); save(); } };
-	element("inputPick").onclick = async () => { const path = await pick(state.mode === "extend" ? "video" : "image"); if (path) { element("input").value = path; save(); } };
+	const listed = async kind => (await fetch("/list?kind=" + kind + "&models=" + encodeURIComponent(element("models").value))
+		.then(response => response.text())).split("\n").map(line => line.trim()).filter(Boolean);
+	async function refreshFiles() {
+		const mode = state.mode, family = mode === "image" ? "moss" : "h3";
+		const [models, loras] = await Promise.all([listed(mode === "h3image" ? "h3image" : family), listed("lora-" + family)]);
+		if (mode !== state.mode) return;
+		const current = element("model").value;
+		fill(element("model"), [["", "default"], ...models.map(name => [name])], "");
+		choose(element("model"), current);
+		const none = [["", "no LoRAs in models/loras/" + family]];
+		fill(element("loraChoice"), loras.length ? loras.map(name => [name, name.split("/").pop()]) : none, loras[0] || "");
+	}
+	const upload = async (file, box) => {
+		element("log").textContent = "Uploading " + file.name;
+		const response = await fetch("/inbox?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
+		box.value = (await response.text()).trim();
+		element("log").textContent = "Uploaded " + box.value;
+		save();
+	};
+	element("addLora").onclick = () => {
+		const path = element("loraChoice").value;
+		if (path) { state.loras.push({ path, strength: 1 }); drawLoras(); save(); }
+	};
+	element("inputPick").onclick = () => element("inputFile").click();
+	element("inputFile").onchange = async () => {
+		const file = element("inputFile").files[0];
+		element("inputFile").value = "";
+		if (file) { await upload(file, element("input")); element("input").onchange(); }
+	};
+	element("lastPick").onclick = () => element("lastFile").click();
+	element("lastFile").onchange = async () => {
+		const file = element("lastFile").files[0];
+		element("lastFile").value = "";
+		if (file) await upload(file, element("lastImage"));
+	};
+	element("models").addEventListener("change", refreshFiles);
 	element("input").onchange = async () => {
 		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
 		const size = await fetch("/probe?path=" + encodeURIComponent(element("input").value)).then(r => r.text());
@@ -455,7 +496,7 @@
 		if (fields.quality) element("quality").value = fields.quality;
 		if (fields.seed !== undefined) element("seed").value = fields.seed;
 		if (fields.image) element("input").value = fields.image;
-		if (fields.model) element("model").value = fields.model;
+		if (fields.model) choose(element("model"), fields.model);
 		note();
 	};
 	element("import").onclick = () => element("workflow").click();

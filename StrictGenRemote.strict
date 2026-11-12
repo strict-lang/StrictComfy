@@ -21,7 +21,7 @@ Prepared(host Text, port Number, body Text) Text
 Uploaded(host Text, port Number, path Text) Text
 	if (path is "") or (File(path).Exists is false)
 		return path
-	let saved = Posted(host, port, "/inbox?name=" + Path(path).FileName.text, StrictGenHttp.Hex(File(path).ReadBytes))
+	let saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
 	saved is "" then path else saved
 Asked(endpoint Text, id Number) Text
 	let parts = endpoint.Split(":")
@@ -33,12 +33,13 @@ Saved(endpoint Text, path Text) Text
 	let bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
 	if bytes.Length is 0
 		return ""
-	Directory.Create("StrictGenInbox")
-	let local = "StrictGenInbox/" + Path(path).FileName.text
+	Directory.Create(StrictGen.Outputs)
+	let local = StrictGen.Outputs + "/" + Path(path).FileName.text
 	File(local).Write(bytes)
 	local
 Posted(host Text, port Number, path Text, body Text) Text
-	let payload = StrictGenHttp.Encoded(body)
+	Sent(host, port, path, StrictGenHttp.Encoded(body))
+Sent(host Text, port Number, path Text, payload Numbers) Text
 	let header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + payload.Length + Closing
 	StrictGenHttp.Decoded(After(Exchanged(host, port, StrictGenHttp.Encoded(header) + payload)))
 Gotten(host Text, port Number, path Text) Numbers

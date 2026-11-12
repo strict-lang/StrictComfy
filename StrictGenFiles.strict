@@ -1,0 +1,38 @@
+has models Text
+constant Tiny = StrictGenFiles(".")
+constant Extensions = ("safetensors", "gguf")
+constant LoraPrefix = "lora-"
+Listed(kind Text) Texts
+	Tiny.Listed("moss").Length is 0
+	Tiny.Listed("lora-moss").Length is 0
+	if kind.StartsWith(LoraPrefix)
+		return Loras(kind.Substring(LoraPrefix.Length, kind.Length - LoraPrefix.Length))
+	Models(kind)
+Models(kind Text) Slow(Texts)
+	Tiny.Models("h3").Length is 0
+	let folder = ModelFiles(models).Folder + "/diffusion_models"
+	if Directory.Exists(folder) is false
+		return List(Text)
+	mutable names = List(Mutable(Text))
+	for StrictGenForm.Listed(folder, Extensions)
+		let name = Path(value).FileName.text
+		if Kind(folder + "/" + name) is kind
+			names.Add(name)
+	names
+Kind(path Text) Slow(Text)
+	Tiny.Kind("tinymoss.safetensors") is "moss"
+	Tiny.Kind("tinyh3.safetensors") is "h3"
+	(Tiny.Kind("tinyh3image.safetensors") is "h3image") and (Tiny.Kind("tinyvae.safetensors") is "")
+	if path.Lower.EndsWith(".gguf")
+		return path.Lower.IndexOf("moss") >= 0 then "moss" else ""
+	let header = TensorFile.Header(path)
+	if header.IndexOf("shared_block_modulation") >= 0
+		return "moss"
+	header.IndexOf("adaln_t_table") < 0 then "" else (header.IndexOf("audio_patch_proj") >= 0 then "h3" else "h3image")
+Loras(model Text) Slow(Texts)
+	Tiny.Loras("moss").Length is 0
+	let folder = ModelFiles(models).Folder + "/loras/" + model
+	if Directory.Exists(folder) is false
+		return List(Text)
+	for StrictGenForm.Listed(folder, List(Text) + "safetensors")
+		model + "/" + Path(value).FileName.text

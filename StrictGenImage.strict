@@ -1,17 +1,28 @@
 constant Edit = "{\"mode\":\"h3image\",\"prompt\":\"night\",\"width\":1024,\"height\":1024,\"quality\":\"fast\",\"steps\":6,\"skip\":\"5:45\",\"image\":\"fox.png\",\"sampler\":\"lcm\",\"seed\":7,\"count\":2,\"vae\":\"v.safetensors\"}"
 constant Full = "{\"output\":\"o.png\",\"models\":\"m\",\"textEncoder\":\"t\",\"model\":\"d\",\"loras\":[{\"path\":\"l\",\"strength\":1}]}"
-constant Filed = ("--lora", "l:1", "--output", "o.png", "--models", "m", "--text_encoder", "t", "--model", "d")
-constant Expected = ("--width", "1024", "--height", "1024", "--prompt", "StrictGenPrompt.txt", "--image", "fox.png", "--steps", "6", "--seed", "7", "--count", "2", "--vae", "v.safetensors")
+constant Filed = ("--lora", "l:1", "--output", "output/o.png", "--models", "m", "--text_encoder", "t", "--model", "d")
+constant Expected = ("--width", "1024", "--height", "1024", "--prompt", "StrictGenPrompt.txt", "--image", "fox.png", "--steps", "6", "--seed", "7", "--count", "2", "--output", "output/H3Image.jpg", "--vae", "v.safetensors")
 Arguments(json Json) Texts
-	StrictGenImage.Arguments(Json(Edit)) is Expected.Slice(6, 10)
-	StrictGenImage.Arguments(Json("{\"steps\":0,\"local\":\"true\"}")) is ("--local")
+	StrictGenImage.Arguments(Json(Edit)) is Expected.Slice(6, 12)
+	StrictGenImage.Arguments(Json("{\"steps\":0,\"local\":\"true\"}")) is ("--output", "output/H3Image.jpg", "--local")
 	StrictGenImage.Arguments(Json(Full)) is Filed
 	let steps = json.get("steps") to Text
 	let counted = steps is "0" then List(Text) else StrictGenForm.Pair("--steps", steps)
 	let numbers = Named(json, "--image", "image") + counted + Numbered(json)
-	let files = Named(json, "--output", "output") + Named(json, "--models", "models")
+	let files = Output(json, "H3Image.jpg") + Named(json, "--models", "models")
 	let models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
 	numbers + StrictGenForm.Loras(json) + files + models + StrictGenForm.Vae(json) + Flags(json)
+Output(json Json, named Text) Texts
+	StrictGenImage.Output(Json("{}"), "MossImage.jpg") is ("--output", "output/MossImage.jpg")
+	StrictGenImage.Output(Json("{\"output\":\"a.mp4\"}"), "H3Video.mp4") is ("--output", "output/a.mp4")
+	StrictGenImage.Output(Json("{\"output\":\"x/b.png\"}"), "H3Image.jpg") is ("--output", "x/b.png")
+	let given = json.get("output") to Text
+	let file = given is "" then named else given
+	StrictGenForm.Pair("--output", Path(file).PathOnly.text is "" then StrictGen.Outputs + "/" + file else file)
+Default(mode Text) Text
+	(StrictGenImage.Default("image") is "MossImage.jpg") and (StrictGenImage.Default("h3image") is "H3Image.jpg")
+	StrictGenImage.Default("extend") is "H3Video.mp4"
+	mode is "image" then "MossImage.jpg" else (mode is "h3image" then "H3Image.jpg" else "H3Video.mp4")
 Named(json Json, option Text, field Text) Texts
 	StrictGenImage.Named(Json("{\"vae\":\"v\"}"), "--vae", "vae") is ("--vae", "v")
 	StrictGenForm.Pair(option, json.get(field) to Text)
