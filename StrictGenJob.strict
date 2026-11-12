@@ -4,24 +4,44 @@ has done = ""
 has preview = ""
 has remote = ""
 has remoteId = -1
+has started = 0
+has times Numbers = List(Number)
 constant Detached = "/c start \"StrictGen\" /MIN /D \""
 constant PromptLine = "Prompt: "
 Local(at Number) StrictGenJob
 	StrictGenJob.Local(2).log is "StrictGenJob-2.log"
 	StrictGenJob.Local(2).current is 2
 	let job = StrictGenJob(value, current = at, log = "StrictGenJob-" + at + ".log", done = "StrictGenJob-" + at + ".done")
-	StrictGenJob(job, preview = "StrictGenStep-" + at + ".jpg")
+	StrictGenJob(job, preview = "StrictGenStep-" + at + ".jpg", started = Time.Now)
 Remote(at Number, endpoint Text, id Number) StrictGenJob
 	StrictGenJob.Remote(1, "10.0.0.3:59139", 4).remoteId is 4
 	StrictGenJob(value, current = at, remote = endpoint, remoteId = id)
 Logged Texts
 	StrictGenJob.Logged.Length is 0
 	(current >= 0) and (log is not "") and File(log).Exists then File(log).ReadLines else List(Text)
+Timed(rows Texts) StrictGenJob
+	StrictGenJob.Local(1).Timed(("a", "b")).times.Length is 2
+	StrictGenJob(StrictGenJob.Local(1), times = List(Number) + 1).Timed(("a", "b")).times(0) is 1
+	StrictGenJob(StrictGenJob.Local(1), started = Time.Now - 5).Timed(("a", "b")).times(1) >= 4.9
+	if rows.Length <= times.Length
+		return value
+	let now = ((Time.Now - started) * 10).Round / 10
+	mutable stamped = times
+	for rows.Length - times.Length
+		stamped = stamped + now
+	StrictGenJob(value, times = stamped)
+Stamped(rows Texts) Texts
+	StrictGenJob(StrictGenJob.Local(1), times = (0, 1.5)).Stamped(("a", "b")) is ("0\ta", "1.5\tb")
+	for rows
+		(index < times.Length then times(index) else 0) + "\t" + value
+Kept(rows Texts) Slow(None)
+	StrictGenJob.Local(-9).Kept(List(Text) + "a") is not Error
+	File("StrictGenJob-" + current + ".timed").Write(Stamped(rows))
 Started(executable Text, mode Text, command Text) Boolean
 	let words = command.Split("\n")
 	let arguments = IsPreviewed(mode, command) then words + "--preview" + preview else words
-	File(done).Delete
-	File(preview).Delete
+	for (done, preview, log, "StrictGenJob-" + current + ".timed")
+		File(value).Delete
 	let script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
 	File(script).Write(Script(executable, Quoted(arguments), log, done))
 	Spawned(script)
@@ -32,8 +52,9 @@ Spawned(script Text) Boolean
 IsPreviewed(mode Text, command Text) Boolean
 	StrictGenJob.IsPreviewed("image", "--quality\nbest")
 	StrictGenJob.IsPreviewed("image", "--quality\nfastest2steps") is false
-	StrictGenJob.IsPreviewed("video", "--quality\nbest") is false
-	(mode is "image") and (command.IndexOf("--quality\nfastest") < 0)
+	StrictGenJob.IsPreviewed("video", "--quality\nbest")
+	StrictGenJob.IsPreviewed("h3image", "--steps\n6") is false
+	mode is "image" then command.IndexOf("--quality\nfastest") < 0 else mode is not "h3image"
 Quoted(words Texts) Text
 	StrictGenJob.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
 	StrictGenJob.Quoted(("--width", "32")) is "--width 32"

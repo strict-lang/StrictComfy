@@ -6,6 +6,7 @@ has seed = -1
 has rows Numbers = List(Number)
 has keyframes Numbers = List(Number)
 has motion StrictGenExtend = StrictGenExtend.None
+has previewer = H3Previewer.None
 constant Reference = H3Job(Safetensors("tinyh3.safetensors", 32, "reference."))
 constant Noisy = H3Job(Safetensors(""), Layer.Zeros(32), Layer.Zeros(64), (2, 4, 2, 2), 3)
 constant Keyframe = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")

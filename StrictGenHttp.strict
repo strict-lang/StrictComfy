@@ -75,7 +75,8 @@ SendFile(client Number, path Text)
 		Replied(client, "text/plain", "missing")
 		return
 	let payload = File(path).ReadBytes
-	let cache = path.IndexOf("MossWebExample") >= 0 then "public, max-age=86400" else "no-store"
+	let changing = (path.IndexOf("StrictGenStep") >= 0) or path.StartsWith(StrictGen.Inputs)
+	let cache = changing then "no-store" else "public, max-age=86400"
 	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
 	Socket.Send(client, Encoded(OkHeader + Kind(path) + length) + payload)
 	Socket.Close(client)

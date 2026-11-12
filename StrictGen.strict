@@ -29,7 +29,7 @@ Served(port Number)
 	logger.Log("Page " + Located)
 	Directory.Create(Inputs)
 	Directory.Create(Outputs)
-	let peers = StrictGenNet(logger).Opened(Socket.Port(socket)).Introduced
+	let peers = StrictGenNet(logger).Opened(Socket.Port(socket)).Measured.Shouted
 	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
 	Looped(socket, StrictGenQueue(logger), peers)
 Looped(socket Number, queue StrictGenQueue, net StrictGenNet)

@@ -98,7 +98,8 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2))
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
 	let rows = job.Keyed(keyframes, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
-	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices, motion = motion)
+	let previewer = H3Previewer.Loaded(options.preview, options.files.models)
+	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices, motion = motion, previewer = previewer)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Decoded(latents Texts, images Texts)
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First

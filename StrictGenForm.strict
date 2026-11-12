@@ -6,7 +6,7 @@ constant PictureOutput = ("--output", "output/MossImage.jpg")
 constant ClipOutput = ("--output", "output/H3Video.mp4")
 constant Forced = "{\"force\":\"true\",\"local\":\"true\",\"seed\":7}"
 constant Modes = ("image", "video", "extend", "h3image")
-constant Titles = ("Image", "Video", "Extend", "H3 Image")
+constant Titles = ("Moss Image", "H3 Video", "H3 Video Extend", "H3 Image")
 Arguments(body Text) Texts
 	StrictGenForm.Arguments(Picture) is ExpectedPicture
 	StrictGenForm.Arguments(Clip) is ExpectedClip
@@ -114,13 +114,13 @@ Taken(arguments Texts, name Text) Text
 	let at = arguments.Index(name)
 	(at < 0) or (at + 1 >= arguments.Length) then "" else arguments(at + 1)
 Summary(body Text) Text
-	StrictGenForm.Summary(Picture).StartsWith("Image a fox 480x848 fastest")
-	StrictGenForm.Summary(Clip).StartsWith("Extend go on 640x1152 fast")
+	StrictGenForm.Summary(Picture).StartsWith("Moss Image a fox 480x848 fastest")
+	StrictGenForm.Summary(Clip).StartsWith("H3 Video Extend go on 640x1152 fast")
 	StrictGenForm.Summary(StrictGenImage.Edit).StartsWith("H3 Image night 1024x1024")
 	let json = Json(body)
 	let at = Modes.Index(json.get("mode") to Text)
 	let template = (json.get("prompt") to Text).Split("\n").First
-	let label = (at < 0 then "Image to video" else Titles(at)) + " " + PromptBatch.Sample.Shown(template)
+	let label = (at < 0 then "H3 Image to Video" else Titles(at)) + " " + PromptBatch.Sample.Shown(template)
 	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
 	let model = json.get("model") to Text
 	let count = json.get("count") to Text

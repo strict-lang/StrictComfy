@@ -11,8 +11,11 @@ has seenGpu = false
 has shouted = -100
 has meters = ""
 has metered = -100
+has id = 0
+has own = ""
 constant BeaconPort = 18001
 constant FreshSeconds = 30
+constant Tab = "\t"
 constant MossMb = 6144
 constant H3Mb = 8192
 constant Gigabyte = 1024
@@ -21,6 +24,7 @@ constant Idle = StrictGenNet(Logger)
 constant Big = "10.0.0.3\t59139\t24576\t20000\t60000\t0\tNVIDIA GeForce RTX 4090\t100"
 constant Small = "10.0.0.4\t59140\t10240\t8000\t30000\t0\tNVIDIA GeForce RTX 3080\t100"
 constant BusyCard = "10.0.0.3\t59139\t24576\t2000\t60000\t1\tNVIDIA GeForce RTX 4090\t100"
+constant Heard4090 = ("10.0.0.3", "strictgen", "8001", "24576", "20000", "60000", "0", "RTX 4090", "7")
 constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
@@ -28,7 +32,8 @@ Opened(port Number) StrictGenNet
 	let socket = Socket.Beacon(StrictGenNet.BeaconPort)
 	if socket is Error
 		logger.Log("UDP " + StrictGenNet.BeaconPort + " is already in use, this StrictGen will not see other PCs")
-	StrictGenNet(value, httpPort = port, beacon = socket is Error then 0 else socket)
+	let started = (Time.Now * 1000).Floor % 1000000000
+	StrictGenNet(value, httpPort = port, beacon = socket is Error then 0 else socket, id = started)
 Measured StrictGenNet
 	let result = Process.RunTool("nvidia-smi", Query)
 	let parts = result.Failed then List(Text) else result.Output.Split("\n").First.Split(",")
@@ -42,13 +47,11 @@ Refreshed StrictGenNet
 	if Process.Elapsed - metered <= 8
 		return value
 	StrictGenNet(value, meters = StrictGenStats(logger).Text, metered = Process.Elapsed).Measured
-Introduced StrictGenNet
-	Shouted
 Shouted StrictGenNet
 	if beacon <= 0
 		return StrictGenNet(value, shouted = Process.Elapsed)
 	let state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
-	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state
+	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id
 	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
@@ -60,7 +63,7 @@ Heard StrictGenNet
 	for as long as line is not ""
 		found = found.Noted(line, Process.Elapsed)
 		line = Socket.Hear(beacon)
-	found
+	StrictGenNet(found, peers = found.Fresh(Process.Elapsed))
 Tick(isBusy Boolean) StrictGenNet
 	let heard = StrictGenNet(value, busy = isBusy).Heard
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
@@ -69,16 +72,24 @@ Noted(line Text, now Number) StrictGenNet
 	if (parts.Length < 8) or (parts(1) is not "strictgen")
 		return value
 	let port = parts(2) to Number
-	if (port is Error) or (port is httpPort)
-		return value
+	if parts.Length > 8 then (parts(8) to Number) is id else port is httpPort
+		return StrictGenNet(value, own = parts(0))
+	(port is Error) or (parts(0) is own) then value else Remembered(parts, now)
+Remembered(parts Texts, now Number) StrictGenNet
+	Idle.Remembered(Heard4090, 1).peers.Length is 1
 	let peer = Text.Combine((parts(0), parts(2), parts(3), parts(4), parts(5), parts(6), parts(7)), "\t") + "\t" + now
 	let known = Address(peer)
-	if (known is in Addresses) is false
+	let kept = Kept(peer, known)
+	if kept.Length > peers.Length
 		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + ((parts(3) to Number) / Gigabyte).Round(1) + " GB")
-	StrictGenNet(value, peers = Kept(peer, known))
-Addresses Texts
+	StrictGenNet(value, peers = kept)
+Fresh(now Number) Texts
+	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(200).Length is 0
+	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(110).Length is 1
 	for peers
-		Address(value)
+		let seen = value.Split("\t").Last to Number
+		if (seen is Error) or (now - seen < FreshSeconds)
+			value
 Kept(peer Text, address Text) Texts
 	mutable kept = List(Mutable(Text))
 	for peers
@@ -98,7 +109,7 @@ Chosen(mode Text, pin Text) Text
 	Roomy.Chosen("image", "") is "local"
 	StrictGenNet(Mixed, seenGpu = false).Chosen("video", "10.0.0.4:59140") is "10.0.0.4:59140"
 	if pin is "local"
-		return Fits(mode, total, free) then "local" else "none"
+		return Fits(mode, total) then "local" else "none"
 	if (pin is not "") and (pin is not "any")
 		return Pinned(mode, pin) then pin else "none"
 	seenGpu is false then "local" else Automatic(mode)
@@ -113,7 +124,7 @@ Automatic(mode Text) Text
 	let better = video then Best(total, H3Mb) else ""
 	if better is not ""
 		return better
-	let fallback = Fits(mode, total, free) then "local" else Best(0, video then H3Mb else MossMb)
+	let fallback = Fits(mode, total) then "local" else Best(0, video then H3Mb else MossMb)
 	fallback is "" then "none" else fallback
 Best(floor Number, least Number) Text
 	mutable chosen = ""
@@ -121,20 +132,18 @@ Best(floor Number, least Number) Text
 	for peers
 		let parts = value.Split("\t")
 		let whole = parts.Length > 2 then parts(2) to Number else 0
-		let available = parts.Length > 3 then parts(3) to Number else 0
 		let recent = (parts.Last to Number is Error) or ((Process.Elapsed - (parts.Last to Number)) < FreshSeconds)
-		let roomy = (whole > largest) and (whole >= least) and (available >= 4096) and recent
+		let roomy = (whole > largest) and (whole >= least) and recent
 		if (parts.Length > 5) and (parts(5) is "0") and roomy
 			largest = whole
 			chosen = Address(value)
 	chosen
-Fits(mode Text, whole Number, available Number) Boolean
-	Idle.Fits("image", 10240, 8000)
-	Idle.Fits("image", 2048, 2048) is false
-	Idle.Fits("video", 10240, 8000)
-	Idle.Fits("video", 4096, 4000) is false
-	Idle.Fits("h3image", 4096, 4000) is false
-	(whole >= (IsLarge(mode) then H3Mb else MossMb)) and (available >= 4096)
+Fits(mode Text, whole Number) Boolean
+	Idle.Fits("image", 10240) and Idle.Fits("video", 10240)
+	Idle.Fits("image", 2048) is false
+	Idle.Fits("video", 4096) is false
+	Idle.Fits("h3image", 4096) is false
+	whole >= (IsLarge(mode) then H3Mb else MossMb)
 IsLarge(mode Text) Boolean
 	Idle.IsLarge("extend") and Idle.IsLarge("h3image")
 	Idle.IsLarge("image") is false
@@ -142,7 +151,7 @@ IsLarge(mode Text) Boolean
 Pinned(mode Text, address Text) Boolean
 	for peers
 		if Address(value) is address
-			return Fits(mode, value.Split("\t")(2) to Number, value.Split("\t")(3) to Number)
+			return Fits(mode, value.Split(Tab)(2) to Number)
 	false
 Labels Texts
 	Idle.Labels.Length is 0

@@ -31,8 +31,13 @@ Kind(path Text) Slow(Text)
 	header.IndexOf("adaln_t_table") < 0 then "" else (header.IndexOf("audio_patch_proj") >= 0 then "h3" else "h3image")
 Loras(model Text) Slow(Texts)
 	Tiny.Loras("moss").Length is 0
+	Tiny.Loras("h3").Length is 0
 	let folder = ModelFiles(models).Folder + "/loras/" + model
+	let named = Directory.Exists(folder) then Named(folder, model + "/") else List(Text)
+	model is "h3" then named + Named(ModelFiles(models).Folder + "/hyperflow", "") else named
+Named(folder Text, prefix Text) Slow(Texts)
+	Tiny.Named("missing", "a/").Length is 0
 	if Directory.Exists(folder) is false
 		return List(Text)
 	for StrictGenForm.Listed(folder, List(Text) + "safetensors")
-		model + "/" + Path(value).FileName.text
+		(prefix is "" then folder + "/" else prefix) + Path(value).FileName.text

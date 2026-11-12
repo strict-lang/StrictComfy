@@ -67,10 +67,11 @@ Sent(endpoint Text) StrictGenQueue
 Polled StrictGenQueue
 	if job.remote is not ""
 		return Remote
-	if (job.done is "") or (File(job.done).Exists is false)
-		return value
 	let rows = job.Logged
+	if (job.done is "") or (File(job.done).Exists is false)
+		return StrictGenQueue(value, job = job.Timed(rows))
 	let paths = job.Existing(job.Found(rows))
+	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
 	let caption = paths.Length is 0 then "The run finished without an output file" else lines(job.current)
 	Finished(paths, caption, job.Prompts(rows))

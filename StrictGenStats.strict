@@ -3,6 +3,7 @@ constant Sample = StrictGenStats(Logger)
 constant WindowsCpu = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average"
 constant LinuxCpu = "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
 constant Measured = "StrictGenCpu.txt"
+constant RunsShown = 6
 constant Queued = StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")
 constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
 Text Slow(Text)
@@ -38,18 +39,28 @@ Made(queue StrictGenQueue) Text
 	let running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
 	let recent = ",\"recent\":" + Codes(Recent(queue)) + ",\"running\":" + running.Code
 	let lists = ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
-	let activity = ",\"notice\":" + queue.notice.Code + ",\"activity\":" + Activity(queue).Code
+	let activity = ",\"notice\":" + queue.notice.Code + ",\"runs\":" + Runs(queue)
 	made + recent + lists + activity + ",\"examples\":" + Codes(Examples)
-Activity(queue StrictGenQueue) Text
-	Sample.Activity(StrictGenQueue.Empty) is "Idle\n"
-	Sample.Activity(Queued).IndexOf("Run started") >= 0
-	Sample.Activity(Queued).IndexOf("Queued") >= 0
-	let state = queue.IsBusy or (queue.pending.Length > 0) then "Run started" else "Idle"
-	let head = (queue.notice is "" then state else queue.notice) + "\n"
-	let running = queue.job.current < 0 then "" else "Running: " + queue.lines(queue.job.current) + "\n"
-	let queued = queue.pending.Length is 0 then "" else "Queued:\n" + Joined(Lines(queue, queue.pending)) + "\n"
-	let done = queue.captions.Length is 0 then "" else "Done:\n" + Joined(queue.captions) + "\n"
-	head + running + queued + done + Joined(queue.job.Logged)
+Runs(queue StrictGenQueue) Text
+	Sample.Runs(StrictGenQueue.Empty) is "[]"
+	Sample.Runs(Queued).IndexOf("\"state\":\"queued\"") > 0
+	let first = (queue.modes.Length - RunsShown).Clamp(0, queue.modes.Length)
+	mutable items = List(outer.Text)
+	for Range(first, queue.modes.Length)
+		items = items + Run(queue, value)
+	"[" + outer.Text.Combine(items, ",") + "]"
+Run(queue StrictGenQueue, id Number) Text
+	Sample.Run(Queued, 0).StartsWith("{\"id\":1,\"title\":\"fox\"")
+	let file = "StrictGenJob-" + id + ".timed"
+	let current = id is queue.job.current
+	let waiting = id is in queue.pending
+	let kept = (waiting is false) and File(file).Exists then File(file).ReadLines else List(outer.Text)
+	let shown = current then queue.job.Stamped(queue.job.Logged) else kept
+	let outcome = queue.outcomes.Length > id then queue.outcomes(id) else ""
+	let ended = outcome.StartsWith("error") then "error" else "done"
+	let state = current then "running" else (waiting then "queued" else ended)
+	let head = "{\"id\":" + (id + 1) + ",\"title\":" + queue.lines(id).Code + ",\"state\":" + state.Code
+	head + ",\"outcome\":" + outcome.Code + ",\"lines\":" + Codes(shown) + "}"
 Joined(lines Texts) Text
 	Sample.Joined(("a", "b")) is "a\nb"
 	outer.Text.Combine(lines, "\n")

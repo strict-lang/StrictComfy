@@ -11,10 +11,11 @@ Started H3StepLog
 	Tiny.Started.stamps.Length is 1
 	Tiny.Started.times.Length is 1
 	H3StepLog(value, stamps = List(Number) + GpuMemory.Stamped, times = List(Number) + Process.Elapsed)
-Stepped(step Number, state H3Spectrum, video Numbers, audio Numbers) Slow(H3StepLog)
-	Tiny.Started.Stepped(0, H3Spectrum.Tiny, (1, 2), (3, 4)).logged is 1
-	Tiny.Started.Stepped(0, H3Spectrum.Tiny, (1, 2), (3, 4)).notes is (", forecasts 0")
-	let note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video, audio)
+Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) Slow(H3StepLog)
+	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).logged is 1
+	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).notes is (", forecasts 0")
+	job.previewer.Written(video.denoised, job.shape)
+	let note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)
 	let next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
 	H3StepLog(next, logged = next.Logged(step + 1 >= state.steps))
 Logged(waiting Boolean) Number

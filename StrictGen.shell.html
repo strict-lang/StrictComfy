@@ -10,14 +10,16 @@
 	header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: #0f151c; flex: none; }
 	header .grow { flex: 1; min-width: 180px; color: #8b97a5; font-size: 13px; }
 	main { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 8px 16px; box-sizing: border-box; }
-	section.controls { width: min(480px, 42vw); overflow: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: none; }
+	section.controls { width: min(540px, 44vw); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: none; }
 	section.view { flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
-	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; }
+	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; min-width: 0; max-width: 100%; box-sizing: border-box; }
+	.row > select { flex: 1; }
 	textarea { resize: vertical; min-height: 96px; }
 	.row { display: flex; gap: 10px; }
 	.row label, .row .field { flex: 1; min-width: 0; }
 	.modes { display: flex; gap: 6px; }
+	.modes button { flex: 1; line-height: 1.2; }
 	.modes button, button.small, button.ghost { font-size: 14px; padding: 6px 10px; background: #1f2933; color: #d8dee9; border: 0; border-radius: 8px; cursor: pointer; }
 	.modes button.on { background: #5fb3f6; color: #0b0f14; }
 	button.run { font: inherit; font-size: 18px; padding: 12px 18px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
@@ -36,7 +38,21 @@
 	#menu { position: absolute; z-index: 2; top: 100%; right: 0; background: #141b23; border: 1px solid #2b3540; border-radius: 8px; min-width: 280px; max-width: 420px; padding: 8px; }
 	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	details { color: #8b97a5; font-size: 13px; }
-	#log { min-height: 200px; max-height: 320px; overflow: auto; font: 13px ui-monospace, monospace; color: #d8dee9; white-space: pre-wrap; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
+	#log { min-height: 200px; max-height: 360px; overflow: auto; font: 12px ui-monospace, monospace; color: #d8dee9; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
+	#log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	#log div.run { color: #5fb3f6; margin-top: 8px; }
+	#log div.prompt { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; color: #a3be8c; }
+	#log div.error { color: #e88388; }
+	#log div.muted { color: #8b97a5; }
+	#overlay { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #0f151c; text-align: center; padding: 16px; box-sizing: border-box; }
+	#overlay.slim { inset: auto 0 0 0; background: rgba(15, 21, 28, 0.8); padding: 6px 12px; gap: 4px; }
+	#overlay .big { font-size: 28px; color: #d8dee9; }
+	#overlay.slim .big { display: none; }
+	#overlay .stage { font-size: 14px; color: #8b97a5; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#overlay .bar { width: 70%; height: 8px; background: #1f2933; border-radius: 4px; overflow: hidden; }
+	#overlay.slim .bar { width: 100%; height: 4px; }
+	#overlay .bar div { height: 100%; width: 0; background: #5fb3f6; transition: width 0.3s; }
+	#offline { background: #e88388; color: #0b0f14; padding: 6px 16px; font-size: 14px; }
 	@media (max-width: 720px) {
 		main { flex-direction: column; }
 		section { width: 100%; }
@@ -45,6 +61,7 @@
 </style>
 </head>
 <body>
+<div id="offline" class="hidden">The StrictGen server does not answer, start StrictGen.exe again on the PC that runs it</div>
 <header>
 	<button class="small" id="import">Import workflow</button>
 	<input id="workflow" type="file" accept=".json" hidden>
@@ -58,11 +75,11 @@
 <main>
 	<section class="controls">
 		<div class="modes">
-			<button type="button" data-mode="image" class="on">Image</button>
-			<button type="button" data-mode="video">Video</button>
-			<button type="button" data-mode="extend">Extend</button>
-			<button type="button" data-mode="imagevideo">Image to video</button>
-			<button type="button" data-mode="h3image">H3 Image</button>
+			<button type="button" data-mode="image" class="on">Moss<br>Image</button>
+			<button type="button" data-mode="video">H3<br>Video</button>
+			<button type="button" data-mode="extend">H3 Video<br>Extend</button>
+			<button type="button" data-mode="imagevideo">H3 Image<br>to Video</button>
+			<button type="button" data-mode="h3image">H3<br>Image</button>
 		</div>
 		<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
 		<div id="inputs">
@@ -112,7 +129,7 @@
 			</div>
 			<div id="loras"></div>
 		</label>
-		<label>Activity<pre id="log">Idle</pre></label>
+		<label>Activity<div id="log"><div class="muted">Idle</div></div></label>
 		<div class="row">
 			<label id="decoderLabel">Decoder<select id="decoder">
 				<option value="" selected>auto</option>
@@ -125,7 +142,7 @@
 			<label id="skipLabel">Skip<select id="skip"></select></label>
 		</div>
 		<div class="note" id="stepsNote"></div>
-		<label id="lengthLabel">Length<input id="length" type="number" min="24" step="24" value="124"></label>
+		<label id="lengthLabel">Length<select id="length"></select></label>
 		<div class="note" id="lengthNote"></div>
 		<details>
 			<summary>Advanced</summary>
@@ -154,7 +171,7 @@
 		</details>
 	</section>
 	<section class="view">
-		<div id="frame"><span id="placeholder">The preview shows up here</span></div>
+		<div id="frame"><span id="placeholder">The preview shows up here</span><div id="overlay" class="hidden"><div class="big"></div><div class="stage"></div><div class="bar"><div></div></div></div></div>
 		<div class="note" id="progress"></div>
 		<div id="gallery">
 			<button class="small" id="back" type="button">&#9664;</button>
@@ -176,6 +193,8 @@
 	const h3Model = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
 	const h3ImageModel = "minimax_h3_image_pruned_int8_convrot.safetensors";
 	const isVideo = mode => mode === "video" || mode === "extend" || mode === "imagevideo";
+	const lengths = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(second => [String(videoSnap(second * 24)), second + " s - " + videoSnap(second * 24) + " frames"]);
+	const titles = { image: "Generating Moss Image", video: "Generating H3 Video", extend: "Extending H3 Video", imagevideo: "Animating H3 Image to Video", h3image: "Generating H3 Image" };
 	const mossDecoders = [["", "auto"], ["taef2", "taef2"], ["flux2-small-vae", "flux2-small-vae"], ["flux2-vae", "flux2-vae"]];
 	const h3VideoDecoders = [["", "auto"], ["taeh3", "taeh3"]];
 	const h3ImageDecoders = [["", "auto"], ["p-h3-image_vae_int8_convrot", "p-h3-image"], ["taeh3", "taeh3"]];
@@ -197,7 +216,7 @@
 		const quality = video ? "fast" : "fastest";
 		return {
 			prompt: video ? "a red fox walking through snow, cinematic" : "a red fox in a snowy forest at dawn, photo",
-			size: video ? "custom" : "480 848", width: video ? 640 : 480, height: video ? 1152 : 848,
+			size: "480 848", width: 480, height: 848,
 			quality, steps: stepsFor(mode, quality), skip: video ? "5:45" : "off", model: video ? h3Model : mossModel,
 			loras: [], decoder: "", length: 124, context: 22, input: "", lastImage: ""
 		};
@@ -238,7 +257,7 @@
 		state.loras = data.loras || [];
 		drawLoras();
 		element("decoder").value = data.decoder || "";
-		element("length").value = data.length; element("context").value = data.context;
+		choose(element("length"), String(data.length || 124)); element("context").value = data.context;
 		element("input").value = data.input || ""; element("lastImage").value = data.lastImage || "";
 	};
 	const showMode = () => {
@@ -266,7 +285,9 @@
 		fill(element("quality"), edit ? [["", "default"]] : video ? h3Quality : mossQuality, saved.quality);
 		fill(element("skip"), edit ? [["", "off"]] : (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
 		element("inputFile").accept = mode === "extend" ? ".mp4" : ".png,.jpg,.jpeg";
+		fill(element("length"), lengths, "124");
 		applyFields(saved);
+		showInput();
 		refreshFiles();
 		note();
 	};
@@ -306,7 +327,7 @@
 	element("width").oninput = note;
 	element("height").oninput = note;
 	element("steps").oninput = note;
-	element("length").oninput = note;
+	element("length").onchange = note;
 	element("context").onchange = note;
 	const form = () => {
 		const [width, height] = sizeOf();
@@ -348,8 +369,8 @@
 		const next = await fetch("/neighbor?path=" + encodeURIComponent(box.value) + "&step=" + step).then(r => r.text());
 		if (next) box.value = next;
 	};
-	element("inputPrev").onclick = () => neighbor(element("input"), -1);
-	element("inputNext").onclick = () => neighbor(element("input"), 1);
+	element("inputPrev").onclick = async () => { await neighbor(element("input"), -1); element("input").onchange(); };
+	element("inputNext").onclick = async () => { await neighbor(element("input"), 1); element("input").onchange(); };
 	const listed = async kind => (await fetch("/list?kind=" + kind + "&models=" + encodeURIComponent(element("models").value))
 		.then(response => response.text())).split("\n").map(line => line.trim()).filter(Boolean);
 	async function refreshFiles() {
@@ -377,7 +398,7 @@
 	element("inputFile").onchange = async () => {
 		const file = element("inputFile").files[0];
 		element("inputFile").value = "";
-		if (file) { await upload(file, element("input")); element("input").onchange(); }
+		if (file) { await upload(file, element("input")); await element("input").onchange(); }
 	};
 	element("lastPick").onclick = () => element("lastFile").click();
 	element("lastFile").onchange = async () => {
@@ -387,6 +408,7 @@
 	};
 	element("models").addEventListener("change", refreshFiles);
 	element("input").onchange = async () => {
+		showInput();
 		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
 		const size = await fetch("/probe?path=" + encodeURIComponent(element("input").value)).then(r => r.text());
 		if (!size) return;
@@ -401,13 +423,16 @@
 	const place = node => {
 		const frame = element("frame");
 		frame.appendChild(node);
-		const previous = [...frame.children].filter(child => child !== node);
+		const previous = [...frame.children].filter(child => child !== node && child.id !== "overlay");
 		requestAnimationFrame(() => previous.forEach(child => {
 			if (child.src && child.src.startsWith("blob:")) URL.revokeObjectURL(child.src);
 			child.remove();
 		}));
 	};
 	const media = path => {
+		if (state.shown === path) return;
+		state.shown = path;
+		stopStrip();
 		const url = "/file?path=" + encodeURIComponent(path);
 		if (path.toLowerCase().endsWith(".mp4")) {
 			const video = document.createElement("video");
@@ -420,35 +445,105 @@
 		image.onload = () => place(image);
 		image.src = url;
 	};
-	const showNoise = () => {
+	const stopStrip = () => { if (state.strip) { clearInterval(state.strip); state.strip = null; } };
+	const showStrip = image => {
+		stopStrip();
+		const [width, height] = sizeOf();
+		const frames = Math.max(1, Math.round(image.naturalWidth / image.naturalHeight / (width / height)));
 		const canvas = document.createElement("canvas");
-		canvas.width = 480; canvas.height = 640;
+		const frameWidth = Math.floor(image.naturalWidth / frames);
+		canvas.width = frameWidth; canvas.height = image.naturalHeight;
 		const context = canvas.getContext("2d");
-		const data = context.createImageData(canvas.width, canvas.height);
-		let seed = 74101;
-		for (let index = 0; index < data.data.length; index += 4) {
-			seed = (seed * 16807) % 2147483647;
-			const value = seed % 256;
-			data.data[index] = data.data[index + 1] = data.data[index + 2] = value;
-			data.data[index + 3] = 255;
-		}
-		context.putImageData(data, 0, 0);
+		let frame = 0;
+		const draw = () => { context.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, 0, 0, frameWidth, image.naturalHeight); frame = (frame + 1) % frames; };
+		draw();
 		place(canvas);
+		state.shown = "";
+		if (frames > 1) state.strip = setInterval(draw, 160);
+	};
+	const progressOf = lines => {
+		let total = 0, stage = "Starting", fraction = 0;
+		for (const [, text] of lines) {
+			const steps = /with (\d+) steps/.exec(text) || /Step \d+\/(\d+)/.exec(text);
+			if (steps) total = Number(steps[1]);
+			const percent = /^(.*?)\s(\d+)%/.exec(text);
+			const step = /^step (\d+) /i.exec(text) || /^Step (\d+)\//.exec(text);
+			if (percent) { stage = percent[1]; fraction = Number(percent[2]) / 100; }
+			else if (step && total) { stage = "Sampling step " + (Number(step[1]) + (/^step/.test(text) ? 1 : 0)) + "/" + total; fraction = (Number(step[1]) + (/^step/.test(text) ? 1 : 0)) / total; }
+			else if (!/^Prompt: /.test(text)) { stage = compact(text); fraction = /loaded|Encoded|sampled|decoded|Saved|Wrote/i.test(text) ? 1 : 0; }
+		}
+		return { stage, fraction };
+	};
+	const showOverlay = (run, hasPreview) => {
+		const overlay = element("overlay");
+		overlay.classList.toggle("hidden", !run);
+		if (!run) return;
+		overlay.classList.toggle("slim", hasPreview);
+		const mode = Object.keys(titles).find(key => run.mode === key) || state.runningMode || state.mode;
+		overlay.querySelector(".big").textContent = (titles[mode] || "Generating") + " …";
+		const progress = progressOf(run.lines.map(split));
+		overlay.querySelector(".stage").textContent = progress.stage;
+		overlay.querySelector(".bar div").style.width = Math.round(progress.fraction * 100) + "%";
 	};
 	const showPreview = status => {
-		if (status.running !== state.running) { state.running = status.running; state.previewStamp = 0; showNoise(); }
+		if (status.running !== state.running) { state.running = status.running; state.previewStamp = 0; state.hasPreview = false; }
 		if (!status.previewStamp || status.previewStamp === state.previewStamp || state.previewLoading) return;
 		state.previewLoading = true;
 		const stamp = status.previewStamp;
-		fetch("/file?path=" + encodeURIComponent(status.preview)).then(response => response.ok ? response.blob() : null).then(blob => {
+		fetch("/file?path=" + encodeURIComponent(status.preview) + "&v=" + stamp).then(response => response.ok ? response.blob() : null).then(blob => {
 			state.previewLoading = false;
 			if (!blob || blob.size < 500) return;
 			const image = new Image();
 			const url = URL.createObjectURL(blob);
-			image.onload = () => { state.previewStamp = stamp; place(image); };
+			image.onload = () => { state.previewStamp = stamp; state.hasPreview = true; showStrip(image); URL.revokeObjectURL(url); };
 			image.onerror = () => URL.revokeObjectURL(url);
 			image.src = url;
 		}).catch(() => { state.previewLoading = false; });
+	};
+	const showInput = () => {
+		const path = element("input").value;
+		const uses = state.mode === "extend" || state.mode === "imagevideo" || state.mode === "h3image";
+		if (!uses || !path || state.busy) return;
+		media(path);
+		element("caption").textContent = "input " + path.split("/").pop();
+	};
+	const split = line => { const tab = line.indexOf("\t"); return tab < 0 ? ["", line] : [line.slice(0, tab), line.slice(tab + 1)]; };
+	const compact = text => text
+		.replace(/[A-Za-z]:[\\/][^ ,]*[\\/]([^\\/ ,]+)/g, "$1")
+		.replace(", it stays loaded for the next runs", " (kept)").replace(" from disk into memory", "")
+		.replace(" on the GPU, uploading the text encoder into VRAM", "").replace(", the first one uploads H3 into GPU VRAM", "")
+		.replace("Using cached prompt conditioning", "cached prompt").replace("Using the loaded ", "using loaded ")
+		.replace(/^Sampling video (\d+)\/(\d+) with (\d+) steps.*/, "sampling video $1/$2, $3 steps")
+		.replace(/^Total ([\d.]+) s for .*/, "done in $1 s");
+	const quiet = text => /\s\d+%\s/.test(text + " ") || /^Image \d+\/\d+, seed/.test(text) || /^(Decoded and saved|Encoded prompt \d)/.test(text);
+	const formatted = (run, total) => {
+		const title = run.title.replace(/\.safetensors/g, "").replace(/\.gguf/g, "");
+		const rows = [{ text: "Run " + run.id + ": " + title + (run.state === "queued" ? " (queued)" : ""), kind: "run" }];
+		let steps = 0, last = "";
+		for (const [time, text] of run.lines.map(split)) {
+			if (!text.trim() || text === last) continue;
+			last = text;
+			const many = /with (\d+) steps/.exec(text); if (many) steps = Number(many[1]);
+			if (quiet(text)) continue;
+			const prefix = time + "s: ";
+			if (text.startsWith("Prompt: ")) { rows.push({ text: prefix + text, kind: "prompt" }); continue; }
+			const step = /^step (\d+) (\d+) ms/i.exec(text);
+			const shown = step ? "step " + (Number(step[1]) + 1) + (steps ? "/" + steps : "") + " done (" + (Number(step[2]) / 1000).toFixed(1) + " s)" : compact(text);
+			rows.push({ text: prefix + shown, kind: /error|failed|not enough/i.test(text) ? "error" : "" });
+		}
+		if (run.state === "error") rows.push({ text: "error: " + run.outcome.replace(/^error\t/, ""), kind: "error" });
+		return rows;
+	};
+	const showActivity = status => {
+		const runs = status.runs || [];
+		const rows = runs.length ? runs.flatMap(formatted) : [{ text: "Idle", kind: "muted" }];
+		if (status.notice && runs.length && runs[runs.length - 1].state !== "running" && /No StrictGen|did not|Could not|failed/i.test(status.notice)) rows.push({ text: status.notice, kind: "error" });
+		const key = JSON.stringify(rows);
+		if (key === state.activity) return;
+		state.activity = key;
+		const log = element("log"), atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+		log.replaceChildren(...rows.map(row => { const line = document.createElement("div"); line.textContent = row.text; line.title = row.text; if (row.kind) line.className = row.kind; return line; }));
+		if (atEnd) log.scrollTop = log.scrollHeight;
 	};
 	const gallery = () => [...(state.examples || []), ...state.results];
 	const showResult = () => {
@@ -456,6 +551,7 @@
 		if (!all.length) { element("caption").textContent = "No results yet"; return; }
 		state.index = Math.max(0, Math.min(all.length - 1, state.index));
 		const path = all[state.index];
+		stopStrip();
 		media(path);
 		fit();
 		const examples = (state.examples || []).length;
@@ -473,8 +569,8 @@
 		save();
 	};
 	element("reuse").onclick = () => reuse(gallery()[state.index]);
-	element("back").onclick = () => { state.index -= 1; showResult(); };
-	element("forward").onclick = () => { state.index += 1; showResult(); };
+	element("back").onclick = () => { if (state.index > 0) { state.index -= 1; showResult(); } };
+	element("forward").onclick = () => { if (state.index < gallery().length - 1) { state.index += 1; showResult(); } };
 	window.onkeydown = event => {
 		if (event.target.matches("input, textarea")) return;
 		if (event.code !== "Space") return;
@@ -507,21 +603,31 @@
 		apply(fields);
 		element("workflow").value = "";
 	};
+	const timed_fetch = (url, options = {}, seconds = 4) => {
+		const abort = new AbortController();
+		const timer = setTimeout(() => abort.abort(), seconds * 1000);
+		return fetch(url, { ...options, signal: abort.signal }).finally(() => clearTimeout(timer));
+	};
+	const offline = gone => { state.offline = gone; element("offline").classList.toggle("hidden", !gone); };
 	element("run").onclick = async () => {
 		save();
-		state.hold = true;
+		const button = element("run");
 		state.clicked = state.busy ? null : { key: timed(), at: performance.now(), results: state.results.length };
-		element("log").textContent = "Run started\n" + element("prompt").value.split("\n")[0];
+		state.runningMode = state.mode;
+		button.disabled = true;
 		try {
-			const status = await fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
-			state.hold = false;
+			const status = await timed_fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
+			offline(false);
+			button.textContent = status.busy && (status.queued || []).length ? "Queued" : "Started";
 			showStatus(status);
 		} catch (error) {
-			state.hold = false;
-			element("log").textContent = "Run started\n" + error;
+			state.clicked = null;
+			offline(true);
+			button.textContent = "No server";
 		}
+		setTimeout(() => { button.textContent = "Run"; button.disabled = false; }, 900);
 	};
-	element("stop").onclick = () => fetch("/stop", { method: "POST" });
+	element("stop").onclick = () => timed_fetch("/stop", { method: "POST" }).then(() => offline(false)).catch(() => offline(true));
 	element("position").onclick = () => element("menu").classList.toggle("hidden");
 	const showStatus = status => {
 		const others = (status.peers || []).length;
@@ -537,10 +643,7 @@
 		if ([...machine.options].some(option => option.value === chosen)) machine.value = chosen;
 		const list = element("recentList");
 		list.replaceChildren(...(status.recent || []).map(path => { const option = document.createElement("option"); option.value = path; return option; }));
-		if (!state.hold && typeof status.activity === "string" && element("log").textContent !== status.activity) {
-			element("log").textContent = status.activity;
-			element("log").scrollTop = element("log").scrollHeight;
-		}
+		showActivity(status);
 		if (status.busy && !state.busy) state.began = performance.now();
 		const waiting = (status.queued || []).length;
 		if (status.busy) element("progress").textContent = "Running " + seconds(state.began) + (waiting ? ", " + waiting + " queued" : "") + (status.step ? " · " + status.step : "");
@@ -561,17 +664,22 @@
 			if (grew) state.index = state.examples.length + state.results.length - 1;
 			showResult();
 		}
-		if (status.busy && state.mode === "image") showPreview(status);
-		else state.previewStamp = 0;
+		const running = (status.runs || []).find(run => run.state === "running");
+		if (running) { running.mode = state.runningMode; showPreview(status); }
+		else { state.previewStamp = 0; state.hasPreview = false; }
+		showOverlay(running, !!state.hasPreview);
 	};
-	const poll = async () => { showStatus(await fetch("/status").then(response => response.json())); };
+	const poll = async () => {
+		try { showStatus(await timed_fetch("/status").then(response => response.json())); state.misses = 0; offline(false); }
+		catch { state.misses = (state.misses || 0) + 1; if (state.misses >= 2) offline(true); }
+	};
 	document.querySelector("section").addEventListener("change", save);
 	state.examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => "MossWebExample" + number + ".jpg");
 	state.examples.forEach(path => { const image = new Image(); image.src = "/file?path=" + encodeURIComponent(path); });
 	showResult();
 	showMode();
 	addEventListener("resize", fit);
-	const watch = async () => { await poll().catch(() => {}); setTimeout(watch, state.busy || state.clicked ? 100 : 400); };
+	const watch = async () => { await poll(); setTimeout(watch, state.offline ? 1500 : state.busy || state.clicked ? 150 : 400); };
 	watch();
 </script>
 </body>

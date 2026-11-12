@@ -148,7 +148,7 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
 		seen = job.HeldVideo(state.Stepped(seen, index, job), index + 1)
 		heard = job.HeldAudio(heard.Stepped(state.output, index, seen.latent.Length, job.Noise("audio", index)), index + 1)
-		steps = steps.Stepped(index, state, seen.latent, heard.latent)
+		steps = steps.Stepped(index, state, seen, heard.latent)
 	seen.latent + heard.latent
 Help
 	H3Video(Logger).Help is not Error
