@@ -10,8 +10,9 @@ has crop = true
 has vision = "768"
 has video = ""
 has context = 22
+constant Vae = "minimax_h3_video_vae_int8_convrot.safetensors"
 constant DiffusionHelp = List(Text) + "H3 int8 Convrot model file, a name in models/diffusion_models or a path, empty for minimax_h3_fl2va_pruned_int8_convrot.safetensors of ComfyUI's H3 template"
-constant VaeHelp = ("video VAE file, a name in models/vae or a path, empty for minimax_h3_video_vae_int8_convrot.safetensors", "audio VAE file, a name in models/vae or a path, empty for minimax_h3_audio_vae_fp32.safetensors")
+constant VaeHelp = ("video VAE or taeh3.safetensors, a name in models/vae or models/vae_approx or a path, empty for " + Vae, "audio VAE file, a name in models/vae or a path, empty for minimax_h3_audio_vae_fp32.safetensors")
 constant EncoderHelp = List(Text) + "Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 constant FolderHelp = List(Text) + "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models"
 constant FrameHelp = ("first frame (png or jpg) for image to video, cropped to the video aspect (--crop=false stretches it), or a folder of them for one video each", "last frame image (png or jpg), cropped to the video aspect and resized")
@@ -30,7 +31,13 @@ Checkpoint Text
 	ModelFiles(models).Located(model is "" then H3Video.Base else model, "diffusion_models")
 Decoder Text
 	Local.Decoder is Error
-	ModelFiles(models).Located(vae is "" then "minimax_h3_video_vae_int8_convrot.safetensors" else vae, "vae")
+	let folder = File(ModelFiles(models).Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
+	ModelFiles(models).Located(vae is "" then Vae else vae, folder)
+VaeEncoder Text
+	H3Files.Parsed(("--vae", "tinyh3vae.safetensors")).VaeEncoder is "tinyh3vae.safetensors"
+	H3Files.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error
+	let decoder = Decoder
+	(decoder is Error) or (Taeh3Decoder.Is(decoder) is false) then decoder else ModelFiles(models).Located(Vae, "vae")
 Sound Text
 	Local.Sound is Error
 	ModelFiles(models).Located(audioVae is "" then "minimax_h3_audio_vae_fp32.safetensors" else audioVae, "vae")

@@ -171,6 +171,9 @@
 	const h3Model = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
 	const h3ImageModel = "minimax_h3_image_pruned_int8_convrot.safetensors";
 	const isVideo = mode => mode === "video" || mode === "extend" || mode === "imagevideo";
+	const mossDecoders = [["", "auto"], ["taef2", "taef2"], ["flux2-small-vae", "flux2-small-vae"], ["flux2-vae", "flux2-vae"]];
+	const h3VideoDecoders = [["", "auto"], ["taeh3", "taeh3"]];
+	const h3ImageDecoders = [["", "auto"], ["p-h3-image_vae_int8_convrot", "p-h3-image"], ["taeh3", "taeh3"]];
 	const mossSkip = ["off", "6:36"];
 	const h3Skip = ["off", "5:45", "10:40", "15:35"];
 	const state = { mode: "image", loras: [], results: [], captions: [], examples: null, index: 0, paused: false, notice: "" };
@@ -237,7 +240,6 @@
 		element("inputLabel").firstChild.textContent = edit ? "Image to edit (optional)" : "Image or video";
 		element("contextLabel").classList.toggle("hidden", mode !== "extend");
 		element("lastLabel").classList.toggle("hidden", mode !== "imagevideo");
-		element("decoderLabel").classList.toggle("hidden", !moss);
 		element("encoderLabel").classList.toggle("hidden", !moss);
 		element("qualityLabel").classList.toggle("hidden", edit);
 		element("skipLabel").classList.toggle("hidden", edit);
@@ -251,6 +253,7 @@
 		element("crop").parentElement.classList.toggle("hidden", edit);
 		element("audioVae").parentElement.classList.toggle("hidden", !video);
 		const saved = stored()[mode] || defaultsFor(mode);
+		fill(element("decoder"), edit ? h3ImageDecoders : video ? h3VideoDecoders : mossDecoders, saved.decoder || "");
 		fill(element("quality"), edit ? [["", "default"]] : video ? h3Quality : mossQuality, saved.quality);
 		fill(element("skip"), edit ? [["", "off"]] : (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
 		applyFields(saved);

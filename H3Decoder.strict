@@ -17,6 +17,8 @@ constant StillRows = 768
 constant PlanarHalf = 16
 constant StillBits = 8
 constant FramePosition = -0.8571428571428572
+constant Unused = Batch(List(Numbers), List(Number))
+constant None = H3Decoder(Unused, Unused, List(Number), List(H3DecoderBlock), List(Number), List(Number), Unused, List(Number), List(Number))
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
 Loaded(model Safetensors) Slow(H3Decoder)
 	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)

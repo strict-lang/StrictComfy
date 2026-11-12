@@ -28,7 +28,8 @@ Optional(json Json, mode Text) Texts
 	let image = mode is "imagevideo" then Pair("--image", json.get("image") to Text) else List(Text)
 	let steps = json.get("steps") to Text
 	let counted = ((steps is "") or (steps is "0")) then List(Text) else Pair("--steps", steps)
-	let vae = Pair("--vae", mode is "image" then Decoder(json.get("decoder") to Text) else json.get("vae") to Text)
+	let givenVae = json.get("vae") to Text
+	let vae = Pair("--vae", Decoder(givenVae is "" then json.get("decoder") to Text else givenVae))
 	let tail = vae + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
 	length + context + clip + image + Pair("--last_image", json.get("lastImage") to Text) + counted + tail
 Loras(json Json) Texts

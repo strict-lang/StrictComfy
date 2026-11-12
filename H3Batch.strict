@@ -124,7 +124,7 @@ Armed Slow(H3Batch)
 	let files = options.files
 	if files.video is ""
 		return value
-	let vae = files.Decoder
+	let vae = files.VaeEncoder
 	let head = StrictGenExtend(logger).Head(files.video, files.context, options.height, options.width, vae, files.Sound)
 	H3Batch(value, motion = head)
 Pictured(images Texts) Slow(List(Numbers))
@@ -136,7 +136,7 @@ Pictured(images Texts) Slow(List(Numbers))
 		return List(Numbers)
 	let size = (options.height, options.width)
 	logger.Log("Encoding " + count + " keyframe images")
-	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.Decoder, 32)), H3Tiles.Real)
+	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.VaeEncoder, 32)), H3Tiles.Real)
 	for firsts + options.files.lastImage
 		if value is not ""
 			picture.Encoded(picture.Frame(value, size, options.files.Cropped(index < firsts.Length then 0 else 1)), size)

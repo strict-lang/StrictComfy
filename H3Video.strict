@@ -56,8 +56,7 @@ Decoding(loaded List(H3Decoding), vaes Texts) Slow(List(H3Decoding))
 	let before = Process.Elapsed
 	let files = ModelFiles("")
 	logger.Log("Loading video VAE " + files.Described(vaes(0)) + " and audio VAE " + files.Described(vaes(1)))
-	let vae = H3Vae(H3Decoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
-	let decoding = H3Decoding(logger, vae, H3Audio.Loaded(Safetensors(vaes(1), 32)))
+	let decoding = H3Decoding.Loaded(logger, vaes(0), vaes(1))
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	List(H3Decoding) + decoding
 Numbered(arguments Texts) Numbers
