@@ -40,11 +40,16 @@ every method without a return type changed its bytecode in that compiler, so cle
    frames whose index % 20 >= 3 (the last 12 of TAEHV.decode are its padding for 5k-3 latents). Matches ComfyUI on the
    tiny fixture and at 43 dB (two h264 encodes) on a real 124 frame 640x1152 latent; 32.8 dB from the H3 video VAE.
    Decode with sound 1.1-1.5 s against 15-19 s for the video VAE (ComfyUI's taeh3 alone: 4.6 s warm on the 3080).
-2. **Moss on the 3080 for the website**: 10 image batches per preset with the new default decoder and with
-   `--vae taef2.safetensors` (website wants both where the difference is over 10 %), plus MossWeb 480p with each decoder
-   (Release/Web, C:/StrictDumps/vae/webrun.mjs now takes a "decoder" per run).
-3. P-H3 and taeh3 for H3Image on a 10 GB card: does P-H3 (3.1 GB int8) still fit next to the streamed H3 Image at
-   1024? Time decode only.
+2. **Moss on the 3080 for the website** done (2026-11-12): warm 10 image batches, Total / 10 per image: fastest2steps
+   0.91, fastest 1.14, faster 1.75 (taef2 1.57), fast 2.22 (taef2 1.98), best 3.23 s (taef2 2.95). Flux 2 VAE decode
+   and save 0.23 s per 720p image on the 3080, taef2 0.04 s. MossWeb 480p fastest warm per image: taef2 4.6 s, Flux 2
+   small 5.1 s, Flux 2 VAE 6.0 s (peak 9.4 GB VRAM). strict-lang.org ad0b98e (local, not pushed) has these rows.
+   The home PC's models/vae/flux2-small-decoder.safetensors is a 112 MB decoder only file, MossWeb needs the AiServer's
+   249 MB full_encoder_small_decoder (TensorNotFound otherwise).
+3. **P-H3 and taeh3 for H3Image on 10 GB** done: at 1024 sampling 5.2-5.6 s per image, decode + save image VAE 0.35 s,
+   P-H3 0.66-0.97 s (fits next to the streamed H3 Image, but the next run with another decoder loaded H3 Image from
+   disk again, 5.5 s), taeh3 0.02-0.04 s. H3Video on the 3080 needs --force: MachineUse wants 7.5 GB of free VRAM,
+   Chrome and dwm leave about 7 GB.
 
 ## Done on the 4090 after the handoff (2026-11-12 morning)
 
