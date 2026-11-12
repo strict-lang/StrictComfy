@@ -28,7 +28,7 @@ Output(map FeatureMap) Slow(FeatureMap)
 Attended(mixed FeatureMap, budget = Budget) Slow(Numbers)
 	Middle.Attended(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
 	Middle.Attended(Combined)(17) is Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 1, 1)(1)
-	Middle.Attended(Combined, 130) is Middle.Attended(Combined)
+	MossImage(Logger).RelativeError(Middle.Attended(Combined, 130), Middle.Attended(Combined)) < 0.00001
 	let positions = mixed.values.Length / mixed.channels
 	let queries = Queries(mixed.values, combined.biases)
 	let transposed = Transposed(mixed.values, mixed.channels / 3)

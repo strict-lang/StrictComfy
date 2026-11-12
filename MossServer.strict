@@ -61,7 +61,7 @@ Ran(socket Number, request Text, kept MossResident) Slow(MossResident)
 	let unpressed = backend.Unpressed
 	backend.Restored(isMoved, home)
 	unpressed then served else MossResident(kept, code = Backend.Stopped)
-Asked(arguments Texts, forced Boolean) Text
+Asked(arguments Texts, forced Boolean) Slow(Text)
 	Sample.Asked(List(Text), false).StartsWith("need\tMossImage\t")
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"

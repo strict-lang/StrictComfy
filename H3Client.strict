@@ -21,7 +21,7 @@ Ran(given Texts) Number
 Backended Backend
 	Sample.Backended.name is "H3Video"
 	Backend(logger, Resident(root), "H3Video", coordinator)
-Asked(arguments Texts, forced Boolean) Text
+Asked(arguments Texts, forced Boolean) Slow(Text)
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Video\t")
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"

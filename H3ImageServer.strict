@@ -77,7 +77,7 @@ Ran(socket Number, request Text, kept H3ImageResident) Slow(H3ImageResident)
 	let unpressed = backend.Unpressed
 	backend.Restored(isMoved, home)
 	unpressed then served else H3ImageResident(kept, code = Backend.Stopped)
-Asked(arguments Texts, forced Boolean) Text
+Asked(arguments Texts, forced Boolean) Slow(Text)
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Image\t")
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"
