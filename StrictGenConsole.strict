@@ -1,0 +1,52 @@
+has logger
+constant Quiet = 60
+constant Sample = StrictGenConsole(Logger)
+constant Backends = ("MossImage", "moss", "H3Video", "h3", "H3Image", "h3image")
+constant Added = StrictGenQueue.Empty.Added("image", ("--width", "32"), "Moss Image fox")
+Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue
+	Sample.Told(StrictGenQueue.Empty, Added).modes.Length is 1
+	Sample.Told(Added, Added).job.current is -1
+	for Range(before.modes.Length, after.modes.Length)
+		logger.Log("Run " + (value + 1) + " queued: " + after.lines(value))
+	let id = before.job.current
+	if (id >= 0) and (after.job.current is id)
+		Shown(id, after.job.Stamped(after.job.Logged), before.job.times.Length, after.job.times.Length)
+	if (id >= 0) and (after.job.current is not id)
+		Ended(after, id, before.job.times.Length)
+	Started(before, after)
+	Quieted(after)
+Started(before StrictGenQueue, after StrictGenQueue)
+	Sample.Started(StrictGenQueue.Empty, Added) is not Error
+	let job = after.job
+	if (job.current >= 0) and (job.current is not before.job.current)
+		logger.Log("Run " + (job.current + 1) + " started" + (job.remote is "" then " here" else " on " + job.remote))
+Shown(id Number, rows Texts, first Number, until Number)
+	Sample.Shown(0, ("0\ta", "1.5\tb"), 1, 2) is not Error
+	for Range(first, until.Clamp(first, rows.Length))
+		let parts = rows(value).Split("\t")
+		logger.Log("Run " + (id + 1) + " " + parts.First + "s: " + parts.Last)
+Ended(queue StrictGenQueue, id Number, first Number)
+	Sample.Ended(Added, 0, 0) is not Error
+	let file = "StrictGenJob-" + id + ".timed"
+	let rows = File(file).Exists then File(file).ReadLines else List(Text)
+	Shown(id, rows, first, rows.Length)
+	let outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
+	logger.Log("Run " + (id + 1) + " " + (outcome.First is "file" then "done: " else "ended: ") + outcome.Last)
+Quieted(queue StrictGenQueue) StrictGenQueue
+	Sample.Quieted(Added).job.nagged is 0
+	Sample.Quieted(StrictGenQueue(Added, job = StrictGenJob(StrictGenJob.Local(0), started = 1))).job.nagged > 0
+	let job = queue.job
+	let last = job.started + (job.times.Length > 0 then job.times.Last else 0)
+	if (job.current < 0) or (job.remote is not "") or (Time.Now - Quiet < (last > job.nagged then last else job.nagged))
+		return queue
+	let silent = (Time.Now - last).Round
+	logger.Log("Run " + (job.current + 1) + ": no new output for " + silent + " s" + Backend(queue.modes(job.current)))
+	StrictGenQueue(queue, job = StrictGenJob(job, nagged = Time.Now))
+Backend(mode Text) Text
+	Sample.Backend("image") is not Error
+	let program = StrictGenJob.Program(mode)
+	let at = Backends.Index(program)
+	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+	let file = folder + "/artifacts/" + (at >= 0 then Backends(at + 1) else "none") + "/obj/server.log"
+	let rows = File(file).Exists then File(file).ReadLines else List(Text)
+	rows.Length is 0 then "" else ", the " + program + " backend says: " + rows.Last

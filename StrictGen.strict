@@ -38,9 +38,10 @@ Looped(socket Number, queue StrictGenQueue, net StrictGenNet)
 	mutable peers = net
 	for Range(0, socket > 0 then Forever else 0)
 		let waiting = Socket.Waiting(socket) is 1
+		let before = state
 		state = waiting then Answered(Socket.Accept(socket), state, peers) else state
 		peers = waiting then peers else peers.Refreshed
-		state = Steered(state, peers)
+		state = StrictGenConsole(logger).Told(before, Steered(state, peers))
 		peers = peers.Tick(state.IsBusy)
 		if waiting is false
 			Process.Wait(state.IsBusy then BusyWait else IdleWait)

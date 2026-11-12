@@ -6,6 +6,7 @@ has remote = ""
 has remoteId = -1
 has started = 0
 has times Numbers = List(Number)
+has nagged = 0
 constant Detached = "/c start \"StrictGen\" /MIN /D \""
 constant PromptLine = "Prompt: "
 Local(at Number) StrictGenJob
