@@ -19,15 +19,9 @@ Port(arguments Texts) Number
 	StrictGen(Logger).Port(("--port", "8765")) is 8765
 	let at = arguments.Index("--port")
 	(at < 0) or (at + 1 >= arguments.Length) then DefaultPort else arguments(at + 1) to Number
-IsTaken(port Number) Boolean
-	StrictGen(Logger).IsTaken(-1) is false
-	if port <= 0
-		return false
-	let probe = Socket.Try("127.0.0.1", port, 1)
-	probe is Error then false else Socket.Close(probe) is Error or true
 Served(port Number)
 	StrictGen(Logger).Served(-1) is Error
-	let socket = IsTaken(port) then Error("PortInUse") else Socket.Listen(port)
+	let socket = Socket.Listen(port)
 	if socket is Error
 		logger.Log("Port " + port + " is in use, probably by a running StrictGen; close it or start with --port <number>")
 		return socket
