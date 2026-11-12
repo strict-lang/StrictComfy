@@ -50,7 +50,8 @@ Attempted(arguments Texts) Number
 	let forwarding = Forwarding(logger, resident.root)
 	if (isRunning is false) and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
-		forwarding.Started("")
+		if forwarding.Started("") is not 0
+			return Unserved
 	let port = Waited(StartSeconds)
 	port > 0 then forwarding.Answered(resident, port, arguments) else (port is Gone then Crashed else Unserved)
 Waited(seconds Number) Number

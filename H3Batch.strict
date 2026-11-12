@@ -45,13 +45,11 @@ Conditions(prompts Texts, images Texts, paths Texts) Slow(List(Safetensors))
 	let inputs = H3Inputs(options)
 	if missing.Length is 0
 		logger.Log("Using cached prompt conditioning")
-	else
-		Encoded(inputs.Picked(prompts, missing), inputs.Picked(images, missing), inputs.Picked(paths, missing))
-	artifacts.Read(paths)
+		return artifacts.Read(paths)
+	let code = Encoded(inputs.Picked(prompts, missing), inputs.Picked(images, missing), inputs.Picked(paths, missing))
+	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
 Encoded(prompts Texts, images Texts, paths Texts) Slow(Number)
 	let encoding = H3Encoding(logger, commandLine)
-	let noun = prompts.Length is 1 then " prompt" else " prompts"
-	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
 	Directory.Create(H3Artifacts(options).Root + "/artifacts")
 	Directory.Create(H3Artifacts(options).Folder)
 	encoding.Started(prompts, images, paths)

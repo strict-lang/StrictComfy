@@ -1,7 +1,7 @@
 has logger
 constant Data = Safetensors("tinymoss.safetensors", 32, "reference.")
-Measured(step Number, before Number, latent Numbers, data Safetensors, suffix Text = "") Number
-	MossTiming(Logger).Measured(0, Process.Elapsed - 1, (1, 2), Data) > 0
+Measured(step Number, before Number, latent Numbers, data Safetensors, suffix Text = "")
+	MossTiming(Logger).Measured(0, Process.Elapsed - 1, (1, 2), Data) is not Error
 	MossTiming(Logger).Measured(0, 0, List(Number), Data) is Error("Empty Moss latent")
 	if latent.Length is 0
 		return Error("Empty Moss latent")
@@ -9,6 +9,4 @@ Measured(step Number, before Number, latent Numbers, data Safetensors, suffix Te
 	let reference = data.Entry(next) is "" then "latent" else next
 	let moss = MossImage(logger)
 	let compared = data.Entry(reference) is "" then "" else ", error " + moss.RelativeError(latent, data.Values(reference))
-	let elapsed = ((Process.Elapsed - before) * 1000).Round
-	logger.Log("step " + step + " " + elapsed + " ms" + compared + suffix)
-	elapsed
+	logger.Log("step " + step + " " + ((Process.Elapsed - before) * 1000).Round + " ms" + compared + suffix)
