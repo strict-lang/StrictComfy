@@ -11,14 +11,14 @@ Started H3StepLog
 	Tiny.Started.stamps.Length is 1
 	Tiny.Started.times.Length is 1
 	H3StepLog(value, stamps = List(Number) + GpuMemory.Stamped, times = List(Number) + Process.Elapsed)
-Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) Slow(H3StepLog)
+Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) H3StepLog slow
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).logged is 1
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).notes is (", forecasts 0")
 	job.previewer.Written(video.denoised, job.shape)
 	let note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)
 	let next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
 	H3StepLog(next, logged = next.Logged(step + 1 >= state.steps))
-Logged(waiting Boolean) Number
+Logged(waiting Boolean) Number slow
 	Timed.Logged(true) is 2
 	H3StepLog(Timed, logged = 1).Logged(false) is 2
 	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is (GpuMemory.Elapsed(0, 1) is -1 then 0 else 2)
@@ -43,7 +43,7 @@ Logging(step Number) Number
 	Timed.Logging(1) is 2
 	logger.Log(Line(step, GpuMemory.Elapsed(stamps(step), stamps(step + 1))))
 	step + 1
-Waited(step Number) Number
+Waited(step Number) Number slow
 	Timed.Waited(1) is 1
 	Process.Wait(0.002)
 	step
@@ -52,7 +52,7 @@ Line(step Number, took Number) Text
 	Timed.Line(0, 42.4) is "step 0 42 ms, forecasts 0"
 	let host = (times(step + 1) - times(step)) * 1000
 	"step " + step + " " + (took < 0 then host else took).Round + " ms" + notes(step)
-Errors(step Number, count Number, video Numbers, audio Numbers) Slow(Text)
+Errors(step Number, count Number, video Numbers, audio Numbers) Text slow
 	Tiny.Errors(1, 1, (1, 2), (3, 4)) is ""
 	H3StepLog(Logger, H3Job.Noisy).Errors(1, 1, (1, 2), (3, 4)) is ""
 	Stepping.Errors(1, 2, (2, 0), (3, 0)) is ", video error 1, audio error 0.5"

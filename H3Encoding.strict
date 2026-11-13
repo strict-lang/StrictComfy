@@ -1,7 +1,7 @@
 has logger
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
-Started(prompts Texts, images Texts, paths Texts) Number
+Started(prompts Texts, images Texts, paths Texts) Number slow
 	let noun = prompts.Length is 1 then " prompt" else " prompts"
 	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
 	Written(prompts, images, paths)
@@ -13,12 +13,12 @@ Command(paths Texts) Text
 	for arguments
 		command = command + " \"" + value + "\""
 	command
-Written(prompts Texts, images Texts, paths Texts)
+Written(prompts Texts, images Texts, paths Texts) slow
 	H3Encoding(Logger, List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
 	H3Encoding(Logger, List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
 	for paths
 		File(value + ".txt").Write(List(Text) + images(index) + prompts(index))
-Jobs(paths Texts) List(Texts)
+Jobs(paths Texts) List(Texts) slow
 	H3Encoding(Logger, List(Text)).Jobs(List(Text)).Length is 0
 	H3Encoding(Logger, List(Text)).Jobs(List(Text) + "missing.txt") is Error("FileNotFound:missing.txt.txt")
 	for paths
@@ -26,7 +26,7 @@ Jobs(paths Texts) List(Texts)
 			return Error("FileNotFound:" + value + ".txt")
 		let lines = File(value + ".txt").ReadLines
 		(lines.First, Text.Combine(lines.Slice(1, lines.Length - 1), "\n"))
-Encoded Slow(Number)
+Encoded Number slow
 	let rest = arguments.Slice(2, arguments.Length - 2)
 	let options = H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).options
 	let paths = arguments(1).Split(";")

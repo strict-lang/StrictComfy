@@ -6,7 +6,7 @@ constant Measured = "StrictGenCpu.txt"
 constant RunsShown = 6
 constant Queued = StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")
 constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
-Text Slow(Text)
+Text Text slow
 	Sample.Text.IndexOf("\"ram\"") >= 0
 	Sample.Text.IndexOf("\"cpu\"") >= 0
 	let total = GpuMemory.HostTotal
@@ -17,7 +17,7 @@ Text Slow(Text)
 	let memory = "{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0)
 	let drive = Drive
 	memory + ",\"gpu\":" + device(2) + ",\"cpu\":" + Processor + ",\"drive\":" + drive + "}"
-Processor Slow(Number)
+Processor Number slow
 	Sample.Processor >= 0
 	let windows = Process.OperatingSystem is "Windows"
 	let last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
@@ -25,12 +25,12 @@ Processor Slow(Number)
 	let result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
 	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
 	(result.Failed or (number is Error)) then 0 else number.Clamp(0, 100)
-Drive Number
+Drive Number slow
 	Sample.Drive >= 0
 	let rows = File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
 	let free = rows.Length > 1 then rows(1).Trim to Number else 0
 	free is Error then 0 else free
-Status(queue StrictGenQueue, net StrictGenNet) Text
+Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"queue 0 done 0\"") >= 0
 	let stats = net.meters is "" then Blank else net.meters
 	let preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
@@ -40,7 +40,7 @@ Status(queue StrictGenQueue, net StrictGenNet) Text
 	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
 	let machine = ",\"name\":" + StrictGenNet.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"gpuTemp\":" + net.heat
 	head + machine + Made(queue) + ",\"peers\":" + Peers(net) + "}"
-Made(queue StrictGenQueue) Text
+Made(queue StrictGenQueue) Text slow
 	Sample.Made(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
 	let made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
 	let running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
@@ -48,7 +48,7 @@ Made(queue StrictGenQueue) Text
 	let lists = ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
 	let activity = ",\"notice\":" + queue.notice.Code + ",\"runs\":" + Runs(queue)
 	made + recent + lists + activity + ",\"examples\":" + Codes(Examples)
-Runs(queue StrictGenQueue) Text
+Runs(queue StrictGenQueue) Text slow
 	Sample.Runs(StrictGenQueue.Empty) is "[]"
 	Sample.Runs(Queued).IndexOf("\"state\":\"queued\"") > 0
 	let first = (queue.modes.Length - RunsShown).Clamp(0, queue.modes.Length)
@@ -85,7 +85,7 @@ Recent(queue StrictGenQueue) Texts
 Lines(queue StrictGenQueue, ids Numbers) Texts
 	for ids
 		queue.lines(value)
-Examples Texts
+Examples Texts slow
 	Sample.Examples.Length >= 0
 	mutable found = List(Mutable(Text))
 	for (1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -93,14 +93,14 @@ Examples Texts
 		if path is not ""
 			found.Add(path)
 	found
-Example(number Number) Text
+Example(number Number) Text slow
 	let name = "MossWebExample" + number + ".jpg"
 	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
 	for (beside + "/" + name, beside + "/../../" + name, beside + "/../" + name, name)
 		if File(value).Exists
 			return value
 	""
-Peers(net StrictGenNet) Text
+Peers(net StrictGenNet) Text slow
 	Sample.Peers(StrictGenNet.Idle) is "[]"
 	mutable items = List(Text)
 	for net.Labels
@@ -117,14 +117,14 @@ Step(lines Texts) Text
 		if value.Lower.IndexOf("step ") >= 0
 			found = value
 	found
-Codes(lines Texts) Text
+Codes(lines Texts) Text slow
 	Sample.Codes(("a", "b")) is "[\"a\",\"b\"]"
 	Sample.Codes(List(Text)) is "[]"
 	mutable quoted = List(Text)
 	for lines
 		quoted = quoted + value.Code
 	"[" + outer.Text.Combine(quoted, ",") + "]"
-Probed(path Text) Text
+Probed(path Text) Text slow
 	Sample.Probed("missing-clip.mp4") is ""
 	let line = File(path).Exists then StrictGenClip(logger).Probe(path) else ""
 	if line is ""

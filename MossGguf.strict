@@ -2,7 +2,7 @@ has path Text
 constant Tiny = MossGguf("tinymoss.gguf")
 constant Opened = Tiny.Loaded
 constant Forward = Opened.Output(Moss.Model.Values("reference.x"), 0.75, Opened.TextEmbedded(Moss.Context, 3), MossBlock.Rotation)
-Loaded Slow(Moss)
+Loaded Moss slow
 	Opened.texts.Length is 2
 	Forward(5).IsNearlyEqual(-0.5156, 0.05)
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)
@@ -11,22 +11,22 @@ Loaded Slow(Moss)
 	let normed = model.Values("final_norm_video.weight")
 	let layers = Blocks(Gguf(path, 4))
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), layers, normed, dense(5), dense(6))
-Dense(model Gguf) Slow(List(Batch))
+Dense(model Gguf) List(Batch) slow
 	Tiny.Dense(Gguf("tinymoss.gguf")).Length is 7
 	for Moss.Denses
 		Batched(model, value)
-Batched(model Gguf, name Text) Slow(Batch)
+Batched(model Gguf, name Text) Batch slow
 	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases is (0)
 	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").weights.First.Length is 16
 	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").biases.Length is 256
 	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases.Length is 1
 	let biased = model.Shape(name + ".bias").Length > 0
 	Batch(model.Rows(name + ".weight"), biased then model.Values(name + ".bias") else List(Number) + 0)
-Texts(model Gguf) Slow(List(MossText))
+Texts(model Gguf) List(MossText) slow
 	Tiny.Texts(Gguf("tinymoss.gguf")).Length is 2
 	for 2
 		Text(model, "text_embedder.blocks." + index + ".")
-Text(model Gguf, prefix Text) Slow(MossText)
+Text(model Gguf, prefix Text) MossText slow
 	Tiny.Text(Gguf("tinymoss.gguf"), "text_embedder.blocks.0.").down.biases.Length is 256
 	let norms = Norms(model, prefix, "norm1", "norm2")
 	let headNorms = Norms(model, prefix, "q_norm", "k_norm")
@@ -36,12 +36,12 @@ Text(model Gguf, prefix Text) Slow(MossText)
 	let raised = Batched(model, prefix + "ffn_up")
 	let down = Batched(model, prefix + "ffn_down")
 	MossText(norms(0), norms(1), headNorms(0), headNorms(1), attended, projected, gated, raised, down)
-Blocks(model Gguf) Slow(List(MossBlock))
+Blocks(model Gguf) List(MossBlock) slow
 	Tiny.Blocks(Gguf("tinymoss.gguf", 4)).Length is 2
 	for 64
 		if model.Shape("layers." + index + ".norm1.weight").Length > 0
 			Block(model, "layers." + index + ".")
-Block(model Gguf, prefix Text) Slow(MossBlock)
+Block(model Gguf, prefix Text) MossBlock slow
 	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").rotated is false
 	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").attention.Length is 768
 	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").norms.Length is 4
@@ -53,7 +53,7 @@ Block(model Gguf, prefix Text) Slow(MossBlock)
 	let output = model.Rows(rows + "o.weight")
 	let attended = model.Rows(rows + "qkv.weight")
 	MossBlock((norms(0), norms(1), headNorms(0), headNorms(1)), attended, output, expanded, reduced, false)
-Norms(model Gguf, prefix Text, first Text, second Text) Slow(List(Numbers))
+Norms(model Gguf, prefix Text, first Text, second Text) List(Numbers) slow
 	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "q_norm", "k_norm").First.Length is 128
 	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Length is 2
 	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Last.Length is 128

@@ -31,7 +31,7 @@ Coord(step Number) Number
 	Tiny.Coord(7) is 1
 	MossSpectrum(Tiny, steps = 1).Coord(0) is 0
 	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
-Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) Slow(MossSpectrum)
+Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum slow
 	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, MossBlock.Rotation, 0).output.Length is 256
 	let vector = moss.TimeEmbedded(sigma)
 	if mode is "off"
@@ -59,7 +59,7 @@ Shadowed(image Numbers, coord Number) None
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum
 	MossSpectrum(value, output = moss.Head(history.Predicted(Coord(step)), vector), forecasts = forecasts + 1)
-NeedsHistory(step Number) Slow(Boolean)
+NeedsHistory(step Number) Boolean slow
 	Primed.NeedsHistory(5)
 	Primed.NeedsHistory(6) is false
 	MossSpectrum(Primed, mode = "shadow").NeedsHistory(6)

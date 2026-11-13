@@ -3,23 +3,23 @@ has backend Backend
 Root Text
 	H3Server.Root.EndsWith("/artifacts/h3")
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
-Served Number
+Served Number slow
 	let server = backend.Opened
-	server is 0 then 1 else Listened(server)
-Listened(server Number) Number
+	server is Error then 1 else Listened(server)
+Listened(server Number) Number slow
 	let built = File(Process.Current.executable).Modified
 	mutable kept = H3Resident(logger)
 	mutable last = Process.Elapsed
 	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
 		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
-		let request = socket > 0 then backend.resident.Requested(socket) else ""
-		kept = socket > 0 then Trimmed(socket, request, kept) else kept
-		kept = socket > 0 then Replied(socket, request, kept) else kept
-		last = socket > 0 then Process.Elapsed else last
+		let request = (socket is not Error) then backend.resident.Requested(socket) else ""
+		kept = (socket is not Error) then Trimmed(socket, request, kept) else kept
+		kept = (socket is not Error) then Replied(socket, request, kept) else kept
+		last = (socket is not Error) then Process.Elapsed else last
 		kept = backend.Unpressed then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 	Backend.Clean
-Trimmed(socket Number, request Text, kept H3Resident) Slow(H3Resident)
+Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
 	let resident = backend.resident
 	let arguments = resident.Arguments(request)
 	if (resident.IsCurrent(request) is false) or (arguments is (Resident.Stopping))
@@ -35,11 +35,11 @@ Failed(problem Text, kept H3Resident) H3Resident
 	H3Server(Logger, Backend.Sample).Failed("broken", H3Resident(Logger)).code is 0
 	logger.Log(problem)
 	kept
-Prepared(arguments Texts, kept H3Resident) Slow(H3Resident)
+Prepared(arguments Texts, kept H3Resident) H3Resident slow
 	let batch = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)
 	let full = backend.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, full).Crowded(batch)
-Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
+Replied(socket Number, request Text, kept H3Resident) H3Resident slow
 	let resident = backend.resident
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)
 	let isRunning = resident.IsCurrent(request) and (isStopping is false)
@@ -48,7 +48,7 @@ Replied(socket Number, request Text, kept H3Resident) Slow(H3Resident)
 	let isFailed = served is Error
 	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	(isFailed or closed) then H3Resident(logger) else served
-Claimed Text
+Claimed Text slow
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Claimed.EndsWith("9\n\n")
 	let root = backend.resident.root
 	if Directory.Exists(root) is false
@@ -60,16 +60,16 @@ Claimed Text
 		File(backend.resident.Freed).Delete
 	File(backend.resident.Freed + ".9").Write("9")
 	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
-Proved Slow(Boolean)
+Proved Boolean slow
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
 	Ended(0, 1, Claimed) and File(backend.resident.Freed).Exists
-Ended(socket Number, code Number, request Text) Slow(Boolean)
+Ended(socket Number, code Number, request Text) Boolean slow
 	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.Freed(request)
 	backend.Freed(request, false)
-Ran(socket Number, request Text, kept H3Resident) Slow(H3Resident)
+Ran(socket Number, request Text, kept H3Resident) H3Resident slow
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
 	Directory.Change(folder)

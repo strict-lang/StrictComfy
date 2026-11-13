@@ -9,7 +9,7 @@ Root Text
 Backended(logging Logger) Backend
 	H3ImageServer.Backended(Logger).name is "H3Image"
 	Backend(logging, Resident(Root), "H3Image")
-Ran(given Texts) Number
+Ran(given Texts) Number slow
 	Sample.Ran(("--colour", "--local")) is 1
 	Sample.Ran(("--steps", "0", "--local")) is 1
 	if given is (Backend.Serving)
@@ -27,10 +27,10 @@ Refused(problem Text) Boolean
 	if problem is not ""
 		logger.Log(problem)
 	problem is not ""
-Problem(parsed H3ImageOptions) Text
+Problem(parsed H3ImageOptions) Text slow
 	Sample.Problem(H3ImageOptions.Parsed(("--models", "."))).StartsWith("FileNotFound:")
 	parsed.Problem is "" then H3Image(logger, parsed).Missing else parsed.Problem
-Checked(given Texts, plain Texts, parsed H3ImageOptions) Slow(Number)
+Checked(given Texts, plain Texts, parsed H3ImageOptions) Number slow
 	let arguments = given - MachineUse.Force
 	if MachineUse.IsChecked(arguments, backend.resident.root)
 		if IsGranted(arguments, MachineUse.IsForced(given)) is false
@@ -38,21 +38,21 @@ Checked(given Texts, plain Texts, parsed H3ImageOptions) Slow(Number)
 	let forwarded = backend.Dispatched(plain)
 	let served = H3ImageServed(H3Image(logger, parsed), plain - Backend.Local)
 	forwarded >= 0 then forwarded else served.Completed(H3ImageResident(logger)).code
-Served Number
+Served Number slow
 	let server = backend.Opened
-	server is 0 then 1 else Listened(server)
-Listened(server Number) Number
+	server is Error then 1 else Listened(server)
+Listened(server Number) Number slow
 	let built = File(Process.Current.executable).Modified
 	mutable kept = H3ImageResident(logger, true)
 	mutable last = Process.Elapsed
 	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
 		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
-		kept = socket > 0 then Replied(socket, kept) else kept
-		last = socket > 0 then Process.Elapsed else last
+		kept = (socket is not Error) then Replied(socket, kept) else kept
+		last = (socket is not Error) then Process.Elapsed else last
 		kept = backend.Unpressed then kept else H3ImageResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 	Backend.Clean
-Replied(socket Number, kept H3ImageResident) Slow(H3ImageResident)
+Replied(socket Number, kept H3ImageResident) H3ImageResident slow
 	let resident = backend.resident
 	let request = resident.Requested(socket)
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)
@@ -64,7 +64,7 @@ Replied(socket Number, kept H3ImageResident) Slow(H3ImageResident)
 		GpuMemory.Evicted
 	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	(isFailed or closed) then H3ImageResident(logger, true) else served
-Ran(socket Number, request Text, kept H3ImageResident) Slow(H3ImageResident)
+Ran(socket Number, request Text, kept H3ImageResident) H3ImageResident slow
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
 	Directory.Change(folder)
@@ -77,35 +77,35 @@ Ran(socket Number, request Text, kept H3ImageResident) Slow(H3ImageResident)
 	let unpressed = backend.Unpressed
 	backend.Restored(isMoved, home)
 	unpressed then served else H3ImageResident(kept, code = Backend.Stopped)
-Asked(arguments Texts, forced Boolean) Slow(Text)
+Asked(arguments Texts, forced Boolean) Text slow
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Image\t")
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"
 	"need\tH3Image\tH3Image\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
-IsGranted(arguments Texts, forced Boolean) Slow(Boolean)
+IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
 	let named = Remote(logger).Named(arguments)
-	named >= 0 then named is 0 else IsContinued(arguments, forced)
-IsContinued(arguments Texts, forced Boolean) Slow(Boolean)
+	(named is Error) or (named >= 0) then named is 0 else IsContinued(arguments, forced)
+IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
 	if line is ""
 		return true
 	let reply = Coordinator(logger, backend.coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
-	if sent >= 0
+	if (sent is Error) or (sent >= 0)
 		return sent is 0
 	let settled = reply.StartsWith("wait") then Coordinator(logger, backend.coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		Use(arguments, forced).Explained(settled)
 	(settled.StartsWith("refused") is false) and ((settled is not "") or Use(arguments, forced).Checked)
-Ended(socket Number, code Number, request Text) Slow(Boolean)
+Ended(socket Number, code Number, request Text) Boolean slow
 	Sample.Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Image client left before the result was sent")
 		return backend.Freed(request)
 	backend.Freed(request, false)
-Use(arguments Texts, forced Boolean) MachineUse
+Use(arguments Texts, forced Boolean) MachineUse slow
 	Sample.Use(List(Text), true).isForced
 	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
 	let options = H3ImageOptions.Parsed(Remote(logger).Without(arguments) - Backend.Local)

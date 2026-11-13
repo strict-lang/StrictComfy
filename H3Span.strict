@@ -7,7 +7,7 @@ constant Off = H3Span(0, 0)
 constant Tiny = H3Span(1, 2)
 constant Cached = H3Span.Tiny.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
 constant Skipped = H3Span.Cached.Evaluated(H3.Tiny, H3.Model.Values("video"), H3.Model.Values("audio"), 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, true)
-Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, allowed Boolean) Slow(H3Span)
+Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, allowed Boolean) H3Span slow
 	MossImage(Logger).RelativeError(Cached.output, H3.Forward) < 0.005
 	Skipped.skipped and (MossImage(Logger).RelativeError(Skipped.output, Cached.output) < 0.00001)
 	if first is last
@@ -20,7 +20,7 @@ Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layo
 	let after = h3.Ran(middle, curves, starts, rotation, layout, last, h3.blocks.Length)
 	let finished = h3.final.Output(after, curves, layout, sigma)
 	H3Span(value, residual = Kept(skipping, middle, before), skipped = skipping, output = finished)
-Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Slow(Numbers)
+Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Numbers slow
 	H3Span(Tiny, residual = (5, 6)).Middle(H3.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), H3Layout.Tiny, true) is (6, 7)
 	skipping then Combined(before, residual, 1) else h3.Ran(before, curves, starts, rotation, layout, first, last)
 Kept(skipping Boolean, middle Numbers, before Numbers) Numbers

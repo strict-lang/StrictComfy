@@ -1,5 +1,5 @@
 has batch H3Batch
-Completed(kept H3Resident) Slow(H3Resident)
+Completed(kept H3Resident) H3Resident slow
 	let options = batch.options
 	let problem = H3Inputs(options).Problem
 	if problem is not ""
@@ -10,7 +10,7 @@ Completed(kept H3Resident) Slow(H3Resident)
 	let made = Videos(Contexted(kept, plan).Sampling(options.Checkpoint, options.Loras), plan)
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
 	H3Resident(made, plans = List(H3Plan))
-Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
+Videos(sampling H3Resident, plan H3Plan) H3Resident slow
 	let options = batch.options
 	let latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
 	let conditions = H3Artifacts(options).Read(plan.paths)
@@ -22,7 +22,7 @@ Videos(sampling H3Resident, plan H3Plan) Slow(H3Resident)
 	let decoding = sampling.Decoding(vaes)
 	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
 	H3Resident(decoding, code = 0)
-Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
+Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 	let missing = H3Artifacts(batch.options).Missing(plan.paths)
 	if missing.Length is 0
 		batch.logger.Log("Using cached prompt conditioning")
@@ -36,7 +36,7 @@ Contexted(kept H3Resident, plan H3Plan) Slow(H3Resident)
 		GpuMemory.Evicted
 	batch.options.files.Freed
 	kept.isCrowded then H3Resident(encoding, encoders = List(Qwen3), encoderFile = "") else encoding
-Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Slow(Number)
+Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Number slow
 	let options = batch.options
 	Directory.Create(H3Artifacts(options).Root + "/artifacts")
 	Directory.Create(H3Artifacts(options).Folder)

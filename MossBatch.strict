@@ -9,25 +9,25 @@ constant ExamplePerson = "closeup of a {young|24 year old|35 year old|middle-age
 constant ExampleStreet = "walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
 constant Example = ExamplePerson + ExampleStreet
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
-Templated Text
+Templated Text slow
 	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
 	if (options.prompt is "prompt.txt") and (File(options.prompt).Exists is false)
 		return Example
 	PromptBatch(logger, "Image").Template(options.prompt)
-Contexts(prompts Texts) Slow(List(Numbers))
+Contexts(prompts Texts) List(Numbers) slow
 	let before = Process.Elapsed
 	let ids = Tokenized(Tokenizer, prompts)
 	let encoder = Encoder(Picked(ids))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	Encoded(encoder, ids, prompts)
-Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) Slow(List(Numbers))
+Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) List(Numbers) slow
 	for ids
 		let hidden = encoder.Prefilled(value, 0).hidden
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + prompts(index))
 		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
-Tokenizer Slow(Gpt2Tokens)
+Tokenizer Gpt2Tokens slow
 	Gpt2Tokens.Folder(options.files.Tokenizer)
-Tokenized(tokens Gpt2Tokens, prompts Texts) Slow(List(Numbers))
+Tokenized(tokens Gpt2Tokens, prompts Texts) List(Numbers) slow
 	for prompts
 		tokens.Encoded(Template.Replace("{prompt}", value))
 Picked(ids List(Numbers)) Numbers
@@ -36,15 +36,15 @@ Picked(ids List(Numbers)) Numbers
 	for ids
 		picked = picked + value
 	picked
-Encoder(picked Numbers) Slow(Qwen3)
+Encoder(picked Numbers) Qwen3 slow
 	let path = options.files.Encoder
 	logger.Log("Loading text encoder " + ModelFiles("").Described(path) + " from disk into memory")
 	let loading = QwenSafetensors(Safetensors(path, 32, "model.language_model."), 64, 256, 1, "Loading text encoder")
 	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else loading.Loaded(10000000, picked)
-Reworded(encoder Qwen3, picked Numbers) Slow(Qwen3)
+Reworded(encoder Qwen3, picked Numbers) Qwen3 slow
 	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
-Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
+Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Number slow
 	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
 	let sampled = Process.Elapsed
 	let sampling = Previewed(options.Sampling(logger), kept.previewers)
@@ -58,24 +58,24 @@ Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts L
 	let saved = Decoded(kept, latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
 	saved.Length
-Streamed(kept MossResident, sampling MossSampling, first List(Numbers), seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(Number)
+Streamed(kept MossResident, sampling MossSampling, first List(Numbers), seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Number slow
 	mutable made = Decoded(kept, first, seeds.Slice(0, 1), prompts.Slice(0, 1), outputs.Slice(0, 1)).Length
 	for Range(1, seeds.Length)
 		let latents = Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, value, 1)
 		made = made + Decoded(kept, latents, seeds.Slice(value, 1), prompts.Slice(value, 1), outputs.Slice(value, 1)).Length
 	made
-Loading(loras Text) Text
+Loading(loras Text) Text slow
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
 	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
-Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(Texts)
+Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Texts slow
 	logger.Log("Decoding with " + kept.decoderFile)
 	let batch = MossBatch(logger, options, prompted)
 	if kept.taefs.Length is 1
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
-Latents(moss Moss, sampling MossSampling, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts, start Number, count Number) Slow(List(Numbers))
+Latents(moss Moss, sampling MossSampling, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts, start Number, count Number) List(Numbers) slow
 	for Range(start, start + count)
 		let label = "Image " + (value + 1) + "/" + seeds.Length + " " + Path(outputs(value)).FileName.text
 		let shown = MossSampling(sampling, finale = value < seeds.Length - 1)
@@ -85,10 +85,10 @@ Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
 	if (options.preview is "") or (previewers.Length is 0)
 		return sampling
 	MossSampling(sampling, preview = options.preview, previewer = previewers.First)
-Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
+Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Numbers slow
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	sampling.Sampled(moss, noise, context, label)
-Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Slow(Text)
+Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Text slow
 	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
@@ -99,13 +99,13 @@ Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, dec
 	let decoded = decoding > 0 then ", decoded in " + (decoding * 1000).Round + " ms" else ""
 	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms" + decoded)
 	path
-Described(seed Number, prompt Text) Text
+Described(seed Number, prompt Text) Text slow
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")
 	let sampling = options.Sampling(Logger)
 	let settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
 	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
-Expanded(arguments Texts) Slow(MossBatch)
+Expanded(arguments Texts) MossBatch slow
 	(Sample.Expanded(List(Text)).prompted is "") and (Workflowed.Expanded(Prompted).prompted is "")
 	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"

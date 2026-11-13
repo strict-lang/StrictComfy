@@ -9,7 +9,7 @@ constant Model = Safetensors("tinytaef2.safetensors", 32, "decoder.layers.")
 constant Pooling = Taef2Block.Loaded(Model, "2.")
 constant Plain = Taef2Block.Loaded(Model, "7.")
 constant Entered = FeatureMap(Safetensors("tinytaef2.safetensors").Values("reference.entered"), 4, 8, Layer.Zeros(8))
-Loaded(model Safetensors, prefix Text) Slow(Taef2Block)
+Loaded(model Safetensors, prefix Text) Taef2Block slow
 	Pooling.convolutions.Length is 3
 	Pooling.norm.groups is 4
 	Plain.expand.weights.Length is 0
@@ -20,11 +20,11 @@ Loaded(model Safetensors, prefix Text) Slow(Taef2Block)
 	let pooled = GroupNorm(block.Values("pool.1.weight"), block.Values("pool.1.bias"), 4)
 	let contracted = FluxResnet.Convolved(block, "pool.3")
 	Taef2Block(Convolutions(block), FluxResnet.Convolved(block, "pool.0"), pooled, contracted, skipped)
-Convolutions(block Safetensors) Slow(List(Convolution))
+Convolutions(block Safetensors) List(Convolution) slow
 	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
 	for (0, 2, 4)
 		FluxResnet.Convolved(block, "conv." + value)
-Output(map FeatureMap) Slow(FeatureMap)
+Output(map FeatureMap) FeatureMap slow
 	Pooling.Output(Entered).values(0).IsNearlyEqual(1.2786, 0.001)
 	Pooling.Output(Entered).values(1).IsNearlyEqual(0.02821, 0.001)
 	let input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
@@ -32,7 +32,7 @@ Output(map FeatureMap) Slow(FeatureMap)
 	let second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
 	let shortcut = skip.weights.Length is 0 then input else skip.Projected(input)
 	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
-Remembered(map FeatureMap, past FeatureMap) Slow(FeatureMap)
+Remembered(map FeatureMap, past FeatureMap) FeatureMap slow
 	Taeh3Decoder.Tiny.blocks.First.Remembered(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
 	let doubled = 2 * map.channels
 	let joined = FeatureMap(Joined(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))
@@ -50,7 +50,7 @@ Joined(own Numbers, past Numbers, channels Number) Numbers
 Rectified(map FeatureMap) FeatureMap
 	Pooling.Rectified(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
 	map.Applied(map.Identity, Activation.Relu)
-Pooled(map FeatureMap) Slow(FeatureMap)
+Pooled(map FeatureMap) FeatureMap slow
 	Pooling.Pooled(Entered).values.Length is 192
 	let expanded = expand.Projected(map)
 	contract.Projected(expanded.Applied(norm.Affine(expanded), Activation.Relu))

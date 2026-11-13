@@ -13,7 +13,7 @@ constant Refined = Reference.Values("token_refiner")
 constant Tuned = H3.Loaded("tinyh3.safetensors", Half.loras)
 constant Outputs = Reference.Values("video_output") + Reference.Values("audio_output")
 constant Forward = Tuned.Output(H3Spectrum.Video, H3Spectrum.Audio, 0.75, Refined, H3Layout.Tiny, List(Number), H3.Turned)
-Tuning(prefix Text) Slow(List(MossLora))
+Tuning(prefix Text) List(MossLora) slow
 	H3Lora("").Tuning("blocks.0.").Length is 0
 	Half.Tuning("blocks.1.")(3).rank is 5
 	H3Lora(Reference.path).Tuning("blocks.1.")(3).up.Length is 256 * 5
@@ -22,7 +22,7 @@ Tuning(prefix Text) Slow(List(MossLora))
 		return List(MossLora)
 	for Linears
 		Stacked(prefix + value + ".")
-Stacked(name Text) Slow(MossLora)
+Stacked(name Text) MossLora slow
 	Half.Stacked("blocks.0.mlp.fc1.").rank is 2
 	Half.Stacked("blocks.1.mlp.fc2.").up(1) * 2 is H3Lora(Reference.path).Stacked("blocks.1.mlp.fc2.").up(1)
 	Half.Stacked("blocks.0.adaln_proj.linear.").rank is 0
@@ -39,7 +39,7 @@ Strength(entry Text) Number
 	Half.Strength("a.safetensors") is 1
 	let parts = entry.Split("=")
 	parts.Length is 1 then 1 else parts.Last to Number
-Found(path Text, name Text, strength Number) Slow(MossLora)
+Found(path Text, name Text, strength Number) MossLora slow
 	(Half.Found(Flow.loras, "f.o.", 1).rank is 0) and (Half.Found(Flow.loras, "f.k.", 1).up is (128))
 	(Half.Found(Flow.loras, "o.", 1).up is (64, 128)) and (Half.Found(Flow.loras, "a.mlp.fc1.", 1).up is (128, 64))
 	Half.Found(Reference.path, "blocks.0.mlp.fc1.", 1).up(0) is -5.78125
@@ -52,7 +52,7 @@ Found(path Text, name Text, strength Number) Slow(MossLora)
 	let part = (".q.", ".k.", ".v.").Index(name.Substring(name.Length - 3, 3))
 	let fused = part < 0 then "" else Prefixed(header, name.Substring(0, name.Length - 2) + "qkv.")
 	fused is "" then MossLora.None else MossLora.Loaded(path, fused, strength).Third(part)
-Fused(path Text, name Text, strength Number) Slow(MossLora)
+Fused(path Text, name Text, strength Number) MossLora slow
 	Half.Fused("tinylora.safetensors", "layers.0.proj.qkv.", 1).rank is 24
 	Half.Fused("tinylora.safetensors", "layers.0.proj.qkv.", 1).up.Length is 768 * 24
 	let base = name.Substring(0, name.Length - 4)
@@ -70,7 +70,7 @@ Swapped(lora MossLora, flipped Boolean) MossLora
 		return lora
 	let half = lora.up.Length / 2
 	MossLora(lora, up = lora.up.Slice(half, half) + lora.up.Slice(0, half))
-Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
+Merged(rows Safetensors, name Text, prefix Text) List(Numbers) slow
 	H3Lora("").Merged(Safetensors("tinymoss.safetensors", 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
 	MossImage(Logger, 4).Compared(MossLora.Lowered, MossLora.Reference) < 0.02
 	MossImage(Logger).RelativeError(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
@@ -79,20 +79,20 @@ Merged(rows Safetensors, name Text, prefix Text) Slow(List(Numbers))
 	if lora.rank is 0
 		return rows.Quantized(name)
 	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
-Dense(weights Safetensors, name Text) Slow(Batch)
+Dense(weights Safetensors, name Text) Batch slow
 	H3Lora("").Dense(H3Block.Model, "video_patch_proj") is MossText.Dense(H3Block.Model, "video_patch_proj")
 	Half.Dense(H3Block.Model, "video_patch_proj").biases is not MossText.Dense(H3Block.Model, "video_patch_proj").biases
 	let batch = MossText.Dense(weights, name)
 	loras is "" then batch else Batch(Weighted(weights, batch.weights, name), Changed(name, "diff_b", batch.biases))
-Optional(weights Safetensors, name Text) Slow(Batch)
+Optional(weights Safetensors, name Text) Batch slow
 	H3Lora("").Optional(H3Block.Model, "audio").weights.Length is 0
 	H3Lora("").Optional(H3Block.Model, "video_patch_proj") is Dense(H3Block.Model, "video_patch_proj")
 	weights.Entry(name + ".weight") is "" then Batch(List(Numbers), Layer.Unbiased) else Dense(weights, name)
-Values(weights Safetensors, name Text) Slow(Numbers)
+Values(weights Safetensors, name Text) Numbers slow
 	Half.Values(H3Block.Model, "blocks.1.norm1") is H3Block.Model.Values("blocks.1.norm1.weight")
 	Half.Values(H3Block.Model, "blocks.0.norm1") is not H3Block.Model.Values("blocks.0.norm1.weight")
 	Changed(name, "diff", weights.Values(name + ".weight"))
-Weighted(weights Safetensors, rows List(Numbers), name Text) Slow(List(Numbers))
+Weighted(weights Safetensors, rows List(Numbers), name Text) List(Numbers) slow
 	(Flow.Weighted(Reference, ((1, 2), (3, 4)), "o")(1)(0) is 5) and (Flow.Weighted(Reference, ((1), (3)), "p")(1)(0) is 3)
 	Flow.Weighted(Safetensors(Flow.loras), ((0, 0), (0, 0)), "adaln_proj.linear") is ((11, 22), (33, 44))
 	let width = rows.First.Length
@@ -105,7 +105,7 @@ Weighted(weights Safetensors, rows List(Numbers), name Text) Slow(List(Numbers))
 		return TensorFile.Shaped(MossText.Added(weights.Values(name + ".weight"), delta), width)
 	for rows
 		MossText.Added(value, delta.Slice(index * width, width))
-Changed(module Text, suffix Text, base = List(Number)) Slow(Numbers)
+Changed(module Text, suffix Text, base = List(Number)) Numbers slow
 	Half.Changed("missing", "diff").Length is 0
 	Half.Changed("video_patch_proj", "diff_b")(0) is 0.07177734375
 	Quarters.Changed("video_patch_proj", "diff_b") is Half.Changed("video_patch_proj", "diff_b")

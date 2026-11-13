@@ -17,7 +17,7 @@ Local(at Number) StrictGenJob
 Remote(at Number, endpoint Text, id Number) StrictGenJob
 	StrictGenJob.Remote(1, "10.0.0.3:59139", 4).remoteId is 4
 	StrictGenJob(value, current = at, remote = endpoint, remoteId = id)
-Logged Texts
+Logged Texts slow
 	StrictGenJob.Logged.Length is 0
 	let rows = (current >= 0) and (log is not "") and File(log).Exists then File(log).ReadLines else List(Text)
 	(rows.Length > 0) and (rows.Last.Trim is "") then rows.Slice(0, rows.Length - 1) else rows
@@ -36,10 +36,10 @@ Stamped(rows Texts) Texts
 	StrictGenJob(StrictGenJob.Local(1), times = (0, 1.5)).Stamped(("a", "b")) is ("0\ta", "1.5\tb")
 	for rows
 		(index < times.Length then times(index) else 0) + "\t" + value
-Kept(rows Texts) Slow(None)
+Kept(rows Texts) None slow
 	StrictGenJob.Local(-9).Kept(List(Text) + "a") is not Error
 	File("StrictGenJob-" + current + ".timed").Write(Stamped(rows))
-Started(executable Text, mode Text, command Text) Boolean
+Started(executable Text, mode Text, command Text) Boolean slow
 	let words = command.Split("\n")
 	let arguments = IsPreviewed(mode, command) then words + "--preview" + preview else words
 	for (done, preview, log, "StrictGenJob-" + current + ".timed")
@@ -47,11 +47,11 @@ Started(executable Text, mode Text, command Text) Boolean
 	let script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
 	File(script).Write(Script(executable, Quoted(arguments), log, done))
 	Spawned(script)
-Warmed(executable Text, command Text) Boolean
+Warmed(executable Text, command Text) Boolean slow
 	let script = Process.OperatingSystem is "Windows" then "StrictGenWarm.cmd" else "StrictGenWarm.sh"
 	File(script).Write(Script(executable, Quoted(command.Split("\n") + "--warm"), "StrictGenWarm.log", "StrictGenWarm.done"))
 	Spawned(script)
-Spawned(script Text) Boolean
+Spawned(script Text) Boolean slow
 	if (Process.OperatingSystem is "Windows") is false
 		return Process.Find("sh").Started(script) is 0
 	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").Failed is false
@@ -81,12 +81,12 @@ Prompts(rows Texts) Texts
 	for rows
 		if value.StartsWith(PromptLine)
 			value.Substring(PromptLine.Length, value.Length - PromptLine.Length)
-Existing(paths Texts) Texts
+Existing(paths Texts) Texts slow
 	StrictGenJob.Existing(("StrictGenJob.strict", "StrictGenMissing.mp4")) is ("StrictGenJob.strict")
 	for paths
 		if File(value).Exists
 			value
-Executable(name Text) Text
+Executable(name Text) Text slow
 	StrictGenJob.Executable("MossImage").IndexOf("MossImage") >= 0
 	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
 	let suffix = Process.OperatingSystem is "Windows" then ".exe" else ""
@@ -100,12 +100,12 @@ Script(executable Text, arguments Text, logFile Text, doneFile Text) Texts
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
 	("\"" + executable + "\" " + arguments + " > \"" + logFile + "\" 2>&1", "echo DONE> \"" + doneFile + "\"")
-Stopped(program Text) Slow(None)
+Stopped(program Text) None slow
 	StrictGenJob.Stopped("StrictGenMissing") is not Error
 	let executable = Executable(program)
 	if (executable.StartsWith(program) is false) and Process.RunTool(executable, "stop").Failed
 		return Error("ServersNotStopped: " + program)
-StopAll Slow(None)
+StopAll None slow
 	Stopped("MossImage")
 	Stopped("H3Video")
 	Stopped("H3Image")

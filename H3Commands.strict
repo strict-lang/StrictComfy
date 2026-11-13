@@ -3,7 +3,7 @@ has file Text
 has arguments Texts
 constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
 constant Sized = "--length 5 --width 32 --height 32"
-Completed Boolean
+Completed Boolean slow
 	let lines = Lines
 	if lines.Length is 0
 		logger.Log("No commands in " + file + ", write the H3Video options of one batch of videos per line (# for comments)")
@@ -14,7 +14,7 @@ Completed Boolean
 		logger.Log(problem)
 		return false
 	Generated(batches, lines.Length)
-Generated(batches List(H3Batch), count Number) Slow(Boolean)
+Generated(batches List(H3Batch), count Number) Boolean slow
 	let started = Process.Elapsed
 	let plans = Planned(batches)
 	if Encoded(plans) is not 0
@@ -27,7 +27,7 @@ Generated(batches List(H3Batch), count Number) Slow(Boolean)
 	let commands = count is 1 then " command" else " commands"
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + videos + " videos from " + count + commands)
 	true
-Lines Texts
+Lines Texts slow
 	Sample.Lines is (Sized + " --seed 7", Sized + " --prompt \"a b.txt\"")
 	H3Commands(Logger, "missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")
 	if File(file).Exists is false
@@ -35,13 +35,13 @@ Lines Texts
 	for File(file).ReadLines
 		if (value.Trim is not "") and (value.Trim.StartsWith("#") is false)
 			value.Trim
-Batches(lines Texts) Slow(List(H3Batch))
+Batches(lines Texts) List(H3Batch) slow
 	Sample.Batches(Sample.Lines).Last.options.prompt is "a b.txt"
 	Sample.Batches(Sample.Lines).First.options.seed is 7
 	for lines
 		let words = arguments + CommandWords.Words(value)
 		H3Batch(logger, H3Options.Parsed(words)).Expanded(words)
-Problem(batches List(H3Batch)) Text
+Problem(batches List(H3Batch)) Text slow
 	Sample.Problem(Sample.Batches(Sample.Lines)) is ""
 	Sample.Problem(Sample.Batches(List(Text) + "--length 4")) is "Command 1: " + H3Options.Miscounted
 	for batches
@@ -49,11 +49,11 @@ Problem(batches List(H3Batch)) Text
 		if problem is not ""
 			return "Command " + (index + 1) + ": " + problem
 	""
-Planned(batches List(H3Batch)) Slow(List(H3Plan))
+Planned(batches List(H3Batch)) List(H3Plan) slow
 	for batches
 		logger.Log("Command " + (index + 1) + "/" + batches.Length + ": " + Text.Combine(value.commandLine, " "))
 		value.Planned
-Encoded(plans List(H3Plan)) Slow(Number)
+Encoded(plans List(H3Plan)) Number slow
 	mutable keys = List(Text)
 	mutable encoded = 0
 	for plans
@@ -62,12 +62,12 @@ Encoded(plans List(H3Plan)) Slow(Number)
 			keys = keys + key
 			encoded = encoded + EncodedWith(plans, key)
 	encoded
-Encoding(plan H3Plan) Text
+Encoding(plan H3Plan) Text slow
 	let options = plan.batch.options
 	let pictures = (options.files.lastImage is not "") or (Text.Combine(plan.images, "") is not "")
 	let size = " " + options.width + "x" + options.height + " " + options.files.lastImage
 	options.files.Encoder + (pictures then size else "")
-Merged(plans List(H3Plan), key Text) H3Plan
+Merged(plans List(H3Plan), key Text) H3Plan slow
 	mutable prompts = List(Text)
 	mutable images = List(Text)
 	mutable paths = List(Text)
@@ -77,7 +77,7 @@ Merged(plans List(H3Plan), key Text) H3Plan
 			images = images + value.images
 			paths = paths + value.paths
 	H3Plan(First(plans, key, true).batch, List(Number), images, prompts, paths)
-EncodedWith(plans List(H3Plan), key Text) Slow(Number)
+EncodedWith(plans List(H3Plan), key Text) Number slow
 	let merged = Merged(plans, key)
 	let batch = merged.batch
 	let missing = H3Artifacts(batch.options).Missing(merged.paths)
@@ -86,14 +86,14 @@ EncodedWith(plans List(H3Plan), key Text) Slow(Number)
 	let inputs = H3Inputs(batch.options)
 	let prompts = inputs.Picked(merged.prompts, missing)
 	batch.Encoded(prompts, inputs.Picked(merged.images, missing), inputs.Picked(merged.paths, missing))
-First(plans List(H3Plan), key Text, isEncoding Boolean) H3Plan
+First(plans List(H3Plan), key Text, isEncoding Boolean) H3Plan slow
 	for plans
 		if (isEncoding then Encoding(value) else Model(value)) is key
 			return value
 	Error("NoPlanFor:" + key)
-Model(plan H3Plan) Text
+Model(plan H3Plan) Text slow
 	plan.batch.options.Checkpoint + ";" + plan.batch.options.Loras
-Sampled(plans List(H3Plan)) Slow(Number)
+Sampled(plans List(H3Plan)) Number slow
 	mutable models = List(Text)
 	mutable videos = 0
 	for plans
@@ -102,7 +102,7 @@ Sampled(plans List(H3Plan)) Slow(Number)
 			models = models + model
 			videos = videos + SampledWith(plans, model)
 	videos
-SampledWith(plans List(H3Plan), model Text) Slow(Number)
+SampledWith(plans List(H3Plan), model Text) Number slow
 	let options = First(plans, model, false).batch.options
 	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
@@ -115,7 +115,7 @@ SampledWith(plans List(H3Plan), model Text) Slow(Number)
 			videos = videos + value.seeds.Length
 	options.files.Freed
 	videos
-Decoded(plans List(H3Plan)) Slow(None)
+Decoded(plans List(H3Plan)) None slow
 	mutable decodings = List(H3Decoding)
 	mutable vaes = ""
 	for plans

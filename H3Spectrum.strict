@@ -14,7 +14,7 @@ constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prom
 constant Recalled = Started.Remembered(0.8, Started.output * 3)
 constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 1)
 constant Previewed = H3Spectrum(8, SpectralFit.Line, output = (2, 4)).Stepped(Solver(0, Euler(8, 5).Sigmas, (1, 2)), 6, H3Job(Safetensors("h3preview.safetensors")))
-IsActual(step Number) Slow(Boolean)
+IsActual(step Number) Boolean slow
 	Tiny.IsActual(0)
 	Tiny.IsActual(1)
 	Started.IsActual(1) is false
@@ -35,7 +35,7 @@ Coord(sigma Number, layout H3Layout) Number
 	Tiny.Coord(1, H3Layout.Tiny) is -1
 	Tiny.Coord(0, H3Layout.Tiny) is 1
 	1 - 2 * layout.Unshifted(sigma)
-Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, step Number) Slow(H3Spectrum)
+Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, step Number) H3Spectrum slow
 	MossImage(Logger).RelativeError(Started.output, H3.Forward) < 0.005
 	Started.coords.Length is 1
 	Held.forecasts is 1
@@ -62,13 +62,13 @@ Stepped(solver Solver, step Number, job H3Job) Solver
 	if path is not ""
 		Safetensors(path).Written("video", stepped.denoised)
 	stepped
-Remembered(coord Number, anchor Numbers) Slow(H3Spectrum)
+Remembered(coord Number, anchor Numbers) H3Spectrum slow
 	Started.Remembered(0.8, Started.output).anchors.Length is 2
 	Started.Remembered(0.8, Started.output).Remembered(0.9, Started.output).coords is (0.8, 0.9)
 	let kept = anchors.Length.Clamp(0, fit.degree)
 	let start = anchors.Length - kept
 	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
-Predicted(coord Number) Slow(Numbers)
+Predicted(coord Number) Numbers slow
 	Started.Predicted(0).Length is 960
 	MossImage(Logger).RelativeError(Recalled.Predicted(1), Started.output * 5) < 0.000001
 	if anchors.Length < fit.degree + 1

@@ -4,7 +4,7 @@ has known Texts
 constant Values = ("PrimitiveInt", "PrimitiveFloat", "PrimitiveString", "PrimitiveStringMultiline", "PrimitiveBoolean", "DPRandomGenerator", "ComfyMathExpression", "ResolutionSelector", "UnifiedResizeImageMask")
 constant Tiny = ComfyGraph.Read("tinyh3workflow.json", H3Workflow.Known)
 constant Wild = ComfyGraph.Read("tinywildworkflow.json", List(Text))
-Read(path Text, supported Texts) Slow(ComfyGraph)
+Read(path Text, supported Texts) ComfyGraph slow
 	Tiny.nodes.Length is 26
 	Tiny.links.Length is 29
 	let workflow = Json.Read(path)

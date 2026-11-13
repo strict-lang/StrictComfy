@@ -10,7 +10,7 @@ constant Latent = Tiny.Encoded(Image, (48, 64))
 constant Tiles = Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32))
 constant Sample = Safetensors("tinyh3imagevae.safetensors", 32).Values("reference.sampled")
 constant Sampled = Tiny.Encoded(Image, (48, 64), MersenneTwister.Seeded(42).Normals(288))
-Encoded(image Numbers, size Numbers, noise = List(Number)) Slow(Numbers)
+Encoded(image Numbers, size Numbers, noise = List(Number)) Numbers slow
 	Latent.Length is 288
 	Latent(0).IsNearlyEqual(Reference(0), 0.01)
 	Latent(5).IsNearlyEqual(Reference(5), 0.01)
@@ -21,14 +21,14 @@ Encoded(image Numbers, size Numbers, noise = List(Number)) Slow(Numbers)
 	let ys = tiling.Starts(size(0))
 	let xs = tiling.Starts(size(1))
 	Normalized(Moments(image, size, ys, xs), ys, xs, size, noise)
-Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) Slow(List(Numbers))
+Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) List(Numbers) slow
 	Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32)).Length is 6
 	let tall = tiling.Length(size(0))
 	let wide = tiling.Length(size(1))
 	for ys.Length * xs.Length
 		let box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
 		encoder.Moments(encoder.Pixels(image, size, box, H3Vae.Mean + H3Vae.Deviation)).Completed
-Normalized(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Numbers) Slow(Numbers)
+Normalized(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Numbers) Numbers slow
 	Tiny.Normalized(Tiles, (0, 16), (0, 16, 32), (48, 64), List(Number))(5) is Latent(5)
 	let means = Blended(moments, ys, xs, size, 0)
 	let spread = noise.Length is 0 then means else Blended(moments, ys, xs, size, H3Format.Channels)
@@ -38,7 +38,7 @@ Normalized(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Nu
 		let deviation = (0.5 * spread(index).Clamp(LowestVariance, HighestVariance)).Exponential
 		let sampled = noise.Length is 0 then value else value + deviation * noise(index)
 		(sampled - encoder.Means(channel)) / encoder.Deviations(channel)
-Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number) Slow(Numbers)
+Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number) Numbers slow
 	let plane = size(0) * size(1) / 256
 	let tall = tiling.Length(size(0)) / 16
 	let wide = tiling.Length(size(1)) / 16
@@ -64,13 +64,13 @@ Extent(starts Numbers, at Number, size Number) Number
 	Tiny.Extent((0, 16), 1, 2) is 1
 	Tiny.Extent((0, 16), 0, 2) is 0
 	at > 0 then (starts(at - 1) + size * 16 - starts(at)) / 16 else 0
-Frame(path Text, size Numbers, cropped Boolean) Slow(Numbers)
+Frame(path Text, size Numbers, cropped Boolean) Numbers slow
 	Tiny.Frame("tinyframe.png", (2, 4), false)(23).IsNearlyEqual(45 / 255)
 	Tiny.Frame("tinyframe.png", (1, 2), false)(3).IsNearlyEqual(94 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(17).IsNearlyEqual(137 / 255)
 	Framed(path, size, size, cropped)
-Framed(path Text, aspect Numbers, size Numbers, cropped Boolean) Slow(Numbers)
+Framed(path Text, aspect Numbers, size Numbers, cropped Boolean) Numbers slow
 	Tiny.Framed("tinyframe.png", (3, 3), (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	let image = ImageLoader(path).Loaded
 	let original = (image.Size.Height, image.Size.Width)

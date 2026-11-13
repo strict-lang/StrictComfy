@@ -4,7 +4,7 @@ has refinedNorm Numbers
 has quantized Boolean
 constant Tiny = H3Refiner.Loaded("tinyh3.safetensors")
 constant Tuned = H3Refiner.Loaded("tinyh3.safetensors", H3Lora.Half.loras)
-Loaded(path Text, loras = "") Slow(H3Refiner)
+Loaded(path Text, loras = "") H3Refiner slow
 	Tiny.refiner.Length is 2
 	Tiny.quantized is false
 	let halves = H3.Weights(path, 16)
@@ -12,7 +12,7 @@ Loaded(path Text, loras = "") Slow(H3Refiner)
 	let norm = halves.Values("token_refiner.final_norm.weight")
 	let marker = halves.Entry("token_refiner.blocks.0.attn.qkv_proj.comfy_quant")
 	H3Refiner(H3Lora(loras).Dense(halves, "condition_proj"), refiners, norm, marker is not "")
-Refined(context Numbers) Slow(Numbers)
+Refined(context Numbers) Numbers slow
 	Tiny.Refined(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
 	MossImage(Logger).RelativeError(Tuned.Refined(H3.Model.Values("context")), H3Lora.Refined) < 0.02
@@ -21,7 +21,7 @@ Refined(context Numbers) Slow(Numbers)
 	for refiner
 		hidden = value.Refined(hidden, unturned, quantized)
 	H3Block.Normalized(hidden, refinedNorm)
-Texts(conditions List(Safetensors)) Slow(List(Numbers))
+Texts(conditions List(Safetensors)) List(Numbers) slow
 	Tiny.Texts(List(Safetensors) + H3.Model)(0) is Tiny.Refined(H3.Model.Values("context"))
 	for conditions
 		Refined(value.Values("context"))

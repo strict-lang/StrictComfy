@@ -71,7 +71,7 @@ Span MossSpan
 	let last = parts.Last to Number
 	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= MossBlock.Layers)
 	valid then MossSpan(first, last) else Error("InvalidSkip")
-Loras Text
+Loras Text slow
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
 	MossOptions.Parsed(("--models", ".")).Loras is Error("FileNotFound:moss/dmd_turbo_lora.safetensors")
 	MossOptions.Parsed(("--model", "tinymoss.gguf", "--models", ".")).Loras is ""
@@ -104,7 +104,7 @@ Distilled(specs Texts) Boolean
 	let combined = Text.Combine(specs, ";")
 	let dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
 	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
-Located Text
+Located Text slow
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
 	MossOptions.Parsed(TinyModels).Named("") is ""
 	let model = files.Checkpoint
@@ -115,7 +115,7 @@ Located Text
 	let early = (model is Error) then (model to Text) else ((loras is Error) then (loras to Text) else "")
 	let late = (decoder is Error) then (decoder to Text) else ((encoder is Error) then (encoder to Text) else "")
 	Named(early + late + ((tokenizer is Error) then (tokenizer to Text) else ""))
-Decoder Text
+Decoder Text slow
 	MossOptions.Parsed(TinyModels).Decoder is "tinyvae.safetensors"
 	MossOptions.Parsed(("--models", ".", "--quality", "fastest")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	quality is in (MossQuality.Fastest, MossQuality.Fastest2Steps) then files.Fast else files.Decoder
@@ -125,7 +125,7 @@ Named(problem Text) Text
 	if problem is ""
 		return ""
 	problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")
-Specs Texts
+Specs Texts slow
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)
 Problem Text

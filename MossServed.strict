@@ -1,5 +1,5 @@
 has batch MossBatch
-Completed(kept MossResident) Slow(MossResident)
+Completed(kept MossResident) MossResident slow
 	let options = batch.options
 	let problem = options.Problem is "" then options.Located else options.Problem
 	if problem is not ""
@@ -11,7 +11,7 @@ Completed(kept MossResident) Slow(MossResident)
 	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
 	let template = batch.prompted is "" then batch.Templated else batch.prompted
 	Prompted(kept, seeds, PromptBatch(batch.logger, "Image").Prompts(List(Text) + template, seeds), started)
-Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) Slow(MossResident)
+Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossResident slow
 	let encoded = kept.Encoded(batch, prompts.Unique)
 	let c = encoded.Contexts(prompts.Unique)
 	if batch.options.output.EndsWith(".safetensors")
@@ -23,7 +23,7 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) Slow(M
 	batch.options.files.Freed
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)
-Warmed(kept MossResident) Slow(MossResident)
+Warmed(kept MossResident) MossResident slow
 	let started = Process.Elapsed
 	let encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))
 	batch.options.files.Eased

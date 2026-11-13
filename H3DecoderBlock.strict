@@ -11,7 +11,7 @@ has half Number = 24
 constant Model = Safetensors("tinyh3vae.safetensors")
 constant Tiny = H3DecoderBlock.Loaded(Model, "decoder.transformer_blocks.0.")
 constant Decoding = Rope(64, 24)
-Loaded(model Safetensors, prefix Text, pairs = 24, bits = 32) Slow(H3DecoderBlock)
+Loaded(model Safetensors, prefix Text, pairs = 24, bits = 32) H3DecoderBlock slow
 	Tiny.rotated is false
 	let rows = Safetensors(model.path, 32, model.prefix + prefix)
 	let first = rows.Values("norm1.weight")
@@ -23,15 +23,15 @@ Loaded(model Safetensors, prefix Text, pairs = 24, bits = 32) Slow(H3DecoderBloc
 	let quantized = rows.Entry("attn.to_qkv.comfy_quant") is not ""
 	let scaled = rows.Values("scale1")
 	H3DecoderBlock(first, second, attended, projected, raised, lowered, scaled, rows.Values("scale2"), quantized, pairs)
-Projection(rows Safetensors, name Text, bits = 32) Slow(Batch)
+Projection(rows Safetensors, name Text, bits = 32) Batch slow
 	Tiny.Projection(Safetensors(Model.path, 32, "decoder.transformer_blocks.0."), "ff.w2").weights.Length is 256
 	Tiny.Projection(Safetensors(Model.path, 32, "decoder.transformer_blocks.0."), "ff.w2", 8).weights.Length is 256
 	Batch(H3Block.Projection(Safetensors(rows.path, bits, rows.prefix), name), rows.Values(name + ".bias"))
-Interleaved(batch Batch) Slow(Batch)
+Interleaved(batch Batch) Batch slow
 	Tiny.attention.biases(64) is Model.Values("decoder.transformer_blocks.0.attn.to_qkv.bias")(192)
 	let order = Order(batch.weights.Length)
 	Batch(Rows(batch, order), Biases(batch, order))
-Order(count Number) Slow(Numbers)
+Order(count Number) Numbers slow
 	Tiny.Order(384)(64) is 192
 	Tiny.Order(384)(128) is 64
 	Tiny.Order(384)(200) is 264
@@ -39,19 +39,19 @@ Order(count Number) Slow(Numbers)
 	for count
 		let within = index % third
 		(within / Decoding.head).Floor * 3 * Decoding.head + (index / third).Floor * Decoding.head + within % Decoding.head
-Rows(batch Batch, order Numbers) Slow(List(Numbers))
+Rows(batch Batch, order Numbers) List(Numbers) slow
 	Tiny.Rows(Batch(((1), (2)), (0, 0)), (1, 0)) is ((2), (1))
 	for order
 		batch.weights(value)
-Biases(batch Batch, order Numbers) Slow(Numbers)
+Biases(batch Batch, order Numbers) Numbers slow
 	Tiny.Biases(Batch(((1), (2)), (3, 4)), (1, 0)) is (4, 3)
 	for order
 		batch.biases(value)
-Output(input Numbers, rotation Numbers) Slow(Numbers)
+Output(input Numbers, rotation Numbers) Numbers slow
 	Tiny.Output(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
 	let attended = Scaled(input, Attended(H3Block.Normalized(input, firstNorm), rotation), firstScale)
 	Scaled(attended, Fed(H3Block.Normalized(attended, secondNorm)), secondScale)
-Attended(normed Numbers, rotation Numbers) Slow(Numbers)
+Attended(normed Numbers, rotation Numbers) Numbers slow
 	Tiny.Attended(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
 	let combined = Projected(attention, normed)
 	let width = combined.Length / (rotation.Length / 2 / Decoding.head) / 3
@@ -62,7 +62,7 @@ Attended(normed Numbers, rotation Numbers) Slow(Numbers)
 	let heads = width / Decoding.head
 	let eights = Attention(queries, keys, values, heads, heads, 2 * Decoding.head, 1, false, 0, 0, true)
 	Projected(output, Narrowed(eights.Merged))
-Rotated(combined Numbers, start Number, width Number, rotation Numbers, scales Numbers, factor Number) Slow(BFloat16s)
+Rotated(combined Numbers, start Number, width Number, rotation Numbers, scales Numbers, factor Number) BFloat16s slow
 	Tiny.Rotated(Layer.Zeros(64) + 1 + Layer.Zeros(127), 0, 64, H3Decoder.Turning, Layer.Zeros(1) + 2, 1)(127) is 0
 	let wide = 2 * Decoding.head
 	for combined.Length / 3 * 2
@@ -78,25 +78,25 @@ Paired(within Number) Number
 	(Tiny.Paired(0) is Decoding.half) and (Tiny.Paired(Decoding.half) is 0) and (Tiny.Paired(60) is 60)
 	(H3DecoderBlock(Tiny, half = 16).Paired(0) is 16) and (H3DecoderBlock(Tiny, half = 16).Paired(40) is 40)
 	within < half then within + half else (within < 2 * half then within - half else within)
-Widened(numbers Numbers, factor Number) Slow(Numbers)
+Widened(numbers Numbers, factor Number) Numbers slow
 	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2
 	Tiny.Widened(Layer.Zeros(64), 1).Length is 128
 	let wide = 2 * Decoding.head
 	for numbers.Length * 2
 		let column = index % wide
 		column < Decoding.head then numbers((index / wide).Floor * Decoding.head + column) * factor else 0
-Narrowed(numbers Numbers) Slow(Numbers)
+Narrowed(numbers Numbers) Numbers slow
 	Tiny.Narrowed(Layer.Zeros(64) + 1 + Layer.Zeros(63))(0) is 0
 	Tiny.Narrowed(Layer.Zeros(128)).Length is 64
 	for numbers.Length / 2
 		numbers((index / Decoding.head).Floor * 2 * Decoding.head + index % Decoding.head)
-Fed(normed Numbers) Slow(Numbers)
+Fed(normed Numbers) Numbers slow
 	Tiny.Fed(H3Decoder.Embedding).Length is 8448
 	Projected(down, H3Block.Activated(Projected(up, normed), down.weights.First.Length))
-Scaled(input Numbers, update Numbers, scale Numbers) Slow(Numbers)
+Scaled(input Numbers, update Numbers, scale Numbers) Numbers slow
 	Tiny.Scaled((1, 2), (3, 4), (2, 0.5)) is (7, 4)
 	for input.Length
 		input(index) + update(index) * scale(index % scale.Length)
-Projected(batch Batch, input Numbers) Slow(Numbers)
+Projected(batch Batch, input Numbers) Numbers slow
 	Tiny.Projected(Batch(((1, 2), (3, 4)), (1, 0)), (1, 1)) is (4, 7)
 	rotated then batch.Sums(Convrot(input).Rotated) else batch.Sums(input)

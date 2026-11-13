@@ -27,7 +27,7 @@ Cleared StrictGenQueue
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.halted
 	StrictGenQueue(value, pending = List(Number), halted = true)
-Posted(route Text, body Text) Slow(StrictGenQueue)
+Posted(route Text, body Text) StrictGenQueue slow
 	Empty.Posted("/run", StrictGenForm.Picture).pending.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Posted("/stop", "").pending.Length is 0
 	if route is "/run"
@@ -39,10 +39,10 @@ Posted(route Text, body Text) Slow(StrictGenQueue)
 		return StrictGenQueue(added, notice = "Run started", aim = (pin is "local" then "local" else added.aim))
 	StrictGenJob.StopAll
 	Cleared
-Advanced StrictGenQueue
+Advanced StrictGenQueue slow
 	Empty.Advanced.job.current is -1
 	job.current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
-Launch StrictGenQueue
+Launch StrictGenQueue slow
 	if aim is ""
 		return value
 	if aim is "none"
@@ -59,14 +59,14 @@ Refused(reason Text) StrictGenQueue
 	let left = pending.Slice(1, pending.Length - 1)
 	let outcome = Noted(pending.First, "error\t" + reason)
 	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
-Sent(endpoint Text) StrictGenQueue
+Sent(endpoint Text) StrictGenQueue slow
 	let index = pending.First
 	let id = StrictGenRemote.Delivered(endpoint, bodies.Length > index then bodies(index) else "")
 	if (id is "") or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
 	let remote = StrictGenJob.Remote(index, endpoint, id to Number)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = remote, aim = "")
-Polled StrictGenQueue
+Polled StrictGenQueue slow
 	if job.remote is not ""
 		return Remote
 	let rows = job.Logged
@@ -84,7 +84,7 @@ Failure(rows Texts) Text
 		if value.StartsWith(Collecting)
 			return value
 	NoOutput
-Remote StrictGenQueue
+Remote StrictGenQueue slow
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First
 	if (answer is "wait") or (kind is "wait") or (answer is "")
@@ -95,7 +95,7 @@ Remote StrictGenQueue
 	if path is ""
 		return Finished(List(Text), "The other StrictGen sent no file", List(Text))
 	Finished(List(Text) + path, lines(job.current), List(Text))
-Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue
+Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
 	let empty = paths.Length is 0
 	let recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
 	let shown = Captions(paths, caption, prompts)

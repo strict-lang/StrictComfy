@@ -5,7 +5,7 @@ constant ConcatCodec = " -c:v libx264 -crf 18 -preset faster -pix_fmt yuv420p -c
 constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 \""
 constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
-TailRgb(path Text, context Number, width Number, height Number) Slow(Numbers)
+TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed")
 	let rgb = path + ".tail.rgb"
 	if Process.RunTool("ffmpeg", Extract(path, rgb, width, height, context / H3Format.FramesPerSecond + 1)).Failed
@@ -16,7 +16,7 @@ TailRgb(path Text, context Number, width Number, height Number) Slow(Numbers)
 	let count = raw.Length / frame
 	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
 	last.Length < context * frame then Error("ShortVideo") else last
-TailPcm(path Text, seconds Number) Slow(Numbers)
+TailPcm(path Text, seconds Number) Numbers slow
 	Sample.TailPcm("missing-clip.mp4", 2) is Error("FfmpegFailed")
 	let pcm = path + ".tail.pcm"
 	if Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds)).Failed
@@ -24,7 +24,7 @@ TailPcm(path Text, seconds Number) Slow(Numbers)
 	let waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
 	waveform
-Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) Slow(None)
+Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) None slow
 	Sample.Appended("a.mp4", (1, 2, 3), (1, 2), (1, 1), 22, "b.mp4") is Error("ShortVideo")
 	let frame = size(0) * size(1) * 3
 	if video.Length < (context + 1) * frame
@@ -36,7 +36,7 @@ Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Num
 	let trimmed = Trimmed(video, context, frame)
 	let matched = last.Length is frame then Colored(last, trimmed, frame) else trimmed
 	Merged(source, matched, Cut(waveform, drop), size, output)
-Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Slow(None)
+Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
 	let tail = output + ".tail.mp4"
 	let saved = H3Frames(logger).Saved(video, audio, size, tail)
 	if saved is Error
@@ -84,7 +84,7 @@ Colored(source Numbers, tail Numbers, frame Number) Numbers
 		let channel = index % 3
 		let scale = after(channel + 3) < 0.000001 then 1 else before(channel + 3) / after(channel + 3)
 		(tail(index) - after(channel)) * scale + before(channel)
-LastFrame(source Text, size Numbers) Numbers
+LastFrame(source Text, size Numbers) Numbers slow
 	let raw = source + ".join.rgb"
 	let args = "-y -loglevel error -sseof -0.08 -i \"" + source + "\" -frames:v 1 -vf scale=" + size(1) + ":" + size(0)
 	if Process.RunTool("ffmpeg", args + " -f rawvideo -pix_fmt rgb24 \"" + raw + "\"").Failed
@@ -108,7 +108,7 @@ Concat(source Text, tail Text, output Text) Text
 	Sample.Concat("a.mp4", "b.mp4", "c.mp4").StartsWith("-y -loglevel error -i \"a.mp4\" -i \"b.mp4\"")
 	Sample.Concat("a.mp4", "b.mp4", "c.mp4").EndsWith("\"c.mp4\"")
 	"-y -loglevel error -i \"" + source + "\" -i \"" + tail + "\"" + ConcatFilter + ConcatCodec + output + "\""
-Probe(path Text) Text
+Probe(path Text) Text slow
 	Sample.Probe("missing-clip.mp4") is ""
 	let result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")
 	result.Failed then "" else result.Output.Trim

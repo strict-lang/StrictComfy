@@ -13,7 +13,7 @@ constant Input = Model.Values("reference.video_embedder") + Model.Values("refere
 constant Modulation = Model.Values("reference.shared_block_modulation")
 constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
 constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
-Loaded(model Safetensors, prefix Text, loras Text) Slow(MossBlock)
+Loaded(model Safetensors, prefix Text, loras Text) MossBlock slow
 	Tiny.expansion.Length is 512
 	MossBlock.Loaded(Model, "layers.0.", "tinylora.safetensors").attention is not Tiny.attention
 	let tuning = MossTuning(Safetensors(model.path, 32, prefix + "proj."), loras)
@@ -22,11 +22,11 @@ Loaded(model Safetensors, prefix Text, loras Text) Slow(MossBlock)
 	let expanded = tuning.Merged("ffn_up_gate", tuned)
 	let reduced = tuning.Merged("ffn_down", tuned)
 	MossBlock(Norms(Safetensors(model.path, 32, prefix)), tuning.Qkv(tuned), projected, expanded, reduced, deltas = tuned)
-Norms(file Safetensors) Slow(List(Numbers))
+Norms(file Safetensors) List(Numbers) slow
 	Tiny.Norms(Safetensors(Model.path, 32, "layers.0.")).Length is 4
 	for ("norm1", "norm2", "q_norm", "k_norm")
 		file.Values(value + ".weight")
-Output(input Numbers, modulation Numbers, rotation Numbers) Slow(Numbers)
+Output(input Numbers, modulation Numbers, rotation Numbers) Numbers slow
 	Layered(0).IsNearlyEqual(-0.125, 0.03)
 	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
@@ -35,12 +35,12 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Slow(Numbers)
 	let width = norms(0).Length
 	let attended = Gated(input, Attended(Modulated(input, norms(0), modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, width, 5)
-Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Slow(Numbers)
+Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers slow
 	Tiny.Cropped(Input, Modulation, Rotation, 4096) is Safetensors.Part(Layered, 0, 4096, 1)
 	let normed = Modulated(input, norms(0), modulation, 0)
 	let attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, norms(0).Length, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, norms(0).Length, 5)
-ImageAttended(normed Numbers, rotation Numbers, kept Number) Slow(Numbers)
+ImageAttended(normed Numbers, rotation Numbers, kept Number) Numbers slow
 	Tiny.ImageAttended(Input, Rotation, 4096) is Safetensors.Part(Tiny.Attended(Input, Rotation), 0, 4096, 1)
 	let width = norms(0).Length
 	let combined = Linear(attention, 0, normed)
@@ -50,14 +50,14 @@ ImageAttended(normed Numbers, rotation Numbers, kept Number) Slow(Numbers)
 	let heads = width / size
 	let merged = Attention(queries, keys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
 	Linear(output, 1, merged)
-Attended(normed Numbers, rotation Numbers) Slow(Numbers)
+Attended(normed Numbers, rotation Numbers) Numbers slow
 	Tiny.Attended(Input, Rotation).Length is 4864
 	Linear(output, 1, Merged(Linear(attention, 0, normed), rotation, norms(2), norms(3)))
-Linear(rows List(Numbers), linear Number, input Numbers) Slow(Numbers)
+Linear(rows List(Numbers), linear Number, input Numbers) Numbers slow
 	Tiny.Linear(Tiny.output, 1, Input).Length is 4864
 	let summed = Batch(rows, Layer.Unbiased).Sums(rotated then Convrot(input).Rotated else input)
 	MossLora.Applied(deltas, linear, summed, input)
-Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Slow(Numbers)
+Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers slow
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
 	let size = queries.Length
@@ -66,15 +66,15 @@ Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Slow(N
 	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
 	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
 	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
-FedForward(normed Numbers) Slow(Numbers)
+FedForward(normed Numbers) Numbers slow
 	Tiny.FedForward(Input).Length is 4864
 	Linear(reduction, 3, Activated(Linear(expansion, 2, normed), reduction.First.Length))
-Activated(expanded Numbers, width Number) Slow(BFloat16s)
+Activated(expanded Numbers, width Number) BFloat16s slow
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2
 		let first = (index / width).Floor * 2 * width + index % width
 		Situ(expanded(first), expanded(first + width))
-Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Slow(BFloat16s)
+Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloat16s slow
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	let width = weights.Length
 	let scales = Qwen3Block.Scales(input, width, Qwen3Block.Epsilon)
@@ -84,12 +84,12 @@ Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) Slow(
 		let channel = index % width
 		let factor = scales((index / width).Floor) * weights(channel) * (1 + modulation(scaling + channel))
 		input(index) * factor + modulation(shifts + channel)
-Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) Slow(BFloat16s)
+Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) BFloat16s slow
 	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
 	let start = part * width
 	for update.Length
 		input(index) + update(index) * modulation(start + index % width)
-Rotations(height Number, width Number, text Number, size Number) Slow(Float32s)
+Rotations(height Number, width Number, text Number, size Number) Float32s slow
 	MossBlock.Rotations(4, 4, 3, 128).Length is 4864
 	MossBlock.Rotations(4, 4, 3, 128)(16).IsNearlyEqual(-0.9899925)
 	MossBlock.Rotations(4, 4, 3, 128)(144).IsNearlyEqual(-0.14112)

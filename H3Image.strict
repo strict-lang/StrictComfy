@@ -16,7 +16,7 @@ Run(arguments Texts) Number
 		Help
 		return 0
 	if "coordinator" is in arguments
-		return Coordinator(logger).Served
+		return Coordinator(logger).Served is Error then 1 else 0
 	let given = arguments - MachineUse.Force
 	if (given.Length > 1) and (given(0) is "encode")
 		return H3Image(logger, H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
@@ -28,7 +28,7 @@ Help
 Unknown Number
 	H3Image(Logger).Unknown is 1
 	H3ImageServer.Sample.Refused(OptionsOnly) then 1 else 0
-Missing Text
+Missing Text slow
 	Tiny.Missing.EndsWith("FileNotFound:" + H3ImageOptions.Base)
 	let checkpoint = options.Checkpoint
 	let decoder = options.Decoder
@@ -38,17 +38,17 @@ Missing Text
 	if decoder is Error
 		return (decoder to Text).Lines.First.Replace("Error: ", "")
 	encoder is Error then (encoder to Text).Lines.First.Replace("Error: ", "") else ""
-Encoded(arguments Texts) Slow(Number)
+Encoded(arguments Texts) Number slow
 	let paths = arguments(1).Split(";")
 	let jobs = H3Encoding(logger, List(Text)).Jobs(paths)
 	let encoder = Encoder(List(Text) + options.Checkpoint, List(QwenVision))
 	encoder.Encoded(H3Inputs.Sample.Column(jobs, 1), H3Inputs.Sample.Column(jobs, 0), paths) > 0 then 0 else 1
-Encoder(prefetched Texts, visions List(QwenVision)) Slow(H3Encoder)
+Encoder(prefetched Texts, visions List(QwenVision)) H3Encoder slow
 	Tiny.Encoder(List(Text), List(QwenVision)).label is Label
 	Edit.Encoder(List(Text), List(QwenVision)).frame is (1024, 2048)
 	let seen = options.image is "" then (32, 32) else options.Vision(Original)
 	H3Encoder(logger, options.Files, seen, visions, prefetched, Label)
-Cached(prompts Texts) Slow(Texts)
+Cached(prompts Texts) Texts slow
 	Tiny.Cached(("a", "b")).First is not Tiny.Cached(("a", "b")).Last
 	Tiny.Cached(List(Text) + "a").First is not Edit.Cached(List(Text) + "a").First
 	Tiny.Cached(List(Text) + "a").First is Tiny.Context(H3Batch.Encoder + "\n\na", 1)
@@ -59,7 +59,7 @@ Cached(prompts Texts) Slow(Texts)
 Context(identity Text, length Number) Text
 	Tiny.Context("a", 1).EndsWith(Folder + "/context-" + HashCode("a").number + "-1.safetensors")
 	H3Artifacts.Sample.Root + Folder + "/context-" + HashCode(identity).number + "-" + length + ".safetensors"
-Contexts(prompts Texts, paths Texts, arguments Texts) Slow(List(Safetensors))
+Contexts(prompts Texts, paths Texts, arguments Texts) List(Safetensors) slow
 	let artifacts = H3Artifacts.Sample
 	let missing = artifacts.Missing(paths)
 	if missing.Length is 0
@@ -72,18 +72,18 @@ Contexts(prompts Texts, paths Texts, arguments Texts) Slow(List(Safetensors))
 	let encoding = H3Encoding(logger, arguments)
 	let code = encoding.Started(inputs.Picked(prompts, missing), images, inputs.Picked(paths, missing))
 	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
-Pictured Slow(Numbers)
+Pictured Numbers slow
 	Tiny.Pictured.Length is 0
 	Edit.Pictured is (64, 128)
 	if options.image is ""
 		return List(Number)
 	for options.Scaled(Original, 1024, 2 * 1024)
 		value / 16
-Original Slow(Numbers)
+Original Numbers slow
 	H3Image(Logger, Edit.options, (4, 8)).Original is (4, 8)
 	Edit.Original is (2, 4)
 	measured.Length is 2 then measured else options.Original
-Referenced(picture H3Picture) Slow(List(Numbers))
+Referenced(picture H3Picture) List(Numbers) slow
 	Tiny.Referenced(H3Picture.Tiny).Length is 0
 	let size = Pictured
 	if size.Length is 0
@@ -92,7 +92,7 @@ Referenced(picture H3Picture) Slow(List(Numbers))
 	let noise = MersenneTwister.Seeded(Reference).Normals(H3Format.Channels * size(0) * size(1))
 	let pixels = (size(0) * 16, size(1) * 16)
 	List(Numbers) + picture.Encoded(picture.Frame(options.image, pixels, false), pixels, noise)
-Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds Numbers) Slow(List(Numbers))
+Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds Numbers) List(Numbers) slow
 	for seeds
 		let context = contexts(paths.Unique.Index(paths(index)))
 		let before = Process.Elapsed
@@ -101,10 +101,10 @@ Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds N
 		logger.Log("Image " + (index + 1) + "/" + seeds.Length + " sampled in " + (Process.Elapsed - before).Round(2) + " s")
 		GpuMemory.Finished
 		latent
-Target Slow(Numbers)
+Target Numbers slow
 	(Tiny.Target is (64, 64)) and (Edit.Target is (1024, 2048))
 	options.Size(Original)
-Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Slow(Numbers)
+Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Numbers slow
 	Tiny.Generated(H3ImageModel.Tiny, H3ImageModel.Prompt, (1, 1, 1), 3, List(Numbers)).Length is 384
 	let size = Target
 	let layout = H3ImageLayout(tags, Pictured, size(0) / 16, size(1) / 16)
@@ -117,7 +117,7 @@ Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, reference
 		let output = model.Output(solver.latent, sigmas(index), sigmas(index + 1), text, layout, conditions)
 		solver = solver.Stepped(output, index)
 	solver.latent
-Saved(vae H3ImageVae, latents List(Numbers), outputs Texts) Slow(Texts)
+Saved(vae H3ImageVae, latents List(Numbers), outputs Texts) Texts slow
 	GpuMemory.Released
 	GpuMemory.Freed(File(options.Decoder).Length + H3Files.DecodeRoom)
 	let size = Target

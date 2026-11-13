@@ -2,7 +2,7 @@ constant ReadPolls = 2000
 constant Closing = "\r\nConnection: close\r\n\r\n"
 constant CarriageReturn = 13
 constant LineFeed = 10
-Delivered(endpoint Text, body Text) Text
+Delivered(endpoint Text, body Text) Text slow
 	let parts = endpoint.Split(":")
 	if parts.Length < 2
 		return "error\t" + endpoint
@@ -12,21 +12,21 @@ Delivered(endpoint Text, body Text) Text
 		return "error\t" + endpoint + " did not answer"
 	let accepted = Json(response).get("accepted") to Text
 	(accepted is "") or (accepted is "-1") then "error\tThe other StrictGen did not queue the job" else accepted
-Prepared(host Text, port Number, body Text) Text
+Prepared(host Text, port Number, body Text) Text slow
 	let json = Json(body)
 	let video = json.get("video") to Text
 	let image = json.get("image") to Text
 	let sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
 	image is "" then sent else Rewritten(sent, image, Uploaded(host, port, image))
-Uploaded(host Text, port Number, path Text) Text
+Uploaded(host Text, port Number, path Text) Text slow
 	if (path is "") or (File(path).Exists is false)
 		return path
 	let saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
 	saved is "" then path else saved
-Asked(endpoint Text, id Number) Text
+Asked(endpoint Text, id Number) Text slow
 	let parts = endpoint.Split(":")
 	parts.Length < 2 then "error\tmissing" else Posted(parts(0), parts(1) to Number, "/job?id=" + id, "")
-Saved(endpoint Text, path Text) Text
+Saved(endpoint Text, path Text) Text slow
 	let parts = endpoint.Split(":")
 	if (parts.Length < 2) or (path is "")
 		return ""
@@ -37,14 +37,14 @@ Saved(endpoint Text, path Text) Text
 	let local = StrictGen.Outputs + "/" + Path(path).FileName.text
 	File(local).Write(bytes)
 	local
-Posted(host Text, port Number, path Text, body Text) Text
+Posted(host Text, port Number, path Text, body Text) Text slow
 	Sent(host, port, path, StrictGenHttp.Encoded(body))
-Sent(host Text, port Number, path Text, payload Numbers) Text
+Sent(host Text, port Number, path Text, payload Numbers) Text slow
 	let header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + payload.Length + Closing
 	StrictGenHttp.Decoded(After(Exchanged(host, port, StrictGenHttp.Encoded(header) + payload)))
-Gotten(host Text, port Number, path Text) Numbers
+Gotten(host Text, port Number, path Text) Numbers slow
 	After(Exchanged(host, port, StrictGenHttp.Encoded("GET " + path + " HTTP/1.1\r\nHost: " + host + Closing)))
-Exchanged(host Text, port Number, bytes Numbers) Numbers
+Exchanged(host Text, port Number, bytes Numbers) Numbers slow
 	let socket = Socket.Try(host, port, 2)
 	if socket is Error
 		return List(Number)
@@ -52,7 +52,7 @@ Exchanged(host Text, port Number, bytes Numbers) Numbers
 		return Socket.Close(socket) is Error then List(Number) else List(Number)
 	let response = Read(socket)
 	Socket.Close(socket) is Error then response else response
-Read(socket Number) Numbers
+Read(socket Number) Numbers slow
 	mutable bytes = List(Mutable(Number))
 	for Range(0, ReadPolls)
 		let pending = Socket.Pending(socket)

@@ -3,7 +3,7 @@ constant Sample = H3Inputs(H3Options.Parsed(List(Text)))
 constant Folder = H3Inputs(H3Options.Parsed(("--image", ".", "--count", "2")))
 constant Both = H3Inputs(H3Options.Parsed(("--image", ".", "--last_image", "a.png")))
 constant Pairs = (("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
-Problem Text
+Problem Text slow
 	Sample.Problem is ""
 	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
 	H3Inputs(H3Options.Parsed(("--prompt", "web"))).Problem is "--prompt web has no txt files"
@@ -11,14 +11,14 @@ Problem Text
 	if Images.Length is 0
 		return "--image " + options.files.image + " has no png or jpg files"
 	Prompts.Length is 0 then "--prompt " + options.prompt + " has no txt files" else options.Problem
-Images Slow(Texts)
+Images Texts slow
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")
 	Listed(options.files.image, ("png", "jpg", "jpeg")).Sorted
-Prompts Texts
+Prompts Texts slow
 	Sample.Prompts is List(Text) + "prompt.txt"
 	Listed(options.prompt, List(Text) + "txt").Sorted
-Listed(path Text, extensions Texts) Texts
+Listed(path Text, extensions Texts) Texts slow
 	Sample.Listed("H3Inputs.strict", List(Text) + "txt") is List(Text) + "H3Inputs.strict"
 	Sample.Listed(".", List(Text) + "png").Length is 1
 	if IsFolder(path) is false
@@ -26,11 +26,11 @@ Listed(path Text, extensions Texts) Texts
 	for Directory.Files(path)
 		if value.Lower.Split(".").Last is in extensions
 			value
-Count Number
+Count Number slow
 	Sample.Count is 1
 	Folder.Count is 2
 	options.count > 0 then options.count else Paired.Length
-Paired Slow(List(Texts))
+Paired List(Texts) slow
 	Sample.Paired is List(Texts) + ("", "prompt.txt")
 	Folder.Paired.Last.First.EndsWith("tinyframe.png")
 	let images = Images
@@ -75,12 +75,12 @@ Indices Numbers
 	let last = (options.Shapes(0) - 2) / 5 * H3Format.FrameGroup + 4
 	let first = options.files.image is "" then List(Number) else List(Number) + 0
 	options.files.lastImage is "" then first else first + last
-Output(image Text) Text
+Output(image Text) Text slow
 	Sample.Output("") is "H3Video.mp4"
 	Folder.Output("./frame12.png") is "H3Video-frame12-.mp4"
 	let named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
 	IsFolder(options.files.image) then named else options.output
-IsFolder(path Text) Boolean
+IsFolder(path Text) Boolean slow
 	Sample.IsFolder(".")
 	Sample.IsFolder("") is false
 	Sample.IsFolder("H3Inputs.strict") is false

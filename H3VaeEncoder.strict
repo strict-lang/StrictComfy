@@ -11,7 +11,7 @@ constant Tiny = H3VaeEncoder.Loaded(Model)
 constant Tile = Tiny.Pixels(Model.Values("reference.image"), (48, 64), (0, 32, 0, 32), H3Vae.Mean + H3Vae.Deviation)
 constant Entry = Model.Values("reference.entry")
 constant Moment = Model.Values("reference.moments")
-Loaded(model Safetensors) Slow(H3VaeEncoder)
+Loaded(model Safetensors) H3VaeEncoder slow
 	Tiny.blocks.Length is 5
 	Tiny.downsamples(3).biases.Length is 64
 	Tiny.downsamples(4).biases.Length is 0
@@ -23,11 +23,11 @@ Loaded(model Safetensors) Slow(H3VaeEncoder)
 	let exited = Convolved(model, "encoder.conv_out")
 	let downsampled = Downsamples(model, names)
 	H3VaeEncoder(entered, Blocks(model, names), downsampled, normed, exited, projected, latents(0), latents(1))
-Names(model Safetensors) Slow(Texts)
+Names(model Safetensors) Texts slow
 	Tiny.Names(Model) is ("0.block.0", "1.block.0", "2.block.0", "3.block.0", "4.block.0")
 	for H3.Named(TensorFile.Header(model.path), "encoder.down.")
 		value.Substring(0, value.IndexOf(".norm1"))
-Blocks(model Safetensors, names Texts) Slow(List(FluxResnet))
+Blocks(model Safetensors, names Texts) List(FluxResnet) slow
 	Tiny.blocks(1).shortcut.biases.Length is 64
 	Tiny.blocks(2).shortcut.biases.Length is 0
 	for names
@@ -38,7 +38,7 @@ Blocks(model Safetensors, names Texts) Slow(List(FluxResnet))
 		let first = Convolved(model, prefix + "conv1")
 		let norm = FluxResnet.Norm(model, prefix + "norm2", 32)
 		FluxResnet(FluxResnet.Norm(model, prefix + "norm1", 32), first, norm, Convolved(model, prefix + "conv2"), shortcut)
-Downsamples(model Safetensors, names Texts) Slow(List(Convolution))
+Downsamples(model Safetensors, names Texts) List(Convolution) slow
 	Tiny.downsamples(0).weights.Length is 9216
 	for names
 		let level = value.Substring(0, value.IndexOf("."))
@@ -46,7 +46,7 @@ Downsamples(model Safetensors, names Texts) Slow(List(Convolution))
 		let name = "encoder.down." + level + ".downsample.conv"
 		let present = following.StartsWith(level + ".") is false and model.Entry(name + ".weight") is not ""
 		present then Convolved(model, name) else Convolution(List(Number), List(Number))
-Convolved(model Safetensors, name Text) Slow(Convolution)
+Convolved(model Safetensors, name Text) Convolution slow
 	Tiny.entry.weights.Length is 864
 	Tiny.moments.weights(49) is Model.Values("quant_conv.weight")(49)
 	let shape = model.Shape(name + ".weight")
@@ -69,7 +69,7 @@ Normalized(image Numbers, size Numbers, box Numbers, colors Numbers) Numbers
 		let row = box(0) + (pixel / box(3)).Floor
 		let column = box(2) + pixel % box(3)
 		(image((channel * size(0) + row) * size(1) + column) - colors(channel)) / colors(channel + 3)
-Moments(tile FeatureMap) Slow(FeatureMap)
+Moments(tile FeatureMap) FeatureMap slow
 	Tiny.Moments(Tile).Completed(0).IsNearlyEqual(Moment(0), 0.01)
 	Tiny.Moments(Tile).Completed(100).IsNearlyEqual(Moment(18), 0.01)
 	Tiny.Moments(Tile).Completed(191).IsNearlyEqual(Moment(191), 0.01)
@@ -78,16 +78,16 @@ Moments(tile FeatureMap) Slow(FeatureMap)
 		state = Block(value, state)
 		state = downsamples(index).biases.Length is 0 then state else Downsampled(downsamples(index), state)
 	moments.Projected(Reflected(exit, state, normOut.Affine(state), Activation.Swish))
-Block(block FluxResnet, map FeatureMap) Slow(FeatureMap)
+Block(block FluxResnet, map FeatureMap) FeatureMap slow
 	Tiny.Block(Tiny.blocks.First, Tile).values.Length is 3072
 	let hidden = Reflected(block.first, map, block.firstNorm.Affine(map), Activation.Swish)
 	let output = Reflected(block.second, hidden, block.secondNorm.Affine(hidden), Activation.Swish)
 	(block.shortcut.biases.Length is 0 then map else block.shortcut.Projected(map)).Plus(output)
-Downsampled(convolution Convolution, map FeatureMap) Slow(FeatureMap)
+Downsampled(convolution Convolution, map FeatureMap) FeatureMap slow
 	Tiny.Downsampled(Tiny.downsamples(0), Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear)).width is 16
 	let full = convolution.Applied(Padded(map, (1, 1, 1, 1)), map.Identity, Activation.Linear)
 	Strided(full, (2, 2), (map.Height / 2, map.width / 2))
-Reflected(convolution Convolution, map FeatureMap, affine Numbers, activation Activation) Slow(FeatureMap)
+Reflected(convolution Convolution, map FeatureMap, affine Numbers, activation Activation) FeatureMap slow
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(0).IsNearlyEqual(Entry(0), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(31749).IsNearlyEqual(Entry(6112), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(32767).IsNearlyEqual(Entry(32767), 0.0001)

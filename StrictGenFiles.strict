@@ -3,7 +3,7 @@ constant Tiny = StrictGenFiles(".")
 constant Extensions = ("safetensors", "gguf")
 constant LoraPrefix = "lora-"
 constant Media = ("jpg", "jpeg", "png", "mp4")
-Outputs(folder Text) Slow(Texts)
+Outputs(folder Text) Texts slow
 	Tiny.Outputs("missing-outputs").Length is 0
 	Tiny.Outputs(".").First.Split("\t").Length is 2
 	if Directory.Exists(folder) is false
@@ -11,13 +11,13 @@ Outputs(folder Text) Slow(Texts)
 	for StrictGenForm.Listed(folder, Media)
 		let path = folder + "/" + Path(value).FileName.text
 		File(path).Modified + "\t" + path
-Listed(kind Text) Texts
+Listed(kind Text) Texts slow
 	Tiny.Listed("moss").Length is 0
 	Tiny.Listed("lora-moss").Length is 0
 	if kind.StartsWith(LoraPrefix)
 		return Loras(kind.Substring(LoraPrefix.Length, kind.Length - LoraPrefix.Length))
 	Models(kind)
-Models(kind Text) Slow(Texts)
+Models(kind Text) Texts slow
 	Tiny.Models("h3").Length is 0
 	let folder = ModelFiles(models).Folder + "/diffusion_models"
 	if Directory.Exists(folder) is false
@@ -28,7 +28,7 @@ Models(kind Text) Slow(Texts)
 		if Kind(folder + "/" + name) is kind
 			names.Add(name)
 	names
-Kind(path Text) Slow(Text)
+Kind(path Text) Text slow
 	Tiny.Kind("tinymoss.safetensors") is "moss"
 	Tiny.Kind("tinyh3.safetensors") is "h3"
 	(Tiny.Kind("tinyh3image.safetensors") is "h3image") and (Tiny.Kind("tinyvae.safetensors") is "")
@@ -38,13 +38,13 @@ Kind(path Text) Slow(Text)
 	if header.IndexOf("shared_block_modulation") >= 0
 		return "moss"
 	header.IndexOf("adaln_t_table") < 0 then "" else (header.IndexOf("audio_patch_proj") >= 0 then "h3" else "h3image")
-Loras(model Text) Slow(Texts)
+Loras(model Text) Texts slow
 	Tiny.Loras("moss").Length is 0
 	Tiny.Loras("h3").Length is 0
 	let folder = ModelFiles(models).Folder + "/loras/" + model
 	let named = Directory.Exists(folder) then Named(folder, model + "/") else List(Text)
 	model is "h3" then named + Named(ModelFiles(models).Folder + "/hyperflow", "") else named
-Named(folder Text, prefix Text) Slow(Texts)
+Named(folder Text, prefix Text) Texts slow
 	Tiny.Named("missing", "a/").Length is 0
 	if Directory.Exists(folder) is false
 		return List(Text)

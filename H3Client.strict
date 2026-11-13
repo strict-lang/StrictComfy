@@ -5,7 +5,7 @@ constant MinimumRam = 68719476736
 constant MinimumVram = 10737418240
 constant QualityChoices = "--quality must be best, fast, faster, fastest4steps or fastest2steps"
 constant Sample = H3Client(Logger, "artifacts/h3test", Backend.Nowhere)
-Ran(given Texts) Number
+Ran(given Texts) Number slow
 	if given is (Backend.Serving)
 		return H3Server(logger, Backended).Served
 	let arguments = given - MachineUse.Force
@@ -21,23 +21,23 @@ Ran(given Texts) Number
 Backended Backend
 	Sample.Backended.name is "H3Video"
 	Backend(logger, Resident(root), "H3Video", coordinator)
-Asked(arguments Texts, forced Boolean) Slow(Text)
+Asked(arguments Texts, forced Boolean) Text slow
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Video\t")
 	let use = Use(arguments, forced)
 	let mode = forced then "force" else "wait"
 	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
-IsGranted(arguments Texts, forced Boolean) Slow(Boolean)
+IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
 	let named = Remote(logger).Named(arguments)
-	named >= 0 then named is 0 else IsContinued(arguments, forced)
-IsContinued(arguments Texts, forced Boolean) Slow(Boolean)
+	(named is Error) or (named >= 0) then named is 0 else IsContinued(arguments, forced)
+IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
 	if line is ""
 		return true
 	let reply = Coordinator(logger, coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
-	if sent >= 0
+	if (sent is Error) or (sent >= 0)
 		return sent is 0
 	let settled = reply.StartsWith("wait") then Coordinator(logger, coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
@@ -49,7 +49,7 @@ Refused(reply Text) Boolean
 	if reply is not ""
 		logger.Log(reply)
 	reply is not ""
-Use(arguments Texts, forced Boolean) MachineUse
+Use(arguments Texts, forced Boolean) MachineUse slow
 	Sample.Use(List(Text), true).isForced
 	let files = Options(arguments).files
 	let bytes = (File(files.Checkpoint).Length, File(files.Encoder).Length)

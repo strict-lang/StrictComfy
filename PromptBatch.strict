@@ -7,12 +7,12 @@ Seeds(seed Number, count Number) Numbers
 	Sample.Seeds(-1, 3).Unique.Length is 3
 	for count
 		seed >= 0 then seed else SeedRange.Random.Floor
-Template(path Text) Text
+Template(path Text) Text slow
 	Sample.Template("a red fox") is Error("FileNotFound:a_red_fox")
 	if File(path).Exists is false
 		return Error("FileNotFound:" + path.Replace(" ", "_"))
 	Text.Combine(File(path).ReadLines, "\n").Trim
-Templates(paths Texts, prompt Text) Texts
+Templates(paths Texts, prompt Text) Texts slow
 	Sample.Templates(List(Text) + "missing.txt", "a fox") is List(Text) + "a fox"
 	Sample.Templates(List(Text) + "PromptBatch.strict", "").First.StartsWith("has logger")
 	for paths
@@ -58,22 +58,22 @@ Chosen(text Text, draw Number) Text
 		return Error("UnmatchedBrace")
 	let choices = text.Substring(open + 1, close - open - 1).Split("|")
 	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
-Reserved(base Text) Text
+Reserved(base Text) Text slow
 	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
 	Sample.Reserved("artifacts/PromptBatchTest.png") is "artifacts/PromptBatchTest0001.png"
 	Named(base, Free(base, 1))
-Outputs(base Text, count Number) Texts
+Outputs(base Text, count Number) Texts slow
 	Sample.Outputs("PromptBatchTest.jpg", 2) is ("PromptBatchTest0001.jpg", "PromptBatchTest0002.jpg")
 	File("PromptBatchTest0001.jpg").Exists is false
 	mutable number = 0
 	for count
 		number = Free(base, number + 1)
 		Named(base, number)
-Saving(planned Text, base Text) Text
+Saving(planned Text, base Text) Text slow
 	Sample.Saving("PromptBatchTest0007.jpg", "PromptBatchTest.jpg") is "PromptBatchTest0007.jpg"
 	Sample.Saving("PromptBatch.strict", "PromptBatch.strict") is "PromptBatch0001.strict"
 	IsTaken(planned) then Reserved(base) else planned
-Free(base Text, first Number) Number
+Free(base Text, first Number) Number slow
 	Sample.Free("PromptBatchTest.jpg", 3) is 3
 	Sample.Free("../Strict/NeuralNetworks/tinysplit-00001-of-0.gguf", 3) is 4
 	mutable number = first
@@ -84,7 +84,7 @@ Named(base Text, number Number) Text
 	Sample.Named("a.jpg", 7) is "a0007.jpg"
 	let dot = base.LastIndexOf(".")
 	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
-IsTaken(path Text) Boolean
+IsTaken(path Text) Boolean slow
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false
 	File(path).Exists or File(path + ".json").Exists

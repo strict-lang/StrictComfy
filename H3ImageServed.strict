@@ -1,7 +1,7 @@
 has image H3Image
 has arguments Texts
 constant Tiny = H3ImageServed(H3Image.Tiny, List(Text))
-Completed(kept H3ImageResident) Slow(H3ImageResident)
+Completed(kept H3ImageResident) H3ImageResident slow
 	Tiny.Completed(H3ImageResident.None).code is 2
 	let options = image.options
 	let problem = options.Problem is "" then image.Missing else options.Problem
@@ -13,7 +13,7 @@ Completed(kept H3ImageResident) Slow(H3ImageResident)
 	let seeds = batch.Seeds(options.Seed, options.count)
 	let measured = H3ImageServed(H3Image(image.logger, options, options.Original), arguments)
 	measured.Prompted(kept, seeds, batch.Prompts(List(Text) + options.Prompted, seeds), started)
-Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) Slow(H3ImageResident)
+Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) H3ImageResident slow
 	let options = image.options
 	let paths = image.Cached(prompts)
 	let sampling = Encoded(kept, prompts, paths).Referencing(image).Sampling(options)
@@ -23,7 +23,7 @@ Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) Slo
 	let saved = image.Saved(decoding.vae, latents, outputs)
 	image.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
 	H3ImageResident(decoding, code = 0)
-Encoded(kept H3ImageResident, prompts Texts, paths Texts) Slow(H3ImageResident)
+Encoded(kept H3ImageResident, prompts Texts, paths Texts) H3ImageResident slow
 	let missing = H3Artifacts.Sample.Missing(paths)
 	if missing.Length is 0
 		image.logger.Log("Using cached prompt conditioning")
@@ -36,7 +36,7 @@ Encoded(kept H3ImageResident, prompts Texts, paths Texts) Slow(H3ImageResident)
 	let made = Contexted(encoding, H3Inputs.Sample.Picked(prompts, missing), H3Inputs.Sample.Picked(paths, missing))
 	image.logger.Log("Encoded " + made + " prompts with the loaded text encoder")
 	encoding.Trimmed(image.options)
-Contexted(encoding H3ImageResident, prompts Texts, paths Texts) Slow(Number)
+Contexted(encoding H3ImageResident, prompts Texts, paths Texts) Number slow
 	let images = H3Inputs.Sample.Picked(List(Text) + image.options.image, Layer.Zeros(prompts.Length))
 	let reading = encoding.models.Length is 1 then List(Text) else List(Text) + image.options.Checkpoint
 	let encoder = image.Encoder(reading, encoding.visions)

@@ -21,12 +21,12 @@ Guided(positive Numbers, negative Numbers) Numbers
 		return positive
 	for positive.Length
 		negative(index) + guidance * (positive(index) - negative(index))
-Sampled(moss Moss, noise Numbers, context Numbers, label Text) Numbers
+Sampled(moss Moss, noise Numbers, context Numbers, label Text) Numbers slow
 	let count = context.Length / moss.textProjection.weights.First.Length
 	let text = moss.TextEmbedded(context, count)
 	let negative = guidance is 1 then text else moss.TextEmbedded(context * 0, count)
 	Looped(moss, noise, text, negative, moss.Rotation(noise, text, width), Euler(steps, 5).Sigmas, label)
-Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Numbers, sigmas Numbers, label Text) Numbers
+Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Numbers, sigmas Numbers, label Text) Numbers slow
 	let started = Process.Elapsed
 	mutable previous = started
 	mutable positive = State
@@ -39,7 +39,7 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 		previous = Progressed(index, started, previous, latent, positive.output, sigmas(index + 1))
 	logger.Log(Summary(label, previous - started, positive))
 	latent
-Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number
+Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number slow
 	GpuMemory.Finished
 	let now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))

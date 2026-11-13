@@ -14,7 +14,7 @@ IsDecoding(path Text) Boolean
 	Decoder.IsDecoding(Image)
 	None.IsDecoding(Image) is false
 	(path is decoderFile) and (decoders.Length + tinies.Length is 1)
-Decoding(path Text) Slow(H3ImageVae)
+Decoding(path Text) H3ImageVae slow
 	(Decoder.decoders.Length is 1) and (Decoder.tinies.Length is 0)
 	(Tiny.tinies.Length is 1) and (Tiny.decoders.Length is 0)
 	if Taeh3Decoder.Is(path)
@@ -26,12 +26,12 @@ IsPicturing(path Text) Boolean
 	Pictured.IsPicturing(H3VaeEncoder.Model.path)
 	Decoder.IsPicturing(Image) is false
 	(path is pictureFile) and (pictures.Length is 1)
-Picturing(path Text) Slow(H3ImageVae)
+Picturing(path Text) H3ImageVae slow
 	Pictured.pictures.Length is 1
 	Decoder.Picturing(H3VaeEncoder.Model.path).decoders.Length is 1
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
 	H3ImageVae(value, pictureFile = path, pictures = List(H3Picture) + picture)
-Pixels(latent Numbers, height Number, width Number) Slow(Numbers)
+Pixels(latent Numbers, height Number, width Number) Numbers slow
 	MossImage(Logger).RelativeError(Tiny.Pixels(Taeh3Decoder.Latent, 2, 3), Taeh3Decoder.Reference) < 0.005
 	MossImage(Logger).RelativeError(Decoder.Pixels(Latent, 3, 4), Lean) < 0.001
 	tinies.Length is 1 then tinies.First.Decoded(latent, width) else decoders.First.Still(latent, height, width)

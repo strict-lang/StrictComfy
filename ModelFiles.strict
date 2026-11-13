@@ -1,6 +1,6 @@
 has models Text
 constant Cached = " into the file cache in the background"
-Folder Text
+Folder Text slow
 	ModelFiles(".").Folder is "."
 	if models is not ""
 		return models
@@ -8,28 +8,28 @@ Folder Text
 		if Directory.Exists(value)
 			return value
 	Error("ModelsFolderNotFound")
-Located(name Text, folder Text) Text
+Located(name Text, folder Text) Text slow
 	ModelFiles("").Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
 	ModelFiles(".").Located("x.y", "loras") is Error("FileNotFound:x.y")
 	if File(name).Exists
 		return name
 	let inside = Folder + "/" + folder + "/" + name
 	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
-Decoder(vae Text, fallback Text) Text
+Decoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").Decoder("", "tinyh3vae.safetensors") is "tinyh3vae.safetensors"
 	ModelFiles(".").Decoder("missing.safetensors", "a") is Error("FileNotFound:missing.safetensors")
 	let folder = File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
 	Located(vae is "" then fallback else vae, folder)
-VaeEncoder(vae Text, fallback Text) Text
+VaeEncoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").VaeEncoder("tinyh3vae.safetensors", "a") is "tinyh3vae.safetensors"
 	ModelFiles(".").VaeEncoder("tinytaeh3.safetensors", "a") is Error("FileNotFound:a")
 	let decoder = Decoder(vae, fallback)
 	(decoder is Error) or (Taeh3Decoder.Is(decoder) is false) then decoder else Located(fallback, "vae")
-Specs(loras Texts) Texts
+Specs(loras Texts) Texts slow
 	ModelFiles("").Specs(List(Text) + "tinylora.safetensors:0.5") is ("tinylora.safetensors=0.5")
 	for loras
 		Spec(value)
-Spec(text Text) Text
+Spec(text Text) Text slow
 	ModelFiles("").Spec("tinylora.safetensors") is "tinylora.safetensors=1"
 	ModelFiles("").Spec("tinylora.safetensors:0.25") is "tinylora.safetensors=0.25"
 	ModelFiles(".").Spec("a:5") is Error("FileNotFound:a:5")
@@ -41,7 +41,7 @@ Spec(text Text) Text
 	let number = strength to Number
 	let numeric = number is Error then false else number to Text is strength
 	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
-Described(path Text) Text
+Described(path Text) Text slow
 	ModelFiles("").Described("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
 	ModelFiles("").Described("C:/models/missing.safetensors") is "missing.safetensors"
 	let name = Path(path).FileName.text
@@ -53,10 +53,10 @@ Prefetching(paths Texts, what Text) Text
 	for paths
 		bytes = bytes + TensorFile.Prefetched(value)
 	bytes > 0 then "Reading " + what + " (" + (bytes / 1000000000).Round(1) + " GB)" + Cached else ""
-ComfyUI Text
+ComfyUI Text slow
 	ModelFiles(".").ComfyUI is "./.."
 	Folder + "/.."
-Workflow(name Text) Text
+Workflow(name Text) Text slow
 	ModelFiles(".").Workflow("tinymossworkflow.json") is "tinymossworkflow.json"
 	ModelFiles(".").Workflow("a.json") is "./../user/default/workflows/a.json"
 	File(name).Exists then name else ComfyUI + "/user/default/workflows/" + name

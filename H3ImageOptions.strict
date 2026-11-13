@@ -26,21 +26,21 @@ constant OutputHelp = List(Text) + "numbered output base (.jpg or .png), never o
 constant Help = PromptHelp + SizeHelp + StepsHelp + LoraHelp + ModelHelp + EncoderHelp + OutputHelp
 constant Stacked = ("--lora", "tinyqkvlora.safetensors", "--lora", "tinylora.safetensors")
 constant Local = H3ImageOptions.Parsed(("--models", "."))
-Checkpoint Text
+Checkpoint Text slow
 	Local.Checkpoint is Error("FileNotFound:" + Base)
 	H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors")).Checkpoint is "tinyh3image.safetensors"
 	ModelFiles(models).Located(model is "" then Base else model, "diffusion_models")
-Decoder Text
+Decoder Text slow
 	Local.Decoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).Decoder(vae, Vae)
-VaeEncoder Text
+VaeEncoder Text slow
 	H3ImageOptions.Parsed(("--vae", "tinyh3imagevae.safetensors")).VaeEncoder is "tinyh3imagevae.safetensors"
 	H3ImageOptions.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).VaeEncoder(vae, Vae)
-Encoder Text
+Encoder Text slow
 	Local.Encoder is Error("FileNotFound:" + H3Batch.Encoder)
 	Files.Encoder
-Loras Text
+Loras Text slow
 	H3ImageOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Loras is "tinylora.safetensors=0.5"
 	H3ImageOptions.Parsed(Stacked).Loras is "tinyqkvlora.safetensors=1;tinylora.safetensors=1"
 	Local.Loras is ""
@@ -50,11 +50,11 @@ Files H3Files
 	H3ImageOptions.Parsed(("--image", "a.png")).Files.Cropped(0) is false
 	H3ImageOptions.Parsed(("--image", "a.png")).Files.vision is "off"
 	H3Files(textEncoder = textEncoder, models = models, image = image, crop = false, vision = "off")
-Prompted Text
+Prompted Text slow
 	H3ImageOptions.Parsed(("--prompt", "a red fox")).Prompted is "a red fox"
 	H3ImageOptions.Parsed(("--prompt", "H3ImageOptions.strict")).Prompted.StartsWith("has prompt")
 	File(prompt).Exists then PromptBatch.Sample.Template(prompt) else prompt
-Original Slow(Numbers)
+Original Numbers slow
 	H3ImageOptions.Parsed(("--image", "tinyframe.png")).Original is (2, 4)
 	Local.Original.Length is 0
 	if image is ""
@@ -80,7 +80,7 @@ Scaled(original Numbers, low Number, high Number) Numbers
 	let scale = shortest.Clamp(low, high) / shortest
 	for original
 		((value * scale / 32).Round * 32, 32).Maximum
-Problem Text
+Problem Text slow
 	Local.Problem is ""
 	Local.output is "H3Image.jpg"
 	H3ImageOptions.Parsed(("--steps", "0")).Problem is "--steps and --count must be at least 1"

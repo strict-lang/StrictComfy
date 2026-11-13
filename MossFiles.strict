@@ -18,38 +18,38 @@ constant WorkflowHelp = List(Text) + "ComfyUI image workflow (.json saved in Com
 constant Help = ModelHelp + FolderHelp + WorkflowHelp
 constant Encoding = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--text_encoder", "tinymoss.safetensors", "--models", "."))
 constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
-Folder Text
+Folder Text slow
 	Local.Folder is "."
 	ModelFiles(models).Folder
-Located(name Text, folder Text) Text
+Located(name Text, folder Text) Text slow
 	Local.Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
 	Local.Located("x.y", "loras") is Error("FileNotFound:x.y")
 	ModelFiles(models).Located(name, folder)
-Checkpoint Text
+Checkpoint Text slow
 	Local.Checkpoint is "tinymoss.safetensors"
 	MossFiles.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:moss-image-sft-dit-int8-convrot.safetensors")
 	MossFiles.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
 	Located(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")
-Decoder Text
+Decoder Text slow
 	Local.Decoder is "tinyvae.safetensors"
 	MossFiles.Parsed(("--models", ".")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	if vae is not ""
 		return Located(vae, File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae")
 	let full = Located("flux2-vae.safetensors", "vae")
 	(full is Error) and File(Tiny).Exists then Tiny else full
-Tiny Text
+Tiny Text slow
 	Local.Tiny is "./vae_approx/taef2.safetensors"
 	Folder + "/vae_approx/taef2.safetensors"
-Fast Text
+Fast Text slow
 	Local.Fast is "tinyvae.safetensors"
 	MossFiles.Parsed(("--models", ".")).Fast is Error("FileNotFound:flux2-vae.safetensors")
 	(vae is "") and File(Tiny).Exists then Tiny else Decoder
-Encoder Text
+Encoder Text slow
 	Local.Encoder is Error("FileNotFound:qwen3.5_9b_int8_convrot.safetensors")
 	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Encoder is "tinymoss.safetensors"
 	MossFiles.Parsed(("--models", "web", "--text_encoder", "h3_preview.js")).Encoder is Error("FileNotFound:h3_preview.js")
 	Located(textEncoder is "" then "qwen3.5_9b_int8_convrot.safetensors" else textEncoder, "text_encoders")
-Tokenizer Text
+Tokenizer Text slow
 	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Tokenizer is Error("TokenizerNotFound")
 	let beside = Path(Encoder).PathOnly.text
 	let next = (beside is "" then "." else beside) + "/qwen35_tokenizer"
@@ -57,17 +57,17 @@ Tokenizer Text
 		return next
 	let installed = ModelFiles(models).ComfyUI + "/comfy/text_encoders/qwen35_tokenizer"
 	Directory.Exists(installed) then installed else Error("TokenizerNotFound")
-Workflow Text
+Workflow Text slow
 	MossFiles.Parsed(("--workflow", "tinymossworkflow.json")).Workflow is "tinymossworkflow.json"
 	MossFiles.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
-Freed
+Freed slow
 	Encoding.Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available > File(Checkpoint).Length + File(Encoder).Length
 		GpuMemory.Released
 	else
 		GpuMemory.Evicted
-Eased
+Eased slow
 	Encoding.Eased is not Error
 	if GpuMemory.Available < Spare
 		Freed

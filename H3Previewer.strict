@@ -5,7 +5,7 @@ constant Frames = 32
 constant Tiny = H3Previewer("artifacts/h3previewer-test.jpg", List(Taeh3Decoder) + Taeh3Decoder.Tiny)
 constant Shape = (24, 2, 2, 3)
 constant Clip = Taeh3Decoder.Latent + Taeh3Decoder.Latent
-Loaded(file Text, models Text) Slow(H3Previewer)
+Loaded(file Text, models Text) H3Previewer slow
 	H3Previewer.Loaded("", ".").decoders.Length is 0
 	H3Previewer.Loaded("a.jpg", ".").decoders.Length is 0
 	if file is ""
@@ -14,7 +14,7 @@ Loaded(file Text, models Text) Slow(H3Previewer)
 	if (tiny is Error) or (Taeh3Decoder.Is(tiny) is false)
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
-Written(latent Numbers, shape Numbers) Slow(None)
+Written(latent Numbers, shape Numbers) None slow
 	Tiny.Written(Clip, Shape) is not Error
 	File(Tiny.path).Exists
 	if (decoders.Length is 0) or (latent.Length is 0)

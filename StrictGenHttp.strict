@@ -32,7 +32,7 @@ Body(raw Text) Text
 	StrictGenHttp.Body("GET / HTTP/1.1\r\n\r\n") is ""
 	let separator = raw.IndexOf("\r\n\r\n")
 	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
-Received(client Number) Numbers
+Received(client Number) Numbers slow
 	if (client is Error) or (client <= 0)
 		return List(Number)
 	mutable bytes = List(Mutable(Number))
@@ -65,12 +65,12 @@ Payload(bytes Numbers) Numbers
 	StrictGenHttp.Payload(StrictGenHttp.Encoded("POST / HTTP/1.1\r\n\r\nab")) is (97, 98)
 	let head = Head(bytes)
 	bytes.Slice(head.Length, bytes.Length - head.Length)
-Replied(client Number, kind Text, body Text)
+Replied(client Number, kind Text, body Text) slow
 	let payload = Encoded(body)
 	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
 	Socket.Send(client, Encoded(header) + payload)
 	Socket.Close(client)
-SendFile(client Number, path Text)
+SendFile(client Number, path Text) slow
 	if (path is "") or (File(path).Exists is false)
 		Replied(client, "text/plain", "missing")
 		return

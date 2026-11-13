@@ -1,7 +1,7 @@
 has logger
 constant Tiny = MossSpectrum(Logger, 4, 1, 1)
 constant Image = MossSpectrumImage(Logger)
-Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Slow(Numbers)
+Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Numbers slow
 	MossSpectrumImage(Logger).Sampled(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
 	let sigmas = euler.Sigmas

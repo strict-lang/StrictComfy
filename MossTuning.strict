@@ -8,7 +8,7 @@ constant Unmerged = MossBlock.Loaded(Safetensors("tinymossint4.safetensors"), "l
 constant Merging = MossBlock.Loaded(MossBlock.Model, "layers.0.", Lora)
 constant Output = Unmerged.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
 constant Reference = Merging.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
-Deltas Slow(List(MossLora))
+Deltas List(MossLora) slow
 	Fours.Deltas.Length is 4
 	MossTuning(Fours.rows, "").Deltas.Length is 0
 	Floats.Deltas.Length is 0
@@ -17,13 +17,13 @@ Deltas Slow(List(MossLora))
 		return List(MossLora)
 	let qkv = Stacked("q.").Placed(0).Stacked(Stacked("k.").Placed(1)).Stacked(Stacked("v.").Placed(2))
 	(qkv, Stacked("o."), Stacked("ffn_up_gate."), Stacked("ffn_down."))
-Stacked(name Text) Slow(MossLora)
+Stacked(name Text) MossLora slow
 	Fours.Stacked("q.").rank is 8
 	H3Lora(loras).Stacked(rows.prefix + name)
-Merged(name Text, deltas List(MossLora)) Slow(List(Numbers))
+Merged(name Text, deltas List(MossLora)) List(Numbers) slow
 	Fours.Merged("o", Fours.Deltas) is MossTuning(Fours.rows, "").Merged("o", List(MossLora))
 	H3Lora(deltas.Length is 0 then loras else "").Merged(rows, name, rows.prefix)
-Qkv(deltas List(MossLora)) Slow(List(Numbers))
+Qkv(deltas List(MossLora)) List(Numbers) slow
 	MossBlock.Tiny.attention.Length is 768
 	MossTuning(Floats.rows, "").Qkv(List(MossLora)) is MossBlock.Tiny.attention
 	Fused.Qkv(List(MossLora)) is MossBlock.Tiny.attention

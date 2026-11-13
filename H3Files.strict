@@ -23,23 +23,23 @@ constant MotionHelp = ("mp4 to continue; the last --context frames of its video 
 constant Help = DiffusionHelp + VaeHelp + EncoderHelp + FolderHelp + FrameHelp + WorkflowHelp + CropHelp + VisionHelp + MotionHelp
 constant DecodeRoom = 2147483648
 constant Local = H3Files.Parsed(("--models", "."))
-Checkpoint Text
+Checkpoint Text slow
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Checkpoint is "tinyh3.safetensors"
 	H3Files.Parsed(("--image", "a.png", "--last_image", "b.jpg")).lastImage is "b.jpg"
 	Local.Checkpoint is Error("FileNotFound:" + H3Video.Base)
 	H3Files.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
 	ModelFiles(models).Located(model is "" then H3Video.Base else model, "diffusion_models")
-Decoder Text
+Decoder Text slow
 	Local.Decoder is Error
 	ModelFiles(models).Decoder(vae, Vae)
-VaeEncoder Text
+VaeEncoder Text slow
 	H3Files.Parsed(("--vae", "tinyh3vae.safetensors")).VaeEncoder is "tinyh3vae.safetensors"
 	H3Files.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error
 	ModelFiles(models).VaeEncoder(vae, Vae)
-Sound Text
+Sound Text slow
 	Local.Sound is Error
 	ModelFiles(models).Located(audioVae is "" then "minimax_h3_audio_vae_fp32.safetensors" else audioVae, "vae")
-Encoder Text
+Encoder Text slow
 	Local.Encoder is Error
 	ModelFiles(models).Located(textEncoder is "" then H3Batch.Encoder else textEncoder, "text_encoders")
 Images Texts
@@ -49,10 +49,10 @@ Images Texts
 	for (image, lastImage)
 		if value is not ""
 			value
-ComfyUI Text
+ComfyUI Text slow
 	Local.ComfyUI is "./.."
 	ModelFiles(models).ComfyUI
-Workflow Text
+Workflow Text slow
 	H3Files.Parsed(("--workflow", "tinyh3workflow.json")).Workflow is "tinyh3workflow.json"
 	H3Files.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
@@ -62,7 +62,7 @@ Cropped(index Number) Boolean
 	H3Files.Parsed(("--crop=false")).Cropped(0) is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or (index is 1)
-Problem Text
+Problem Text slow
 	H3Files.Parsed(("--context", "10")).Problem is "--context must be 22, 39 or 90"
 	H3Files.Parsed(("--video", "clip.mov")).Problem is "--video must end with .mp4"
 	H3Files.Parsed(("--video", "missing-clip.mp4")).Problem is "--video missing-clip.mp4 was not found"
@@ -75,7 +75,7 @@ Problem Text
 	if (video is not "") and (image is not "")
 		return "--image is a still first frame; leave it empty when --video continues a clip"
 	""
-Freed
+Freed slow
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
 		GpuMemory.Evicted

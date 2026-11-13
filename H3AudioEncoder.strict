@@ -10,7 +10,7 @@ Loaded(weights Safetensors) H3AudioEncoder
 	if weights.Entry("encoder.block.0.weight") is ""
 		return H3AudioEncoder(weights, problem = "NoAudioEncoder")
 	H3AudioEncoder(weights)
-Encoded(waveform Numbers, frames Number) Slow(Numbers)
+Encoded(waveform Numbers, frames Number) Numbers slow
 	Tiny.Encoded((1, -1), 4) is Error("NoAudioEncoder")
 	if problem is not ""
 		return Error(problem)
@@ -57,13 +57,13 @@ Fit(samples Numbers, count Number) Numbers
 	H3AudioEncoder.Fit((1), 3) is (0, 0, 1)
 	let drop = samples.Length - count
 	drop >= 0 then samples.Slice(drop, count) else Layer.Zeros(-drop) + samples
-Side(samples Numbers) Slow(Numbers)
+Side(samples Numbers) Numbers slow
 	mutable state = H3Conv.Loaded(model, "encoder.block.0", 1).Output(samples)
 	for Rates
 		state = Block(state, index + 1, value)
 	state = Snaked(state, model.Values("encoder.block.6.alpha"))
 	Projected(H3Conv.Loaded(model, "encoder.block.7", 1).Output(state))
-Block(signal Numbers, block Number, stride Number) Slow(Numbers)
+Block(signal Numbers, block Number, stride Number) Numbers slow
 	mutable state = signal
 	for Dilations
 		let prefix = "encoder.block." + block + ".block." + index + ".block."
@@ -73,7 +73,7 @@ Block(signal Numbers, block Number, stride Number) Slow(Numbers)
 	let name = "encoder.block." + block + ".block.4"
 	let snake = Snaked(state, model.Values("encoder.block." + block + ".block.3.alpha"))
 	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, 64 * (2 ^ (block - 1)))
-Projected(signal Numbers) Slow(Numbers)
+Projected(signal Numbers) Numbers slow
 	let reduced = Linear(Gpt2Block.Added(signal, Attend(Norm(signal, "pre_block.norm1", 2048))), "pre_block.proj")
 	let normed = Norm(reduced, "pre_block.norm2", 32)
 	let widened = Gpt2Block.Added(Linear(normed, "pre_block.mlp.w0"), Linear(normed, "pre_block.mlp.w1"))
@@ -93,7 +93,7 @@ Shift(signal Numbers with value.Bits is 32, start Number, channels Number) Numbe
 	for channels
 		square = square + (signal(start + index) - mean) * (signal(start + index) - mean)
 	(mean, (square / channels + 0.00001).SquareRoot)
-Attend(signal Numbers) Slow(Numbers)
+Attend(signal Numbers) Numbers slow
 	let qkv = H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(TripleChannels), 1, 1).Output(signal)
 	let biased = Biased(qkv)
 	let time = signal.Length / 2048
@@ -121,7 +121,7 @@ Score(mixed Numbers, at Number, other Number) Number
 	for 2048
 		sum = sum + mixed(first + index) * mixed(second + index)
 	sum / 2048.SquareRoot
-Linear(signal Numbers, name Text) Slow(Numbers)
+Linear(signal Numbers, name Text) Numbers slow
 	let shape = model.Shape(name + ".weight")
 	let kernel = shape.Length > 2 then shape.Last else 1
 	let bias = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")

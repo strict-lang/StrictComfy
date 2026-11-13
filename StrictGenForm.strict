@@ -8,7 +8,7 @@ constant Forced = "{\"force\":\"true\",\"local\":\"true\",\"seed\":7}"
 constant Named = "{\"mode\":\"image\",\"width\":704,\"height\":1280,\"sizeName\":\"720p portrait\",\"steps\":8}"
 constant Modes = ("image", "video", "extend", "h3image")
 constant Titles = ("Moss Image", "H3 Video", "H3 Video Extend", "H3 Image")
-Arguments(body Text) Texts
+Arguments(body Text) Texts slow
 	StrictGenForm.Arguments(Picture) is ExpectedPicture
 	StrictGenForm.Arguments(Clip) is ExpectedClip
 	StrictGenForm.Arguments(StrictGenImage.Edit) is StrictGenImage.Expected
@@ -91,7 +91,7 @@ Selected(kind Text, arguments Texts) Text
 	if kind is "moss"
 		return "image"
 	(("--image" is in arguments) or ("--last_image" is in arguments)) then "imagevideo" else "video"
-Imported(path Text) Text
+Imported(path Text) Text slow
 	StrictGenForm.Imported("tinymossworkflow.json").IndexOf("\"mode\":\"image\",") >= 0
 	StrictGenForm.Imported("tinyh3strictworkflow.json").IndexOf("\"mode\":\"imagevideo\"") >= 0
 	let text = Text.Combine(File(path).ReadLines, "\n")
@@ -139,14 +139,14 @@ Neighbor(paths Texts, current Text, step Number) Text
 		return ""
 	let at = files.Index(current)
 	files(at < 0 then (step < 0 then files.Length - 1 else 0) else (at + step).Clamp(0, files.Length - 1))
-Listed(folder Text, extensions Texts) Slow(Texts)
+Listed(folder Text, extensions Texts) Texts slow
 	Text.Combine(StrictGenForm.Listed(".", List(Text) + "strict"), " ").IndexOf("StrictGenForm.strict") >= 0
 	mutable files = List(Mutable(Text))
 	for Directory.Files(folder)
 		if extensions.Index(value.Lower.Split(".").Last) >= 0
 			files.Add(value)
 	files.Sorted
-Stepped(path Text, step Number) Text
+Stepped(path Text, step Number) Text slow
 	StrictGenForm.Stepped("", 1) is ""
 	if path is ""
 		return ""

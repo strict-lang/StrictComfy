@@ -8,9 +8,9 @@ Run
 	mutable line = Process.InputLine
 	for as long as line is not ""
 		line = line.StartsWith("workflow ") then Workflow(line) else Session(previewer, line)
-Session(previewer Taef2Decoder, first Text) Slow(Text)
+Session(previewer Taef2Decoder, first Text) Text slow
 	Images(previewer, first, Encoders(first, Prompt(first)))
-Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Slow(Text)
+Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Text slow
 	mutable prompt = Prompt(first)
 	mutable context = Encoded(prompt, encoders, HasRoom(first))
 	let moss = Loaded(Loras(first))
@@ -25,7 +25,7 @@ Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Slow(Text)
 Settings(line Text) Texts
 	MossWeb(Logger).Settings(Sample) is ("7", "480", "848", "fastest", "taef2", "7")
 	line.Split("\t").First.Split(" ")
-Prompt(line Text) Slow(Text)
+Prompt(line Text) Text slow
 	MossWeb(Logger).Prompt(Sample) is "a red fox"
 	MossWeb(Logger).Prompt(Sample + "\tloras/a.safetensors=0.5") is "a red fox"
 	MossWeb(Logger).Prompt("9 480 848 fastest taef2 1\t{a|b|c|d}") is PromptBatch(Logger, "Image").Expanded("{a|b|c|d}", 1)
@@ -42,7 +42,7 @@ Setup(line Text) Text
 	MossWeb(Logger).Setup(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5\ttaef2"
 	MossWeb(Logger).Setup("workflow a.json") is "workflow a.json"
 	line.StartsWith("workflow ") then line else Loras(line) + "\t" + Settings(line)(4)
-Workflow(line Text) Slow(Text)
+Workflow(line Text) Text slow
 	let path = line.Split(" ").Last
 	let batch = MossBatch(logger, MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
 	let options = batch.options
@@ -71,13 +71,13 @@ KeepsEncoder(line Text) Boolean
 	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
 	(words.Length > 6) and (words(6) is "2")
-Encoders(line Text, prompt Text) Slow(List(Qwen3))
+Encoders(line Text, prompt Text) List(Qwen3) slow
 	if KeepsEncoder(line) is false
 		return List(Qwen3)
 	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
 	let ids = batch.Tokenized(batch.Tokenizer, List(Text) + prompt)
 	List(Qwen3) + Qwen3(batch.Encoder(batch.Picked(ids)), tokens = List(Numbers))
-Context(prompt Text, encoders List(Qwen3)) Slow(Numbers)
+Context(prompt Text, encoders List(Qwen3)) Numbers slow
 	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
 	if encoders.Length is 0
 		return batch.Contexts(List(Text) + prompt).First
@@ -87,7 +87,7 @@ Context(prompt Text, encoders List(Qwen3)) Slow(Numbers)
 	let encoder = batch.Reworded(encoders.First, batch.Picked(ids))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	batch.Encoded(encoder, ids, prompts).First
-Encoded(prompt Text, encoders List(Qwen3), hasRoom Boolean) Slow(Numbers)
+Encoded(prompt Text, encoders List(Qwen3), hasRoom Boolean) Numbers slow
 	if hasRoom
 		GpuMemory.Released
 	else
@@ -98,12 +98,12 @@ Encoded(prompt Text, encoders List(Qwen3), hasRoom Boolean) Slow(Numbers)
 	else
 		GpuMemory.Evicted
 	context
-Loaded(loras Text) Slow(Moss)
+Loaded(loras Text) Moss slow
 	let started = Process.Elapsed
 	let moss = Moss.Loaded(FourSteps, loras)
 	logger.Log("Moss loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	moss
-Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context Numbers, line Text) Slow(Text)
+Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context Numbers, line Text) Text slow
 	let words = Settings(line)
 	let sized = ("--width", words(1), "--height", words(2), "--output", "MossWeb.jpg")
 	let options = MossOptions.Parsed(("--quality", words(3)) + sized)
@@ -116,7 +116,7 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	let width = options.width / 16
 	let image = decoders.Length is 0 then previewer.Decoded(latent, width) else decoders.First.Decoded(latent, width)
 	batch.Saved(image, decoded, words(0) to Number, "", "MossWeb.jpg")
-Decoders(decoder Text) Slow(List(FluxDecoder))
+Decoders(decoder Text) List(FluxDecoder) slow
 	MossWeb(Logger).Decoders("taef2").Length is 0
 	MossWeb(Logger).Decoders("tinyvae").Length is 1
 	decoder is "taef2" then List(FluxDecoder) else List(FluxDecoder) + FluxDecoder.Loaded(decoder + ".safetensors", 32)

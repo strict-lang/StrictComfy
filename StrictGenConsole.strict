@@ -3,7 +3,7 @@ constant Quiet = 60
 constant Sample = StrictGenConsole(Logger)
 constant Backends = ("MossImage", "moss", "H3Video", "h3", "H3Image", "h3image")
 constant Added = StrictGenQueue.Empty.Added("image", ("--width", "32"), "Moss Image fox")
-Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue
+Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue slow
 	Sample.Told(StrictGenQueue.Empty, Added).modes.Length is 1
 	Sample.Told(Added, Added).job.current is -1
 	for Range(before.modes.Length, after.modes.Length)
@@ -26,14 +26,14 @@ Shown(id Number, rows Texts, first Number, until Number)
 		let parts = rows(value).Split("\t")
 		if parts.Last.Trim is not ""
 			logger.Log("Run " + (id + 1) + " " + parts.First + "s: " + parts.Last.Trim)
-Ended(queue StrictGenQueue, id Number, first Number)
+Ended(queue StrictGenQueue, id Number, first Number) slow
 	Sample.Ended(Added, 0, 0) is not Error
 	let file = "StrictGenJob-" + id + ".timed"
 	let rows = File(file).Exists then File(file).ReadLines else List(Text)
 	Shown(id, rows, first, rows.Length)
 	let outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
 	logger.Log("Run " + (id + 1) + " " + (outcome.First is "file" then "done: " else "ended: ") + outcome.Last)
-Quieted(queue StrictGenQueue) StrictGenQueue
+Quieted(queue StrictGenQueue) StrictGenQueue slow
 	Sample.Quieted(Added).job.nagged is 0
 	Sample.Quieted(StrictGenQueue(Added, job = StrictGenJob(StrictGenJob.Local(0), started = 1))).job.nagged > 0
 	let job = queue.job
@@ -43,7 +43,7 @@ Quieted(queue StrictGenQueue) StrictGenQueue
 	let silent = (Time.Now - last).Round
 	logger.Log("Run " + (job.current + 1) + ": no new output for " + silent + " s" + Backend(queue.modes(job.current)))
 	StrictGenQueue(queue, job = StrictGenJob(job, nagged = Time.Now))
-Backend(mode Text) Text
+Backend(mode Text) Text slow
 	Sample.Backend("image") is not Error
 	let program = StrictGenJob.Program(mode)
 	let at = Backends.Index(program)

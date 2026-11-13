@@ -22,7 +22,7 @@ constant LatentDeviations = LatentDeviations1 + LatentDeviations2 + LatentDeviat
 constant Image = Safetensors("tinyh3imagevae.safetensors", 32)
 constant Picture = H3Vae(H3Decoder.Still, H3Tiles.Tiny)
 constant StillPixels = Picture.Still(Image.Values("reference.latent"), 3, 4)
-Decoded(latent Numbers, shape Numbers) Slow(Numbers)
+Decoded(latent Numbers, shape Numbers) Numbers slow
 	(Pixels.Length is 359424) and Pixels(15000).IsNearlyEqual(0.7706, 0.01) and Pixels(359423).IsNearlyEqual(0.486, 0.01)
 	let latents = decoder.Denormalized(latent)
 	mutable frames = List(Number)
@@ -41,19 +41,19 @@ Statistics(model Safetensors) List(Numbers)
 	if model.Entry("latents_mean") is ""
 		return (LatentMeans, LatentDeviations)
 	(model.Values("latents_mean"), model.Values("latents_std"))
-Still(latent Numbers, height Number, width Number) Slow(Numbers)
+Still(latent Numbers, height Number, width Number) Numbers slow
 	StillPixels(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
 	MossImage(Logger).RelativeError(StillPixels, Image.Values("reference.pixels")) < 0.01
 	let canvas = Canvas(decoder.Denormalized(latent), height, width, 1)
 	let plane = canvas.Length / 3
 	for canvas
 		(value * Deviation((index / plane).Floor) + Mean((index / plane).Floor)).Clamp(0, 1)
-Finished(canvas Numbers, previous Numbers, first Number, count Number) Slow(Numbers)
+Finished(canvas Numbers, previous Numbers, first Number, count Number) Numbers slow
 	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean
 	let older = previous.Length > 0
 	let shape = (first, count, Blended, older then Tokens * Ratio + Padding else first, (Tokens + Shared) * Ratio)
 	Mixed(canvas, older then previous else canvas, shape, Mean + Deviation)
-Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Slow(Numbers)
+Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Numbers slow
 	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(84), (0, 1, 5, 0, 28), Mean + Deviation) is Mean
 	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(23) + 1 + 1 + Layer.Zeros(59), (0, 2, 5, 23, 28), (0, 0, 0, 1, 1, 1))(3) is 0.8
 	let plane = canvas.Length / 3 / shape(4)
@@ -64,7 +64,7 @@ Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Slow(Number
 		let own = canvas((channel * shape(4) + shape(0) + frame) * plane + pixel)
 		let before = source((channel * shape(4) + shape(3) + frame.Clamp(0, shape(2) - 1)) * plane + pixel)
 		((before + (own - before) * (frame / shape(2)).Clamp(0, 1)) * colors(channel + 3) + colors(channel)).Clamp(0, 1)
-Canvas(window Numbers, height Number, width Number, frames = 7) Slow(Numbers)
+Canvas(window Numbers, height Number, width Number, frames = 7) Numbers slow
 	Tiny.Canvas(H3Decoder.Window, 2, 2).Length is 86016
 	let ys = tiling.Starts(height * 16)
 	let xs = tiling.Starts(width * 16)
@@ -72,7 +72,7 @@ Canvas(window Numbers, height Number, width Number, frames = 7) Slow(Numbers)
 	let size = (tiling.Length(height * 16), tiling.Length(width * 16))
 	let strips = Columns(tiles, xs, Table(xs, width * 16, size(1)), (ys.Length, size(0), size(1), width * 16))
 	Rows(strips, ys, Table(ys, height * 16, size(0)), (size(0), height * 16, width * 16))
-Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Slow(Numbers)
+Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Numbers slow
 	Tiny.Tiles(H3Decoder.Window, (0), (0), (7, 2, 2)).Length is 86016
 	let tall = tiling.Length(shape(1) * 16) / 16
 	let wide = tiling.Length(shape(2) * 16) / 16
@@ -82,11 +82,11 @@ Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Slow(Numbers)
 		let box = (0, shape(0), ys((index / xs.Length).Floor) / 16, tall, xs(index % xs.Length) / 16, wide)
 		tiles = tiles + decoder.Pixels(decoder.Cut(window, shape, box), rotation, (shape(0), tall, wide))
 	tiles
-Table(starts Numbers, length Number, size Number) Slow(Numbers)
+Table(starts Numbers, length Number, size Number) Numbers slow
 	Tiny.Table(List(Number) + 0, 2, 2) is (0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0)
 	for length * 6
 		Contributions(starts, (index / 6).Floor, size)(index % 6)
-Contributions(starts Numbers, position Number, size Number) Slow(Numbers)
+Contributions(starts Numbers, position Number, size Number) Numbers slow
 	Tiny.Contributions((0, 16), 20, 32) is (1, 0.25, 0, 0.75, 1, 0)
 	Tiny.Contributions((0, 16), 40, 32) is (1, 1, 1, 0, 1, 0)
 	Tiny.Contributions((0, 112, 224), 230, 256)(5) > 0
@@ -99,7 +99,7 @@ Contributions(starts Numbers, position Number, size Number) Slow(Numbers)
 		entries = entries + ((at >= 0) and (weight > 0) then at else owner) + weight * share
 		weight = weight * (1 - share)
 	entries
-Columns(tiles Numbers, xs Numbers, table Numbers, shape Numbers) Slow(Numbers)
+Columns(tiles Numbers, xs Numbers, table Numbers, shape Numbers) Numbers slow
 	Tiny.Columns((1, 2, 3, 4), (0), (0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0), (1, 2, 2, 2)) is (1, 2, 3, 4)
 	Tiny.Columns((1, 2, 5, 6), (0, 1), (0, 1, 0, 0, 0, 0, 1, 0.5, 0, 0.5, 1, 0), (1, 1, 2, 2))(1) is 3.5
 	let cells = tiles.Length / shape(0) / xs.Length
@@ -112,7 +112,7 @@ Columns(tiles Numbers, xs Numbers, table Numbers, shape Numbers) Slow(Numbers)
 		let first = table(at + 1) * tiles((row + table(at)) * cells + offset - xs(table(at)))
 		let second = table(at + 3) * tiles((row + table(at + 2)) * cells + offset - xs(table(at + 2)))
 		first + second + table(at + 5) * tiles((row + table(at + 4)) * cells + offset - xs(table(at + 4)))
-Rows(strips Numbers, ys Numbers, table Numbers, shape Numbers) Slow(Numbers)
+Rows(strips Numbers, ys Numbers, table Numbers, shape Numbers) Numbers slow
 	Tiny.Rows((1, 2, 3, 4), List(Number) + 0, (0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0), (2, 2, 2)) is (1, 2, 3, 4)
 	Tiny.Rows((1, 3, 5, 7), (0, 1), (0, 1, 0, 0, 0, 0, 1, 0.5, 0, 0.5, 1, 0, 1, 1, 1, 0, 1, 0), (2, 3, 1))(1) is 4
 	let plane = shape(1) * shape(2)
@@ -125,7 +125,7 @@ Rows(strips Numbers, ys Numbers, table Numbers, shape Numbers) Slow(Numbers)
 		let first = table(at + 1) * strips((table(at) * rows + line - ys(table(at))) * shape(2) + x)
 		let second = table(at + 3) * strips((table(at + 2) * rows + line - ys(table(at + 2))) * shape(2) + x)
 		first + second + table(at + 5) * strips((table(at + 4) * rows + line - ys(table(at + 4))) * shape(2) + x)
-Share(starts Numbers, at Number, position Number, size Number) Slow(Number)
+Share(starts Numbers, at Number, position Number, size Number) Number slow
 	Tiny.Share((0, 16), 1, 20, 32) is 0.25
 	Tiny.Share((0, 16), 1, 40, 32) is 1
 	Tiny.Share((0, 16), 0, 4, 32) is 1

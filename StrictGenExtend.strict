@@ -73,7 +73,7 @@ FromLatent(path Text, context Number) StrictGenExtend
 	let seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
 	let listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
 	StrictGenExtend(logger, "", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
-Head(path Text, context Number, height Number, width Number, vae Text, audioVae Text, folder Text = "") Slow(StrictGenExtend)
+Head(path Text, context Number, height Number, width Number, vae Text, audioVae Text, folder Text = "") StrictGenExtend slow
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
 	Sample.Head("strictgen-tail.mp4", 22, 16, 16, "", "").frames is 7
 	let beside = LatentPath(path)
@@ -81,7 +81,7 @@ Head(path Text, context Number, height Number, width Number, vae Text, audioVae 
 	let read = saved is not "" then FromLatent(saved, context) else StrictGenExtend(value, problem = "Missing")
 	let matches = (read.problem is "") and (read.tall * 16 is height) and (read.wide * 16 is width)
 	matches then read else FromMedia(path, context, width, height, vae, audioVae)
-FromMedia(path Text, context Number, width Number, height Number, vae Text, audioVae Text) Slow(StrictGenExtend)
+FromMedia(path Text, context Number, width Number, height Number, vae Text, audioVae Text) StrictGenExtend slow
 	let rgb = StrictGenClip(logger).TailRgb(path, context, width, height)
 	let pictured = rgb is Error then rgb else EncodedFrames(rgb, context, width, height, vae)
 	if pictured is Error
@@ -93,7 +93,7 @@ FromMedia(path Text, context Number, width Number, height Number, vae Text, audi
 	if encoded is Error
 		return StrictGenExtend(value, problem = encoded to Text)
 	StrictGenExtend(logger, "", pictured, encoded, LatentCount(context), heard, height / 16, width / 16)
-EncodedFrames(rgb Numbers, context Number, width Number, height Number, vae Text) Slow(Numbers)
+EncodedFrames(rgb Numbers, context Number, width Number, height Number, vae Text) Numbers slow
 	if vae is ""
 		return Error("NoVideoEncoder")
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
@@ -123,13 +123,13 @@ Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number
 		let time = (index / plane).Floor % temporal
 		let at = ((index / volume).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
-Remembered(path Text, folder Text) Slow(Text)
+Remembered(path Text, folder Text) Text slow
 	Sample.Remembered("a.mp4", "missing-folder") is ""
 	Sample.Remembered("a.mp4", "") is ""
 	let named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
 	let known = (named.Length > 0) and (named.First is path.Replace("\\", "/")) and File(folder + Last).Exists
 	known then folder + Last else ""
-Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text)
+Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
 	Safetensors(folder + Last).Written(("latent", "shape"), (latent, shape))
 	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))

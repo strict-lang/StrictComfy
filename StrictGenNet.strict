@@ -29,17 +29,17 @@ constant Heard4090 = ("10.0.0.3", "strictgen", "8001", "24576", "20000", "60000"
 constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
-Name Text
+Name Text slow
 	StrictGenNet.Name is not Error
 	let rows = File(StrictGenStats.Measured).Exists then File(StrictGenStats.Measured).ReadLines else List(Text)
 	rows.Length > 2 then rows(2).Trim else Process.Variable(Process.OperatingSystem is "Windows" then "COMPUTERNAME" else "HOSTNAME")
-Opened(port Number) StrictGenNet
+Opened(port Number) StrictGenNet slow
 	let socket = Socket.Beacon(StrictGenNet.BeaconPort)
 	if socket is Error
 		logger.Log("UDP " + StrictGenNet.BeaconPort + " is already in use, this StrictGen will not see other PCs")
 	let started = (Time.Now * 1000).Floor % 1000000000
 	StrictGenNet(value, httpPort = port, beacon = socket is Error then 0 else socket, id = started)
-Measured StrictGenNet
+Measured StrictGenNet slow
 	let result = Process.RunTool("nvidia-smi", Query)
 	let parts = result.Failed then List(Text) else result.Output.Split("\n").First.Split(",")
 	let named = parts.Length < 3 then "" else parts(0).Trim
@@ -49,11 +49,11 @@ Measured StrictGenNet
 	let sized = StrictGenNet(value, gpu = named, total = whole is Error then 0 else whole, ram = memory, seenGpu = true)
 	let degrees = parts.Length < 4 then 0 else parts(3).Trim to Number
 	StrictGenNet(sized, free = available is Error then 0 else available, heat = degrees is Error then 0 else degrees)
-Refreshed StrictGenNet
+Refreshed StrictGenNet slow
 	if Process.Elapsed - metered <= 8
 		return value
 	StrictGenNet(value, meters = StrictGenStats(logger).Text, metered = Process.Elapsed).Measured
-Shouted StrictGenNet
+Shouted StrictGenNet slow
 	if beacon <= 0
 		return StrictGenNet(value, shouted = Process.Elapsed)
 	let state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
@@ -61,7 +61,7 @@ Shouted StrictGenNet
 	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
-Heard StrictGenNet
+Heard StrictGenNet slow
 	if beacon <= 0
 		return value
 	mutable found = value
@@ -70,7 +70,7 @@ Heard StrictGenNet
 		found = found.Noted(line, Process.Elapsed)
 		line = Socket.Hear(beacon)
 	StrictGenNet(found, peers = found.Fresh(Process.Elapsed))
-Tick(isBusy Boolean) StrictGenNet
+Tick(isBusy Boolean) StrictGenNet slow
 	let heard = StrictGenNet(value, busy = isBusy).Heard
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
 Noted(line Text, now Number) StrictGenNet

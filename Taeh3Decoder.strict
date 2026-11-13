@@ -20,7 +20,7 @@ constant Pixels = Tiny.Decoded(Latent, 3)
 constant Video = Tiny.Frames(Latent + Latent, (2, 2, 3))
 constant Narrow = FeatureMap(Layer.Zeros(16), 2, 4, Layer.Zeros(4))
 constant Started = Tiny.Entered(Latent, 3)
-Loaded(path Text) Slow(Taeh3Decoder)
+Loaded(path Text) Taeh3Decoder slow
 	(Tiny.blocks.Length is 9) and (Tiny.grows.Length is 3) and (Tiny.narrows.Length is 3)
 	Tiny.grows(1).biases.Length is 16
 	let model = Safetensors(path, 32, "decoder.")
@@ -30,20 +30,20 @@ Is(path Text) Boolean
 	Taeh3Decoder.Is(Path)
 	Taeh3Decoder.Is("tinytaef2.safetensors") is false
 	Safetensors(path).Entry("decoder.22.weight") is not ""
-Blocks(model Safetensors) Slow(List(Taef2Block))
+Blocks(model Safetensors) List(Taef2Block) slow
 	Tiny.Blocks(Model)(8).convolutions.Length is 3
 	for Layers
 		Taef2Block.Loaded(model, (value to Text) + ".")
-Grows(model Safetensors) Slow(List(Convolution))
+Grows(model Safetensors) List(Convolution) slow
 	Tiny.Grows(Model).First.biases.Length is 8
 	for GrowLayers
 		FluxResnet.Convolved(model, (value to Text) + ".conv")
-Narrows(model Safetensors) Slow(List(Convolution))
+Narrows(model Safetensors) List(Convolution) slow
 	Tiny.Narrows(Model).Last.biases is Layer.Zeros(4)
 	for NarrowLayers
 		let narrow = FluxResnet.Convolved(model, value to Text)
 		Convolution(narrow.Folds, narrow.biases)
-Decoded(latent Numbers, width Number) Slow(Numbers)
+Decoded(latent Numbers, width Number) Numbers slow
 	Pixels.Length is 4608
 	Pixels(1537).IsNearlyEqual(Reference(1537), 0.002) and Pixels(3071).IsNearlyEqual(Reference(3071), 0.002)
 	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
@@ -52,7 +52,7 @@ Decoded(latent Numbers, width Number) Slow(Numbers)
 	let pair = List(FeatureMap) + narrows(1).Doubled(Grown(second, 1, 0)) + narrows(1).Doubled(Grown(second, 1, 1))
 	let final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
 	Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width)
-Frames(latent Numbers, shape Numbers) Slow(Numbers)
+Frames(latent Numbers, shape Numbers) Numbers slow
 	(Video.Length is 5 * Pixels.Length) and Video.Sum.IsNearlyEqual(1035.427, 0.5)
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)
 	Video(15928).IsNearlyEqual(0.2726, 0.002) and Video(18694).IsNearlyEqual(0.2345, 0.002)
@@ -65,7 +65,7 @@ Frames(latent Numbers, shape Numbers) Slow(Numbers)
 			frames = frames + Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width, false)
 		completion.Report(index + 1)
 	frames
-Inputs(latent Numbers, shape Numbers) Slow(List(FeatureMap))
+Inputs(latent Numbers, shape Numbers) List(FeatureMap) slow
 	Tiny.Inputs(Latent, (1, 2, 3)).First.values is Started.values
 	let plane = shape(1) * shape(2)
 	for shape(0)
@@ -74,12 +74,12 @@ Slice(latent Numbers, total Number, time Number, plane Number) Numbers
 	Tiny.Slice((1, 2, 3, 4, 5, 6, 7, 8), 2, 1, 2) is (3, 4, 7, 8)
 	for latent.Length / total
 		latent(((index / plane).Floor * total + time) * plane + index % plane)
-Entered(latent Numbers, width Number) Slow(FeatureMap)
+Entered(latent Numbers, width Number) FeatureMap slow
 	Started.channels is 8
 	let clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
 	let map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
 	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
-Passed(maps List(FeatureMap), group Number) Slow(List(FeatureMap))
+Passed(maps List(FeatureMap), group Number) List(FeatureMap) slow
 	Tiny.Passed(List(FeatureMap) + Started, 0).First.channels is 8
 	Tiny.Passed(List(FeatureMap) + Narrow + Narrow, 2).Last.values.Length is 16
 	mutable state = maps
@@ -87,11 +87,11 @@ Passed(maps List(FeatureMap), group Number) Slow(List(FeatureMap))
 	for 3
 		state = Step(state, blocks(first + index))
 	state
-Step(maps List(FeatureMap), block Taef2Block) Slow(List(FeatureMap))
+Step(maps List(FeatureMap), block Taef2Block) List(FeatureMap) slow
 	Tiny.Step(List(FeatureMap) + Narrow + Narrow, Tiny.blocks(6)).Length is 2
 	for maps
 		block.Remembered(value, index is 0 then Empty(value) else maps(index - 1))
-Expanded(maps List(FeatureMap), which Number) Slow(List(FeatureMap))
+Expanded(maps List(FeatureMap), which Number) List(FeatureMap) slow
 	Tiny.Expanded(List(FeatureMap) + Started, 1).Length is 2
 	let stride = which is 0 then 1 else 2
 	for maps.Length * stride
@@ -99,7 +99,7 @@ Expanded(maps List(FeatureMap), which Number) Slow(List(FeatureMap))
 Empty(map FeatureMap) FeatureMap
 	Tiny.Empty(Started).values is Layer.Zeros(48)
 	FeatureMap(Layer.Zeros(map.values.Length), map.width, map.channels, Layer.Zeros(map.channels))
-Grown(map FeatureMap, which Number, frame Number) Slow(FeatureMap)
+Grown(map FeatureMap, which Number, frame Number) FeatureMap slow
 	Tiny.Grown(Started, 1, 1).channels is 8
 	let grown = grows(which).Projected(map).Completed
 	let channels = map.channels

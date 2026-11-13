@@ -9,7 +9,7 @@ constant Queried = Middle.Queries(Combined.values, Middle.combined.biases)
 constant Keyed = FeatureMap((0, 0, 1, 3, 0, 0, 0, 0, 0, 1, 0, 0), 2, 6, Layer.Zeros(6))
 constant Spaced = (1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0)
 constant Input = FeatureMap(Model.Values("reference.mid.block_1"), 4, 16, Layer.Zeros(16))
-Loaded(model Safetensors, prefix Text, groups Number) Slow(FluxAttention)
+Loaded(model Safetensors, prefix Text, groups Number) FluxAttention slow
 	Middle.combined.weights.Length is 768
 	Middle.combined.biases.Length is 48
 	let block = Safetensors(model.path, 32, model.prefix + prefix)
@@ -17,7 +17,7 @@ Loaded(model Safetensors, prefix Text, groups Number) Slow(FluxAttention)
 	let biases = block.Values("q.bias") + block.Values("k.bias") + block.Values("v.bias")
 	let output = FluxResnet.Convolved(block, "proj_out")
 	FluxAttention(FluxResnet.Norm(block, "norm", groups), Convolution(weights, biases), output)
-Output(map FeatureMap) Slow(FeatureMap)
+Output(map FeatureMap) FeatureMap slow
 	Middle.Output(Input).Completed(0).IsNearlyEqual(-0.70551, 0.0001)
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.39508, 0.0005)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(1.27711, 0.0001)
@@ -25,7 +25,7 @@ Output(map FeatureMap) Slow(FeatureMap)
 	let mixed = combined.Projected(map.Applied(norm.Affine(map), Activation.Linear))
 	let attended = FeatureMap(Attended(mixed), map.width, size, Safetensors.Part(combined.biases, 2 * size, size, 1))
 	map.Plus(projection.Projected(attended))
-Attended(mixed FeatureMap, budget = Budget) Slow(Numbers)
+Attended(mixed FeatureMap, budget = Budget) Numbers slow
 	Middle.Attended(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
 	Middle.Attended(Combined)(17) is Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 1, 1)(1)
 	MossImage(Logger).RelativeError(Middle.Attended(Combined, 130), Middle.Attended(Combined)) < 0.00001
@@ -40,7 +40,7 @@ Attended(mixed FeatureMap, budget = Budget) Slow(Numbers)
 Rows(positions Number, budget Number) Number
 	(FluxAttention.Rows(24, 130) is 5) and (FluxAttention.Rows(24, 10) is 1) and (FluxAttention.Rows(24, Budget) is 24)
 	(budget / positions).Floor.Clamp(1, positions)
-Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count Number) Slow(Numbers)
+Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count Number) Numbers slow
 	Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 0, 24).Length is 384
 	Middle.Chunk((2, 0), Keyed, (10, 20, 30, 40), 0, 1) is (11.192029, 31.192029)
 	let size = mixed.channels / 3
@@ -55,7 +55,7 @@ Transposed(values Numbers, size Number) BFloat16s
 	let offset = 2 * size
 	for values.Length / 3
 		values((index % positions) * 3 * size + offset + (index / positions).Floor)
-Queries(values Numbers, biases Numbers) Slow(BFloat16s)
+Queries(values Numbers, biases Numbers) BFloat16s slow
 	Middle.Queries((1, 2, 3), (0.5, 0, 0))(0).IsNearlyEqual(1.5)
 	Middle.Queries(Spaced, (2, 4, 6, 8, 0, 0, 0, 0, 0, 0, 0, 0)) is (1.5, 3, 4.5, 6, 3.5, 5, 6.5, 8)
 	let size = biases.Length / 3

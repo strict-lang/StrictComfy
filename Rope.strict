@@ -3,7 +3,7 @@ has half Number
 constant Video = Rope(128, 48)
 constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Turning = Video.Table(H3Layout.Tiny.Positions, H3Layout.Inverse, 1)
-Table(positions Numbers, inverse Numbers, scale Number) Slow(Numbers)
+Table(positions Numbers, inverse Numbers, scale Number) Numbers slow
 	Turning(3329).IsNearlyEqual(-0.869141)
 	Turning(3505).IsNearlyEqual(0.494564)
 	Turning(3748).IsNearlyEqual(-0.999574)
@@ -31,7 +31,7 @@ Still(tokens Number) Numbers
 	let period = 2 * head
 	for tokens * period
 		index % period < head then 1 else 0
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) Slow(BFloat16s)
+Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) BFloat16s slow
 	Video.Rotated(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, Turning, Turning, Turning).Length is 8704
 	for combined.Length / 3
 		let token = (index / width).Floor

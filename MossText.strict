@@ -10,7 +10,7 @@ has down Batch
 constant Model = Safetensors("tinymoss.safetensors")
 constant Tiny = MossText.Loaded(Model, "text_embedder.blocks.0.")
 constant Input = Safetensors.Part(Model.Values("reference.text_embedder"), 0, 768, 1)
-Loaded(model Safetensors, prefix Text) Slow(MossText)
+Loaded(model Safetensors, prefix Text) MossText slow
 	Tiny.attention.weights.Length is 768
 	Tiny.down.biases.Length is 256
 	let block = Safetensors(model.path, model.bits, prefix)
@@ -22,22 +22,22 @@ Loaded(model Safetensors, prefix Text) Slow(MossText)
 	let gated = Dense(block, "ffn_gate")
 	let raised = Dense(block, "ffn_up")
 	MossText(first, second, queried, keyed, attended, Dense(block, "proj"), gated, raised, Dense(block, "ffn_down"))
-Dense(block Safetensors, name Text) Slow(Batch)
+Dense(block Safetensors, name Text) Batch slow
 	Tiny.Dense(Safetensors(Model.path, 32, "text_embedder."), "proj").weights.First.Length is 64
 	Tiny.Dense(Model, "final_linear_video").biases is (0)
 	let biased = block.Entry(name + ".bias") is not ""
 	Batch(block.Rows(name + ".weight"), biased then block.Values(name + ".bias") else List(Number) + 0)
-Output(input Numbers, rotation Numbers) Slow(Numbers)
+Output(input Numbers, rotation Numbers) Numbers slow
 	Tiny.Output(Input, MossBlock.Rotations(0, 0, 3, 128)).Length is 768
 	let normed = Qwen3Block.Normalized(input, 0, input.Length, firstNorm)
 	let attended = Added(input, projection.Sums(MossBlock.Merged(attention.Sums(normed), rotation, queryNorm, keyNorm)))
 	let fed = Qwen3Block.Normalized(attended, 0, attended.Length, secondNorm)
 	Added(attended, down.Sums(Activated(up.Sums(fed), gate.Sums(fed))))
-Activated(hidden Numbers, gates Numbers) Slow(Numbers)
+Activated(hidden Numbers, gates Numbers) Numbers slow
 	Tiny.Activated((2, 1), (3, 0)) is (MossBlock.Situ(2, 3), 0)
 	for hidden.Length
 		MossBlock.Situ(hidden(index), gates(index))
-Added(first Numbers, second Numbers) Slow(Numbers)
+Added(first Numbers, second Numbers) Numbers slow
 	Tiny.Added((1, 2), (3, 4)) is (4, 6)
 	for first.Length
 		first(index) + second(index)

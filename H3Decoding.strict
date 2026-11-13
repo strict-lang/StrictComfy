@@ -7,13 +7,13 @@ constant Fast = H3Decoding.Loaded(Logger, Taeh3Decoder.Path, "tinyh3audio.safete
 constant Latent = H3Vae.Model.Values("latent") + H3Audio.Latent
 constant FastLatent = Taeh3Decoder.Latent + Taeh3Decoder.Latent + H3Audio.Latent
 constant Both = Tiny.Decoded(Latent, (12, 3, 4))
-Loaded(log Logger, video Text, audio Text) Slow(H3Decoding)
+Loaded(log Logger, video Text, audio Text) H3Decoding slow
 	(Fast.tinies.Length is 1) and (Tiny.tinies.Length is 0)
 	let audioVae = H3Audio.Loaded(Safetensors(audio, 32))
 	if Taeh3Decoder.Is(video)
 		return H3Decoding(log, H3Vae(H3Decoder.None, H3Tiles.Real), audioVae, List(Taeh3Decoder) + Taeh3Decoder.Loaded(video))
 	H3Decoding(log, H3Vae(H3Decoder.Loaded(Safetensors(video, 32)), H3Tiles.Real), audioVae)
-Decoded(latent Numbers, shape Numbers) Slow(List(Numbers))
+Decoded(latent Numbers, shape Numbers) List(Numbers) slow
 	(Both(0).Length is H3Vae.Pixels.Length) and (MossImage(Logger).RelativeError(Both(0), H3Vae.Pixels) < 0.00001)
 	Both(1) is H3Audio.Tiny.Normalized(H3Audio.Waveform)
 	Fast.Decoded(FastLatent, (2, 2, 3))(0).Length is 5 * Taeh3Decoder.Pixels.Length
@@ -31,7 +31,7 @@ Shapes(conditions List(Safetensors)) List(Numbers)
 	Tiny.Shapes(List(Safetensors) + H3Video.Reference).First.Length is 0
 	for conditions
 		value.Entry("decode") is "" then List(Number) else H3Job(value).VideoShape
-Written(file Text, shape Numbers, index Number) Slow(None)
+Written(file Text, shape Numbers, index Number) None slow
 	Safetensors("h3test-latent.safetensors").Written("latent", Latent) is not Error
 	Tiny.Written("h3test", (24, 12, 3, 4), 0) is not Error
 	File("h3test-decoded.rgb").Length is 359424

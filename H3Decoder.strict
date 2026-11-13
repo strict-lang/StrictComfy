@@ -20,7 +20,7 @@ constant FramePosition = -0.8571428571428572
 constant Unused = Batch(List(Numbers), List(Number))
 constant None = H3Decoder(Unused, Unused, List(Number), List(H3DecoderBlock), List(Number), List(Number), Unused, List(Number), List(Number))
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
-Loaded(model Safetensors) Slow(H3Decoder)
+Loaded(model Safetensors) H3Decoder slow
 	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
 	let embedded = MossText.Dense(decoder, "x_embedder")
@@ -33,7 +33,7 @@ Loaded(model Safetensors) Slow(H3Decoder)
 	let projected = MossText.Dense(decoder, "proj_out")
 	let latents = H3Vae.Statistics(model)
 	H3Decoder(mixed, embedded, suffix, Blocks(model), weights, biases, projected, latents(0), latents(1))
-Blocks(model Safetensors) Slow(List(H3DecoderBlock))
+Blocks(model Safetensors) List(H3DecoderBlock) slow
 	Tiny.Blocks(Model).Length is 2
 	(Tiny.blocks.First.half is 24) and (Still.blocks.First.half is 16)
 	let planar = (model.Shape("decoder.proj_out.weight")(0) is StillRows) and (model.Entry("decoder.mask_token") is not "")
@@ -41,17 +41,17 @@ Blocks(model Safetensors) Slow(List(H3DecoderBlock))
 	let bits = planar then StillBits else 32
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length
 		H3DecoderBlock.Loaded(model, "decoder.transformer_blocks." + index + ".", half, bits)
-Split(values Numbers, width Number) Slow(List(Numbers))
+Split(values Numbers, width Number) List(Numbers) slow
 	Tiny.Split((1, 2, 3, 4), 2) is ((1, 2), (3, 4))
 	for values.Length / width
 		Safetensors.Part(values, index * width, width, 1)
-Denormalized(latent Numbers) Slow(Numbers)
+Denormalized(latent Numbers) Numbers slow
 	Window(0).IsNearlyEqual(0.604655)
 	Window(671).IsNearlyEqual(3.93821)
 	let size = latent.Length / means.Length
 	for latent.Length
 		latent(index) * deviations((index / size).Floor) + means((index / size).Floor)
-Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
+Cut(latent Numbers, shape Numbers, box Numbers) Numbers slow
 	Window.Length is 672
 	Window(27).IsNearlyEqual(3.585491)
 	Tiny.Cut((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), (3, 2, 2), (1, 2, 1, 1, 1, 1)) is (8, 12)
@@ -62,10 +62,10 @@ Cut(latent Numbers, shape Numbers, box Numbers) Slow(Numbers)
 		let frame = (index / area).Floor % box(1)
 		let channel = (index / area / box(1)).Floor
 		latent(((channel * shape(0) + box(0) + frame) * shape(1) + box(2) + y) * shape(2) + box(4) + x)
-Embedded(tile Numbers) Slow(Numbers)
+Embedded(tile Numbers) Numbers slow
 	Embedding.Length is 8448
 	embedder.Sums(post.Sums(Moss.Transposed(tile, means.Length))) + registers
-Rotations(frames Number, height Number, width Number) Slow(Numbers)
+Rotations(frames Number, height Number, width Number) Numbers slow
 	Turning.Length is 4224
 	Turning(3649) is 0
 	Still.Rotations(1, 2, 2).Length is 1152
@@ -73,17 +73,17 @@ Rotations(frames Number, height Number, width Number) Slow(Numbers)
 	let still = Temporal is 1 then Pinned(height, width) else Coordinates(frames, height, width)
 	let coordinates = half is PlanarHalf then Planar(height, width) else still
 	Rope(H3DecoderBlock.Decoding.head, half).Table(coordinates + Layer.Zeros(3 * H3Format.Registers), Frequencies, Circle)
-Pinned(height Number, width Number) Slow(Numbers)
+Pinned(height Number, width Number) Numbers slow
 	Tiny.Pinned(2, 2)(0) is FramePosition
 	Tiny.Pinned(2, 2)(4) is Tiny.Coordinates(1, 2, 2)(4)
 	for Coordinates(1, height, width)
 		index % 3 is 0 then FramePosition else value
-Frequencies Slow(Numbers)
+Frequencies Numbers slow
 	Tiny.Frequencies(1).IsNearlyEqual(0.5623413)
 	Tiny.Frequencies.Length is 8
 	for H3DecoderBlock.Decoding.half / 3
 		100 ^ (-index / (H3DecoderBlock.Decoding.half / 3))
-Coordinates(frames Number, height Number, width Number) Slow(Numbers)
+Coordinates(frames Number, height Number, width Number) Numbers slow
 	Tiny.Coordinates(7, 2, 2)(0).IsNearlyEqual(-0.857143)
 	Tiny.Coordinates(7, 2, 2)(4) is -0.5
 	Tiny.Coordinates(7, 2, 2)(5) is 0.5
@@ -94,7 +94,7 @@ Coordinates(frames Number, height Number, width Number) Slow(Numbers)
 		let size = axis is 0 then frames else (axis is 1 then height else width)
 		let time = (token / (height * width)).Floor
 		2 * ((axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)) + 0.5) / size - 1
-Planar(height Number, width Number) Slow(Numbers)
+Planar(height Number, width Number) Numbers slow
 	Tiny.Planar(2, 4)(0) is -0.5
 	(Tiny.Planar(2, 4)(4) is -0.25) and (Tiny.Planar(2, 4)(3) is -0.5) and (Tiny.Planar(2, 4)(5) is 0)
 	for height * width * 3
@@ -102,7 +102,7 @@ Planar(height Number, width Number) Slow(Numbers)
 		let axis = index % 3
 		let at = axis is 0 then (token / width).Floor else token % width
 		axis is 2 then 0 else 2 * (at + 0.5) / (axis is 0 then height else width) - 1
-Pixels(tile Numbers, rotation Numbers, shape Numbers) Slow(Numbers)
+Pixels(tile Numbers, rotation Numbers, shape Numbers) Numbers slow
 	Tiny.Pixels(Window, Turning, (7, 2, 2))(1000).IsNearlyEqual(1.640707, 0.01)
 	Tiny.Pixels(Window, Turning, (7, 2, 2))(86015).IsNearlyEqual(0.326644, 0.01)
 	mutable state = Embedded(tile)
@@ -110,29 +110,29 @@ Pixels(tile Numbers, rotation Numbers, shape Numbers) Slow(Numbers)
 		state = value.Output(state, rotation)
 	let count = shape(0) * shape(1) * shape(2) * normWeights.Length
 	Unpatched(projection.Sums(LayerNormed(Safetensors.Part(state, 0, count, 1))), shape(0), shape(1), shape(2))
-LayerNormed(state Numbers) Slow(Numbers)
+LayerNormed(state Numbers) Numbers slow
 	Tiny.LayerNormed(Layer.Zeros(256) + Tiny.normWeights).Length is 512
 	let width = normWeights.Length
 	let centered = Centered(state, width)
 	let scales = Qwen3Block.Scales(centered, width, H3Block.Epsilon)
 	for state.Length
 		centered(index) * scales((index / width).Floor) * normWeights(index % width) + normBiases(index % width)
-Centered(values Numbers, width Number) Slow(Numbers)
+Centered(values Numbers, width Number) Numbers slow
 	Tiny.Centered((1, 3, 2, 2), 2) is (-1, 1, 0, 0)
 	let centers = Means(values, width)
 	for values.Length
 		values(index) - centers((index / width).Floor)
-Means(values Numbers, width Number) Slow(Numbers)
+Means(values Numbers, width Number) Numbers slow
 	Tiny.Means((1, 3, 2, 4), 2) is (2, 3)
 	for values.Length / width
 		Mean(values, index * width, width)
-Mean(values Numbers with value.Bits is 32, first Number, size Number) Slow(Number)
+Mean(values Numbers with value.Bits is 32, first Number, size Number) Number slow
 	Tiny.Mean((1, 3, 2, 4), 1, 3) is 3
 	mutable sum = 0
 	for size
 		sum = sum + values(first + index)
 	sum / size
-Unpatched(rows Numbers, frames Number, height Number, width Number) Slow(Numbers)
+Unpatched(rows Numbers, frames Number, height Number, width Number) Numbers slow
 	Tiny.Pixels(Window, Turning, (7, 2, 2)).Length is 86016
 	Still.Unpatched(Layer.Zeros(256) + 1 + Layer.Zeros(511), 1, 1, 1)(256) is 1
 	let wide = width * 16

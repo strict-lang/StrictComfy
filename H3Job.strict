@@ -100,7 +100,7 @@ HeldAudio(solver Solver, step Number) Solver
 		return solver
 	let mixed = motion.Mixed(solver.latent, motion.audio, audio, audio.Length / 64, motion.sound, 1, solver.sigmas(step))
 	Solver(solver, latent = mixed)
-Keyed(latents List(Numbers), size Numbers, base Number) Slow(Numbers)
+Keyed(latents List(Numbers), size Numbers, base Number) Numbers slow
 	Reference.Keyed(List(Numbers) + Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), 0)(5) is Patches(5)
 	Reference.Keyed(Twice, Keyframe.Shape("keyframe"), 0)(389) is Patches(5)
 	mutable joined = List(Number)

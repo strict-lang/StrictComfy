@@ -70,7 +70,7 @@ IsNoisy Boolean
 	H3Options.Parsed(("--sampler", "lcm")).IsNoisy
 	H3Options.Parsed(("--sampler", "gradient_estimation")).IsNoisy is false
 	sampler is in ("er_sde", "euler_ancestral", "dpmpp_2m_sde", "lcm")
-Problem Text
+Problem Text slow
 	H3Options.Parsed(List(Text)).Problem is ""
 	H3Options.Parsed(("--width", "500")).Problem is ""
 	H3Options.Parsed(("--context", "10")).Problem is "--context must be 22, 39 or 90"
@@ -118,11 +118,11 @@ IsLarge Boolean
 	H3Options.Parsed(("--length", "294")).IsLarge
 	H3Options.Parsed(("--width", "704", "--height", "1280")).IsLarge
 	width * height * length >= LargeClip
-Checkpoint Text
+Checkpoint Text slow
 	H3Options.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:" + H3Video.Base)
 	H3Options.Parsed(("--model", "tinyh3.safetensors")).Checkpoint is "tinyh3.safetensors"
 	files.Checkpoint
-Loras Text
+Loras Text slow
 	H3Options.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
 	H3Options.Parsed(("--models", ".", "--quality", "fastest2steps")).Loras is Error
 	H3Options.Parsed(("--models", ".")).Loras is Error("FileNotFound:" + H3Video.Turbo)
@@ -135,7 +135,7 @@ Loras Text
 	let nested = File(local.Folder + "/loras/h3/" + H3Video.Turbo).Exists then "h3/" + H3Video.Turbo else H3Video.Turbo
 	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(nested, "loras") + "=1")
 	Text.Combine(added + given, ";")
-Few(local ModelFiles, given Texts) Text
+Few(local ModelFiles, given Texts) Text slow
 	H3Options.Parsed(FourStepArguments).Few(ModelFiles("."), List(Text) + GivenTaoMate) is GivenTaoMate
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
 	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo
