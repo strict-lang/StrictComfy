@@ -82,3 +82,12 @@ Freed slow
 	else
 		GpuMemory.Released
 		GpuMemory.Freed(File(Decoder).Length + File(Sound).Length + DecodeRoom)
+Turbo Text slow
+	H3Files.Local.Turbo is H3Video.Turbo
+	let folder = ModelFiles(models).Folder + "/loras/"
+	for (H3Video.TurboV4, H3Video.Turbo)
+		if File(folder + "h3/" + value).Exists
+			return "h3/" + value
+		if File(folder + value).Exists
+			return value
+	H3Video.Turbo
