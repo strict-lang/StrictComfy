@@ -115,7 +115,7 @@ Saved(decoding H3Decoding, latent Numbers, output Text)
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
 	let path = PromptBatch(logger, "Video").Reserved(output)
 	let size = (shapes(1) * 16, shapes(2) * 16)
-	StrictGenExtend(logger).Kept(path, latent, shapes, options.Clip)
+	StrictGenExtend(logger).Kept(path, latent, shapes, options.Clip, H3Artifacts(options).Folder)
 	if options.files.video is ""
 		return H3Frames(logger).Saved(decoded(0), decoded(1), size, path)
 	StrictGenClip(logger).Appended(options.files.video, decoded(0), decoded(1), size, options.files.context, path)
@@ -124,7 +124,7 @@ Armed Slow(H3Batch)
 	if files.video is ""
 		return value
 	let vae = files.VaeEncoder
-	let head = StrictGenExtend(logger).Head(files.video, files.context, options.height, options.width, vae, files.Sound)
+	let head = StrictGenExtend(logger).Head(files.video, files.context, options.height, options.width, vae, files.Sound, H3Artifacts(options).Folder)
 	H3Batch(value, motion = head)
 Pictured(images Texts) Slow(List(Numbers))
 	Sample.Pictured(List(Text) + "").Length is 0

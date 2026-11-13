@@ -4,4 +4,5 @@ Saved(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Slow(T
 	for seeds
 		let started = Process.Elapsed
 		let image = decoder.Decoded(latents(index), batch.options.width / 16)
-		batch.Saved(image, started, value, prompts(index), outputs(index))
+		let decoded = Process.Elapsed
+		batch.Saved(image, decoded, value, prompts(index), outputs(index), decoded - started)

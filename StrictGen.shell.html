@@ -3,59 +3,86 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StrictGen — images and video</title>
+<title>StrictGen - Generate Images and Videos locally faster than anything else</title>
+<link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,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">
 <style>
+	html { color-scheme: dark; }
 	html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
 	body { display: flex; flex-direction: column; height: 100%; }
-	header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: #0f151c; flex: none; }
-	header .grow { flex: 1; min-width: 180px; color: #8b97a5; font-size: 13px; }
+	header { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; padding: 2px 12px; background: #0f151c; flex: none; font-size: 12px; color: #8b97a5; white-space: nowrap; }
+	header #job { overflow: hidden; text-overflow: ellipsis; color: #d8dee9; }
+	header #right { display: flex; gap: 8px; align-items: center; justify-content: flex-end; min-width: 0; }
+	header select { font-size: 12px; padding: 1px 4px; border-radius: 4px; }
+	header button.run, header button.stop { font-size: 13px; padding: 2px 16px; border-radius: 5px; line-height: 1.3; flex: none; }
+	header #position { font: inherit; color: #8b97a5; background: none; border: 0; padding: 0; cursor: pointer; }
+	footer { flex: none; text-align: center; font-size: 12px; color: #6b7785; padding: 0 16px 4px; }
+	footer a { color: #5fb3f6; text-decoration: none; }
 	main { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 8px 16px; box-sizing: border-box; }
-	section.controls { width: min(540px, 44vw); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: none; }
-	section.view { flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+	section.controls { width: min(540px, 44vw); display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: none; }
+	#fields { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; display: flex; flex-direction: column; gap: 10px; padding-right: 6px; }
+	section.view { flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; min-width: 440px; }
 	label { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	textarea, input, select { font: inherit; color: #d8dee9; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; padding: 8px; min-width: 0; max-width: 100%; box-sizing: border-box; }
 	.row > select { flex: 1; }
-	textarea { resize: vertical; min-height: 96px; }
+	textarea { resize: vertical; min-height: 150px; }
 	.row { display: flex; gap: 10px; }
 	.row label, .row .field { flex: 1; min-width: 0; }
+	.row label.wide { flex: 2; }
 	.modes { display: flex; gap: 6px; }
 	.modes button { flex: 1; line-height: 1.2; }
-	.modes button, button.small, button.ghost { font-size: 14px; padding: 6px 10px; background: #1f2933; color: #d8dee9; border: 0; border-radius: 8px; cursor: pointer; }
+	.modes button, button.small, button.ghost { font-size: 14px; padding: 6px 10px; background: #1f2933; color: #d8dee9; border: 0; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+	.modes button { white-space: normal; }
 	.modes button.on { background: #5fb3f6; color: #0b0f14; }
-	button.run { font: inherit; font-size: 18px; padding: 12px 18px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
-	button.stop { background: #e88388; color: #0b0f14; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
-	.note { color: #e8b383; font-size: 13px; min-height: 1em; }
+	button.run { flex: 1; font: inherit; font-size: 18px; padding: 10px 18px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
+	button.stop { background: #e88388; color: #0b0f14; border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer; font: inherit; }
+	.note { color: #e8b383; font-size: 13px; }
 	.hidden { display: none !important; }
 	#loras { display: flex; flex-direction: column; gap: 4px; }
 	.lora { display: flex; gap: 8px; align-items: center; }
-	.lora span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.lora input { width: 72px; }
+	.lora input.name { flex: 1; }
+	.lora input.strength { width: 70px; flex: none; }
 	#frame { position: relative; flex: none; overflow: hidden; }
-	#frame img, #frame video, #frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-	#gallery { flex: none; display: flex; gap: 8px; align-items: center; width: 100%; font-size: 13px; color: #8b97a5; padding-top: 8px; }
-	#caption { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#stage { position: absolute; inset: 0; transform-origin: 0 0; }
+	#stage img, #stage video, #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+	#stage.zoomed { cursor: grab; }
+	#stage > * { transition: opacity 0.15s; }
+	#stage.dim > * { opacity: 0.2; transition: opacity 0.4s; }
+	#info { flex: none; display: flex; gap: 12px; width: 0; min-width: 100%; box-sizing: border-box; overflow: hidden; font-size: 13px; color: #8b97a5; padding-top: 6px; min-height: 18px; }
+	#infoText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #a3be8c; }
+	#infoTime { flex: none; color: #e8b383; }
+	#gallery { flex: none; display: flex; gap: 8px; align-items: center; width: 100%; font-size: 13px; color: #8b97a5; padding-top: 6px; }
+	#count { flex: none; min-width: 44px; text-align: center; }
+	#picker { position: relative; flex: 1 1 220px; min-width: 120px; max-width: 320px; }
+	#pick { width: 100%; padding: 5px 8px; font-size: 13px; }
+	#options { position: absolute; z-index: 3; bottom: 100%; left: 0; right: 0; max-height: 50vh; overflow-y: auto; background: #141b23; border: 1px solid #2b3540; border-radius: 6px; }
+	#options div { padding: 4px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d8dee9; }
+	#options div:hover, #options div.on { background: #1f2933; }
+	#options div.on { color: #5fb3f6; }
+	#gallery #reuse { margin-left: auto; }
 	#queue { position: relative; }
-	#menu { position: absolute; z-index: 2; top: 100%; right: 0; background: #141b23; border: 1px solid #2b3540; border-radius: 8px; min-width: 280px; max-width: 420px; padding: 8px; }
-	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	#menu { position: absolute; z-index: 4; top: 100%; right: 0; background: #141b23; border: 1px solid #2b3540; border-radius: 8px; min-width: 280px; max-width: 420px; padding: 8px; }
+	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d8dee9; }
 	details { color: #8b97a5; font-size: 13px; }
+	details > * { margin-top: 8px; }
+	details .field { flex-direction: row; align-items: center; }
 	#log { min-height: 200px; max-height: 360px; overflow: auto; font: 12px ui-monospace, monospace; color: #d8dee9; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
 	#log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	#log div.run { color: #5fb3f6; margin-top: 8px; }
+	#log div.run:first-child { margin-top: 0; }
 	#log div.prompt { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; color: #a3be8c; }
 	#log div.error { color: #e88388; }
 	#log div.muted { color: #8b97a5; }
-	#overlay { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #0f151c; text-align: center; padding: 16px; box-sizing: border-box; }
-	#overlay.slim { inset: auto 0 0 0; background: rgba(15, 21, 28, 0.8); padding: 6px 12px; gap: 4px; }
-	#overlay .big { font-size: 28px; color: #d8dee9; }
-	#overlay.slim .big { display: none; }
-	#overlay .stage { font-size: 14px; color: #8b97a5; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	#overlay .bar { width: 70%; height: 8px; background: #1f2933; border-radius: 4px; overflow: hidden; }
-	#overlay.slim .bar { width: 100%; height: 4px; }
-	#overlay .bar div { height: 100%; width: 0; background: #5fb3f6; transition: width 0.3s; }
+	#overlay { position: absolute; inset: auto 0 0 0; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; background: rgba(15, 21, 28, 0.8); text-align: center; padding: 7px 12px; box-sizing: border-box; pointer-events: none; }
+	#overlay .stage { font-size: 15px; color: #d8dee9; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#overlay .bar { width: 100%; height: 5px; background: #1f2933; border-radius: 3px; overflow: hidden; }
+	#overlay .bar div { height: 100%; width: 0; background: #5fb3f6; transition: width 0.12s; }
 	#offline { background: #e88388; color: #0b0f14; padding: 6px 16px; font-size: 14px; }
 	@media (max-width: 720px) {
+		html, body { overflow: auto; height: auto; }
+		header { grid-template-columns: 1fr; gap: 2px; white-space: normal; }
 		main { flex-direction: column; }
-		section { width: 100%; }
+		section.controls, section.view { width: 100%; min-width: 0; }
+		#fields { overflow: visible; }
 		section.view { order: -1; }
 	}
 </style>
@@ -63,161 +90,160 @@
 <body>
 <div id="offline" class="hidden">The StrictGen server does not answer, start StrictGen.exe again on the PC that runs it</div>
 <header>
-	<button class="small" id="import">Import workflow</button>
-	<input id="workflow" type="file" accept=".json" hidden>
-	<div class="grow" id="meters">RAM — · VRAM — · GPU — · CPU —</div>
-	<button class="stop" id="stop">Stop</button>
-	<div id="queue"><button class="small" id="position">0/0</button><div id="menu" class="hidden"></div></div>
-	<label>Machine<select id="machine"><option value="">Best machine</option><option value="local">This PC</option></select></label>
-	<label>Repeat<select id="repeat"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option><option value="10">10x</option><option value="20">20x</option></select></label>
-	<button class="run" id="run">Run</button>
+	<div id="job">Idle</div>
+	<div id="meters">RAM — · VRAM — · GPU — · CPU —</div>
+	<div id="right">
+		<select id="machine"><option value="">This PC</option></select>
+		<div id="queue"><button id="position" type="button">queue 0 done 0</button><div id="menu" class="hidden"></div></div>
+		<select id="repeat" title="Repeat"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option><option value="10">10x</option><option value="20">20x</option></select>
+		<button class="run" id="run" type="button" title="Shift+Enter adds a line to the prompt">Run (Enter)</button>
+		<button class="stop" id="stop" type="button" >Stop (Esc)</button>
+	</div>
 </header>
 <main>
 	<section class="controls">
-		<div class="modes">
-			<button type="button" data-mode="image" class="on">Moss<br>Image</button>
-			<button type="button" data-mode="video">H3<br>Video</button>
-			<button type="button" data-mode="extend">H3 Video<br>Extend</button>
-			<button type="button" data-mode="imagevideo">H3 Image<br>to Video</button>
-			<button type="button" data-mode="h3image">H3<br>Image</button>
-		</div>
-		<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
-		<div id="inputs">
-			<label id="inputLabel">Image or video
+		<div id="fields">
+			<div class="modes">
+				<button type="button" data-mode="image" class="on">Moss<br>Image</button>
+				<button type="button" data-mode="video">H3<br>Video</button>
+				<button type="button" data-mode="extend">H3 Video<br>Extend</button>
+				<button type="button" data-mode="imagevideo">H3 Image<br>to Video</button>
+				<button type="button" data-mode="h3image">H3<br>Image</button>
+			</div>
+			<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
+			<div id="inputs">
+				<label id="inputLabel">Image or video
+					<div class="row">
+						<button class="small" id="inputPrev" type="button">&#9664;</button>
+						<input id="input" type="text" placeholder="png, jpg, or mp4" style="flex: 1">
+						<button class="small" id="inputPick" type="button">Upload</button>
+						<button class="small" id="inputNext" type="button">&#9654;</button>
+						<input id="inputFile" type="file" accept=".png,.jpg,.jpeg,.mp4" hidden>
+					</div>
+				</label>
+				<label id="contextLabel">Context<select id="context"><option value="22" selected>22 frames</option><option value="39">39 frames</option><option value="90">90 frames</option></select></label>
+				<label id="lastLabel">Last frame
+					<div class="row">
+						<input id="lastImage" type="text" placeholder="optional png or jpg" style="flex: 1">
+						<button class="small" id="lastPick" type="button">Upload</button>
+						<input id="lastFile" type="file" accept=".png,.jpg,.jpeg" hidden>
+					</div>
+				</label>
+			</div>
+			<div class="row">
+				<label class="wide">Resolution<select id="size">
+					<option value="160 288">160p portrait</option><option value="288 160">160p landscape</option>
+					<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
+					<option value="368 640">368p portrait</option><option value="640 368">368p landscape</option>
+					<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
+					<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
+					<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
+					<option value="1088 1920">1088p portrait</option><option value="1920 1088">1088p landscape</option>
+					<option value="1024 1024">1024 square</option><option value="2048 2048">2048 square</option>
+					<option value="custom">Custom</option>
+				</select></label>
+				<label class="wide" id="qualityLabel">Quality<select id="quality"></select></label>
+				<label>Steps<input id="steps" type="number" min="0" step="1" value="0"></label>
+				<label id="skipLabel">Skip<select id="skip"></select></label>
+			</div>
+			<div class="row hidden" id="custom">
+				<label>Width<input id="width" type="number" min="32" step="32" value="480"></label>
+				<label>Height<input id="height" type="number" min="32" step="32" value="848"></label>
+			</div>
+			<label id="lengthLabel">Length<select id="length"></select></label>
+			<div class="note hidden" id="lengthNote"></div>
+			<label>Model<select id="model"></select></label>
+			<label>LoRAs
 				<div class="row">
-					<button class="small" id="inputPrev" type="button">&#9664;</button>
-					<input id="input" type="text" placeholder="png, jpg, or mp4">
-					<button class="small" id="inputPick" type="button">Upload</button>
-					<button class="small" id="inputNext" type="button">&#9654;</button>
-					<input id="inputFile" type="file" accept=".png,.jpg,.jpeg,.mp4" hidden>
+					<select id="loraChoice"></select>
+					<button class="small" id="addLora" type="button">Add</button>
 				</div>
+				<div id="loras"></div>
 			</label>
-			<label>Recent<input id="recent" list="recentList" placeholder="this session"><datalist id="recentList"></datalist></label>
-			<label id="contextLabel">Context<select id="context"><option value="22" selected>22 frames</option><option value="39">39 frames</option><option value="90">90 frames</option></select></label>
-			<label id="lastLabel">Last frame
+			<label>Activity<div id="log"><div class="muted">Idle</div></div></label>
+			<details>
+				<summary>Advanced</summary>
 				<div class="row">
-					<input id="lastImage" type="text" placeholder="optional png or jpg">
-					<button class="small" id="lastPick" type="button">Upload</button>
-					<input id="lastFile" type="file" accept=".png,.jpg,.jpeg" hidden>
+					<label id="decoderLabel">Decoder<select id="decoder"></select></label>
+					<label>Seed<input id="seed" type="number" value="-1"></label>
+					<label>Guidance<input id="guidance" type="number" min="0" step="0.5" value="0"></label>
 				</div>
-			</label>
+				<div class="row">
+					<label>Spectrum<input id="spectrum" type="text" placeholder="quality preset"></label>
+					<label>Sampler<select id="sampler"><option value="">default</option><option>euler</option><option>res_multistep</option><option>er_sde</option><option>euler_ancestral</option><option>dpmpp_2m_sde</option><option>gradient_estimation</option><option>lcm</option></select></label>
+					<label>Scheduler<select id="scheduler"><option value="">default</option><option>simple</option><option>sgm_uniform</option><option>normal</option><option>beta</option><option>beta57</option><option>linear_quadratic</option><option>hyperflow</option></select></label>
+				</div>
+				<div class="row">
+					<label>Vision<select id="vision"><option value="768">768</option><option value="off">off</option></select></label>
+					<label class="field"><input id="crop" type="checkbox" checked> crop first frame</label>
+					<label class="field"><input id="local" type="checkbox"> local</label>
+					<label class="field"><input id="force" type="checkbox"> force</label>
+				</div>
+				<label>Output<input id="output" type="text" placeholder="numbered default"></label>
+				<label>Models folder<input id="models" type="text" placeholder="ComfyUI models"></label>
+				<label>Text encoder file<input id="textEncoder" type="text"></label>
+				<div class="row">
+					<label>VAE<input id="vae" type="text"></label>
+					<label>Audio VAE<input id="audioVae" type="text"></label>
+				</div>
+				<div class="row">
+					<button class="small" id="import" type="button">Import ComfyUI workflow</button>
+					<input id="workflow" type="file" accept=".json" hidden>
+				</div>
+			</details>
 		</div>
-		<div class="row">
-			<label>Resolution<select id="size">
-				<option value="160 288">160p portrait</option><option value="288 160">160p landscape</option>
-				<option value="240 432">240p portrait</option><option value="432 240">240p landscape</option>
-				<option value="368 640">368p portrait</option><option value="640 368">368p landscape</option>
-				<option value="480 848" selected>480p portrait</option><option value="848 480">480p landscape</option>
-				<option value="576 1024">576p portrait</option><option value="1024 576">576p landscape</option>
-				<option value="720 1280">720p portrait</option><option value="1280 720">720p landscape</option>
-				<option value="1088 1920">1088p portrait</option><option value="1920 1088">1088p landscape</option>
-				<option value="1024 1024">1024 square</option><option value="2048 2048">2048 square</option>
-				<option value="custom">Custom</option>
-			</select></label>
-			<label id="qualityLabel">Quality<select id="quality"></select></label>
-		</div>
-		<div class="row hidden" id="custom">
-			<label>Width<input id="width" type="number" min="32" step="32" value="480"></label>
-			<label>Height<input id="height" type="number" min="32" step="32" value="848"></label>
-		</div>
-		<div class="note" id="note"></div>
-		<label>Model<select id="model"></select></label>
-		<label>LoRAs
-			<div class="row">
-				<select id="loraChoice"></select>
-				<button class="small" id="addLora" type="button">Add</button>
-			</div>
-			<div id="loras"></div>
-		</label>
-		<label>Activity<div id="log"><div class="muted">Idle</div></div></label>
-		<div class="row">
-			<label id="decoderLabel">Decoder<select id="decoder">
-				<option value="" selected>auto</option>
-				<option value="taef2">taef2</option>
-				<option value="flux2-small-vae">flux2-small-vae</option>
-				<option value="flux2-vae">flux2-vae</option>
-			</select></label>
-			<label id="encoderLabel">Text encoder<div id="encoderName">default</div></label>
-			<label>Steps<input id="steps" type="number" min="0" step="1" value="0"></label>
-			<label id="skipLabel">Skip<select id="skip"></select></label>
-		</div>
-		<div class="note" id="stepsNote"></div>
-		<label id="lengthLabel">Length<select id="length"></select></label>
-		<div class="note" id="lengthNote"></div>
-		<details>
-			<summary>Advanced</summary>
-			<div class="row">
-				<label>Seed<input id="seed" type="number" value="-1"></label>
-				<label>Guidance<input id="guidance" type="number" min="0" step="0.5" value="0"></label>
-			</div>
-			<div class="row">
-				<label>Spectrum<input id="spectrum" type="text" placeholder="quality preset"></label>
-				<label>Sampler<select id="sampler"><option value="">default</option><option>euler</option><option>res_multistep</option><option>er_sde</option><option>euler_ancestral</option><option>dpmpp_2m_sde</option><option>gradient_estimation</option><option>lcm</option></select></label>
-				<label>Scheduler<select id="scheduler"><option value="">default</option><option>simple</option><option>sgm_uniform</option><option>normal</option><option>beta</option><option>beta57</option><option>linear_quadratic</option><option>hyperflow</option></select></label>
-			</div>
-			<div class="row">
-				<label>Vision<select id="vision"><option value="768">768</option><option value="off">off</option></select></label>
-				<label class="field"><input id="crop" type="checkbox" checked> crop first frame</label>
-				<label class="field"><input id="local" type="checkbox"> local</label>
-				<label class="field"><input id="force" type="checkbox"> force</label>
-			</div>
-			<label>Output<input id="output" type="text" placeholder="numbered default"></label>
-			<label>Models folder<input id="models" type="text" placeholder="ComfyUI models"></label>
-			<label>Text encoder file<input id="textEncoder" type="text"></label>
-			<div class="row">
-				<label>VAE<input id="vae" type="text"></label>
-				<label>Audio VAE<input id="audioVae" type="text"></label>
-			</div>
-		</details>
 	</section>
 	<section class="view">
-		<div id="frame"><span id="placeholder">The preview shows up here</span><div id="overlay" class="hidden"><div class="big"></div><div class="stage"></div><div class="bar"><div></div></div></div></div>
-		<div class="note" id="progress"></div>
+		<div id="frame"><div id="stage"><span id="placeholder">The preview shows up here</span></div><div id="overlay" class="hidden"><div class="stage"></div><div class="bar"><div></div></div></div></div>
+		<div id="info"><span id="infoText"></span><span id="infoTime"></span></div>
 		<div id="gallery">
 			<button class="small" id="back" type="button">&#9664;</button>
-			<span id="caption">No results yet</span>
-			<button class="small" id="reuse" type="button">Animate</button>
+			<span id="count">0/0</span>
+			<div id="picker"><input id="pick" type="text" placeholder="No results yet" autocomplete="off" spellcheck="false"><div id="options" class="hidden"></div></div>
 			<button class="small" id="forward" type="button">&#9654;</button>
+			<button class="small" id="reuse" type="button">Send to H3 Image to Video</button>
 		</div>
 	</section>
 </main>
+<footer>Made with <a href="https://strict-lang.org" target="_blank" rel="noopener">Strict</a> © 2026</footer>
 <script>
 	const element = id => document.getElementById(id);
 	const snap = n => Math.max(32, Math.floor(Number(n) / 32) * 32);
 	const videoSnap = n => Math.ceil((Number(n) - 5) / 17) * 17 + 5;
-	const mossQuality = [["best", "best (8)"], ["best25steps", "best25steps (25)"], ["best50steps", "best50steps (50)"], ["fast", "fast (8)"], ["faster", "faster (8)"], ["fastest", "fastest (4)"], ["fastest2steps", "fastest2steps (2)"]];
-	const h3Quality = [["best", "best (8)"], ["fast", "fast (8)"], ["faster", "faster (8)"], ["fastest4steps", "fastest4steps (4)"], ["fastest2steps", "fastest2steps (2)"]];
-	const mossSteps = { best: 8, best25steps: 25, best50steps: 50, fast: 8, faster: 8, fastest: 4, fastest2steps: 2 };
-	const h3Steps = { best: 8, fast: 8, faster: 8, fastest4steps: 4, fastest2steps: 2 };
+	const mossSteps = { fastest2steps: 2, fastest: 4, faster: 8, fast: 8, best: 8, best25steps: 25, best50steps: 50 };
+	const h3Steps = { fastest2steps: 2, fastest4steps: 4, faster: 8, fast: 8, best: 8 };
+	const mossQuality = Object.keys(mossSteps).map(name => [name, name]);
+	const h3Quality = Object.keys(h3Steps).map(name => [name, name]);
 	const mossModel = "moss-image-sft-dit-int8-convrot.safetensors";
 	const h3Model = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
 	const h3ImageModel = "minimax_h3_image_pruned_int8_convrot.safetensors";
 	const isVideo = mode => mode === "video" || mode === "extend" || mode === "imagevideo";
 	const lengths = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(second => [String(videoSnap(second * 24)), second + " s - " + videoSnap(second * 24) + " frames"]);
-	const titles = { image: "Generating Moss Image", video: "Generating H3 Video", extend: "Extending H3 Video", imagevideo: "Animating H3 Image to Video", h3image: "Generating H3 Image" };
+	const titles = { image: "Generating Image ...", video: "Generating Video ...", extend: "Extending Video ...", imagevideo: "Generating Video ...", h3image: "Generating Image ..." };
 	const mossDecoders = [["", "auto"], ["taef2", "taef2"], ["flux2-small-vae", "flux2-small-vae"], ["flux2-vae", "flux2-vae"]];
 	const h3VideoDecoders = [["", "auto"], ["taeh3", "taeh3"]];
 	const h3ImageDecoders = [["", "auto"], ["p-h3-image_vae_int8_convrot", "p-h3-image"], ["taeh3", "taeh3"]];
 	const mossSkip = ["off", "6:36"];
 	const h3Skip = ["off", "5:45", "10:40", "15:35"];
-	const state = { mode: "image", loras: [], results: [], captions: [], examples: null, index: 0, paused: false, notice: "" };
-	const storeKey = "strictgen-modes";
-	const timesKey = "strictgen-times";
-	const times = () => { try { return JSON.parse(localStorage.getItem(timesKey) || "{}"); } catch { return {}; } };
+	const state = { mode: "image", loras: [], outputs: [], base: "", index: 0, zoom: 1, panX: 0, panY: 0, lists: {} };
+	const storeKey = "strictgen-modes", viewKey = "strictgen-view";
+	try { localStorage.removeItem("strictgen-info"); localStorage.removeItem("strictgen-times"); } catch { }
+	const read = (key, empty) => { try { return JSON.parse(localStorage.getItem(key)) || empty; } catch { return empty; } };
+	const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { } };
+	const stored = () => read(storeKey, {});
 	const seconds = since => ((performance.now() - since) / 1000).toFixed(1) + " s";
-	const stored = () => { try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch { return {}; } };
 	const stepsFor = (mode, quality) => mode === "h3image" ? 6 : (mode === "image" ? mossSteps : h3Steps)[quality] || 8;
+	const skipFor = (mode, quality) => mode === "h3image" ? "" : mode === "image" || quality === "best" ? "off" : "5:45";
 	const defaultsFor = mode => {
 		if (mode === "h3image") return {
 			prompt: "a red fox in a snowy birch forest at sunrise, soft golden light, detailed fur, photo", size: "2048 2048", width: 2048, height: 2048,
 			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "", length: 124, context: 22, input: "", lastImage: ""
 		};
 		const video = mode !== "image";
-		const quality = video ? "fast" : "fastest";
 		return {
 			prompt: video ? "a red fox walking through snow, cinematic" : "a red fox in a snowy forest at dawn, photo",
-			size: "480 848", width: 480, height: 848,
-			quality, steps: stepsFor(mode, quality), skip: video ? "5:45" : "off", model: video ? h3Model : mossModel,
+			size: video ? "480 848" : "720 1280", width: video ? 480 : 720, height: video ? 848 : 1280,
+			quality: "fast", steps: stepsFor(mode, "fast"), skip: skipFor(mode, "fast"), model: video ? h3Model : mossModel,
 			loras: [], decoder: "", length: 124, context: 22, input: "", lastImage: ""
 		};
 	};
@@ -234,6 +260,7 @@
 		const [width, height] = element("size").value.split(" ").map(Number);
 		return [snap(width), snap(height)];
 	};
+	const sizeName = () => element("size").value === "custom" ? sizeOf().join("x") : element("size").selectedOptions[0].textContent;
 	const snapshot = () => ({
 		prompt: element("prompt").value, size: element("size").value, width: Number(element("width").value), height: Number(element("height").value),
 		quality: element("quality").value, steps: Number(element("steps").value), skip: element("skip").value, model: element("model").value,
@@ -243,7 +270,8 @@
 	const save = () => {
 		const all = stored();
 		all[state.mode] = snapshot();
-		localStorage.setItem(storeKey, JSON.stringify(all));
+		write(storeKey, all);
+		write(viewKey, { mode: state.mode, machine: element("machine").value, repeat: element("repeat").value });
 	};
 	const applyFields = data => {
 		element("prompt").value = data.prompt;
@@ -268,11 +296,10 @@
 		element("inputLabel").firstChild.textContent = edit ? "Image to edit (optional)" : "Image or video";
 		element("contextLabel").classList.toggle("hidden", mode !== "extend");
 		element("lastLabel").classList.toggle("hidden", mode !== "imagevideo");
-		element("encoderLabel").classList.toggle("hidden", !moss);
 		element("qualityLabel").classList.toggle("hidden", edit);
 		element("skipLabel").classList.toggle("hidden", edit);
 		element("lengthLabel").classList.toggle("hidden", !video);
-		element("lengthNote").classList.toggle("hidden", !video);
+		element("lengthNote").classList.toggle("hidden", mode !== "extend");
 		element("guidance").parentElement.classList.toggle("hidden", !moss);
 		element("spectrum").parentElement.classList.toggle("hidden", !moss);
 		element("sampler").parentElement.classList.toggle("hidden", edit);
@@ -290,49 +317,81 @@
 		showInput();
 		refreshFiles();
 		note();
+		warm();
 	};
-	const timed = () => {
-		const length = isVideo(state.mode) ? element("length").value : "";
-		return [state.mode, element("quality").value, element("steps").value, sizeOf().join("x"), length, element("repeat").value].join(" ");
+	const warm = () => {
+		const elsewhere = baseOf() || (state.wanted && state.wanted !== "local");
+		if (state.warmed || state.mode !== "image" || state.busy || elsewhere || element("local").checked) return;
+		state.warmed = true;
+		fetch("/warm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).catch(() => { });
+	};
+	const shape = (width, height) => {
+		if (!width || !height || (state.shape && state.shape[0] === width && state.shape[1] === height)) return;
+		state.shape = [width, height];
+		fit();
 	};
 	const fit = () => {
-		const frame = element("frame"), view = document.querySelector("section.view"), main = document.querySelector("main");
-		const [width, height] = sizeOf();
-		const availH = main.clientHeight - 16 - element("gallery").offsetHeight - element("progress").offsetHeight - 8;
-		const availW = main.clientWidth - document.querySelector("section.controls").offsetWidth - 60;
+		const frame = element("frame"), main = document.querySelector("main");
+		const [width, height] = state.shape || sizeOf();
+		const narrow = innerWidth <= 720;
+		const availH = narrow ? innerHeight * 0.6 : main.clientHeight - 16 - element("gallery").offsetHeight - element("info").offsetHeight - 4;
+		const availW = narrow ? main.clientWidth - 32 : main.clientWidth - document.querySelector("section.controls").offsetWidth - 60;
 		const scale = Math.min(availW / width, availH / height);
-		const wide = Math.max(1, Math.floor(width * scale));
+		const wide = Math.max(1, Math.floor(width * scale)), high = Math.max(1, Math.floor(height * scale));
+		if (frame.style.width !== wide + "px" || frame.style.height !== high + "px") zoomTo(1, 0, 0);
 		frame.style.width = wide + "px";
-		frame.style.height = Math.max(1, Math.floor(height * scale)) + "px";
-		view.style.width = wide + "px";
+		frame.style.height = high + "px";
 	};
+	const zoomTo = (zoom, x, y) => {
+		const frame = element("frame"), stage = element("stage");
+		state.zoom = Math.max(1, Math.min(16, zoom));
+		state.panX = Math.min(0, Math.max(frame.clientWidth * (1 - state.zoom), x));
+		state.panY = Math.min(0, Math.max(frame.clientHeight * (1 - state.zoom), y));
+		stage.style.transform = state.zoom === 1 ? "" : "translate(" + state.panX + "px," + state.panY + "px) scale(" + state.zoom + ")";
+		stage.classList.toggle("zoomed", state.zoom > 1);
+	};
+	element("frame").addEventListener("wheel", event => {
+		event.preventDefault();
+		const box = element("frame").getBoundingClientRect();
+		const x = event.clientX - box.left, y = event.clientY - box.top;
+		const zoom = Math.max(1, Math.min(16, state.zoom * (event.deltaY < 0 ? 1.25 : 0.8)));
+		zoomTo(zoom, x - (x - state.panX) * zoom / state.zoom, y - (y - state.panY) * zoom / state.zoom);
+	}, { passive: false });
+	element("frame").addEventListener("pointerdown", event => {
+		if (state.zoom === 1 || event.button !== 0) return;
+		state.drag = { x: event.clientX - state.panX, y: event.clientY - state.panY, moved: false };
+		element("frame").setPointerCapture(event.pointerId);
+		event.preventDefault();
+	});
+	element("frame").addEventListener("pointermove", event => {
+		if (!state.drag) return;
+		state.drag.moved = true;
+		zoomTo(state.zoom, event.clientX - state.drag.x, event.clientY - state.drag.y);
+	});
+	element("frame").addEventListener("pointerup", () => { state.dragged = state.drag && state.drag.moved; state.drag = null; });
+	element("frame").addEventListener("dblclick", () => zoomTo(1, 0, 0));
 	const note = () => {
 		fit();
-		const [width, height] = sizeOf();
-		const typed = element("size").value === "custom" ? "" : element("size").value.split(" ").map(Number);
-		const changed = typed && (typed[0] !== width || typed[1] !== height);
-		const last = times()[timed()];
-		element("note").textContent = width + "x" + height + (changed ? " after snapping to a multiple of 32" : "") + (last ? ", took " + last + " last time" : "");
-		element("stepsNote").textContent = element("steps").value + " steps";
-		if (!isVideo(state.mode)) return;
-		const length = Number(element("length").value) || 24;
-		const context = state.mode === "extend" ? Number(element("context").value) : 0;
-		const total = state.mode === "extend" ? videoSnap(context + length) : videoSnap(length);
-		const added = state.mode === "extend" ? total - context : total;
-		element("lengthNote").textContent = added + " frames, " + (added / 24).toFixed(1) + " s" + (state.mode === "extend" ? " new, clip " + total : "");
+		if (state.mode !== "extend") return;
+		const length = Number(element("length").value) || 24, context = Number(element("context").value);
+		const total = videoSnap(context + length);
+		element("lengthNote").textContent = (total - context) + " new frames, " + ((total - context) / 24).toFixed(1) + " s, the clip gets " + total + " frames";
 	};
-	document.querySelectorAll(".modes button").forEach(button => button.onclick = () => { save(); state.mode = button.dataset.mode; showMode(); });
-	element("quality").onchange = () => { element("steps").value = stepsFor(state.mode, element("quality").value); note(); save(); };
+	document.querySelectorAll(".modes button").forEach(button => button.onclick = () => { save(); state.mode = button.dataset.mode; showMode(); save(); });
+	element("quality").onchange = () => {
+		element("steps").value = stepsFor(state.mode, element("quality").value);
+		element("skip").value = skipFor(state.mode, element("quality").value);
+		save();
+	};
 	element("size").onchange = () => { element("custom").classList.toggle("hidden", element("size").value !== "custom"); note(); };
 	element("width").oninput = note;
 	element("height").oninput = note;
-	element("steps").oninput = note;
 	element("length").onchange = note;
 	element("context").onchange = note;
 	const form = () => {
 		const [width, height] = sizeOf();
 		const body = {
-			mode: state.mode, prompt: element("prompt").value, width, height,
+			mode: state.mode, prompt: element("prompt").value, width, height, sizeName: sizeName(),
 			quality: element("quality").value, steps: Number(element("steps").value) || 0, skip: element("skip").value,
 			decoder: element("decoder").value, length: Number(element("length").value) || 24, context: Number(element("context").value) || 22,
 			model: element("model").value, loras: state.loras, seed: Number(element("seed").value), count: Number(element("repeat").value) || 1,
@@ -352,14 +411,14 @@
 			const row = document.createElement("div");
 			row.className = "lora";
 			const name = document.createElement("input");
-			name.type = "text"; name.value = lora.path; name.placeholder = "LoRA path";
+			name.type = "text"; name.className = "name"; name.value = lora.path; name.title = lora.path; name.placeholder = "LoRA path";
 			name.onchange = () => lora.path = name.value;
 			const strength = document.createElement("input");
-			strength.type = "number"; strength.step = "0.05"; strength.value = lora.strength;
+			strength.type = "number"; strength.className = "strength"; strength.step = "0.05"; strength.value = lora.strength;
 			strength.onchange = () => lora.strength = Number(strength.value) || 0;
 			const remove = document.createElement("button");
 			remove.className = "small"; remove.type = "button"; remove.textContent = "Remove";
-			remove.onclick = () => { state.loras.splice(index, 1); drawLoras(); };
+			remove.onclick = () => { state.loras.splice(index, 1); drawLoras(); save(); };
 			row.append(name, strength, remove);
 			return row;
 		}));
@@ -371,23 +430,42 @@
 	};
 	element("inputPrev").onclick = async () => { await neighbor(element("input"), -1); element("input").onchange(); };
 	element("inputNext").onclick = async () => { await neighbor(element("input"), 1); element("input").onchange(); };
-	const listed = async kind => (await fetch("/list?kind=" + kind + "&models=" + encodeURIComponent(element("models").value))
-		.then(response => response.text())).split("\n").map(line => line.trim()).filter(Boolean);
-	async function refreshFiles() {
+	const timed_fetch = (url, options = {}, seconds = 4) => {
+		const abort = new AbortController();
+		const timer = setTimeout(() => abort.abort(), seconds * 1000);
+		return fetch(url, { ...options, signal: abort.signal }).finally(() => clearTimeout(timer));
+	};
+	const listed = async kind => {
+		const key = kind + "|" + element("models").value;
+		if (state.lists[key]) return state.lists[key];
+		const response = await timed_fetch("/list?kind=" + kind + "&models=" + encodeURIComponent(element("models").value), {}, 20);
+		if (!response.ok) throw new Error("list " + kind);
+		const names = (await response.text()).split("\n").map(line => line.trim()).filter(Boolean);
+		if (names.length) state.lists[key] = names;
+		return names;
+	};
+	async function refreshFiles(attempt = 0) {
 		const mode = state.mode, family = mode === "image" ? "moss" : "h3";
-		const [models, loras] = await Promise.all([listed(mode === "h3image" ? "h3image" : family), listed("lora-" + family)]);
+		let models, loras;
+		try {
+			models = await listed(mode === "h3image" ? "h3image" : family);
+			loras = await listed("lora-" + family);
+		} catch (error) {
+			if (mode === state.mode && attempt < 20) setTimeout(() => { if (mode === state.mode) refreshFiles(attempt + 1); }, 1500);
+			return;
+		}
 		if (mode !== state.mode) return;
 		const current = element("model").value;
 		fill(element("model"), [["", "default"], ...models.map(name => [name])], "");
 		choose(element("model"), current);
 		const none = [["", "no LoRAs in models/loras/" + family]];
-		fill(element("loraChoice"), loras.length ? loras.map(name => [name, name.split("/").pop()]) : none, loras[0] || "");
+		fill(element("loraChoice"), loras.length ? loras.map(name => [name, name.split("/").pop().replace(/\.safetensors$/, "")]) : none, loras[0] || "");
 	}
 	const upload = async (file, box) => {
-		element("log").textContent = "Uploading " + file.name;
+		element("infoText").textContent = "Uploading " + file.name;
 		const response = await fetch("/inbox?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
 		box.value = (await response.text()).trim();
-		element("log").textContent = "Uploaded " + box.value;
+		element("infoText").textContent = "Uploaded " + box.value;
 		save();
 	};
 	element("addLora").onclick = () => {
@@ -406,7 +484,7 @@
 		element("lastFile").value = "";
 		if (file) await upload(file, element("lastImage"));
 	};
-	element("models").addEventListener("change", refreshFiles);
+	element("models").addEventListener("change", () => refreshFiles());
 	element("input").onchange = async () => {
 		showInput();
 		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
@@ -417,73 +495,111 @@
 		const [width, height] = size.split(" ");
 		element("width").value = width; element("height").value = height; note();
 	};
-	element("recent").onchange = () => {
-		reuse(element("recent").value);
-	};
 	const place = node => {
-		const frame = element("frame");
-		frame.appendChild(node);
-		const previous = [...frame.children].filter(child => child !== node && child.id !== "overlay");
+		const stage = element("stage");
+		stage.classList.remove("dim");
+		stage.appendChild(node);
+		const previous = [...stage.children].filter(child => child !== node);
 		requestAnimationFrame(() => previous.forEach(child => {
 			if (child.src && child.src.startsWith("blob:")) URL.revokeObjectURL(child.src);
 			child.remove();
 		}));
 	};
-	const media = path => {
-		if (state.shown === path) return;
-		state.shown = path;
+	const settle = () => {
+		if (state.busy || !state.awaiting || (state.clicked && performance.now() - state.clicked < 10000)) return;
+		state.awaiting = false;
+		element("stage").classList.remove("dim");
+		element("overlay").classList.add("hidden");
+	};
+	const media = (path, url) => {
+		if (state.shown === url) { settle(); return; }
+		state.shown = url;
 		stopStrip();
-		const url = "/file?path=" + encodeURIComponent(path);
 		if (path.toLowerCase().endsWith(".mp4")) {
 			const video = document.createElement("video");
-			video.src = url; video.autoplay = true; video.loop = true; video.muted = true; video.controls = true;
-			video.onclick = () => { video.paused ? video.play() : video.pause(); };
+			video.src = url; video.loop = true; video.controls = true; video.muted = !!state.muted;
+			video.onvolumechange = () => { if (!video.forced) state.muted = video.muted; };
+			video.play().catch(() => { video.forced = true; video.muted = true; video.play().catch(() => { }); });
+			video.onloadedmetadata = () => { if (state.shown === url) shape(video.videoWidth, video.videoHeight); };
 			place(video);
+			settle();
 			return;
 		}
 		const image = new Image();
-		image.onload = () => place(image);
+		image.draggable = false;
+		image.onload = () => { if (state.shown !== url) return; shape(image.naturalWidth, image.naturalHeight); place(image); settle(); };
+		image.onerror = settle;
 		image.src = url;
 	};
 	const stopStrip = () => { if (state.strip) { clearInterval(state.strip); state.strip = null; } };
 	const showStrip = image => {
 		stopStrip();
-		const [width, height] = sizeOf();
+		const [width, height] = state.runSize || sizeOf();
+		shape(width, height);
 		const frames = Math.max(1, Math.round(image.naturalWidth / image.naturalHeight / (width / height)));
 		const canvas = document.createElement("canvas");
 		const frameWidth = Math.floor(image.naturalWidth / frames);
 		canvas.width = frameWidth; canvas.height = image.naturalHeight;
 		const context = canvas.getContext("2d");
-		let frame = 0;
-		const draw = () => { context.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, 0, 0, frameWidth, image.naturalHeight); frame = (frame + 1) % frames; };
+		const each = Math.max(60, Math.min(700, (state.runSeconds || 5) * 1000 / frames / 1.3));
+		if (!state.stripBegan) state.stripBegan = performance.now();
+		let last = -1;
+		const draw = () => {
+			const frame = Math.floor((performance.now() - state.stripBegan) / each) % frames;
+			if (frame === last) return;
+			last = frame;
+			context.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, 0, 0, frameWidth, image.naturalHeight);
+		};
 		draw();
 		place(canvas);
 		state.shown = "";
-		if (frames > 1) state.strip = setInterval(draw, 160);
+		if (frames > 1) state.strip = setInterval(draw, 30);
+	};
+	const split = line => { const tab = line.indexOf("\t"); return tab < 0 ? ["", line] : [line.slice(0, tab), line.slice(tab + 1)]; };
+	const short = milliseconds => milliseconds < 1000 ? Math.round(milliseconds) + "ms" : (milliseconds / 1000).toFixed(1) + "s";
+	const compact = text => {
+		const cut = text
+			.replace(/[A-Za-z]:[\\/][^ ,]*[\\/]([^\\/ ,]+)/g, "$1")
+			.replace(/, it (stays|keeps the models) loaded for the next runs( \(--local runs without it\))?/, "").replace(" from disk into memory", "")
+			.replace(" on the GPU, uploading the text encoder into VRAM", "").replace(", the first one uploads H3 into GPU VRAM", "")
+			.replace(/^Sampling video (\d+)\/(\d+) with (\d+) steps.*/, "Sampling video $1/$2, $3 steps")
+			.replace(/(\d) (ms|s)\b/g, "$1$2");
+		return cut.charAt(0).toUpperCase() + cut.slice(1);
+	};
+	const silent = text => /\s\d+%\s/.test(text + " ") || /^(Image|Video) \d+\/\d+, seed/.test(text)
+		|| /^(Decoded and saved|Encoded prompt \d|Using (the )?cached prompt|Using the loaded|Decoding with|Total [\d.]+ s for|Sampled \d+ images in)/.test(text);
+	const stepOf = (text, steps) => {
+		const moss = /^Step (\d+)\/(\d+) in (\d+) ms/.exec(text);
+		if (moss) return { at: Number(moss[1]), of: Number(moss[2]), took: Number(moss[3]) };
+		const h3 = /^step (\d+) (\d+) ms/i.exec(text);
+		return h3 ? { at: Number(h3[1]) + 1, of: steps, took: Number(h3[2]) } : null;
 	};
 	const progressOf = lines => {
-		let total = 0, stage = "Starting", fraction = 0;
+		const generating = titles[state.runningMode || state.mode] || "Generating ...";
+		let total = 0, stage = generating, fraction = 0;
 		for (const [, text] of lines) {
-			const steps = /with (\d+) steps/.exec(text) || /Step \d+\/(\d+)/.exec(text);
+			const steps = /with (\d+) steps/.exec(text);
 			if (steps) total = Number(steps[1]);
 			const percent = /^(.*?)\s(\d+)%/.exec(text);
-			const step = /^step (\d+) /i.exec(text) || /^Step (\d+)\//.exec(text);
-			if (percent) { stage = percent[1]; fraction = Number(percent[2]) / 100; }
-			else if (step && total) { stage = "Sampling step " + (Number(step[1]) + (/^step/.test(text) ? 1 : 0)) + "/" + total; fraction = (Number(step[1]) + (/^step/.test(text) ? 1 : 0)) / total; }
-			else if (!/^Prompt: /.test(text)) { stage = compact(text); fraction = /loaded|Encoded|sampled|decoded|Saved|Wrote/i.test(text) ? 1 : 0; }
+			const step = stepOf(text, total);
+			if (percent) { stage = /text encoder/i.test(percent[1]) ? "Loading Text Encoder" : /Moss|H3/.test(percent[1]) ? "Loading Model" : percent[1]; fraction = Number(percent[2]) / 100; }
+			else if (step && step.of) { stage = "Step " + step.at + "/" + step.of + " " + short(step.took); fraction = step.at / step.of; }
+			else if (/^Loading text encoder/.test(text)) { stage = "Loading Text Encoder"; fraction = 0; }
+			else if (/^Text encoder loaded/.test(text)) { stage = "Encoding Prompt"; fraction = 0; }
+			else if (/^Loading (Moss|H3)/.test(text)) { stage = "Loading Model"; fraction = 0; }
+			else if (/^(Encoded prompt|Using|Image \d+\/\d+, seed|Video \d+\/\d+, seed)/.test(text) || / loaded in /.test(text)) { stage = generating; fraction = 0; }
+			else if (/sampled in |^Decoding/.test(text)) { stage = "Decoding ..."; fraction = 1; }
+			else if (/^(Saved|Wrote) /.test(text)) { stage = generating; fraction = 0; }
+			else if (!/^Prompt: /.test(text) && !silent(text) && text.trim()) { stage = compact(text); fraction = 0; }
 		}
 		return { stage, fraction };
 	};
 	const showOverlay = (run, hasPreview) => {
 		const overlay = element("overlay");
-		overlay.classList.toggle("hidden", !run);
-		if (!run) return;
-		overlay.classList.toggle("slim", hasPreview);
-		const mode = Object.keys(titles).find(key => run.mode === key) || state.runningMode || state.mode;
-		overlay.querySelector(".big").textContent = (titles[mode] || "Generating") + " …";
-		const progress = progressOf(run.lines.map(split));
-		overlay.querySelector(".stage").textContent = progress.stage;
-		overlay.querySelector(".bar div").style.width = Math.round(progress.fraction * 100) + "%";
+		overlay.classList.toggle("hidden", !run && !state.awaiting);
+		if (!run && !state.awaiting) return;
+		overlay.querySelector(".stage").textContent = run ? run.progress.stage : state.busy || state.clicked ? titles[state.runningMode || state.mode] : "Decoding ...";
+		overlay.querySelector(".bar div").style.width = (run ? Math.round(run.progress.fraction * 100) : state.busy || state.clicked ? 0 : 100) + "%";
 	};
 	const showPreview = status => {
 		if (status.running !== state.running) { state.running = status.running; state.previewStamp = 0; state.hasPreview = false; }
@@ -504,19 +620,11 @@
 		const path = element("input").value;
 		const uses = state.mode === "extend" || state.mode === "imagevideo" || state.mode === "h3image";
 		if (!uses || !path || state.busy) return;
-		media(path);
-		element("caption").textContent = "input " + path.split("/").pop();
+		media(path, "/file?path=" + encodeURIComponent(path));
+		element("infoText").textContent = "Input " + path.split("/").pop();
+		element("infoTime").textContent = "";
 	};
-	const split = line => { const tab = line.indexOf("\t"); return tab < 0 ? ["", line] : [line.slice(0, tab), line.slice(tab + 1)]; };
-	const compact = text => text
-		.replace(/[A-Za-z]:[\\/][^ ,]*[\\/]([^\\/ ,]+)/g, "$1")
-		.replace(", it stays loaded for the next runs", " (kept)").replace(" from disk into memory", "")
-		.replace(" on the GPU, uploading the text encoder into VRAM", "").replace(", the first one uploads H3 into GPU VRAM", "")
-		.replace("Using cached prompt conditioning", "cached prompt").replace("Using the loaded ", "using loaded ")
-		.replace(/^Sampling video (\d+)\/(\d+) with (\d+) steps.*/, "sampling video $1/$2, $3 steps")
-		.replace(/^Total ([\d.]+) s for .*/, "done in $1 s");
-	const quiet = text => /\s\d+%\s/.test(text + " ") || /^Image \d+\/\d+, seed/.test(text) || /^(Decoded and saved|Encoded prompt \d)/.test(text);
-	const formatted = (run, total) => {
+	const formatted = run => {
 		const title = run.title.replace(/\.safetensors/g, "").replace(/\.gguf/g, "");
 		const rows = [{ text: "Run " + run.id + ": " + title + (run.state === "queued" ? " (queued)" : ""), kind: "run" }];
 		let steps = 0, last = "";
@@ -524,14 +632,24 @@
 			if (!text.trim() || text === last) continue;
 			last = text;
 			const many = /with (\d+) steps/.exec(text); if (many) steps = Number(many[1]);
-			if (quiet(text)) continue;
-			const prefix = time + "s: ";
+			if (silent(text)) continue;
+			const prefix = time + "s: ", previous = rows[rows.length - 1];
 			if (text.startsWith("Prompt: ")) { rows.push({ text: prefix + text, kind: "prompt" }); continue; }
-			const step = /^step (\d+) (\d+) ms/i.exec(text);
-			const shown = step ? "step " + (Number(step[1]) + 1) + (steps ? "/" + steps : "") + " done (" + (Number(step[2]) / 1000).toFixed(1) + " s)" : compact(text);
-			rows.push({ text: prefix + shown, kind: /error|failed|not enough/i.test(text) ? "error" : "" });
+			const step = stepOf(text, steps);
+			if (step) {
+				const row = { text: prefix + "Step " + step.at + (step.of ? "/" + step.of : "") + " in " + short(step.took), kind: "", step: true };
+				if (previous.step) rows[rows.length - 1] = row; else rows.push(row);
+				continue;
+			}
+			const sampled = /^(?:Image \d+\/\d+ )?(.* ?sampled in .*)$/.exec(text);
+			if (sampled) {
+				const row = { text: prefix + compact(sampled[1].replace(/(\d+) of (\d+) steps/, "$1/$2 steps")), kind: "" };
+				if (previous.step) rows[rows.length - 1] = row; else rows.push(row);
+				continue;
+			}
+			rows.push({ text: prefix + compact(text), kind: /error|failed|not enough/i.test(text) ? "error" : "" });
 		}
-		if (run.state === "error") rows.push({ text: "error: " + run.outcome.replace(/^error\t/, ""), kind: "error" });
+		if (run.state === "error") rows.push({ text: "Error: " + run.outcome.replace(/^error\t/, ""), kind: "error" });
 		return rows;
 	};
 	const showActivity = status => {
@@ -545,19 +663,86 @@
 		log.replaceChildren(...rows.map(row => { const line = document.createElement("div"); line.textContent = row.text; line.title = row.text; if (row.kind) line.className = row.kind; return line; }));
 		if (atEnd) log.scrollTop = log.scrollHeight;
 	};
-	const gallery = () => [...(state.examples || []), ...state.results];
+	const baseOf = () => { const machine = element("machine").value; return machine && machine !== "local" ? "http://" + machine : ""; };
+	const examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => ({ path: "MossWebExample" + number + ".jpg", stamp: "0", name: "example " + number }));
+	const loadOutputs = async jump => {
+		const base = baseOf();
+		let text = "";
+		try { text = await timed_fetch(base + "/outputs", {}, 10).then(response => response.ok ? response.text() : ""); } catch { }
+		if (base !== baseOf()) return;
+		let entries = text.split("\n").filter(line => /^[\d.e+]+\t\S/.test(line)).map(line => {
+			const [stamp, path] = line.trim().split("\t");
+			return { path, stamp, name: path.split("/").pop() };
+		}).sort((a, b) => Number(a.stamp) - Number(b.stamp) || (a.name < b.name ? -1 : 1));
+		if (!entries.length && !base) entries = examples;
+		const current = state.outputs[state.index];
+		const kept = current ? entries.findIndex(entry => entry.path === current.path) : -1;
+		const grew = state.base === base && entries.length !== state.outputs.length;
+		state.outputs = entries; state.base = base;
+		state.index = jump || grew || kept < 0 ? entries.length - 1 : kept;
+		if (state.busy && state.made !== undefined && entries.length) state.hasPreview = true;
+		if (!state.busy || jump || grew) showResult();
+		if (!element("options").classList.contains("hidden")) drawOptions(element("pick").value);
+	};
+	const showInfo = () => {
+		if (state.busy) return;
+		if (state.keepInfo) return;
+		element("infoText").textContent = element("infoText").title = element("infoTime").textContent = "";
+	};
 	const showResult = () => {
-		const all = gallery();
-		if (!all.length) { element("caption").textContent = "No results yet"; return; }
+		const all = state.outputs;
+		element("count").textContent = all.length ? (state.index + 1) + "/" + all.length : "0/0";
+		if (!all.length) { element("pick").value = ""; showInfo(); return; }
 		state.index = Math.max(0, Math.min(all.length - 1, state.index));
-		const path = all[state.index];
-		stopStrip();
-		media(path);
-		fit();
-		const examples = (state.examples || []).length;
-		const caption = state.index < examples ? "example" : (state.captions[state.index - examples] || path);
-		element("caption").textContent = (state.index + 1) + "/" + all.length + ", " + caption;
-		element("reuse").textContent = path.toLowerCase().endsWith(".mp4") ? "Extend" : "Animate";
+		const entry = all[state.index];
+		element("count").textContent = (state.index + 1) + "/" + all.length;
+		media(entry.path, state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp);
+		if (document.activeElement !== element("pick")) element("pick").value = entry.name;
+		element("reuse").textContent = entry.path.toLowerCase().endsWith(".mp4") ? "Send to H3 Video Extend" : "Send to H3 Image to Video";
+		showInfo();
+	};
+	const step = by => {
+		const next = Math.max(0, Math.min(state.outputs.length - 1, state.index + by));
+		if (next !== state.index) { state.index = next; state.keepInfo = false; showResult(); }
+	};
+	const drawOptions = typed => {
+		const filter = typed.trim().toLowerCase(), list = element("options");
+		const rows = [];
+		for (let index = state.outputs.length - 1; index >= 0 && rows.length < 400; index--) {
+			const entry = state.outputs[index];
+			if (filter && !entry.name.toLowerCase().includes(filter)) continue;
+			const row = document.createElement("div");
+			row.textContent = entry.name;
+			if (index === state.index) row.className = "on";
+			row.onmousedown = event => { event.preventDefault(); state.index = index; state.keepInfo = false; closeOptions(); showResult(); };
+			row.dataset.index = index;
+			rows.push(row);
+		}
+		list.replaceChildren(...rows);
+		list.classList.toggle("hidden", !rows.length);
+		const on = list.querySelector(".on");
+		if (on && !filter) on.scrollIntoView({ block: "nearest" });
+	};
+	const closeOptions = () => {
+		element("options").classList.add("hidden");
+		element("pick").blur();
+		const entry = state.outputs[state.index];
+		element("pick").value = entry ? entry.name : "";
+	};
+	element("pick").onfocus = () => { element("pick").select(); drawOptions(""); };
+	element("pick").oninput = () => drawOptions(element("pick").value);
+	element("pick").onblur = () => setTimeout(() => { if (document.activeElement !== element("pick")) closeOptions(); }, 100);
+	element("pick").onkeydown = event => {
+		if (event.key === "Escape") closeOptions();
+		if (event.key === "Enter") {
+			const first = element("options").querySelector("div");
+			if (first) { state.index = Number(first.dataset.index); state.keepInfo = false; closeOptions(); showResult(); }
+		}
+		if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+			event.preventDefault();
+			step(event.key === "ArrowUp" ? 1 : -1);
+			drawOptions("");
+		}
 	};
 	const reuse = path => {
 		if (!path) return;
@@ -568,18 +753,28 @@
 		element("input").onchange();
 		save();
 	};
-	element("reuse").onclick = () => reuse(gallery()[state.index]);
-	element("back").onclick = () => { if (state.index > 0) { state.index -= 1; showResult(); } };
-	element("forward").onclick = () => { if (state.index < gallery().length - 1) { state.index += 1; showResult(); } };
+	element("reuse").onclick = () => reuse((state.outputs[state.index] || {}).path);
+	element("back").onclick = () => step(-1);
+	element("forward").onclick = () => step(1);
 	window.onkeydown = event => {
-		if (event.target.matches("input, textarea")) return;
+		const typing = event.target.matches("input, textarea, select"), prompting = event.target === element("prompt");
+		if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (event.ctrlKey || prompting || !typing) && event.target !== element("pick") && !event.target.matches("button, summary")) {
+			event.preventDefault();
+			if (!element("run").disabled) element("run").click();
+			return;
+		}
+		if (event.key === "Escape" && event.target !== element("pick")) { event.preventDefault(); element("stop").click(); return; }
+		if (typing || event.target.matches("video")) return;
+		if (event.code === "ArrowLeft") step(-1);
+		if (event.code === "ArrowRight") step(1);
 		if (event.code !== "Space") return;
-		const video = element("frame").querySelector("video");
+		const video = element("stage").querySelector("video");
 		if (!video) return;
 		event.preventDefault();
 		video.paused ? video.play() : video.pause();
 	};
-	const gb = bytes => (Number(bytes) / 1073741824).toFixed(1) + " GB";
+	const gb = bytes => (Number(bytes) / 1073741824).toFixed(1);
+	const card = name => (name || "").replace(/NVIDIA|GeForce|RTX|GTX|AMD|Radeon|Intel|\(R\)|\(TM\)/g, "").replace(/\s+/g, " ").trim();
 	const apply = fields => {
 		if (fields.mode) { state.mode = fields.mode; showMode(); }
 		if (fields.prompt) element("prompt").value = fields.prompt;
@@ -603,69 +798,85 @@
 		apply(fields);
 		element("workflow").value = "";
 	};
-	const timed_fetch = (url, options = {}, seconds = 4) => {
-		const abort = new AbortController();
-		const timer = setTimeout(() => abort.abort(), seconds * 1000);
-		return fetch(url, { ...options, signal: abort.signal }).finally(() => clearTimeout(timer));
-	};
 	const offline = gone => { state.offline = gone; element("offline").classList.toggle("hidden", !gone); };
 	element("run").onclick = async () => {
 		save();
 		const button = element("run");
-		state.clicked = state.busy ? null : { key: timed(), at: performance.now(), results: state.results.length };
+		state.clicked = performance.now();
 		state.runningMode = state.mode;
+		state.runSize = sizeOf();
+		state.runSeconds = isVideo(state.mode) ? (Number(element("length").value) || 124) / 24 : 0;
 		button.disabled = true;
 		try {
 			const status = await timed_fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
 			offline(false);
 			button.textContent = status.busy && (status.queued || []).length ? "Queued" : "Started";
+			if (!state.busy) { state.awaiting = true; state.hasPreview = false; element("stage").classList.add("dim"); }
 			showStatus(status);
 		} catch (error) {
-			state.clicked = null;
+			state.clicked = 0;
 			offline(true);
 			button.textContent = "No server";
 		}
-		setTimeout(() => { button.textContent = "Run"; button.disabled = false; }, 900);
+		setTimeout(() => { button.textContent = "Run (Enter)"; button.disabled = false; }, 900);
 	};
 	element("stop").onclick = () => timed_fetch("/stop", { method: "POST" }).then(() => offline(false)).catch(() => offline(true));
 	element("position").onclick = () => element("menu").classList.toggle("hidden");
+	element("machine").onchange = () => { state.wanted = element("machine").value; save(); state.shown = ""; loadOutputs(true); };
+	const showMachines = status => {
+		const peers = status.peers || [], machine = element("machine");
+		const own = (status.name || "This PC") + (card(status.gpuName) ? " (" + card(status.gpuName) + ")" : "");
+		const options = peers.length ? [["", "Best"], ["local", own], ...peers.map(peer => [peer.address, peer.name ? peer.name + " (" + card(peer.gpu) + ")" : peer.label])] : [["", own]];
+		const key = JSON.stringify(options);
+		if (key === state.machines) return;
+		state.machines = key;
+		const chosen = state.wanted === undefined ? machine.value : state.wanted;
+		fill(machine, options, "");
+		if (options.some(([value]) => value === chosen)) machine.value = chosen;
+		if (baseOf() !== state.base) loadOutputs(true);
+	};
 	const showStatus = status => {
 		const others = (status.peers || []).length;
-		const ram = status.ramTotal ? "RAM " + gb(status.ram) + " / " + gb(status.ramTotal) + " · VRAM " + gb(status.vram) + " / " + gb(status.vramTotal) + " · GPU " + status.gpu + "% · CPU " + Math.round(status.cpu) + "%" : "RAM — · VRAM — · GPU — · CPU —";
-		element("meters").textContent = ram + " · " + others + (others === 1 ? " other PC" : " other PCs");
-		element("position").textContent = status.position || "run 0 · queue 0 · done 0";
+		const drive = status.drive ? " - Drive " + gb(status.drive) + " GB free" : "";
+		const meters = status.ramTotal ? "RAM " + gb(status.ram) + "/" + gb(status.ramTotal) + " GB - VRAM " + gb(status.vram) + "/" + gb(status.vramTotal) + " GB - GPU " + status.gpu + "%" + (status.gpuTemp ? " " + Math.round(status.gpuTemp) + "°C" : "") + " - CPU " + Math.round(status.cpu) + "%" + drive : "RAM — - VRAM — - GPU — - CPU —";
+		element("meters").textContent = meters + " - " + others + (others === 1 ? " other PC" : " other PCs");
+		const waiting = (status.queued || []).length;
+		element("position").textContent = status.position || "queue 0 done 0";
 		const row = text => { const line = document.createElement("div"); line.textContent = text; return line; };
 		const title = text => { const line = document.createElement("div"); line.textContent = text; line.style.color = "#8b97a5"; return line; };
 		element("menu").replaceChildren(title("Running"), row(status.running || "—"), title("Queued"), ...((status.queued || []).map(row)), title("Done"), ...((status.done || []).slice(-8).map(row)));
-		const machine = element("machine"), chosen = machine.value;
-		machine.replaceChildren(new Option("Best machine", ""), new Option("This PC", "local"));
-		for (const peer of status.peers || []) machine.add(new Option(peer.label, peer.address));
-		if ([...machine.options].some(option => option.value === chosen)) machine.value = chosen;
-		const list = element("recentList");
-		list.replaceChildren(...(status.recent || []).map(path => { const option = document.createElement("option"); option.value = path; return option; }));
+		showMachines(status);
 		showActivity(status);
-		if (status.busy && !state.busy) state.began = performance.now();
-		const waiting = (status.queued || []).length;
-		if (status.busy) element("progress").textContent = "Running " + seconds(state.began) + (waiting ? ", " + waiting + " queued" : "") + (status.step ? " · " + status.step : "");
-		else if (state.busy) element("progress").textContent = "Done in " + seconds(state.began);
-		if (state.clicked && !status.busy && !waiting && status.results && status.results.length > state.clicked.results) {
-			const all = times();
-			all[state.clicked.key] = seconds(state.clicked.at);
-			localStorage.setItem(timesKey, JSON.stringify(all));
-			state.clicked = null;
-			note();
-		}
-		state.busy = status.busy;
-		if (status.examples && state.examples.join() !== status.examples.join()) state.examples = status.examples;
-		const same = status.results && status.results.join() === state.results.join();
-		if (status.results && !same) {
-			const grew = status.results.length > state.results.length;
-			state.results = status.results; state.captions = status.captions || [];
-			if (grew) state.index = state.examples.length + state.results.length - 1;
-			showResult();
-		}
 		const running = (status.runs || []).find(run => run.state === "running");
-		if (running) { running.mode = state.runningMode; showPreview(status); }
+		if (running) running.progress = progressOf(running.lines.map(split));
+		if (status.busy && !state.busy) {
+			state.began = state.clicked || performance.now();
+			if (!state.awaiting) { state.awaiting = true; state.hasPreview = false; element("stage").classList.add("dim"); }
+			state.stripBegan = 0;
+			if (state.runSize) { state.shape = null; shape(state.runSize[0], state.runSize[1]); }
+		}
+		state.clicked = status.busy ? 0 : state.clicked;
+		element("job").textContent = running ? "Run " + running.id + ": " + running.title + " - " + running.progress.stage : status.busy ? status.running || "Running" : waiting ? waiting + " queued" : "Idle";
+		element("job").title = element("job").textContent;
+		if (status.busy) {
+			const prompt = running ? (running.lines.map(split).find(([, text]) => text.startsWith("Prompt: ")) || ["", "Prompt: "])[1].slice(8) : "";
+			element("infoText").textContent = prompt || status.running || "";
+			element("infoText").title = element("infoText").textContent;
+			element("infoTime").textContent = "Running " + seconds(state.began) + (waiting ? ", " + waiting + " queued" : "");
+		}
+		const wasBusy = state.busy;
+		state.busy = status.busy;
+		if (wasBusy && !status.busy) { state.keepInfo = true; element("infoTime").textContent = "Done in " + seconds(state.began); }
+		const lastRun = (status.runs || []).slice(-1)[0];
+		const saved = (status.runs || []).reduce((count, run) => count + run.lines.filter(line => /\t(Saved|Wrote) /.test(line)).length, 0);
+		const made = (lastRun ? lastRun.id : 0) + ":" + saved + ":" + (status.results || []).length;
+		if (state.made !== undefined && made !== state.made) loadOutputs(true);
+		else if (wasBusy && !status.busy) loadOutputs(true).then(() => setTimeout(settle, 1500));
+		if (!status.busy && !waiting && state.awaiting && !(state.clicked && performance.now() - state.clicked < 10000) && !wasBusy && !state.settling) {
+			state.settling = setTimeout(() => { state.settling = 0; settle(); }, 2000);
+		}
+		state.made = made;
+		if (running) showPreview(status);
 		else { state.previewStamp = 0; state.hasPreview = false; }
 		showOverlay(running, !!state.hasPreview);
 	};
@@ -674,12 +885,15 @@
 		catch { state.misses = (state.misses || 0) + 1; if (state.misses >= 2) offline(true); }
 	};
 	document.querySelector("section").addEventListener("change", save);
-	state.examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => "MossWebExample" + number + ".jpg");
-	state.examples.forEach(path => { const image = new Image(); image.src = "/file?path=" + encodeURIComponent(path); });
-	showResult();
+	element("repeat").onchange = save;
+	const view = read(viewKey, {});
+	if (titles[view.mode]) state.mode = view.mode;
+	if (view.repeat) element("repeat").value = view.repeat;
+	if (view.machine) state.wanted = view.machine;
 	showMode();
 	addEventListener("resize", fit);
-	const watch = async () => { await poll(); setTimeout(watch, state.offline ? 1500 : state.busy || state.clicked ? 150 : 400); };
+	loadOutputs(true);
+	const watch = async () => { await poll(); setTimeout(watch, state.offline ? 1500 : state.busy || (state.clicked && performance.now() - state.clicked < 10000) ? 60 : 400); };
 	watch();
 </script>
 </body>

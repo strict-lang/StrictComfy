@@ -47,13 +47,23 @@ Reworded(encoder Qwen3, picked Numbers) Slow(Qwen3)
 Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Slow(Number)
 	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
 	let sampled = Process.Elapsed
-	let latents = Latents(kept.mosses.First, seeds, prompts, unique, contexts, outputs)
+	let sampling = Previewed(options.Sampling(logger), kept.previewers)
+	let first = Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, 0, 1)
+	if GpuMemory.Available >= MossFiles.Spare
+		return Streamed(kept, sampling, first, seeds, prompts, unique, contexts, outputs)
+	let latents = first + Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, 1, seeds.Length - 1)
 	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
 	options.files.Eased
 	let decoded = Process.Elapsed
 	let saved = Decoded(kept, latents, seeds, prompts, outputs)
 	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
 	saved.Length
+Streamed(kept MossResident, sampling MossSampling, first List(Numbers), seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(Number)
+	mutable made = Decoded(kept, first, seeds.Slice(0, 1), prompts.Slice(0, 1), outputs.Slice(0, 1)).Length
+	for Range(1, seeds.Length)
+		let latents = Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, value, 1)
+		made = made + Decoded(kept, latents, seeds.Slice(value, 1), prompts.Slice(value, 1), outputs.Slice(value, 1)).Length
+	made
 Loading(loras Text) Text
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
@@ -65,23 +75,20 @@ Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, 
 	if kept.taefs.Length is 1
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
-Latents(moss Moss, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Slow(List(Numbers))
-	let sampling = Previewed(options.Sampling(logger))
-	for seeds
-		let label = "Image " + (index + 1) + "/" + seeds.Length + " " + Path(outputs(index)).FileName.text
-		Sampled(moss, sampling, value, contexts(unique.Index(prompts(index))), label)
-Previewed(sampling MossSampling) Slow(MossSampling)
-	Sample.Previewed(Sample.options.Sampling(Logger)).preview is ""
-	if options.preview is ""
+Latents(moss Moss, sampling MossSampling, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts, start Number, count Number) Slow(List(Numbers))
+	for Range(start, start + count)
+		let label = "Image " + (value + 1) + "/" + seeds.Length + " " + Path(outputs(value)).FileName.text
+		let shown = MossSampling(sampling, finale = value < seeds.Length - 1)
+		Sampled(moss, shown, seeds(value), contexts(unique.Index(prompts(value))), label)
+Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
+	Sample.Previewed(Sample.options.Sampling(Logger), List(Taef2Decoder)).preview is ""
+	if (options.preview is "") or (previewers.Length is 0)
 		return sampling
-	let path = ModelFiles(options.files.models).Located("taef2.safetensors", "vae_approx")
-	if path is Error
-		return sampling
-	MossSampling(sampling, preview = options.preview, previewer = Taef2Decoder.Loaded(path))
+	MossSampling(sampling, preview = options.preview, previewer = previewers.First)
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Slow(Numbers)
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	sampling.Sampled(moss, noise, context, label)
-Saved(image Numbers, started Number, seed Number, prompt Text, planned Text) Slow(Text)
+Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Slow(Text)
 	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
 		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
@@ -89,7 +96,8 @@ Saved(image Numbers, started Number, seed Number, prompt Text, planned Text) Slo
 		ImageCodec.SaveJpeg(path, image, options.width, JpegQuality)
 	if options.JsonOutput
 		File(path + ".json").Write(List(Text) + Described(seed, prompt))
-	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms")
+	let decoded = decoding > 0 then ", decoded in " + (decoding * 1000).Round + " ms" else ""
+	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms" + decoded)
 	path
 Described(seed Number, prompt Text) Text
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")

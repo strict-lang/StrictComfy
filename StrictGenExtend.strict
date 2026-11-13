@@ -12,6 +12,8 @@ constant Sample = StrictGenExtend(Logger)
 constant SampleAudio = 40
 constant SampleAudioStart = 11
 constant SamplePixels = 44
+constant Last = "/last.latent.safetensors"
+constant Note = "/last.latent.txt"
 IsContext(length Number) Boolean
 	Sample.IsContext(22) and Sample.IsContext(39) and Sample.IsContext(90)
 	Sample.IsContext(21) is false
@@ -71,11 +73,12 @@ FromLatent(path Text, context Number) StrictGenExtend
 	let seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
 	let listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
 	StrictGenExtend(logger, "", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
-Head(path Text, context Number, height Number, width Number, vae Text, audioVae Text) Slow(StrictGenExtend)
+Head(path Text, context Number, height Number, width Number, vae Text, audioVae Text, folder Text = "") Slow(StrictGenExtend)
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
 	Sample.Head("strictgen-tail.mp4", 22, 16, 16, "", "").frames is 7
-	let saved = LatentPath(path)
-	let read = File(saved).Exists then FromLatent(saved, context) else StrictGenExtend(value, problem = "Missing")
+	let beside = LatentPath(path)
+	let saved = File(beside).Exists then beside else Remembered(path, folder)
+	let read = saved is not "" then FromLatent(saved, context) else StrictGenExtend(value, problem = "Missing")
 	let matches = (read.problem is "") and (read.tall * 16 is height) and (read.wide * 16 is width)
 	matches then read else FromMedia(path, context, width, height, vae, audioVae)
 FromMedia(path Text, context Number, width Number, height Number, vae Text, audioVae Text) Slow(StrictGenExtend)
@@ -120,6 +123,13 @@ Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number
 		let time = (index / plane).Floor % temporal
 		let at = ((index / volume).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
-Kept(path Text, latent Numbers, shapes Numbers, pixels Number)
+Remembered(path Text, folder Text) Slow(Text)
+	Sample.Remembered("a.mp4", "missing-folder") is ""
+	Sample.Remembered("a.mp4", "") is ""
+	let named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
+	let known = (named.Length > 0) and (named.First is path.Replace("\\", "/")) and File(folder + Last).Exists
+	known then folder + Last else ""
+Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text)
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
-	Safetensors(LatentPath(path)).Written(("latent", "shape"), (latent, shape))
+	Safetensors(folder + Last).Written(("latent", "shape"), (latent, shape))
+	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))

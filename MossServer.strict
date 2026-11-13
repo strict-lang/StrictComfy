@@ -84,10 +84,10 @@ IsContinued(arguments Texts, forced Boolean) Slow(Boolean)
 		Use(arguments, forced).Explained(settled)
 	(settled.StartsWith("refused") is false) and ((settled is not "") or Use(arguments, forced).Checked)
 Ended(socket Number, code Number, request Text) Slow(Boolean)
-	Sample.Ended(0, 1, "broken")
+	Sample.Ended(0, 1, "broken") is false
 	if backend.resident.Finished(socket, code) is Error
-		logger.Log("The MossImage client left before the result was sent")
-		return backend.Freed(request)
+		logger.Log("The MossImage client left before the result was sent, the models stay loaded")
+		return backend.Freed(request) is Error
 	backend.Freed(request, false)
 Use(arguments Texts, forced Boolean) MachineUse
 	Sample.Use(List(Text), true).isForced

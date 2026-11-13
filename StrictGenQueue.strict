@@ -14,6 +14,8 @@ has job = StrictGenJob
 has finished = 0
 has halted = false
 constant Empty = StrictGenQueue(Logger)
+constant Collecting = "GarbageCollectionExceedsLimit"
+constant NoOutput = "The run finished without an output file"
 Added(mode Text, command Texts, line Text, body Text = "", pin Text = "") StrictGenQueue
 	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Added("video", ("--length", "24"), "owl").pending.Length is 2
@@ -73,8 +75,15 @@ Polled StrictGenQueue
 	let paths = job.Existing(job.Found(rows))
 	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
-	let caption = paths.Length is 0 then "The run finished without an output file" else lines(job.current)
+	let caption = paths.Length is 0 then Failure(rows) else lines(job.current)
 	Finished(paths, caption, job.Prompts(rows))
+Failure(rows Texts) Text
+	Empty.Failure(("Step 1", "GarbageCollectionExceedsLimit: 0.77 of the last 5.0 seconds")).StartsWith(Collecting)
+	Empty.Failure(List(Text) + "Step 1") is NoOutput
+	for rows
+		if value.StartsWith(Collecting)
+			return value
+	NoOutput
 Remote StrictGenQueue
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First

@@ -89,3 +89,6 @@ smoke-prompt.txt
 input/
 output/
 StrictGenInbox/
+StrictGenWarm.*
+StrictGenCpu.txt
+StrictGenJob-*.timed

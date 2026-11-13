@@ -5,6 +5,8 @@ Completed(kept MossResident) Slow(MossResident)
 	if problem is not ""
 		batch.logger.Log(problem)
 		return MossResident(kept, code = 2)
+	if options.warm
+		return Warmed(kept)
 	let started = Process.Elapsed
 	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
 	let template = batch.prompted is "" then batch.Templated else batch.prompted
@@ -16,8 +18,15 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) Slow(M
 		Safetensors(batch.options.output).Written("context", c.First)
 		return MossResident(encoded, code = 0)
 	batch.options.files.Eased
-	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder)
+	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
 	let made = batch.Images(decoding, seeds, prompts, prompts.Unique, c)
 	batch.options.files.Freed
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
+	MossResident(decoding, code = 0)
+Warmed(kept MossResident) Slow(MossResident)
+	let started = Process.Elapsed
+	let encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))
+	batch.options.files.Eased
+	let decoding = encoding.Sampling(batch).Decoders(batch.options.Decoder)
+	batch.logger.Log("Moss is ready after " + (Process.Elapsed - started).Round(1) + " s, the next image starts at once")
 	MossResident(decoding, code = 0)

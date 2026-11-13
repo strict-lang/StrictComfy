@@ -1,6 +1,6 @@
 has logger
 constant Sample = StrictGenStats(Logger)
-constant WindowsCpu = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average"
+constant WindowsCpu = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average, (Get-PSDrive (Get-Location).Drive.Name).Free, [System.Net.Dns]::GetHostName() | Set-Content StrictGenCpu.txt"
 constant LinuxCpu = "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
 constant Measured = "StrictGenCpu.txt"
 constant RunsShown = 6
@@ -15,24 +15,31 @@ Text Slow(Text)
 	let vram = device(0) > device(1) then device(0) - device(1) else 0
 	let ram = total > free then total - free else 0
 	let memory = "{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0)
-	memory + ",\"gpu\":" + device(2) + ",\"cpu\":" + Processor + "}"
+	let drive = Drive
+	memory + ",\"gpu\":" + device(2) + ",\"cpu\":" + Processor + ",\"drive\":" + drive + "}"
 Processor Slow(Number)
 	Sample.Processor >= 0
 	let windows = Process.OperatingSystem is "Windows"
 	let last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
-	let later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" > " + Measured + " 2>nul"
+	let later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" >nul 2>nul"
 	let result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
 	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
 	(result.Failed or (number is Error)) then 0 else number.Clamp(0, 100)
+Drive Number
+	Sample.Drive >= 0
+	let rows = File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
+	let free = rows.Length > 1 then rows(1).Trim to Number else 0
+	free is Error then 0 else free
 Status(queue StrictGenQueue, net StrictGenNet) Text
-	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"run 0") >= 0
+	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"queue 0 done 0\"") >= 0
 	let stats = net.meters is "" then Blank else net.meters
 	let preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
 	let stamp = (preview is not "") and File(preview).Exists then File(preview).Length else 0
 	let position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
 	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
 	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
-	head + Made(queue) + ",\"peers\":" + Peers(net) + "}"
+	let machine = ",\"name\":" + StrictGenNet.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"gpuTemp\":" + net.heat
+	head + machine + Made(queue) + ",\"peers\":" + Peers(net) + "}"
 Made(queue StrictGenQueue) Text
 	Sample.Made(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
 	let made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
@@ -65,9 +72,9 @@ Joined(lines Texts) Text
 	Sample.Joined(("a", "b")) is "a\nb"
 	outer.Text.Combine(lines, "\n")
 Position(queue StrictGenQueue) Text
-	Sample.Position(StrictGenQueue.Empty) is "run 0 · queue 0 · done 0"
-	Sample.Position(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is "run 0 · queue 1 · done 0"
-	"run " + (queue.job.current < 0 then 0 else 1) + " · queue " + queue.pending.Length + " · done " + queue.finished
+	Sample.Position(StrictGenQueue.Empty) is "queue 0 done 0"
+	Sample.Position(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is "queue 1 done 0"
+	"queue " + queue.pending.Length + " done " + queue.finished
 Waiting(queue StrictGenQueue) Texts
 	Sample.Waiting(StrictGenQueue.Empty).Length is 0
 	Sample.Waiting(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is ("Image fox")
@@ -98,7 +105,8 @@ Peers(net StrictGenNet) Text
 	mutable items = List(Text)
 	for net.Labels
 		let parts = value.Split("\t")
-		items = items + ("{\"address\":" + parts.First.Code + ",\"label\":" + parts.Last.Code + "}")
+		let named = ",\"name\":" + parts(2).Code + ",\"gpu\":" + parts(3).Code
+		items = items + ("{\"address\":" + parts.First.Code + ",\"label\":" + parts(1).Code + named + "}")
 	"[" + outer.Text.Combine(items, ",") + "]"
 Step(lines Texts) Text
 	Sample.Step(("hello", "Step 3/8 in 151 ms")) is "Step 3/8 in 151 ms"

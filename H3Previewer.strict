@@ -1,7 +1,7 @@
 has path Text
 has decoders List(Taeh3Decoder)
 constant None = H3Previewer("", List(Taeh3Decoder))
-constant Frames = 8
+constant Frames = 32
 constant Tiny = H3Previewer("artifacts/h3previewer-test.jpg", List(Taeh3Decoder) + Taeh3Decoder.Tiny)
 constant Shape = (24, 2, 2, 3)
 constant Clip = Taeh3Decoder.Latent + Taeh3Decoder.Latent
@@ -20,33 +20,36 @@ Written(latent Numbers, shape Numbers) Slow(None)
 	if (decoders.Length is 0) or (latent.Length is 0)
 		return
 	let picked = Picked(shape(1))
-	let frames = Decoded(latent, shape, picked)
+	let small = Small(shape)
+	let wide = picked.Length * small(1)
+	let pixels = decoders.First.Decoded(Tiled(latent, shape, picked, small), wide)
 	let part = path + ".part"
-	let wide = picked.Length * shape(3) * 16
-	ImageCodec.SaveJpeg(part, Strip(frames, shape(2) * 16, shape(3) * 16), wide, MossBatch.JpegQuality)
+	ImageCodec.SaveJpeg(part, Interleaved(pixels, small(0) * 16 * wide * 16), wide * 16, MossBatch.JpegQuality)
 	if File(path).Exists
 		File(path).Delete
 	File(part).Rename(path)
-Decoded(latent Numbers, shape Numbers, picked Numbers) Slow(List(Numbers))
-	Tiny.Decoded(Clip, Shape, (0, 1)).Length is 2
-	for picked
-		decoders.First.Decoded(Frame(latent, shape, value), shape(3))
 Picked(count Number) Numbers
 	Tiny.Picked(2) is (0, 1)
-	(Tiny.Picked(31).Length is Frames) and (Tiny.Picked(31).Last is 27)
+	(Tiny.Picked(64).Length is Frames) and (Tiny.Picked(31).Last is 30)
 	let used = count.Clamp(1, Frames)
 	for used
 		(index * count / used).Floor
-Frame(latent Numbers, shape Numbers, frame Number) Numbers
-	Tiny.Frame((1, 2, 3, 4), (2, 2, 1, 1), 1) is (2, 4)
+Small(shape Numbers) Numbers
+	(Tiny.Small(Shape) is (2, 3)) and (Tiny.Small((24, 31, 30, 52)) is (15, 26))
+	(shape(2) < 4) or (shape(3) < 4) then (shape(2), shape(3)) else ((shape(2) / 2).Floor, (shape(3) / 2).Floor)
+Tiled(latent Numbers, shape Numbers, picked Numbers, small Numbers) Numbers
+	Tiny.Tiled((1, 2, 3, 4), (2, 2, 1, 1), (0, 1), (1, 1)) is (1, 2, 3, 4)
+	Tiny.Tiled((1, 2, 3, 4), (2, 2, 1, 1), List(Number) + 1, (1, 1)) is (2, 4)
+	Tiny.Tiled((1, 2, 3, 6), (1, 1, 2, 2), List(Number) + 0, (1, 1)) is List(Number) + 3
+	let scale = small(1) is shape(3) then 1 else 2
+	let wide = picked.Length * small(1)
 	let plane = shape(2) * shape(3)
-	for shape(0) * plane
-		latent(((index / plane).Floor * shape(1) + frame) * plane + index % plane)
-Strip(frames List(Numbers), height Number, width Number) Numbers
-	Tiny.Strip(((1, 2, 3), (4, 5, 6)), 1, 1) is (1, 2, 3, 4, 5, 6)
-	let plane = height * width
-	let wide = frames.Length * width
-	for 3 * plane * frames.Length
-		let pixel = (index / 3).Floor
-		let column = pixel % wide
-		frames((column / width).Floor)(index % 3 * plane + (pixel / wide).Floor * width + column % width)
+	for shape(0) * small(0) * wide
+		let frame = picked((index % wide / small(1)).Floor)
+		let start = ((index / (small(0) * wide)).Floor * shape(1) + frame) * plane
+		let at = start + (index / wide).Floor % small(0) * scale * shape(3) + index % wide % small(1) * scale
+		scale is 1 then latent(at) else (latent(at) + latent(at + 1) + latent(at + shape(3)) + latent(at + shape(3) + 1)) / 4
+Interleaved(pixels Numbers, plane Number) Numbers
+	Tiny.Interleaved((1, 2, 3, 4, 5, 6), 2) is (1, 3, 5, 2, 4, 6)
+	for 3 * plane
+		pixels(index % 3 * plane + (index / 3).Floor)

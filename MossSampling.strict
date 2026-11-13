@@ -8,6 +8,7 @@ has period Number = 2
 has span MossSpan = MossSpan.Off
 has preview = ""
 has previewer = Taef2Decoder.None
+has finale = false
 constant Presets = ((8, 1, 0, 2), (25, 2, 0, 2), (50, 2, 0, 2), (8, 1, 3, 3), (8, 1, 2, 3), (4, 1, 2, 2), (2, 1, 0, 2))
 constant Spanned = MossSpectrum(MossSpectrum.Tiny, span = MossSpan(MossSpan(6, 36), reused = 2))
 constant Forecasting = MossSpectrum(MossSpectrum.Tiny, forecasts = 3)
@@ -40,29 +41,28 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 	latent
 Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number
 	GpuMemory.Finished
-	if (preview is not "") and Previewing(step, Process.Elapsed - previous)
-		let pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
-		let part = preview + ".part"
-		ImageCodec.SaveJpeg(part, pixels, previewer.Shrunk(2 * width) * 8, MossBatch.JpegQuality)
-		if File(preview).Exists
-			File(preview).Delete
-		File(part).Rename(preview)
 	let now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
-	now
+	if (preview is "") or (Previewing(step, now - previous) is false)
+		return now
+	let pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
+	let part = preview + ".part"
+	ImageCodec.SaveJpeg(part, pixels, previewer.Shrunk(2 * width) * 8, MossBatch.JpegQuality)
+	if File(preview).Exists
+		File(preview).Delete
+	File(part).Rename(preview)
+	Process.Elapsed
 Previewing(step Number, took = Shown) Boolean
-	(Forecaster.Previewing(0, 0.5) is false) and Forecaster.Previewing(0, 1)
-	MossSampling(Logger).Previewing(4, 0.9) is false
-	Forecaster.Previewing(0) and Forecaster.Previewing(2) and Forecaster.Previewing(5)
-	(Forecaster.Previewing(1) is false) and (Forecaster.Previewing(4) is false) and (Forecaster.Previewing(6) is false)
-	MossSampling(Logger, steps = 4, mode = "on").Previewing(1)
-	MossSampling(Logger, steps = 4, mode = "on").Previewing(2) is false
-	MossSampling(Logger, steps = 8).Previewing(4) and MossSampling(Logger, steps = 8).Previewing(6)
-	MossSampling(Logger, steps = 8).Previewing(7) is false
-	MossSampling(Logger, steps = 2).Previewing(0) and (MossSampling(Logger, steps = 2).Previewing(1) is false)
-	if (took < Shown) or (mode is "off")
-		return (took >= Shown) and (step < steps - 1)
-	(step is 0) or ((step < steps - 2) and ((step is (steps / 3).Floor) or (step is (2 * steps / 3).Floor)))
+	MossSampling(Logger).Previewing(0, 0.1) and MossSampling(Logger).Previewing(4, 0.1)
+	(MossSampling(Logger).Previewing(1, 0.1) is false) and (MossSampling(Logger).Previewing(5, 0.1) is false)
+	MossSampling(Logger).Previewing(6, 0.1) and MossSampling(Logger, finale = true).Previewing(7, 0.1)
+	MossSampling(Logger).Previewing(1) and MossSampling(Logger).Previewing(6, 2)
+	(MossSampling(Logger).Previewing(7) is false) and (MossSampling(Logger).Previewing(7, 0.1) is false)
+	MossSampling(Logger, steps = 4).Previewing(2, 0.1) and (MossSampling(Logger, steps = 4).Previewing(3, 0.1) is false)
+	MossSampling(Logger, steps = 2).Previewing(0, 0.1) and (MossSampling(Logger, steps = 2).Previewing(1, 0.1) is false)
+	if step >= steps - 1
+		return finale
+	(took >= Shown) or (step is 0) or (step is (steps / 2).Floor) or (step is steps - 2)
 Progress(step Number, last Number, average Number) Text
 	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
 	"Step " + (step + 1) + "/" + steps + " in " + (last * 1000).Round + " ms, average " + (average * 1000).Round + " ms"

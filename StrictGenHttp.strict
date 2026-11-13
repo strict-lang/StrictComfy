@@ -67,7 +67,7 @@ Payload(bytes Numbers) Numbers
 	bytes.Slice(head.Length, bytes.Length - head.Length)
 Replied(client Number, kind Text, body Text)
 	let payload = Encoded(body)
-	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n"
+	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
 	Socket.Send(client, Encoded(header) + payload)
 	Socket.Close(client)
 SendFile(client Number, path Text)
@@ -84,6 +84,7 @@ Kind(path Text) Text
 	StrictGenHttp.Kind("a.jpg") is "image/jpeg"
 	StrictGenHttp.Kind("a.mp4") is "video/mp4"
 	StrictGenHttp.Kind("a.png") is "image/png"
+	(StrictGenHttp.Kind("a.jpeg") is "image/jpeg") and (StrictGenHttp.Kind("a.bin") is "application/octet-stream")
 	let extension = path.Lower.Split(".").Last
 	let image = (extension is "jpg") or (extension is "jpeg") then "image/jpeg" else "application/octet-stream"
 	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)

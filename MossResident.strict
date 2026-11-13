@@ -11,6 +11,7 @@ has taefs List(Taef2Decoder) = List(Taef2Decoder)
 has fluxes List(FluxDecoder) = List(FluxDecoder)
 has decoderFile = ""
 has code = 0
+has previewers List(Taef2Decoder) = List(Taef2Decoder)
 constant MostPrompts = 100
 constant Spelled = MossResident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
 constant Unloaded = MossResident(Logger, taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinytaef2.safetensors")
@@ -78,6 +79,12 @@ Sampling(batch MossBatch) Slow(MossResident)
 	let staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, mosses = List(Moss) + moss, model = key)
+Previewing(batch MossBatch) Slow(MossResident)
+	MossResident(Logger).Previewing(MossBatch.Sample).previewers.Length is 0
+	if (batch.options.preview is "") or (previewers.Length is 1)
+		return value
+	let path = ModelFiles(batch.options.files.models).Located("taef2.safetensors", "vae_approx")
+	path is Error then value else MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 Decoders(path Text) Slow(MossResident)
 	MossResident(Logger).Decoders("tinytaef2.safetensors").taefs is (List(Taef2Decoder) + Taef2Decoder.Tiny)
 	Unloaded.Decoders("tinytaef2.safetensors").taefs.First is Taef2Decoder.None

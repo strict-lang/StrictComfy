@@ -1,6 +1,6 @@
 has logger
 constant Forever = 1000000000
-constant BusyWait = 0.05
+constant BusyWait = 0.02
 constant IdleWait = 0.02
 constant Preview = "StrictGenStep.jpg"
 constant Shell = "StrictGen.shell.html"
@@ -42,9 +42,17 @@ Looped(socket Number, queue StrictGenQueue, net StrictGenNet)
 		state = waiting then Answered(Socket.Accept(socket), state, peers) else state
 		peers = waiting then peers else peers.Refreshed
 		state = StrictGenConsole(logger).Told(before, Steered(state, peers))
+		if state.notice.StartsWith(StrictGenQueue.Collecting)
+			StrictGenJob.StopAll
+			return Broken(state.notice)
 		peers = peers.Tick(state.IsBusy)
 		if waiting is false
 			Process.Wait(state.IsBusy then BusyWait else IdleWait)
+Broken(reason Text) Number
+	StrictGen(Logger).Broken("GarbageCollectionExceedsLimit: test") is Error
+	logger.Log("A backend ended with " + reason)
+	logger.Log("StrictGen stops its backends and ends here so this gets fixed first, release builds only warn and go on")
+	Error("GarbageCollectionExceedsLimit")
 Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue
 	StrictGen(Logger).Steered(StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
 	let choice = queue.NeedsAim then net.Chosen(queue.NextMode, queue.Pin) else ""
@@ -72,22 +80,34 @@ IsSent(client Number, bytes Numbers) Boolean
 Typed(route Text) Text
 	StrictGen(Logger).Typed("/status") is "application/json"
 	StrictGen(Logger).Typed("/job") is "text/plain"
+	StrictGen(Logger).Typed("/outputs") is "text/plain"
 	StrictGen(Logger).Typed("/") is "text/html"
-	let isJson = route is in ("/run", "/stop", "/import", "/status")
-	let plain = route is in ("/neighbor", "/probe", "/job", "/list")
+	let isJson = route is in ("/run", "/stop", "/import", "/status", "/warm")
+	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text
 	if route is "/import"
 		File("StrictGenWorkflow.json").Write(StrictGenHttp.Body(raw).Split("\n"))
 		return StrictGenForm.Imported("StrictGenWorkflow.json")
+	if route is "/warm"
+		return Warmed(StrictGenHttp.Body(raw), queue)
 	if (route is "/status") or (route is "/run") or (route is "/stop")
 		let status = StrictGenStats(logger).Status(queue, net)
 		let accepted = route is "/run" then queue.modes.Length - 1 else -1
 		return status.Substring(0, status.Length - 1) + ",\"accepted\":" + accepted + "}"
 	Typed(route) is "text/plain" then Plain(route, raw, queue) else Page
+Warmed(body Text, queue StrictGenQueue) Text
+	StrictGen(Logger).Warmed("{\"mode\":\"video\"}", StrictGenQueue.Empty) is "{\"warming\":false}"
+	if queue.IsBusy or (queue.pending.Length > 0) or (Json(body).get("mode") to Text is not "image")
+		return "{\"warming\":false}"
+	let command = Text.Combine(StrictGenForm.Arguments(body), "\n")
+	let started = StrictGenJob.Warmed(StrictGenJob.Executable("MossImage"), command)
+	"{\"warming\":" + (started then "true" else "false") + "}"
 Plain(route Text, raw Text, queue StrictGenQueue) Text
 	if route is "/job"
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)
+	if route is "/outputs"
+		return Text.Combine(StrictGenFiles("").Outputs(Outputs), "\n")
 	if route is "/list"
 		let files = StrictGenFiles(StrictGenHttp.Query(raw, "models"))
 		return Text.Combine(files.Listed(StrictGenHttp.Query(raw, "kind")), "\n")

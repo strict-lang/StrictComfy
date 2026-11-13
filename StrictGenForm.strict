@@ -5,6 +5,7 @@ constant ExpectedClip = ("--width", "640", "--height", "1152", "--quality", "fas
 constant PictureOutput = ("--output", "output/MossImage.jpg")
 constant ClipOutput = ("--output", "output/H3Video.mp4")
 constant Forced = "{\"force\":\"true\",\"local\":\"true\",\"seed\":7}"
+constant Named = "{\"mode\":\"image\",\"width\":704,\"height\":1280,\"sizeName\":\"720p portrait\",\"steps\":8}"
 constant Modes = ("image", "video", "extend", "h3image")
 constant Titles = ("Moss Image", "H3 Video", "H3 Video Extend", "H3 Image")
 Arguments(body Text) Texts
@@ -114,18 +115,20 @@ Taken(arguments Texts, name Text) Text
 	let at = arguments.Index(name)
 	(at < 0) or (at + 1 >= arguments.Length) then "" else arguments(at + 1)
 Summary(body Text) Text
-	StrictGenForm.Summary(Picture).StartsWith("Moss Image a fox 480x848 fastest")
-	StrictGenForm.Summary(Clip).StartsWith("H3 Video Extend go on 640x1152 fast")
-	StrictGenForm.Summary(StrictGenImage.Edit).StartsWith("H3 Image night 1024x1024")
+	StrictGenForm.Summary(Picture) is "Moss Image 480x848, quality: fastest"
+	StrictGenForm.Summary(Clip) is "H3 Video Extend 640x1152, quality: fast"
+	StrictGenForm.Summary(StrictGenImage.Edit) is "H3 Image 1024x1024, quality: fast 6 steps x2"
+	StrictGenForm.Summary(Named) is "Moss Image 720p portrait, 8 steps"
 	let json = Json(body)
 	let at = Modes.Index(json.get("mode") to Text)
-	let template = (json.get("prompt") to Text).Split("\n").First
-	let label = (at < 0 then "H3 Image to Video" else Titles(at)) + " " + PromptBatch.Sample.Shown(template)
-	let size = (json.get("width") to Text) + "x" + (json.get("height") to Text) + " " + (json.get("quality") to Text)
-	let model = json.get("model") to Text
+	let named = json.get("sizeName") to Text
+	let size = named is "" then (json.get("width") to Text) + "x" + (json.get("height") to Text) else named
+	let quality = json.get("quality") to Text
+	let steps = json.get("steps") to Text
+	let stepped = (steps is "") or (steps is "0") then "" else (quality is "" then ", " else " ") + steps + " steps"
 	let count = json.get("count") to Text
 	let times = (count is "") or (count is "1") or (count is "0") then "" else " x" + count
-	label + " " + size + " " + (model is "" then "default" else Path(model).FileName.text) + times
+	(at < 0 then "H3 Image to Video" else Titles(at)) + " " + size + (quality is "" then "" else ", quality: " + quality) + stepped + times
 Neighbor(paths Texts, current Text, step Number) Text
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", 1) is "c.png"
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", -1) is "a.png"
@@ -136,7 +139,7 @@ Neighbor(paths Texts, current Text, step Number) Text
 		return ""
 	let at = files.Index(current)
 	files(at < 0 then (step < 0 then files.Length - 1 else 0) else (at + step).Clamp(0, files.Length - 1))
-Listed(folder Text, extensions Texts) Texts
+Listed(folder Text, extensions Texts) Slow(Texts)
 	Text.Combine(StrictGenForm.Listed(".", List(Text) + "strict"), " ").IndexOf("StrictGenForm.strict") >= 0
 	mutable files = List(Mutable(Text))
 	for Directory.Files(folder)

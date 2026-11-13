@@ -1,2 +1,2 @@
-"C:/code/GitHub/strict-lang/StrictComfy/Release/Windows/MossImage.exe" --width 704 --height 1280 --quality best --prompt StrictGenPrompt.txt --steps 8 --vae taef2.safetensors --skip off --lora D:\ComfyUI_windows_portable\ComfyUI\models\loras\moss\pussy_gape_closeup.safetensors:1 --count 10 --model moss-image-sft-dit-int8-convrot.safetensors --preview StrictGenStep-6.jpg > "StrictGenJob-6.log" 2>&1
-echo DONE> "StrictGenJob-6.done"
+"C:/code/GitHub/strict-lang/StrictComfy/H3Video.exe" --width 480 --height 832 --quality fast --prompt StrictGenPrompt.txt --length 124 --steps 8 --skip 5:45 --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --output output/H3Video.mp4 --preview StrictGenStep-8.jpg > "StrictGenJob-8.log" 2>&1
+echo DONE> "StrictGenJob-8.done"
