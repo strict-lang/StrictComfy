@@ -49,9 +49,11 @@ Exchanged(host Text, port Number, bytes Numbers) Numbers slow
 	if socket is Error
 		return List(Number)
 	if Socket.Send(socket, bytes) is Error
-		return Socket.Close(socket) is Error then List(Number) else List(Number)
+		Socket.Close(socket)
+		return List(Number)
 	let response = Read(socket)
-	Socket.Close(socket) is Error then response else response
+	Socket.Close(socket)
+	response
 Read(socket Number) Numbers slow
 	mutable bytes = List(Mutable(Number))
 	for Range(0, ReadPolls)
