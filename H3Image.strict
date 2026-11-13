@@ -10,8 +10,7 @@ constant Tiny = H3Image(Logger, H3ImageOptions.Parsed(("--models", ".", "--width
 constant Edit = H3Image(Logger, H3ImageOptions.Parsed(("--image", "tinyframe.png")))
 Run(arguments Texts) Number
 	H3Image(Logger).Run(List(Text) + "--help") is 0
-	H3Image(Logger).Run(("--colour", "--local")) is 1
-	H3Image(Logger).Run(("a", "fox")) is 1
+	(H3Image(Logger).Run(("--colour", "--local")) is 1) and (H3Image(Logger).Run(("a", "fox")) is 1)
 	if "--help" is in arguments
 		Help
 		return 0

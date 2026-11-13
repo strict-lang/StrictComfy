@@ -108,7 +108,8 @@ Position(token Number, axis Number, height Number, width Number, text Number) Nu
 	MossBlock.Position(17, 3, 4, 4, 3) is 0
 	MossBlock.Position(6, 3, 4, 4, 3) is 0.5
 	let image = token < height * width
-	let centered = axis is 2 then (token / width).Floor - (height - 1) / 2 else token % width - (width - 1) / 2
+	let wide = width > 0 then width else 1
+	let centered = axis is 2 then (token / wide).Floor - (height - 1) / 2 else token % wide - (width - 1) / 2
 	axis is 1 then (image then text else token - height * width) else (axis is 0 or image is false then 0 else centered)
 Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(0, 1) is 0

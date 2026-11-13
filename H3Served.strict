@@ -27,8 +27,7 @@ Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 	if missing.Length is 0
 		batch.logger.Log("Using cached prompt conditioning")
 		return kept
-	if kept.IsSampling(batch.options.Checkpoint, batch.options.Loras) is false
-		batch.Prefetched(List(Text) + batch.options.Checkpoint + batch.LoraFiles, "H3 and its LoRAs")
+	Reading(kept)
 	let encoding = kept.Encoding(batch.options.files).Tokenizing(batch.options.files)
 	if Encoded(encoding, plan, missing) is not missing.Length
 		batch.logger.Log("The text encoder made fewer contexts than the " + missing.Length + " prompts it was given")
@@ -36,6 +35,9 @@ Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 		GpuMemory.Evicted
 	batch.options.files.Freed
 	kept.isCrowded then H3Resident(encoding, encoders = List(Qwen3), encoderFile = "") else encoding
+Reading(kept H3Resident) slow
+	if kept.IsSampling(batch.options.Checkpoint, batch.options.Loras) is false
+		batch.Prefetched(List(Text) + batch.options.Checkpoint + batch.LoraFiles, "H3 and its LoRAs")
 Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Number slow
 	let options = batch.options
 	Directory.Create(H3Artifacts(options).Root + "/artifacts")

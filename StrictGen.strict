@@ -12,8 +12,17 @@ Run(arguments Texts) Number
 	StrictGen(Logger).Run(List(Text) + "--help") is 0
 	if "--help" is in arguments
 		logger.Log("StrictGen.exe [--port " + DefaultPort + "] serves a page for images and video on that port")
+		logger.Log("StrictGen.exe stop [--port n] ends it and the MossImage, H3Video and H3Image backends")
 		return 0
+	if "stop" is in arguments
+		return Stopped(Port(arguments)) then 0 else 1
 	Served(Port(arguments)) is Error then 1 else 0
+Stopped(port Number) Boolean slow
+	logger.Log("Stopping StrictGen on port " + port + " and the MossImage, H3Video and H3Image backends")
+	let answer = StrictGenRemote.Posted("127.0.0.1", port, "/quit", "")
+	StrictGenJob.StopAll
+	logger.Log(answer is "" then "No StrictGen answered on that port, the backends are stopped" else "Stopped")
+	true
 Port(arguments Texts) Number
 	StrictGen(Logger).Port(List(Text)) is DefaultPort
 	StrictGen(Logger).Port(("--port", "8765")) is 8765
@@ -38,20 +47,24 @@ Looped(socket Number, queue StrictGenQueue, net StrictGenNet) slow
 	mutable peers = net
 	for Range(0, socket > 0 then Forever else 0)
 		let waiting = Socket.Waiting(socket) is 1
-		let before = state
-		state = waiting then Answered(Socket.Accept(socket), state, peers) else state
 		peers = waiting then peers else peers.Refreshed
-		state = StrictGenConsole(logger).Told(before, Steered(state, peers))
-		if state.notice.StartsWith(StrictGenQueue.Collecting)
-			StrictGenJob.StopAll
-			return Broken(state.notice)
+		state = Turned(socket, waiting, state, peers)
+		if state.notice.StartsWith(StrictGenQueue.Collecting) or (state.notice is StrictGenQueue.Quitting)
+			return Ended(state.notice)
 		peers = peers.Tick(state.IsBusy)
 		if waiting is false
 			Process.Wait(state.IsBusy then BusyWait else IdleWait)
+Turned(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
+	StrictGen(Logger).Turned(0, false, StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
+	let answered = waiting then Answered(Socket.Accept(socket), queue, net) else queue
+	StrictGenConsole(logger).Told(queue, Steered(answered, net))
+Ended(reason Text) Number slow
+	StrictGenJob.StopAll
+	reason is StrictGenQueue.Quitting then Error("StrictGenStopped") else Broken(reason)
 Broken(reason Text) Number
 	StrictGen(Logger).Broken("GarbageCollectionExceedsLimit: test") is Error
-	logger.Log("A backend ended with " + reason)
-	logger.Log("StrictGen stops its backends and ends here so this gets fixed first, release builds only warn and go on")
+	logger.Log("A backend ended with " + reason.Split(":").First + ", StrictGen stops its backends and ends here")
+	logger.Log("so this gets fixed first, release builds only warn and go on")
 	Error("GarbageCollectionExceedsLimit")
 Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
 	StrictGen(Logger).Steered(StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
@@ -65,7 +78,9 @@ Answered(client Number, queue StrictGenQueue, net StrictGenNet) StrictGenQueue s
 		return queue
 	let raw = StrictGenHttp.Decoded(bytes)
 	let route = StrictGenHttp.Route(raw)
-	let next = (route is "/run") or (route is "/stop") then queue.Posted(route, StrictGenHttp.Body(raw)) else queue
+	if route is in ("/stop", "/quit")
+		StrictGenJob.StopAll
+	let next = route is in ("/run", "/stop", "/quit") then queue.Posted(route, StrictGenHttp.Body(raw)) else queue
 	StrictGenHttp.Replied(client, Typed(route), Answer(route, raw, next, net))
 	next
 IsSent(client Number, bytes Numbers) Boolean slow
@@ -82,7 +97,7 @@ Typed(route Text) Text
 	StrictGen(Logger).Typed("/job") is "text/plain"
 	StrictGen(Logger).Typed("/outputs") is "text/plain"
 	StrictGen(Logger).Typed("/") is "text/html"
-	let isJson = route is in ("/run", "/stop", "/import", "/status", "/warm")
+	let isJson = route is in ("/run", "/stop", "/import", "/status", "/warm", "/quit")
 	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
@@ -91,7 +106,7 @@ Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 		return StrictGenForm.Imported("StrictGenWorkflow.json")
 	if route is "/warm"
 		return Warmed(StrictGenHttp.Body(raw), queue)
-	if (route is "/status") or (route is "/run") or (route is "/stop")
+	if route is in ("/status", "/run", "/stop", "/quit")
 		let status = StrictGenStats(logger).Status(queue, net)
 		let accepted = route is "/run" then queue.modes.Length - 1 else -1
 		return status.Substring(0, status.Length - 1) + ",\"accepted\":" + accepted + "}"
@@ -101,8 +116,7 @@ Warmed(body Text, queue StrictGenQueue) Text slow
 	if queue.IsBusy or (queue.pending.Length > 0) or (Json(body).get("mode") to Text is not "image")
 		return "{\"warming\":false}"
 	let command = Text.Combine(StrictGenForm.Arguments(body), "\n")
-	let started = StrictGenJob.Warmed(StrictGenJob.Executable("MossImage"), command)
-	"{\"warming\":" + (started then "true" else "false") + "}"
+	"{\"warming\":" + (StrictGenJob.Warmed(StrictGenJob.Executable("MossImage"), command) then "true" else "false") + "}"
 Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 	if route is "/job"
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)

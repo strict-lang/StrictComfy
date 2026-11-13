@@ -3,6 +3,7 @@ has vae = ""
 has textEncoder = ""
 has models = ""
 has workflow = ""
+has Warm = false
 constant FourSteps = "moss/moss_image_sft_4step_v2.0.safetensors"
 constant Spare = 4294967296
 constant Dmd = "moss/dmd_turbo_lora.safetensors"
@@ -15,7 +16,8 @@ constant EncoderNamesHelp = "empty for qwen3.5_9b_int8_convrot.safetensors; its 
 constant ModelHelp = (ModelKindsHelp + ModelNamesHelp, DecoderKindsHelp + DecoderNamesHelp, EncoderKindsHelp + EncoderNamesHelp)
 constant FolderHelp = List(Text) + "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models"
 constant WorkflowHelp = List(Text) + "ComfyUI image workflow (.json saved in ComfyUI, a path or a name in user/default/workflows) whose model, LoRAs, prompt, size, seed and steps this run uses, options after it change them"
-constant Help = ModelHelp + FolderHelp + WorkflowHelp
+constant WarmHelp = List(Text) + "only load the text encoder, Moss and the decoder into the backend, the next image starts at once"
+constant Help = ModelHelp + FolderHelp + WorkflowHelp + WarmHelp
 constant Encoding = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--text_encoder", "tinymoss.safetensors", "--models", "."))
 constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
 Folder Text slow

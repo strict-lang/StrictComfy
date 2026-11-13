@@ -1,0 +1,15 @@
+constant Measured = "StrictGenCpu.txt"
+Rows Texts slow
+	StrictGenHost.Rows.Length >= 0
+	File(Measured).Exists then File(Measured).ReadLines else List(Text)
+Name Text slow
+	StrictGenHost.Name is not Error
+	let rows = Rows
+	let variable = Process.OperatingSystem is "Windows" then "COMPUTERNAME" else "HOSTNAME"
+	rows.Length > 2 then rows(2).Trim else Process.Variable(variable)
+Number(row Number) Number slow
+	StrictGenHost.Number(1) >= 0
+	StrictGenHost.Number(99) is 0
+	let rows = Rows
+	let found = rows.Length > row then rows(row).Trim to Number else 0
+	found is Error then 0 else found

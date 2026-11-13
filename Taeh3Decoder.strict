@@ -47,11 +47,14 @@ Decoded(latent Numbers, width Number) Numbers slow
 	Pixels.Length is 4608
 	Pixels(1537).IsNearlyEqual(Reference(1537), 0.002) and Pixels(3071).IsNearlyEqual(Reference(3071), 0.002)
 	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
+	Shuffled(Patched(latent, width), 8 * width)
+Patched(latent Numbers, width Number) Numbers slow
+	Tiny.Patched(Latent, 3).Length is 4608
 	let first = Passed(List(FeatureMap) + Entered(latent, width), 0).First
 	let second = Passed(List(FeatureMap) + narrows(0).Doubled(Grown(first, 0, 0)), 1).First
 	let pair = List(FeatureMap) + narrows(1).Doubled(Grown(second, 1, 0)) + narrows(1).Doubled(Grown(second, 1, 1))
 	let final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
-	Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width)
+	exit.Applied(final, final.Identity, Activation.Relu).Completed
 Frames(latent Numbers, shape Numbers) Numbers slow
 	(Video.Length is 5 * Pixels.Length) and Video.Sum.IsNearlyEqual(1035.427, 0.5)
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)

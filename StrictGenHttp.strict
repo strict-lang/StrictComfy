@@ -2,6 +2,7 @@ constant ReceivePolls = 500
 constant HeadBytes = 8192
 constant Escapes = ("%20", " ", "%2F", "/", "%5C", "\\", "%3A", ":", "%2C", ",", "%26", "&", "%23", "#", "%5B", "[", "%5D", "]", "%2B", "+", "%3D", "=", "%40", "@", "%3B", ";", "%27", "'", "%25", "%")
 constant OkHeader = "HTTP/1.1 200 OK\r\nContent-Type: "
+constant Open = "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
 Route(raw Text) Text
 	StrictGenHttp.Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
 	StrictGenHttp.Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
@@ -67,8 +68,7 @@ Payload(bytes Numbers) Numbers
 	bytes.Slice(head.Length, bytes.Length - head.Length)
 Replied(client Number, kind Text, body Text) slow
 	let payload = Encoded(body)
-	let header = OkHeader + kind + "\r\nContent-Length: " + payload.Length + "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
-	Socket.Send(client, Encoded(header) + payload)
+	Socket.Send(client, Encoded(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
 	Socket.Close(client)
 SendFile(client Number, path Text) slow
 	if (path is "") or (File(path).Exists is false)

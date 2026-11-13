@@ -26,6 +26,7 @@ constant SeedHelp = ("seed of every video, -1 for a random one per video", "widt
 constant OutputHelp = ("frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s); with --video this is only the new tail", "numbered output base (.mp4), never overwritten")
 constant PreviewHelp = List(Text) + "JPEG strip of frames written after every step (taeh3.safetensors in models/vae_approx), empty for none"
 constant Help = PromptHelp + StepsHelp + SamplerHelp + SchedulerHelp + CountHelp + SeedHelp + OutputHelp + PreviewHelp
+constant TurboStrength = "=1.2"
 constant FourStepArguments = ("--quality", "fastest4steps")
 constant TurboArguments = ("--lora", "a_turbo.safetensors")
 constant TurboNames = ("--lora", "h3/a_Turbo_v4.safetensors:1", "--lora", "8step.safetensors", "--lora", "b_8step.safetensors")
@@ -133,7 +134,7 @@ Loras Text slow
 		return Few(local, given)
 	let turbo = (files.model + Text.Combine(given, ";")).Lower.IndexOf("turbo") >= 0
 	let nested = File(local.Folder + "/loras/h3/" + H3Video.Turbo).Exists then "h3/" + H3Video.Turbo else H3Video.Turbo
-	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(nested, "loras") + "=1")
+	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(nested, "loras") + TurboStrength)
 	Text.Combine(added + given, ";")
 Few(local ModelFiles, given Texts) Text slow
 	H3Options.Parsed(FourStepArguments).Few(ModelFiles("."), List(Text) + GivenTaoMate) is GivenTaoMate

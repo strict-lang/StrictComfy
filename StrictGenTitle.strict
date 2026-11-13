@@ -1,0 +1,30 @@
+constant Named = "{\"mode\":\"image\",\"width\":704,\"height\":1280,\"sizeName\":\"720p portrait\",\"steps\":8}"
+constant Modes = ("image", "video", "extend", "h3image")
+constant Titles = ("Moss Image", "H3 Video", "H3 Video Extend", "H3 Image")
+Summary(body Text) Text
+	StrictGenTitle.Summary(StrictGenForm.Picture) is "Moss Image 480x848, quality: fastest"
+	StrictGenTitle.Summary(StrictGenForm.Clip) is "H3 Video Extend 640x1152, quality: fast"
+	StrictGenTitle.Summary(StrictGenImage.Edit) is "H3 Image 1024x1024, quality: fast 6 steps x2"
+	StrictGenTitle.Summary(Named) is "Moss Image 720p portrait, 8 steps"
+	StrictGenTitle.Summary("{\"mode\":\"imagevideo\",\"width\":32,\"height\":64}") is "H3 Image to Video 32x64"
+	let json = Json(body)
+	let at = Modes.Index(json.get("mode") to Text)
+	(at < 0 then "H3 Image to Video" else Titles(at)) + " " + Sized(json) + Paced(json) + Times(json)
+Sized(json Json) Text
+	StrictGenTitle.Sized(Json("{\"width\":32,\"height\":64}")) is "32x64"
+	let named = json.get("sizeName") to Text
+	named is "" then (json.get("width") to Text) + "x" + (json.get("height") to Text) else named
+Paced(json Json) Text
+	StrictGenTitle.Paced(Json("{\"quality\":\"fast\",\"steps\":8}")) is ", quality: fast 8 steps"
+	StrictGenTitle.Paced(Json("{\"steps\":0}")) is ""
+	StrictGenTitle.Paced(Json("{\"steps\":6}")) is ", 6 steps"
+	let quality = json.get("quality") to Text
+	let steps = json.get("steps") to Text
+	let stepped = (steps is "") or (steps is "0") then "" else (quality is "" then ", " else " ") + steps + " steps"
+	(quality is "" then "" else ", quality: " + quality) + stepped
+Times(json Json) Text
+	StrictGenTitle.Times(Json("{\"count\":4}")) is " x4"
+	(StrictGenTitle.Times(Json("{\"count\":1}")) is "") and (StrictGenTitle.Times(Json("{\"count\":0}")) is "")
+	StrictGenTitle.Times(Json("{}")) is ""
+	let count = json.get("count") to Text
+	(count is "") or (count is "1") or (count is "0") then "" else " x" + count

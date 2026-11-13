@@ -1,2 +1,2 @@
-"C:/code/GitHub/strict-lang/StrictComfy/H3Video.exe" --width 480 --height 832 --quality fast --prompt StrictGenPrompt.txt --length 124 --steps 8 --skip 5:45 --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --output output/H3Video.mp4 --preview StrictGenStep-8.jpg > "StrictGenJob-8.log" 2>&1
-echo DONE> "StrictGenJob-8.done"
+"C:/code/GitHub/strict-lang/StrictComfy/MossImage.exe" --width 704 --height 1280 --quality fastest --prompt StrictGenPrompt.txt --skip off --output output/MossImage.jpg --preview StrictGenStep-3.jpg > "StrictGenJob-3.log" 2>&1
+echo DONE> "StrictGenJob-3.done"

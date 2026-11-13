@@ -13,14 +13,13 @@ has meters = ""
 has metered = -100
 has id = 0
 has own = ""
-has heat = 0
 constant BeaconPort = 18001
 constant FreshSeconds = 30
 constant Tab = "\t"
 constant MossMb = 6144
 constant H3Mb = 8192
 constant Gigabyte = 1024
-constant Query = "--query-gpu=name,memory.total,memory.free,temperature.gpu --format=csv,noheader,nounits"
+constant Query = "--query-gpu=name,memory.total,memory.free --format=csv,noheader,nounits"
 constant Idle = StrictGenNet(Logger)
 constant Big = "10.0.0.3\t59139\t24576\t20000\t60000\t0\tNVIDIA GeForce RTX 4090\t100"
 constant Small = "10.0.0.4\t59140\t10240\t8000\t30000\t0\tNVIDIA GeForce RTX 3080\t100"
@@ -29,10 +28,6 @@ constant Heard4090 = ("10.0.0.3", "strictgen", "8001", "24576", "20000", "60000"
 constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
-Name Text slow
-	StrictGenNet.Name is not Error
-	let rows = File(StrictGenStats.Measured).Exists then File(StrictGenStats.Measured).ReadLines else List(Text)
-	rows.Length > 2 then rows(2).Trim else Process.Variable(Process.OperatingSystem is "Windows" then "COMPUTERNAME" else "HOSTNAME")
 Opened(port Number) StrictGenNet slow
 	let socket = Socket.Beacon(StrictGenNet.BeaconPort)
 	if socket is Error
@@ -47,8 +42,7 @@ Measured StrictGenNet slow
 	let available = parts.Length < 3 then 0 else parts(2).Trim to Number
 	let memory = GpuMemory.HostAvailable / 1048576
 	let sized = StrictGenNet(value, gpu = named, total = whole is Error then 0 else whole, ram = memory, seenGpu = true)
-	let degrees = parts.Length < 4 then 0 else parts(3).Trim to Number
-	StrictGenNet(sized, free = available is Error then 0 else available, heat = degrees is Error then 0 else degrees)
+	StrictGenNet(sized, free = available is Error then 0 else available)
 Refreshed StrictGenNet slow
 	if Process.Elapsed - metered <= 8
 		return value
@@ -57,7 +51,7 @@ Shouted StrictGenNet slow
 	if beacon <= 0
 		return StrictGenNet(value, shouted = Process.Elapsed)
 	let state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
-	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id + "\t" + Name
+	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id + "\t" + StrictGenHost.Name
 	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
@@ -84,7 +78,7 @@ Noted(line Text, now Number) StrictGenNet
 Remembered(parts Texts, now Number) StrictGenNet
 	Idle.Remembered(Heard4090, 1).peers.Length is 1
 	let named = parts.Length > 9 then parts(9) else ""
-	let peer = Text.Combine((parts(0), parts(2), parts(3), parts(4), parts(5), parts(6), parts(7), named), "\t") + "\t" + now
+	let peer = Text.Combine(parts.Slice(0, 1) + parts.Slice(2, 6) + named, "\t") + "\t" + now
 	let known = Address(peer)
 	let kept = Kept(peer, known)
 	if kept.Length > peers.Length

@@ -60,9 +60,8 @@ Previewing(step Number, took = Shown) Boolean
 	(MossSampling(Logger).Previewing(7) is false) and (MossSampling(Logger).Previewing(7, 0.1) is false)
 	MossSampling(Logger, steps = 4).Previewing(2, 0.1) and (MossSampling(Logger, steps = 4).Previewing(3, 0.1) is false)
 	MossSampling(Logger, steps = 2).Previewing(0, 0.1) and (MossSampling(Logger, steps = 2).Previewing(1, 0.1) is false)
-	if step >= steps - 1
-		return finale
-	(took >= Shown) or (step is 0) or (step is (steps / 2).Floor) or (step is steps - 2)
+	let early = (took >= Shown) or (step is 0) or (step is (steps / 2).Floor) or (step is steps - 2)
+	step >= steps - 1 then finale else early
 Progress(step Number, last Number, average Number) Text
 	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
 	"Step " + (step + 1) + "/" + steps + " in " + (last * 1000).Round + " ms, average " + (average * 1000).Round + " ms"

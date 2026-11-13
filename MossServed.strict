@@ -5,7 +5,7 @@ Completed(kept MossResident) MossResident slow
 	if problem is not ""
 		batch.logger.Log(problem)
 		return MossResident(kept, code = 2)
-	if options.warm
+	if options.files.Warm
 		return Warmed(kept)
 	let started = Process.Elapsed
 	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
@@ -19,7 +19,7 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossRe
 		return MossResident(encoded, code = 0)
 	batch.options.files.Eased
 	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
-	let made = batch.Images(decoding, seeds, prompts, prompts.Unique, c)
+	let made = batch.Images(decoding, seeds, prompts, c)
 	batch.options.files.Freed
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)

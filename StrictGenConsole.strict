@@ -32,6 +32,8 @@ Ended(queue StrictGenQueue, id Number, first Number) slow
 	let rows = File(file).Exists then File(file).ReadLines else List(Text)
 	Shown(id, rows, first, rows.Length)
 	let outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
+	if outcome.Last.StartsWith(StrictGenQueue.Collecting)
+		return
 	logger.Log("Run " + (id + 1) + " " + (outcome.First is "file" then "done: " else "ended: ") + outcome.Last)
 Quieted(queue StrictGenQueue) StrictGenQueue slow
 	Sample.Quieted(Added).job.nagged is 0
@@ -43,6 +45,13 @@ Quieted(queue StrictGenQueue) StrictGenQueue slow
 	let silent = (Time.Now - last).Round
 	logger.Log("Run " + (job.current + 1) + ": no new output for " + silent + " s" + Backend(queue.modes(job.current)))
 	StrictGenQueue(queue, job = StrictGenJob(job, nagged = Time.Now))
+Failure(rows Texts) Text
+	Sample.Failure(("Step 1", "GarbageCollectionExceedsLimit: 0.77")) is "GarbageCollectionExceedsLimit: 0.77"
+	Sample.Failure(List(Text) + "Step 1") is StrictGenQueue.NoOutput
+	for rows
+		if value.StartsWith(StrictGenQueue.Collecting)
+			return value
+	StrictGenQueue.NoOutput
 Backend(mode Text) Text slow
 	Sample.Backend("image") is not Error
 	let program = StrictGenJob.Program(mode)

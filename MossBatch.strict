@@ -44,26 +44,9 @@ Encoder(picked Numbers) Qwen3 slow
 Reworded(encoder Qwen3, picked Numbers) Qwen3 slow
 	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
-Images(kept MossResident, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers)) Number slow
+Images(kept MossResident, seeds Numbers, prompts Texts, contexts List(Numbers)) Number slow
 	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
-	let sampled = Process.Elapsed
-	let sampling = Previewed(options.Sampling(logger), kept.previewers)
-	let first = Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, 0, 1)
-	if GpuMemory.Available >= MossFiles.Spare
-		return Streamed(kept, sampling, first, seeds, prompts, unique, contexts, outputs)
-	let latents = first + Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, 1, seeds.Length - 1)
-	logger.Log("Sampled " + seeds.Length + " images in " + (Process.Elapsed - sampled).Round(2) + " s")
-	options.files.Eased
-	let decoded = Process.Elapsed
-	let saved = Decoded(kept, latents, seeds, prompts, outputs)
-	logger.Log("Decoded and saved " + saved.Length + " images in " + (Process.Elapsed - decoded).Round(2) + " s")
-	saved.Length
-Streamed(kept MossResident, sampling MossSampling, first List(Numbers), seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts) Number slow
-	mutable made = Decoded(kept, first, seeds.Slice(0, 1), prompts.Slice(0, 1), outputs.Slice(0, 1)).Length
-	for Range(1, seeds.Length)
-		let latents = Latents(kept.mosses.First, sampling, seeds, prompts, unique, contexts, outputs, value, 1)
-		made = made + Decoded(kept, latents, seeds.Slice(value, 1), prompts.Slice(value, 1), outputs.Slice(value, 1)).Length
-	made
+	MossRun(value, kept, Previewed(options.Sampling(logger), kept.previewers), seeds, prompts, contexts, outputs).Images
 Loading(loras Text) Text slow
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
@@ -75,11 +58,6 @@ Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, 
 	if kept.taefs.Length is 1
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
-Latents(moss Moss, sampling MossSampling, seeds Numbers, prompts Texts, unique Texts, contexts List(Numbers), outputs Texts, start Number, count Number) List(Numbers) slow
-	for Range(start, start + count)
-		let label = "Image " + (value + 1) + "/" + seeds.Length + " " + Path(outputs(value)).FileName.text
-		let shown = MossSampling(sampling, finale = value < seeds.Length - 1)
-		Sampled(moss, shown, seeds(value), contexts(unique.Index(prompts(value))), label)
 Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
 	Sample.Previewed(Sample.options.Sampling(Logger), List(Taef2Decoder)).preview is ""
 	if (options.preview is "") or (previewers.Length is 0)

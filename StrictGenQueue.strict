@@ -15,6 +15,7 @@ has finished = 0
 has halted = false
 constant Empty = StrictGenQueue(Logger)
 constant Collecting = "GarbageCollectionExceedsLimit"
+constant Quitting = "StrictGen stop"
 constant NoOutput = "The run finished without an output file"
 Added(mode Text, command Texts, line Text, body Text = "", pin Text = "") StrictGenQueue
 	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
@@ -30,15 +31,15 @@ Cleared StrictGenQueue
 Posted(route Text, body Text) StrictGenQueue slow
 	Empty.Posted("/run", StrictGenForm.Picture).pending.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Posted("/stop", "").pending.Length is 0
+	Empty.Posted("/quit", "").notice is Quitting
 	if route is "/run"
 		let json = Json(body)
 		let pin = json.get("placed") to Text is "true" then "local" else json.get("remote") to Text
 		if job.current < 0
 			File("StrictGenJob.log").Delete
-		let added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenForm.Summary(body), body, pin)
+		let added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenTitle.Summary(body), body, pin)
 		return StrictGenQueue(added, notice = "Run started", aim = (pin is "local" then "local" else added.aim))
-	StrictGenJob.StopAll
-	Cleared
+	route is "/quit" then StrictGenQueue(Cleared, notice = Quitting) else Cleared
 Advanced StrictGenQueue slow
 	Empty.Advanced.job.current is -1
 	job.current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
@@ -75,15 +76,8 @@ Polled StrictGenQueue slow
 	let paths = job.Existing(job.Found(rows))
 	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
-	let caption = paths.Length is 0 then Failure(rows) else lines(job.current)
-	Finished(paths, caption, job.Prompts(rows))
-Failure(rows Texts) Text
-	Empty.Failure(("Step 1", "GarbageCollectionExceedsLimit: 0.77 of the last 5.0 seconds")).StartsWith(Collecting)
-	Empty.Failure(List(Text) + "Step 1") is NoOutput
-	for rows
-		if value.StartsWith(Collecting)
-			return value
-	NoOutput
+	let reason = StrictGenConsole(logger).Failure(rows)
+	Finished(paths, paths.Length is 0 then reason else lines(job.current), job.Prompts(rows))
 Remote StrictGenQueue slow
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First
