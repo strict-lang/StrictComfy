@@ -1,2 +1,0 @@
-"C:/code/GitHub/strict-lang/StrictComfy/H3Video.exe" --width 704 --height 1280 --quality fast --prompt StrictGenPrompt.txt --length 192 --steps 8 --skip 5:45 --lora h3/pussy_gape_closeup_v4.safetensors:0.7 --lora h3/MysticXXX_MMH3-V5.safetensors:0.13 --model minimax_h3_fl2va_pruned_int8_convrot.safetensors --output output/H3Video.mp4 --preview StrictGenStep-5.jpg > "StrictGenJob-5.log" 2>&1
-echo DONE> "StrictGenJob-5.done"

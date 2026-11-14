@@ -526,6 +526,7 @@
 			child.remove();
 		}));
 	};
+	const dimStage = () => { if (!(state.pending && state.pending.input)) element("stage").classList.add("dim"); };
 	const settle = () => {
 		if (state.busy || !state.awaiting || (state.clicked && performance.now() - state.clicked < 10000)) return;
 		state.awaiting = false;
@@ -552,9 +553,10 @@
 		image.onerror = settle;
 		image.src = url;
 	};
-	const stopStrip = () => { if (state.strip) { clearInterval(state.strip); state.strip = null; } };
+	const stopStrip = () => { state.stripImage = null; if (state.strip) { clearInterval(state.strip); state.strip = null; } };
 	const showStrip = image => {
 		stopStrip();
+		state.stripImage = image;
 		const [width, height] = state.runSize || sizeOf();
 		shape(width, height);
 		const frames = Math.max(1, Math.round(image.naturalWidth / image.naturalHeight / (width / height)));
@@ -632,12 +634,24 @@
 			if (!blob || blob.size < 500) return;
 			const image = new Image();
 			const url = URL.createObjectURL(blob);
-			image.onload = () => { state.previewStamp = stamp; state.hasPreview = true; showStrip(image); URL.revokeObjectURL(url); };
+			image.onload = () => {
+				state.previewStamp = stamp; state.hasPreview = true; URL.revokeObjectURL(url);
+				if (state.pending) state.pending.preview = image;
+				if (!state.pending || atNewest()) showStrip(image);
+			};
 			image.onerror = () => URL.revokeObjectURL(url);
 			image.src = url;
 		}).catch(() => { state.previewLoading = false; });
 	};
-	const showRunInput = () => media(state.runInput, "/file?path=" + encodeURIComponent(state.runInput));
+	const atNewest = () => state.index >= state.outputs.length - 1;
+	const showPending = () => {
+		const pending = state.pending;
+		if (pending.preview) { if (state.stripImage !== pending.preview) showStrip(pending.preview); return true; }
+		if (!pending.input) return false;
+		media(pending.input, "/file?path=" + encodeURIComponent(pending.input));
+		element("stage").classList.remove("dim");
+		return true;
+	};
 	const showInput = () => {
 		const path = element("input").value;
 		if (!usesInput(state.mode) || !path || state.busy) return;
@@ -703,10 +717,8 @@
 		state.index = jump || grew || kept < 0 ? entries.length - 1 : kept;
 		drawOutputStrip();
 		if (state.mode === "imagevideo") loadInputs();
-		const previewed = state.hasPreview;
-		if (state.busy && state.made !== undefined && entries.length) state.hasPreview = true;
-		if (state.busy && state.runInput && !grew && !previewed) showRunInput();
-		else if (!state.busy || jump || grew) showResult();
+		if (grew) state.pending = null;
+		if (!state.busy || jump || grew || state.pending) showResult();
 		if (!element("options").classList.contains("hidden")) drawOptions(element("pick").value);
 	};
 	const showInfo = () => {
@@ -822,7 +834,7 @@
 		state.index = Math.max(0, Math.min(all.length - 1, state.index));
 		const entry = all[state.index];
 		element("count").textContent = (state.index + 1) + "/" + all.length;
-		media(entry.path, state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp);
+		if (!(state.pending && atNewest() && showPending())) media(entry.path, state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp);
 		if (document.activeElement !== element("pick")) element("pick").value = entry.name;
 		element("reuse").textContent = entry.path.toLowerCase().endsWith(".mp4") ? "Send to H3 Video Extend" : "Send to H3 Image to Video";
 		drawOutputStrip();
@@ -937,7 +949,10 @@
 			state.keepInfo = true;
 			return;
 		}
-		state.runInput = input;
+		state.pending = { input, preview: null };
+		state.index = state.outputs.length - 1;
+		state.keepInfo = false;
+		showResult();
 		state.clicked = performance.now();
 		state.runningMode = state.mode;
 		state.runSize = sizeOf();
@@ -947,11 +962,11 @@
 			const status = await timed_fetch("/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form()) }).then(response => response.json());
 			offline(false);
 			button.textContent = status.busy && (status.queued || []).length ? "Queued" : "Started";
-			if (!state.busy) { state.awaiting = true; state.hasPreview = false; element("stage").classList.add("dim"); }
+			if (!state.busy) { state.awaiting = true; state.hasPreview = false; dimStage(); }
 			showStatus(status);
 		} catch (error) {
 			state.clicked = 0;
-			state.runInput = "";
+			state.pending = null;
 			offline(true);
 			button.textContent = "No server";
 		}
@@ -988,7 +1003,7 @@
 		if (running) running.progress = progressOf(running.lines.map(split));
 		if (status.busy && !state.busy) {
 			state.began = state.clicked || performance.now();
-			if (!state.awaiting) { state.awaiting = true; state.hasPreview = false; element("stage").classList.add("dim"); }
+			if (!state.awaiting) { state.awaiting = true; state.hasPreview = false; dimStage(); }
 			state.stripBegan = 0;
 			if (state.runSize) { state.shape = null; shape(state.runSize[0], state.runSize[1]); }
 		}
@@ -1003,13 +1018,13 @@
 		}
 		const wasBusy = state.busy;
 		state.busy = status.busy;
-		if (!status.busy && !state.awaiting) state.runInput = "";
 		if (wasBusy && !status.busy) { state.keepInfo = true; element("infoTime").textContent = "Done in " + seconds(state.began); }
 		const lastRun = (status.runs || []).slice(-1)[0];
 		const saved = (status.runs || []).reduce((count, run) => count + run.lines.filter(line => /\t(Saved|Wrote) /.test(line)).length, 0);
 		const made = (lastRun ? lastRun.id : 0) + ":" + saved + ":" + (status.results || []).length;
 		if (state.made !== undefined && made !== state.made) loadOutputs(true);
 		else if (wasBusy && !status.busy) loadOutputs(true).then(() => setTimeout(settle, 1500));
+		if (wasBusy && !status.busy && !waiting) setTimeout(() => { if (state.pending && !state.busy) { state.pending = null; showResult(); } }, 3000);
 		if (!status.busy && !waiting && state.awaiting && !(state.clicked && performance.now() - state.clicked < 10000) && !wasBusy && !state.settling) {
 			state.settling = setTimeout(() => { state.settling = 0; settle(); }, 2000);
 		}

@@ -92,3 +92,4 @@ StrictGenInbox/
 StrictGenWarm.*
 StrictGenCpu.txt
 StrictGenJob-*.timed
+*.cmd
