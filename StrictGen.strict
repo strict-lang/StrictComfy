@@ -97,8 +97,9 @@ Typed(route Text) Text
 	StrictGen(Logger).Typed("/job") is "text/plain"
 	StrictGen(Logger).Typed("/outputs") is "text/plain"
 	StrictGen(Logger).Typed("/") is "text/html"
+	StrictGen(Logger).Typed("/inputs") is "text/plain"
 	let isJson = route is in ("/run", "/stop", "/import", "/status", "/warm", "/quit")
-	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs")
+	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 	if route is "/import"
@@ -122,6 +123,8 @@ Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)
 	if route is "/outputs"
 		return Text.Combine(StrictGenFiles("").Outputs(Outputs), "\n")
+	if route is "/inputs"
+		return Text.Combine(StrictGenFiles("").Outputs(Inputs), "\n")
 	if route is "/list"
 		let files = StrictGenFiles(StrictGenHttp.Query(raw, "models"))
 		return Text.Combine(files.Listed(StrictGenHttp.Query(raw, "kind")), "\n")

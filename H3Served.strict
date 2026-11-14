@@ -1,13 +1,15 @@
 has batch H3Batch
 Completed(kept H3Resident) H3Resident slow
-	let options = batch.options
-	let problem = H3Inputs(options).Problem
+	let problem = H3Inputs(batch.options).Problem
 	if problem is not ""
 		batch.logger.Log(problem)
 		return H3Resident(kept, code = 2)
 	let started = Process.Elapsed
-	let plan = kept.plans.Length is 1 then kept.plans.First else batch.Planned
-	let made = Videos(Contexted(kept, plan).Sampling(options.Checkpoint, options.Loras), plan)
+	let plan = Armed(kept.plans.Length is 1 then kept.plans.First else batch.Planned)
+	if plan.batch.motion.problem is not ""
+		batch.logger.Log(plan.batch.motion.problem)
+		return H3Resident(kept, code = 2)
+	let made = Videos(Contexted(kept, plan).Sampling(batch.options.Checkpoint, batch.options.Loras), plan)
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
 	H3Resident(made, plans = List(H3Plan))
 Videos(sampling H3Resident, plan H3Plan) H3Resident slow
@@ -22,6 +24,8 @@ Videos(sampling H3Resident, plan H3Plan) H3Resident slow
 	let decoding = sampling.Decoding(vaes)
 	batch.DecodedWith(decoding.decodings.First, latents, plan.images)
 	H3Resident(decoding, code = 0)
+Armed(plan H3Plan) H3Plan slow
+	H3Plan(plan, batch = plan.batch.Armed)
 Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 	let missing = H3Artifacts(batch.options).Missing(plan.paths)
 	if missing.Length is 0

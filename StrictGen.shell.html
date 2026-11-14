@@ -45,6 +45,19 @@
 	#stage { position: absolute; inset: 0; transform-origin: 0 0; }
 	#stage img, #stage video, #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 	#stage.zoomed { cursor: grab; }
+	.side { flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+	#inputSide { margin-right: auto; }
+	#outputSide { margin-left: auto; }
+	.side.away { visibility: hidden; }
+	.strip { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-gutter: stable; padding-right: 10px; }
+	#inputPicked { flex: none; width: 116px; height: 204px; border: 2px solid #5fb3f6; border-radius: 6px; overflow: hidden; background: #141b23; box-sizing: border-box; position: relative; }
+	#inputPicked img, #inputPicked video { width: 112px; height: 200px; object-fit: contain; display: block; }
+	#inputPicked span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #d8dee9; background: rgba(11, 15, 20, 0.75); padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.strip button.thumb { flex: none; width: 94px; height: 164px; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: #141b23; cursor: pointer; position: relative; }
+	.strip button.thumb:hover { border-color: #2b3540; }
+	.strip button.thumb.on { border-color: #5fb3f6; }
+	.strip button.thumb img, .strip button.thumb video { width: 90px; height: 160px; object-fit: contain; display: block; pointer-events: none; }
+	.strip button.thumb span { position: absolute; right: 3px; bottom: 3px; font-size: 10px; color: #d8dee9; background: rgba(11, 15, 20, 0.7); border-radius: 3px; padding: 0 3px; }
 	#stage > * { transition: opacity 0.15s; }
 	#stage.dim > * { opacity: 0.2; transition: opacity 0.4s; }
 	#info { flex: none; display: flex; gap: 12px; width: 0; min-width: 100%; box-sizing: border-box; overflow: hidden; font-size: 13px; color: #8b97a5; padding-top: 6px; min-height: 18px; }
@@ -84,6 +97,7 @@
 		section.controls, section.view { width: 100%; min-width: 0; }
 		#fields { overflow: visible; }
 		section.view { order: -1; }
+		.side { display: none !important; }
 	}
 </style>
 </head>
@@ -101,6 +115,7 @@
 	</div>
 </header>
 <main>
+	<aside class="side away" id="inputSide"><div id="inputPicked" title="Selected input"></div><div class="strip" id="inputStrip" title="Click an image to use it as the input"></div></aside>
 	<section class="controls">
 		<div id="fields">
 			<div class="modes">
@@ -204,6 +219,7 @@
 			<button class="small" id="reuse" type="button">Send to H3 Image to Video</button>
 		</div>
 	</section>
+	<aside class="side" id="outputSide"><div class="strip" id="outputStrip"></div></aside>
 </main>
 <footer>Made with <a href="https://strict-lang.org" target="_blank" rel="noopener">Strict</a> © 2026</footer>
 <script>
@@ -293,7 +309,8 @@
 		for (const button of document.querySelectorAll(".modes button")) button.classList.toggle("on", button.dataset.mode === mode);
 		const video = isVideo(mode), edit = mode === "h3image", moss = mode === "image";
 		element("inputs").classList.toggle("hidden", moss || mode === "video");
-		element("inputLabel").firstChild.textContent = edit ? "Image to edit (optional)" : "Image or video";
+		element("inputLabel").firstChild.textContent = edit ? "Image to edit (optional)" : mode === "extend" ? "Video to extend" : "Image or video (uses its last frame)";
+		element("input").placeholder = mode === "extend" ? "mp4" : edit ? "png or jpg" : "png, jpg, or mp4";
 		element("contextLabel").classList.toggle("hidden", mode !== "extend");
 		element("lastLabel").classList.toggle("hidden", mode !== "imagevideo");
 		element("qualityLabel").classList.toggle("hidden", edit);
@@ -311,11 +328,12 @@
 		fill(element("decoder"), edit ? h3ImageDecoders : video ? h3VideoDecoders : mossDecoders, saved.decoder || "");
 		fill(element("quality"), edit ? [["", "default"]] : video ? h3Quality : mossQuality, saved.quality);
 		fill(element("skip"), edit ? [["", "off"]] : (video ? h3Skip : mossSkip).map(value => [value, value]), saved.skip);
-		element("inputFile").accept = mode === "extend" ? ".mp4" : ".png,.jpg,.jpeg";
+		element("inputFile").accept = mode === "extend" ? ".mp4" : edit ? ".png,.jpg,.jpeg" : ".png,.jpg,.jpeg,.mp4";
 		fill(element("length"), lengths, "124");
 		applyFields(saved);
 		showInput();
 		refreshFiles();
+		loadInputs();
 		note();
 		warm();
 	};
@@ -335,7 +353,8 @@
 		const [width, height] = state.shape || sizeOf();
 		const narrow = innerWidth <= 720;
 		const availH = narrow ? innerHeight * 0.6 : main.clientHeight - 16 - element("gallery").offsetHeight - element("info").offsetHeight - 4;
-		const availW = narrow ? main.clientWidth - 32 : main.clientWidth - document.querySelector("section.controls").offsetWidth - 60;
+		const strips = [...document.querySelectorAll(".side")].reduce((sum, side) => sum + (side.offsetWidth ? side.offsetWidth + 28 : 0), 0);
+		const availW = narrow ? main.clientWidth - 32 : main.clientWidth - document.querySelector("section.controls").offsetWidth - 60 - strips;
 		const scale = Math.min(availW / width, availH / height);
 		const wide = Math.max(1, Math.floor(width * scale)), high = Math.max(1, Math.floor(height * scale));
 		if (frame.style.width !== wide + "px" || frame.style.height !== high + "px") zoomTo(1, 0, 0);
@@ -487,6 +506,8 @@
 	element("models").addEventListener("change", () => refreshFiles());
 	element("input").onchange = async () => {
 		showInput();
+		if (state.mode === "imagevideo") loadInputs();
+		if (state.mode === "extend" && element("input").value && !element("input").value.toLowerCase().endsWith(".mp4")) element("infoText").textContent = "H3 Video Extend needs an mp4 video, images go to H3 Image to Video";
 		if (!element("input").value.toLowerCase().endsWith(".mp4")) return;
 		const size = await fetch("/probe?path=" + encodeURIComponent(element("input").value)).then(r => r.text());
 		if (!size) return;
@@ -616,10 +637,10 @@
 			image.src = url;
 		}).catch(() => { state.previewLoading = false; });
 	};
+	const showRunInput = () => media(state.runInput, "/file?path=" + encodeURIComponent(state.runInput));
 	const showInput = () => {
 		const path = element("input").value;
-		const uses = state.mode === "extend" || state.mode === "imagevideo" || state.mode === "h3image";
-		if (!uses || !path || state.busy) return;
+		if (!usesInput(state.mode) || !path || state.busy) return;
 		media(path, "/file?path=" + encodeURIComponent(path));
 		element("infoText").textContent = "Input " + path.split("/").pop();
 		element("infoTime").textContent = "";
@@ -670,9 +691,9 @@
 		let text = "";
 		try { text = await timed_fetch(base + "/outputs", {}, 10).then(response => response.ok ? response.text() : ""); } catch { }
 		if (base !== baseOf()) return;
-		let entries = text.split("\n").filter(line => /^[\d.e+]+\t\S/.test(line)).map(line => {
-			const [stamp, path] = line.trim().split("\t");
-			return { path, stamp, name: path.split("/").pop() };
+		let entries = text.split("\n").filter(line => /^[\d.e+]+\t\S/.test(line) && !/\.tail\.mp4\s*$/.test(line)).map(line => {
+			const [stamp, path, bytes] = line.trim().split("\t");
+			return { path, stamp, bytes: Number(bytes) || 0, name: path.split("/").pop() };
 		}).sort((a, b) => Number(a.stamp) - Number(b.stamp) || (a.name < b.name ? -1 : 1));
 		if (!entries.length && !base) entries = examples;
 		const current = state.outputs[state.index];
@@ -680,8 +701,12 @@
 		const grew = state.base === base && entries.length !== state.outputs.length;
 		state.outputs = entries; state.base = base;
 		state.index = jump || grew || kept < 0 ? entries.length - 1 : kept;
+		drawOutputStrip();
+		if (state.mode === "imagevideo") loadInputs();
+		const previewed = state.hasPreview;
 		if (state.busy && state.made !== undefined && entries.length) state.hasPreview = true;
-		if (!state.busy || jump || grew) showResult();
+		if (state.busy && state.runInput && !grew && !previewed) showRunInput();
+		else if (!state.busy || jump || grew) showResult();
 		if (!element("options").classList.contains("hidden")) drawOptions(element("pick").value);
 	};
 	const showInfo = () => {
@@ -689,16 +714,118 @@
 		if (state.keepInfo) return;
 		element("infoText").textContent = element("infoText").title = element("infoTime").textContent = "";
 	};
+	const lazy = new IntersectionObserver(entries => entries.forEach(entry => {
+		if (!entry.isIntersecting) return;
+		lazy.unobserve(entry.target);
+		entry.target.src = entry.target.dataset.src;
+	}), { rootMargin: "600px" });
+	const written = stamp => {
+		const date = new Date(Number(stamp) * 1000);
+		if (!stamp || isNaN(date)) return "";
+		const pad = n => String(n).padStart(2, "0");
+		return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + pad(date.getHours()) + ":" + pad(date.getMinutes());
+	};
+	const megabytes = bytes => bytes ? (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0) + " MB" : "";
+	const thumbOf = (path, url, pick, stamp, bytes) => {
+		const box = document.createElement("button"), video = path.toLowerCase().endsWith(".mp4");
+		box.type = "button"; box.className = "thumb"; box.dataset.path = path;
+		const facts = [path.split("/").pop(), written(stamp), megabytes(bytes)].filter(Boolean);
+		box.title = facts.join("\n");
+		const node = document.createElement(video ? "video" : "img");
+		const badge = document.createElement("span");
+		badge.textContent = video ? "video" : "";
+		badge.classList.toggle("hidden", !video);
+		const described = (width, height, extra) => {
+			const shape = width && height ? width + "x" + height : "";
+			badge.textContent = [shape, extra].filter(Boolean).join(" ") || badge.textContent;
+			badge.classList.toggle("hidden", !badge.textContent);
+			box.title = [...facts, shape, extra].filter(Boolean).join("\n");
+		};
+		if (video) {
+			node.muted = true; node.preload = "metadata"; node.dataset.src = url + "#t=0.05";
+			node.onloadedmetadata = () => described(node.videoWidth, node.videoHeight, isFinite(node.duration) ? node.duration.toFixed(1) + " s" : "");
+		} else {
+			node.draggable = false; node.dataset.src = url;
+			node.onload = () => described(node.naturalWidth, node.naturalHeight, "");
+		}
+		box.append(node, badge);
+		box.onclick = pick;
+		lazy.observe(node);
+		return box;
+	};
+	const markStrip = (strip, path) => {
+		for (const child of strip.children) {
+			const on = child.dataset.path === path;
+			if (on === child.classList.contains("on")) continue;
+			child.classList.toggle("on", on);
+			if (on) child.scrollIntoView({ block: "nearest" });
+		}
+	};
+	const drawOutputStrip = () => {
+		const strip = element("outputStrip");
+		const key = state.base + "|" + state.outputs.map(entry => entry.path + "@" + entry.stamp).join("|");
+		if (key !== state.outputStrip) {
+			state.outputStrip = key;
+			const thumbs = [];
+			for (let index = state.outputs.length - 1; index >= 0; index--) {
+				const entry = state.outputs[index];
+				const url = state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp;
+				thumbs.push(thumbOf(entry.path, url, () => { state.index = index; state.keepInfo = false; showResult(); }, entry.stamp, entry.bytes));
+			}
+			strip.replaceChildren(...thumbs);
+		}
+		markStrip(strip, (state.outputs[state.index] || {}).path);
+	};
+	const showPicked = () => {
+		const box = element("inputPicked"), path = element("input").value.trim();
+		if (box.dataset.path === path) return;
+		box.dataset.path = path;
+		if (!path) { box.replaceChildren(); return; }
+		const url = "/file?path=" + encodeURIComponent(path), video = path.toLowerCase().endsWith(".mp4");
+		const node = document.createElement(video ? "video" : "img");
+		if (video) {
+			node.muted = true; node.preload = "auto";
+			node.onloadedmetadata = () => { node.currentTime = Math.max(0, node.duration - 0.05); };
+		} else node.draggable = false;
+		node.src = url;
+		const label = document.createElement("span");
+		label.textContent = path.split("/").pop() + (video ? " (last frame)" : "");
+		box.title = path;
+		box.replaceChildren(node, label);
+	};
+	const isPicture = path => /\.(png|jpe?g)$/i.test(path);
+	const loadInputs = async () => {
+		const strip = element("inputStrip");
+		element("inputSide").classList.toggle("away", state.mode !== "imagevideo");
+		if (state.mode !== "imagevideo") return;
+		showPicked();
+		let text = "";
+		try { text = await timed_fetch("/inputs", {}, 10).then(response => response.ok ? response.text() : ""); } catch { }
+		const uploaded = text.split("\n").filter(line => /^[\d.e+]+\t\S/.test(line)).map(line => line.trim().split("\t"));
+		const made = state.base ? [] : state.outputs.map(entry => [entry.stamp, entry.path, entry.bytes]);
+		const pictures = [...uploaded, ...made].filter(([, path]) => isPicture(path)).sort((a, b) => Number(b[0]) - Number(a[0]));
+		const key = pictures.map(([stamp, path]) => path + "@" + stamp).join("|");
+		if (key !== state.inputStrip) {
+			state.inputStrip = key;
+			strip.replaceChildren(...pictures.map(([stamp, path, bytes]) => thumbOf(path, "/file?path=" + encodeURIComponent(path) + "&v=" + stamp, () => {
+				element("input").value = path;
+				element("input").onchange();
+				save();
+			}, stamp, Number(bytes) || 0)));
+		}
+		markStrip(strip, element("input").value);
+	};
 	const showResult = () => {
 		const all = state.outputs;
 		element("count").textContent = all.length ? (state.index + 1) + "/" + all.length : "0/0";
-		if (!all.length) { element("pick").value = ""; showInfo(); return; }
+		if (!all.length) { element("pick").value = ""; drawOutputStrip(); showInfo(); return; }
 		state.index = Math.max(0, Math.min(all.length - 1, state.index));
 		const entry = all[state.index];
 		element("count").textContent = (state.index + 1) + "/" + all.length;
 		media(entry.path, state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp);
 		if (document.activeElement !== element("pick")) element("pick").value = entry.name;
 		element("reuse").textContent = entry.path.toLowerCase().endsWith(".mp4") ? "Send to H3 Video Extend" : "Send to H3 Image to Video";
+		drawOutputStrip();
 		showInfo();
 	};
 	const step = by => {
@@ -799,9 +926,18 @@
 		element("workflow").value = "";
 	};
 	const offline = gone => { state.offline = gone; element("offline").classList.toggle("hidden", !gone); };
+	const usesInput = mode => mode === "extend" || mode === "imagevideo" || mode === "h3image";
 	element("run").onclick = async () => {
 		save();
 		const button = element("run");
+		const input = usesInput(state.mode) ? element("input").value.trim() : "";
+		if (state.mode === "extend" && !input.toLowerCase().endsWith(".mp4")) {
+			element("infoText").textContent = "H3 Video Extend needs an mp4 video to continue, use H3 Image to Video for images";
+			element("infoTime").textContent = "";
+			state.keepInfo = true;
+			return;
+		}
+		state.runInput = input;
 		state.clicked = performance.now();
 		state.runningMode = state.mode;
 		state.runSize = sizeOf();
@@ -815,6 +951,7 @@
 			showStatus(status);
 		} catch (error) {
 			state.clicked = 0;
+			state.runInput = "";
 			offline(true);
 			button.textContent = "No server";
 		}
@@ -866,6 +1003,7 @@
 		}
 		const wasBusy = state.busy;
 		state.busy = status.busy;
+		if (!status.busy && !state.awaiting) state.runInput = "";
 		if (wasBusy && !status.busy) { state.keepInfo = true; element("infoTime").textContent = "Done in " + seconds(state.began); }
 		const lastRun = (status.runs || []).slice(-1)[0];
 		const saved = (status.runs || []).reduce((count, run) => count + run.lines.filter(line => /\t(Saved|Wrote) /.test(line)).length, 0);

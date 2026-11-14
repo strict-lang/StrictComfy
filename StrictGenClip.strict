@@ -93,6 +93,18 @@ LastFrame(source Text, size Numbers) Numbers slow
 	let bytes = Scaled(File(raw).ReadBytes)
 	File(raw).Delete
 	bytes.Length >= frame then bytes.Slice(bytes.Length - frame, frame) else List(Number)
+Still(path Text) Text slow
+	Sample.Still("missing-clip.mp4") is "missing-clip.mp4"
+	Sample.Still("a.png") is "a.png"
+	if path.Lower.EndsWith(".mp4") is false
+		return path
+	let still = "input/" + Path(path).FileName.RemoveExtension.text + "-last.png"
+	Directory.Create("input")
+	let args = "-y -loglevel error -sseof -1 -i \"" + path + "\" -update 1 \"" + still + "\""
+	if Process.RunTool("ffmpeg", args).Failed or (File(still).Exists is false)
+		return path
+	logger.Log("Using the last frame of " + path + " as the first frame")
+	still
 Extract(path Text, output Text, width Number, height Number, seconds Number) Text
 	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).StartsWith("-y -loglevel error -sseof -2")
 	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).IndexOf("scale=32:48") > 0

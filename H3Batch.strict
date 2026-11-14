@@ -97,9 +97,10 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	let audio = noise.Slice(count, noise.Length - count)
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2))
 	let job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
-	let rows = job.Keyed(keyframes, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
+	let rows = job.Keyed(keyframes + motion.Latents, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
 	let previewer = H3Previewer.Loaded(options.preview, options.files.models)
-	let keyed = H3Job(job, rows = rows, keyframes = H3Inputs(options).Indices, motion = motion, previewer = previewer)
+	let indices = H3Inputs(options).Indices + motion.Starts
+	let keyed = H3Job(job, rows = rows, keyframes = indices, motion = motion.Heard, previewer = previewer)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Decoded(latents Texts, images Texts) slow
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
@@ -124,8 +125,7 @@ Armed H3Batch slow
 	if files.video is ""
 		return value
 	let extend = StrictGenExtend(logger)
-	let kept = H3Artifacts(options).Folder
-	let head = extend.Head(files.video, files.context, options.height, options.width, files.VaeEncoder, files.Sound, kept)
+	let head = extend.Head(files.video, files.context, options.height, options.width, H3Artifacts(options).Folder)
 	H3Batch(value, motion = head)
 Pictured(images Texts) List(Numbers) slow
 	Sample.Pictured(List(Text) + "").Length is 0

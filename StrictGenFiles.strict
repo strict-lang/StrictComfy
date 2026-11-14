@@ -5,12 +5,12 @@ constant LoraPrefix = "lora-"
 constant Media = ("jpg", "jpeg", "png", "mp4")
 Outputs(folder Text) Texts slow
 	Tiny.Outputs("missing-outputs").Length is 0
-	Tiny.Outputs(".").First.Split("\t").Length is 2
+	Tiny.Outputs(".").First.Split("\t").Length is 3
 	if Directory.Exists(folder) is false
 		return List(Text)
 	for StrictGenForm.Listed(folder, Media)
 		let path = folder + "/" + Path(value).FileName.text
-		File(path).Modified + "\t" + path
+		File(path).Modified + "\t" + path + "\t" + File(path).Length
 Listed(kind Text) Texts slow
 	Tiny.Listed("moss").Length is 0
 	Tiny.Listed("lora-moss").Length is 0
