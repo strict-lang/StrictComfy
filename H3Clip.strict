@@ -1,0 +1,57 @@
+has network H3ClipEncoder
+has tiling H3Tiles
+constant Tiny = H3Clip(H3ClipEncoder.Tiny, H3Tiles.Tiny)
+constant ClipLength = 17
+constant Frame = H3VaeEncoder.Model.Values("reference.image")
+Loaded(vae Text) H3Clip slow
+	H3Clip(H3ClipEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
+Encoded(frames List(Numbers), size Numbers) Numbers slow
+	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
+	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
+	let ys = tiling.Starts(size(0))
+	let xs = tiling.Starts(size(1))
+	mutable latents = List(Numbers)
+	for Clips(frames.Length)
+		latents = latents + Latents(frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength)), size, ys, xs)
+	Ordered(latents)
+Clips(count Number) Numbers
+	Tiny.Clips(22) is (0, 17)
+	Tiny.Clips(17) is (0)
+	for (count / ClipLength).Ceiling
+		index * ClipLength
+Latents(frames List(Numbers), size Numbers, ys Numbers, xs Numbers) List(Numbers) slow
+	let picture = H3Picture(network.encoder, tiling)
+	let tiles = Tiles(frames, size, ys, xs)
+	for tiles.First.Length
+		picture.Normalized(Column(tiles, index), ys, xs, size, List(Number))
+Tiles(frames List(Numbers), size Numbers, ys Numbers, xs Numbers) List(List(Numbers)) slow
+	let tall = tiling.Length(size(0))
+	let wide = tiling.Length(size(1))
+	for ys.Length * xs.Length
+		network.Moments(Pixels(frames, size, (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)))
+Pixels(frames List(Numbers), size Numbers, box Numbers) List(FeatureMap)
+	for frames
+		network.encoder.Pixels(value, size, box, H3Vae.Mean + H3Vae.Deviation)
+Column(tiles List(List(Numbers)), at Number) List(Numbers)
+	Tiny.Column((((1, 2), (3, 4)), ((5, 6), (7, 8))), 1) is ((3, 4), (7, 8))
+	for tiles
+		value(at)
+Ordered(latents List(Numbers)) Numbers
+	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(1) is 100
+	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(2) is 1
+	let plane = latents.First.Length / H3Format.Channels
+	let count = latents.Length
+	let volume = count * plane
+	for count * latents.First.Length
+		let channel = (index / volume).Floor
+		latents((index / plane).Floor % count)(channel * plane + index % plane)
+Frames(rgb Numbers, count Number, width Number, height Number) List(Numbers)
+	Tiny.Frames((1, 2, 3, 4, 5, 6), 2, 1, 1) is ((1, 2, 3), (4, 5, 6))
+	let frame = width * height * 3
+	for count
+		Planar(rgb.Slice(index * frame, frame))
+Planar(frame Numbers) Numbers
+	Tiny.Planar((1, 2, 3, 4, 5, 6)) is (1, 4, 2, 5, 3, 6)
+	let pixels = frame.Length / 3
+	for frame.Length
+		frame((index % pixels) * 3 + (index / pixels).Floor)

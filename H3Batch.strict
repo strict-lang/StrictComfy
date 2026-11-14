@@ -125,7 +125,8 @@ Armed H3Batch slow
 	if files.video is ""
 		return value
 	let extend = StrictGenExtend(logger)
-	let head = extend.Head(files.video, files.context, options.height, options.width, H3Artifacts(options).Folder)
+	let size = (options.height, options.width)
+	let head = extend.Head(files.video, files.context, size, (files.VaeEncoder, files.Sound), H3Artifacts(options).Folder)
 	H3Batch(value, motion = head)
 Pictured(images Texts) List(Numbers) slow
 	Sample.Pictured(List(Text) + "").Length is 0

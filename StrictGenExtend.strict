@@ -12,8 +12,8 @@ constant Sample = StrictGenExtend(Logger)
 constant SampleAudio = 40
 constant SampleAudioStart = 11
 constant SamplePixels = 44
-constant Saved = "/extend/"
-constant Unsaved = " has no saved H3 latent (kept since 2026-11-14), H3 Image to Video can start from its last frame"
+constant Last = "/last.latent.safetensors"
+constant Note = "/last.latent.txt"
 Total(context Number, added Number) Number
 	Sample.Total(22, 24) is 56
 	Sample.Total(22, 124) is 158
@@ -68,23 +68,27 @@ FromLatent(path Text, context Number) StrictGenExtend
 	let seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
 	let listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
 	StrictGenExtend(logger, "", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
-Head(path Text, context Number, height Number, width Number, folder Text = "") StrictGenExtend slow
+Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") StrictGenExtend slow
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
-	Sample.Head("strictgen-tail.mp4", 22, 16, 16).frames is 7
-	Sample.Head("missing-clip.mp4", 22, 16, 16).problem is "missing-clip.mp4" + Unsaved
+	Sample.Head("strictgen-tail.mp4", 22, (16, 16), ("", "")).frames is 7
+	Sample.Head("missing-clip.mp4", 22, (16, 16), ("", "")).problem is "missing-clip.mp4 could not be read as a video"
 	let beside = LatentPath(path)
-	let stored = Stored(path, folder)
-	let saved = File(beside).Exists then beside else (File(stored).Exists then stored else "")
-	let missing = StrictGenExtend(value, problem = path + Unsaved)
-	saved is "" then missing else Checked(FromLatent(saved, context), path, context, height, width)
-Checked(read StrictGenExtend, path Text, context Number, height Number, width Number) StrictGenExtend
-	Sample.Checked(Sample, "a.mp4", 22, 0, 0).problem is ""
-	Sample.Checked(StrictGenExtend(Logger, "ShortLatent"), "a.mp4", 22, 0, 0).problem is "a.mp4 is shorter than 22 frames"
-	Sample.Checked(Sample, "a.mp4", 22, 32, 16).problem is "a.mp4 was made at 0x0, extend it at that size"
-	if read.problem is not ""
-		return StrictGenExtend(value, problem = path + " is shorter than " + context + " frames")
-	let made = path + " was made at " + read.wide * 16 + "x" + read.tall * 16 + ", extend it at that size"
-	(read.tall * 16 is height) and (read.wide * 16 is width) then read else StrictGenExtend(value, problem = made)
+	let saved = File(beside).Exists then beside else Remembered(path, folder)
+	let read = saved is "" then StrictGenExtend(value, problem = "Missing") else FromLatent(saved, context)
+	let fits = (read.problem is "") and (read.tall * 16 is size(0)) and (read.wide * 16 is size(1))
+	fits then read else FromMedia(path, context, size, vaes)
+FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend slow
+	let rgb = StrictGenClip(logger).TailRgb(path, context, size(1), size(0))
+	if rgb is Error
+		return StrictGenExtend(value, problem = path + " could not be read as a video")
+	logger.Log("Encoding the last " + context + " frames of " + path + " with the H3 video VAE")
+	let started = Process.Elapsed
+	let pictures = H3Clip.Tiny.Frames(rgb, context, size(1), size(0))
+	let pictured = H3Clip.Loaded(vaes(0)).Encoded(pictures, size)
+	let waveform = StrictGenClip(logger).TailPcm(path, context / H3Format.FramesPerSecond + 1)
+	let heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
+	logger.Log("Encoded the video context in " + (Process.Elapsed - started).Round(1) + " s")
+	StrictGenExtend(logger, "", pictured, heard, LatentCount(context), AudioCount(context), size(0) / 16, size(1) / 16)
 Starts Numbers
 	StrictGenExtend(Sample, frames = 7).Starts is (0, 1, 5, 9, 13, 17, 18)
 	None.Starts.Length is 0
@@ -112,10 +116,13 @@ Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number
 		let time = (index / plane).Floor % temporal
 		let at = ((index / volume).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
-Stored(path Text, folder Text) Text
-	Sample.Stored("output/H3Video0001.mp4", "f") is "f/extend/H3Video0001.latent.safetensors"
-	folder + Saved + Path(path).FileName.RemoveExtension.text + ".latent.safetensors"
+Remembered(path Text, folder Text) Text slow
+	Sample.Remembered("a.mp4", "missing-folder") is ""
+	Sample.Remembered("a.mp4", "") is ""
+	let named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
+	let known = (named.Length > 0) and (named.First is path.Replace("\\", "/")) and File(folder + Last).Exists
+	known then folder + Last else ""
 Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
 	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
-	Directory.Create(folder + Saved)
-	Safetensors(Stored(path, folder)).Written(("latent", "shape"), (latent, shape))
+	Safetensors(folder + Last).Written(("latent", "shape"), (latent, shape))
+	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))
