@@ -115,12 +115,12 @@ Written(path Text, context Number) StrictGenExtend slow
 	value
 Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
 	Sample.Mixed((1, 2, 3, 4), (30, 40), (1, 2, 3, 4), 4, 2, 1, 0) is (30, 40, 3, 4)
-	let level = sigma > (1 - H3Layout.Pinned) then (1 - H3Layout.Pinned) else sigma
+	Sample.Mixed((1, 2, 3, 4), (30, 40), (10, 20, 3, 4), 4, 2, 1, 0.5) is (20, 30, 3, 4)
 	let volume = temporal * plane
 	for latent.Length
 		let time = (index / plane).Floor % temporal
 		let at = ((index / volume).Floor * keep + time) * plane + index % plane
-		time < keep then clean(at) * (1 - level) + noise(index) * level else latent(index)
+		time < keep then clean(at) * (1 - sigma) + noise(index) * sigma else latent(index)
 Remembered(path Text, folder Text) Text slow
 	Sample.Remembered("a.mp4", "missing-folder") is ""
 	Sample.Remembered("a.mp4", "") is ""

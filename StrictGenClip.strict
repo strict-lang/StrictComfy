@@ -28,20 +28,18 @@ Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Num
 	let frame = size(0) * size(1) * 3
 	if video.Length < (context + 1) * frame
 		return Error("ShortVideo")
-	let drop = StrictGenExtend.None.SoundDrop(context)
+	let kept = context - StrictGenJoin.Overlap
+	let drop = StrictGenExtend.None.SoundDrop(kept)
 	if waveform.Length < (drop + 1) * 2
 		return Error("ShortAudio")
-	let last = LastFrame(source, size)
-	let trimmed = Trimmed(video, context, frame)
-	let matched = last.Length is frame then Colored(last, trimmed, frame) else trimmed
-	Merged(source, matched, Cut(waveform, drop), size, output)
+	Merged(source, Trimmed(video, kept, frame), Cut(waveform, drop), size, output)
 Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
 	let tail = output + ".tail.mp4"
 	let saved = H3Frames(logger).Saved(video, audio, size, tail)
 	if saved is Error
 		return saved
 	let join = StrictGenJoin(logger)
-	let merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Silence(source)))
+	let merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
 	File(tail).Delete
 	if merged.Failed
 		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)
@@ -54,45 +52,6 @@ Cut(waveform Numbers, drop Number) Numbers
 	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
 	let half = waveform.Length / 2
 	waveform.Slice(drop, half - drop) + waveform.Slice(half + drop, half - drop)
-Means(frame Numbers) Numbers
-	Sample.Means((2, 2, 2)).First is 2
-	let count = frame.Length / 3
-	mutable red = 0
-	mutable green = 0
-	mutable blue = 0
-	for count
-		red = red + frame(index * 3)
-		green = green + frame(index * 3 + 1)
-		blue = blue + frame(index * 3 + 2)
-	let mean = (red / count, green / count, blue / count)
-	mean + Deviations(frame, mean, count)
-Deviations(frame Numbers, mean Numbers, count Number) Numbers
-	Sample.Deviations((2, 2, 2), (2, 2, 2), 1) is (0, 0, 0)
-	mutable sr = 0
-	mutable sg = 0
-	mutable sb = 0
-	for count
-		sr = sr + (frame(index * 3) - mean(0)) * (frame(index * 3) - mean(0))
-		sg = sg + (frame(index * 3 + 1) - mean(1)) * (frame(index * 3 + 1) - mean(1))
-		sb = sb + (frame(index * 3 + 2) - mean(2)) * (frame(index * 3 + 2) - mean(2))
-	let scale = count < 2 then 0 else 1
-	((sr / count).SquareRoot * scale, (sg / count).SquareRoot * scale, (sb / count).SquareRoot * scale)
-Colored(source Numbers, tail Numbers, frame Number) Numbers
-	Sample.Colored((1, 2, 3), (2, 2, 2, 4, 4, 4), 3) is (1, 2, 3, 3, 4, 5)
-	let before = Means(source)
-	let after = Means(tail.Slice(0, frame))
-	for tail.Length
-		let channel = index % 3
-		let scale = after(channel + 3) < 0.000001 then 1 else before(channel + 3) / after(channel + 3)
-		(tail(index) - after(channel)) * scale + before(channel)
-LastFrame(source Text, size Numbers) Numbers slow
-	let raw = source + ".join.rgb"
-	if Process.RunTool("ffmpeg", StrictGenJoin(logger).Last(source, raw, size)).Failed
-		return List(Number)
-	let frame = size(0) * size(1) * 3
-	let bytes = Scaled(File(raw).ReadBytes)
-	File(raw).Delete
-	bytes.Length >= frame then bytes.Slice(bytes.Length - frame, frame) else List(Number)
 Still(path Text) Text slow
 	Sample.Still("missing-clip.mp4") is "missing-clip.mp4"
 	Sample.Still("a.png") is "a.png"

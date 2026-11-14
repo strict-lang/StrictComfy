@@ -15,7 +15,7 @@ has output = "H3Video.mp4"
 has preview = ""
 constant LargeClip = 60000000
 constant BestPresetHelp = "presets of model, steps, attention and Spectrum (124 frames at 640x1152 on a 4090): best the model with the turbo LoRA of ComfyUI's H3 template ("
-constant TurboPresetHelp = "minimax_h3_turbo_v4_step600_ema.safetensors in models/loras, else minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors, strength 1.1, left out above 8 steps or with a turbo model or LoRA) 8 steps 14 s, "
+constant TurboPresetHelp = "minimax_h3_turbo_v4_step600_ema.safetensors in models/loras, else minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors, strength 1, left out above 8 steps or with a turbo model or LoRA) 8 steps 14 s, "
 constant FastPresetsHelp = "fast with routed attention 11 s, faster with Spectrum 7.1 s, fastest4steps and fastest2steps 4 or 2 routed steps with the TaoMate 3 step LoRA instead (or a given turbo LoRA) 6.4 s and 4.5 s"
 constant PromptHelp = ("UTF-8 prompt file, {a|b|c} picks one of them per video, or a folder of .txt prompts: an image uses the one of its name, else the next in sorted order", BestPresetHelp + TurboPresetHelp + FastPresetsHelp)
 constant StepsHelp = ("sampling steps, 0 for the ones of --quality", "blocks first:last (of 50) every other evaluated step after the first two reuses, like 5:45, 10:40 or 15:35, off for none; best uses off unless --skip is set")
@@ -26,7 +26,7 @@ constant SeedHelp = ("seed of every video, -1 for a random one per video", "widt
 constant OutputHelp = ("frames at 24 fps, snapped up to 17k+5 like ComfyUI (124 is 5.2 s); with --video this is only the new tail", "numbered output base (.mp4), never overwritten")
 constant PreviewHelp = List(Text) + "JPEG strip of frames written after every step (taeh3.safetensors in models/vae_approx), empty for none"
 constant Help = PromptHelp + StepsHelp + SamplerHelp + SchedulerHelp + CountHelp + SeedHelp + OutputHelp + PreviewHelp
-constant TurboStrength = "=1.1"
+constant TurboStrength = "=1"
 constant FourStepArguments = ("--quality", "fastest4steps")
 constant TurboArguments = ("--lora", "a_turbo.safetensors")
 constant TurboNames = ("--lora", "h3/a_Turbo_v4.safetensors:1", "--lora", "8step.safetensors", "--lora", "b_8step.safetensors")
