@@ -1,0 +1,48 @@
+has logger
+constant Sample = StrictGenJoin(Logger)
+constant Size = (832, 480)
+constant Codec = " -c:v libx264 -crf 18 -preset faster -pix_fmt yuv420p -c:a aac -b:a 192k \""
+constant Sound = "aresample=32000,aformat=sample_fmts=fltp:channel_layouts=stereo"
+constant Quiet = " -f lavfi -i anullsrc=r=32000:cl=stereo"
+constant Mapped = "\" -map \"[v]\" -map \"[a]\""
+constant AudioStreams = "-v error -select_streams a -show_entries stream=index -of csv=p=0 \""
+constant Seconds = "-v error -show_entries format=duration -of csv=p=0 \""
+Fitted(size Numbers) Text
+	Sample.Fitted(Size) is "fps=24,scale=480:832:force_original_aspect_ratio=increase,crop=480:832,setsar=1"
+	let box = size(1) + ":" + size(0)
+	"fps=" + H3Format.FramesPerSecond + ",scale=" + box + ":force_original_aspect_ratio=increase,crop=" + box + ",setsar=1"
+Extract(path Text, output Text, size Numbers, seconds Number) Text
+	Sample.Extract("a.mp4", "a.rgb", Size, 2).StartsWith("-y -loglevel error -sseof -2 -i \"a.mp4\" -vf fps=24,")
+	Sample.Extract("a.mp4", "a.rgb", Size, 2).EndsWith("-f rawvideo -pix_fmt rgb24 \"a.rgb\"")
+	let raw = " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\" -vf " + Fitted(size) + raw
+Last(path Text, output Text, size Numbers) Text
+	Sample.Last("a.mp4", "a.rgb", Size).StartsWith("-y -loglevel error -sseof -1 -i \"a.mp4\" -vf fps=24,")
+	Sample.Last("a.mp4", "a.rgb", Size).EndsWith("-update 1 -f rawvideo -pix_fmt rgb24 \"a.rgb\"")
+	let raw = " -update 1 -f rawvideo -pix_fmt rgb24 \"" + output + "\""
+	"-y -loglevel error -sseof -1 -i \"" + path + "\" -vf " + Fitted(size) + raw
+ExtractAudio(path Text, output Text, seconds Number) Text
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).IndexOf("-ar 32000") > 0
+	Sample.ExtractAudio("a.mp4", "a.pcm", 2).EndsWith("\"a.pcm\"")
+	let format = " -t " + seconds + " -ac 2 -ar " + H3Frames.SampleRate + " -f s16le \"" + output + "\""
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\"" + format
+Concat(source Text, tail Text, output Text, size Numbers, seconds Text) Text
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4", Size, "").StartsWith("-y -loglevel error -i \"a.mp4\" -i \"b.mp4\" -filter")
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4", Size, "2").IndexOf(Quiet) > 0
+	Sample.Concat("a.mp4", "b.mp4", "c.mp4", Size, "").EndsWith("\"c.mp4\"")
+	let inputs = "-y -loglevel error -i \"" + source + "\" -i \"" + tail + "\"" + (seconds is "" then "" else Quiet)
+	inputs + " -filter_complex \"" + Filter(size, seconds) + Mapped + Codec + output + "\""
+Filter(size Numbers, seconds Text) Text
+	Sample.Filter(Size, "").StartsWith("[0:v]fps=24,") and Sample.Filter(Size, "").EndsWith("concat=n=2:v=1:a=1[v][a]")
+	Sample.Filter(Size, "2").IndexOf("[2:a]atrim=duration=2,") >= 0
+	let first = seconds is "" then "[0:a]" else "[2:a]atrim=duration=" + seconds + ","
+	let audio = first + Sound + "[a0];[1:a]" + Sound + "[a1];"
+	"[0:v]" + Fitted(size) + "[v0];[1:v]setsar=1[v1];" + audio + "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]"
+Silence(path Text) Text slow
+	Sample.Silence("missing-clip.mp4") is ""
+	let streams = Process.RunTool("ffprobe", AudioStreams + path + "\"")
+	if streams.Failed or (streams.Output.Trim is not "")
+		return ""
+	let duration = Process.RunTool("ffprobe", Seconds + path + "\"")
+	logger.Log(path + " has no audio, the extended video starts with silence")
+	duration.Failed then "" else duration.Output.Trim

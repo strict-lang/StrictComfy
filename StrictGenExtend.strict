@@ -76,7 +76,8 @@ Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") Stri
 	let saved = File(beside).Exists then beside else Remembered(path, folder)
 	let read = saved is "" then StrictGenExtend(value, problem = "Missing") else FromLatent(saved, context)
 	let fits = (read.problem is "") and (read.tall * 16 is size(0)) and (read.wide * 16 is size(1))
-	fits then read else FromMedia(path, context, size, vaes)
+	let made = fits then read else FromMedia(path, context, size, vaes)
+	fits and (saved is beside) then made else made.Written(beside, context)
 FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend slow
 	let rgb = StrictGenClip(logger).TailRgb(path, context, size(1), size(0))
 	if rgb is Error
@@ -84,7 +85,7 @@ FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend s
 	logger.Log("Encoding the last " + context + " frames of " + path + " with the H3 video VAE")
 	let started = Process.Elapsed
 	let pictures = H3Clip.Tiny.Frames(rgb, context, size(1), size(0))
-	let pictured = H3Clip.Loaded(vaes(0)).Encoded(pictures, size)
+	let pictured = H3Clip(logger, H3ClipEncoder.Tiny, H3Tiles.Real).Loaded(vaes(0)).Encoded(pictures, size)
 	let waveform = StrictGenClip(logger).TailPcm(path, context / H3Format.FramesPerSecond + 1)
 	let heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
 	logger.Log("Encoded the video context in " + (Process.Elapsed - started).Round(1) + " s")
@@ -104,10 +105,14 @@ Latent(at Number) Numbers
 	let plane = tall * wide
 	for H3Format.Channels * plane
 		video(((index / plane).Floor * frames + at) * plane + index % plane)
-Heard StrictGenExtend
-	StrictGenExtend(Sample, frames = 7, sound = 3).Heard.frames is 0
-	StrictGenExtend(Sample, frames = 7, sound = 3).Heard.sound is 3
-	StrictGenExtend(value, frames = 0)
+Written(path Text, context Number) StrictGenExtend slow
+	StrictGenExtend(Sample, problem = "Missing").Written("unwritten.latent.safetensors", 22).problem is "Missing"
+	if problem is not ""
+		return value
+	let shape = (H3Format.Channels, frames, tall, wide, sound, context)
+	Safetensors(path).Written(("latent", "shape"), (video + audio, shape))
+	logger.Log("Kept the video context in " + path + " for the next extends")
+	value
 Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
 	Sample.Mixed((1, 2, 3, 4), (30, 40), (1, 2, 3, 4), 4, 2, 1, 0) is (30, 40, 3, 4)
 	let level = sigma > (1 - H3Layout.Pinned) then (1 - H3Layout.Pinned) else sigma

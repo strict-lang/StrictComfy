@@ -100,7 +100,8 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	let rows = job.Keyed(keyframes + motion.Latents, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
 	let previewer = H3Previewer.Loaded(options.preview, options.files.models)
 	let indices = H3Inputs(options).Indices + motion.Starts
-	let keyed = H3Job(job, rows = rows, keyframes = indices, motion = motion.Heard, previewer = previewer)
+	let heard = StrictGenExtend(motion, frames = 0)
+	let keyed = H3Job(job, rows = rows, keyframes = indices, motion = heard, previewer = previewer)
 	H3Video(logger).Generated(h3, condition, keyed, text, options.Numbers, "")
 Decoded(latents Texts, images Texts) slow
 	let decoding = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
@@ -115,11 +116,16 @@ Saved(decoding H3Decoding, latent Numbers, output Text) slow
 	let decoded = decoding.Tiled(options.Tiling).Decoded(latent, shapes.Slice(0, 3))
 	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
 	let path = PromptBatch(logger, "Video").Reserved(output)
-	let size = (shapes(1) * 16, shapes(2) * 16)
 	StrictGenExtend(logger).Kept(path, latent, shapes, options.Clip, H3Artifacts(options).Folder)
-	if options.files.video is ""
+	if Joined(decoded, (shapes(1) * 16, shapes(2) * 16), path) is Error
+		if File(path).Length is 0
+			File(path).Delete
+		return Error("VideoNotWritten")
+Joined(decoded List(Numbers), size Numbers, path Text) slow
+	let video = options.files.video
+	if video is ""
 		return H3Frames(logger).Saved(decoded(0), decoded(1), size, path)
-	StrictGenClip(logger).Appended(options.files.video, decoded(0), decoded(1), size, options.files.context, path)
+	StrictGenClip(logger).Appended(video, decoded(0), decoded(1), size, options.files.context, path)
 Armed H3Batch slow
 	let files = options.files
 	if files.video is ""

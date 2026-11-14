@@ -1,14 +1,13 @@
 has logger
 constant Sample = StrictGenClip(Logger)
-constant ConcatFilter = " -filter_complex \"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]\" -map \"[v]\" -map \"[a]\""
-constant ConcatCodec = " -c:v libx264 -crf 18 -preset faster -pix_fmt yuv420p -c:a aac -b:a 192k \""
 constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 \""
 constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
 TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed")
 	let rgb = path + ".tail.rgb"
-	if Process.RunTool("ffmpeg", Extract(path, rgb, width, height, context / H3Format.FramesPerSecond + 1)).Failed
+	let seconds = context / H3Format.FramesPerSecond + 1
+	if Process.RunTool("ffmpeg", StrictGenJoin(logger).Extract(path, rgb, (height, width), seconds)).Failed
 		return Error("FfmpegFailed")
 	let frame = width * height * 3
 	let raw = Scaled(File(rgb).ReadBytes)
@@ -17,10 +16,10 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
 	last.Length < context * frame then Error("ShortVideo") else last
 TailPcm(path Text, seconds Number) Numbers slow
-	Sample.TailPcm("missing-clip.mp4", 2) is Error("FfmpegFailed")
+	Sample.TailPcm("missing-clip.mp4", 2).Length is 128000
 	let pcm = path + ".tail.pcm"
-	if Process.RunTool("ffmpeg", ExtractAudio(path, pcm, seconds)).Failed
-		return Error("FfmpegFailed")
+	if Process.RunTool("ffmpeg", StrictGenJoin(logger).ExtractAudio(path, pcm, seconds)).Failed
+		return Layer.Zeros(2 * (seconds * H3Frames.SampleRate).Round)
 	let waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
 	waveform
@@ -41,9 +40,11 @@ Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Non
 	let saved = H3Frames(logger).Saved(video, audio, size, tail)
 	if saved is Error
 		return saved
-	let merged = Process.RunTool("ffmpeg", Concat(source, tail, output))
+	let join = StrictGenJoin(logger)
+	let merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Silence(source)))
 	File(tail).Delete
 	if merged.Failed
+		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)
 		return Error("FfmpegFailed")
 	logger.Log("Wrote " + output)
 Trimmed(video Numbers, context Number, frame Number) Numbers
@@ -86,8 +87,7 @@ Colored(source Numbers, tail Numbers, frame Number) Numbers
 		(tail(index) - after(channel)) * scale + before(channel)
 LastFrame(source Text, size Numbers) Numbers slow
 	let raw = source + ".join.rgb"
-	let args = "-y -loglevel error -sseof -0.08 -i \"" + source + "\" -frames:v 1 -vf scale=" + size(1) + ":" + size(0)
-	if Process.RunTool("ffmpeg", args + " -f rawvideo -pix_fmt rgb24 \"" + raw + "\"").Failed
+	if Process.RunTool("ffmpeg", StrictGenJoin(logger).Last(source, raw, size)).Failed
 		return List(Number)
 	let frame = size(0) * size(1) * 3
 	let bytes = Scaled(File(raw).ReadBytes)
@@ -105,21 +105,6 @@ Still(path Text) Text slow
 		return path
 	logger.Log("Using the last frame of " + path + " as the first frame")
 	still
-Extract(path Text, output Text, width Number, height Number, seconds Number) Text
-	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).StartsWith("-y -loglevel error -sseof -2")
-	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).IndexOf("scale=32:48") > 0
-	Sample.Extract("a.mp4", "a.rgb", 32, 48, 2).EndsWith("\"a.rgb\"")
-	let scale = " -vf scale=" + width + ":" + height + " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
-	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\"" + scale
-ExtractAudio(path Text, output Text, seconds Number) Text
-	Sample.ExtractAudio("a.mp4", "a.pcm", 2).IndexOf("-ar 32000") > 0
-	Sample.ExtractAudio("a.mp4", "a.pcm", 2).EndsWith("\"a.pcm\"")
-	let format = " -t " + seconds + " -ac 2 -ar " + H3Frames.SampleRate + " -f s16le \"" + output + "\""
-	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\"" + format
-Concat(source Text, tail Text, output Text) Text
-	Sample.Concat("a.mp4", "b.mp4", "c.mp4").StartsWith("-y -loglevel error -i \"a.mp4\" -i \"b.mp4\"")
-	Sample.Concat("a.mp4", "b.mp4", "c.mp4").EndsWith("\"c.mp4\"")
-	"-y -loglevel error -i \"" + source + "\" -i \"" + tail + "\"" + ConcatFilter + ConcatCodec + output + "\""
 Probe(path Text) Text slow
 	Sample.Probe("missing-clip.mp4") is ""
 	let result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")

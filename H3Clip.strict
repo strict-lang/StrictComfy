@@ -1,34 +1,50 @@
+has logger
 has network H3ClipEncoder
 has tiling H3Tiles
-constant Tiny = H3Clip(H3ClipEncoder.Tiny, H3Tiles.Tiny)
+constant Tiny = H3Clip(Logger, H3ClipEncoder.Tiny, H3Tiles.Tiny)
 constant ClipLength = 17
+constant Finished = 0.999
 constant Frame = H3VaeEncoder.Model.Values("reference.image")
 Loaded(vae Text) H3Clip slow
-	H3Clip(H3ClipEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
+	H3Clip(logger, H3ClipEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
 Encoded(frames List(Numbers), size Numbers) Numbers slow
 	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
 	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
-	let ys = tiling.Starts(size(0))
-	let xs = tiling.Starts(size(1))
+	let boxes = (tiling.Starts(size(0)), tiling.Starts(size(1)))
+	let started = Process.Elapsed
 	mutable latents = List(Numbers)
 	for Clips(frames.Length)
-		latents = latents + Latents(frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength)), size, ys, xs)
+		let part = frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength))
+		latents = latents + Latents(part, size, boxes, (value, frames.Length, started))
 	Ordered(latents)
 Clips(count Number) Numbers
 	Tiny.Clips(22) is (0, 17)
 	Tiny.Clips(17) is (0)
 	for (count / ClipLength).Ceiling
 		index * ClipLength
-Latents(frames List(Numbers), size Numbers, ys Numbers, xs Numbers) List(Numbers) slow
+Latents(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers) List(Numbers) slow
 	let picture = H3Picture(network.encoder, tiling)
-	let tiles = Tiles(frames, size, ys, xs)
+	let tiles = Tiles(frames, size, boxes, progress)
 	for tiles.First.Length
-		picture.Normalized(Column(tiles, index), ys, xs, size, List(Number))
-Tiles(frames List(Numbers), size Numbers, ys Numbers, xs Numbers) List(List(Numbers)) slow
+		picture.Normalized(Column(tiles, index), boxes(0), boxes(1), size, List(Number))
+Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers) List(List(Numbers)) slow
+	let ys = boxes(0)
+	let xs = boxes(1)
+	let count = ys.Length * xs.Length
+	let step = frames.Length / count / progress(1)
 	let tall = tiling.Length(size(0))
 	let wide = tiling.Length(size(1))
-	for ys.Length * xs.Length
-		network.Moments(Pixels(frames, size, (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)))
+	for count
+		let box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
+		let moments = network.Moments(Pixels(frames, size, box))
+		Reported(progress(0) / progress(1) + (index + 1) * step, step, progress(2))
+		moments
+Reported(fraction Number, step Number, started Number) slow
+	Tiny.Reported(0.3, 0.1, Process.Elapsed) is not Error
+	if ((fraction * 4).Floor > ((fraction - step) * 4).Floor) and (fraction < Finished)
+		let elapsed = Process.Elapsed - started
+		let estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
+		logger.Log("Encoding the video context " + (fraction * 100).Round + "% " + estimate)
 Pixels(frames List(Numbers), size Numbers, box Numbers) List(FeatureMap)
 	for frames
 		network.encoder.Pixels(value, size, box, H3Vae.Mean + H3Vae.Deviation)

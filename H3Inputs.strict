@@ -10,7 +10,10 @@ Problem Text slow
 	H3Inputs(H3Options.Parsed(("--width", "500"))).options.Fitted.width is 480
 	if Images.Length is 0
 		return "--image " + options.files.image + " has no png or jpg files"
-	Prompts.Length is 0 then "--prompt " + options.prompt + " has no txt files" else options.Problem
+	if Prompts.Length is 0
+		return "--prompt " + options.prompt + " has no txt files"
+	let problem = options.Problem
+	problem is "" then options.files.Mixed else problem
 Images Texts slow
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")

@@ -75,6 +75,23 @@ Problem Text slow
 	if (video is not "") and (image is not "")
 		return "--image is a still first frame; leave it empty when --video continues a clip"
 	""
+Mixed Text slow
+	H3Files.Parsed(("--model", "tinyh3.safetensors")).Mixed is ""
+	Local.Mixed is ""
+	let checkpoint = Checkpoint
+	if checkpoint is Error
+		return ""
+	let header = TensorFile.Header(checkpoint)
+	let blocks = H3.Tiny.Named(header, "blocks.").Length
+	let quantized = Quantized(header).Length
+	let kinds = quantized + " int8 and " + (blocks - quantized) + " bf16 or fp16 blocks"
+	let unsupported = " is not supported yet: it mixes " + kinds + ", only models with one kind of blocks work"
+	(quantized is 0) or (quantized is blocks) then "" else Path(checkpoint).FileName.text + unsupported
+Quantized(header Text) Texts
+	Local.Quantized("{\"blocks.0.attn.qkv_proj.comfy_quant\":{},\"blocks.1.attn.qkv_proj.weight\":{}}").Length is 1
+	for header.Split("\"blocks.")
+		if (index > 0) and value.Substring(0, value.IndexOf("\"")).EndsWith(".attn.qkv_proj.comfy_quant")
+			value
 Freed slow
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
