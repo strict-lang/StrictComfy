@@ -78,44 +78,53 @@ Affines(affines List(Numbers), at Number, channels Number) Numbers
 		let inner = index % stacked
 		let frame = at - 2 + (inner / channels).Floor
 		frame < 0 then 0 else affines(frame)(half * channels + inner % channels)
-Temporal(convolution Convolution, states List(FeatureMap), affines List(Numbers), activation Activation) List(FeatureMap) slow
+Triple(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers
+	Tiny.Triple((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
+	let stacked = Taps * channels
+	for 2 * stacked
+		let inner = index % stacked
+		let tap = (inner / channels).Floor
+		let at = (index / stacked).Floor * channels + inner % channels
+		tap is 0 then earlier(at) else tap is 1 then previous(at) else current(at)
+Temporal(convolution Convolution, states List(FeatureMap), norm GroupNorm, normed Boolean, activation Activation) List(FeatureMap) slow
+	mutable outputs = List(FeatureMap)
+	mutable earlier = Layer.Zeros(2 * states.First.channels)
+	mutable previous = earlier
 	for states
-		let affine = Affines(affines, index, value.channels)
-		encoder.Reflected(convolution, Joined(states, index), affine, activation)
+		let current = normed then norm.Affine(value) else value.Identity
+		let affine = Triple(earlier, previous, current, value.channels)
+		outputs = outputs + encoder.Reflected(convolution, Joined(states, index), affine, activation)
+		earlier = previous
+		previous = current
+	outputs
 Downsampled(convolution Convolution, states List(FeatureMap), stride Number) List(FeatureMap) slow
-	let solid = Solid(states)
-	let affines = Identities(solid)
-	for ((solid.Length - 1) / stride).Floor + 1
-		let joined = Joined(solid, index * stride)
-		let affine = Affines(affines, index * stride, solid.First.channels)
+	let affines = Identities(states)
+	mutable outputs = List(FeatureMap)
+	for ((states.Length - 1) / stride).Floor + 1
+		let joined = Joined(states, index * stride)
+		let affine = Affines(affines, index * stride, states.First.channels)
 		let full = convolution.Applied(encoder.Padded(joined, (1, 1, 1, 1)), affine, Activation.Linear)
-		encoder.Strided(full, (2, 2), (joined.Height / 2, joined.width / 2))
+		outputs = outputs + encoder.Strided(full, (2, 2), (joined.Height / 2, joined.width / 2))
+	outputs
 Identities(states List(FeatureMap)) List(Numbers)
 	Tiny.Identities(List(FeatureMap) + FeatureMap((1, 2), 2, 1, List(Number) + 3)).First is (1, 3)
 	for states
 		value.Identity
-Norms(norm GroupNorm, states List(FeatureMap)) List(Numbers) slow
-	for states
-		norm.Affine(value)
-Solid(states List(FeatureMap)) List(FeatureMap)
-	Tiny.Solid(List(FeatureMap) + FeatureMap((1, 2), 2, 1, List(Number) + 3)).First.values is (4, 5)
-	for states
-		FeatureMap(value.Completed, value.width, value.channels, Layer.Zeros(value.channels))
 Block(at Number, states List(FeatureMap)) List(FeatureMap) slow
 	let block = encoder.blocks(at)
-	let solid = Solid(states)
-	let hidden = Solid(Temporal(firsts(at), solid, Norms(block.firstNorm, solid), Activation.Swish))
-	for Temporal(seconds(at), hidden, Norms(block.secondNorm, hidden), Activation.Swish)
-		let source = solid(index)
-		(block.shortcut.biases.Length is 0 then source else block.shortcut.Projected(source)).Plus(value)
+	let hidden = Temporal(firsts(at), states, block.firstNorm, true, Activation.Swish)
+	mutable outputs = List(FeatureMap)
+	for Temporal(seconds(at), hidden, block.secondNorm, true, Activation.Swish)
+		let source = states(index)
+		outputs = outputs + (block.shortcut.biases.Length is 0 then source else block.shortcut.Projected(source)).Plus(value)
+	outputs
 Moments(frames List(FeatureMap)) List(Numbers) slow
 	Tiny.Moments((H3VaeEncoder.Tile, H3VaeEncoder.Tile)).Length is 1
 	Tiny.Moments(List(FeatureMap) + H3VaeEncoder.Tile).First(0).IsNearlyEqual(H3VaeEncoder.Moment(0), 0.01)
-	mutable states = Solid(Temporal(entry, frames, Identities(frames), Activation.Linear))
+	mutable states = Temporal(entry, frames, encoder.normOut, false, Activation.Linear)
 	for encoder.blocks
 		states = Block(index, states)
 		let downsample = downsamples(index)
 		states = downsample.biases.Length is 0 then states else Downsampled(downsample, states, strides(index))
-	let solid = Solid(states)
-	for Temporal(exit, solid, Norms(encoder.normOut, solid), Activation.Swish)
+	for Temporal(exit, states, encoder.normOut, true, Activation.Swish)
 		encoder.moments.Projected(value).Completed

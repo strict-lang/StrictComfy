@@ -990,7 +990,7 @@
 	const showStatus = status => {
 		const others = (status.peers || []).length;
 		const drive = status.drive ? " - Drive " + gb(status.drive) + " GB free" : "";
-		const meters = status.ramTotal ? "RAM " + gb(status.ram) + "/" + gb(status.ramTotal) + " GB - VRAM " + gb(status.vram) + "/" + gb(status.vramTotal) + " GB - GPU " + status.gpu + "%" + (status.gpuTemp ? " " + Math.round(status.gpuTemp) + "°C" : "") + " - CPU " + Math.round(status.cpu) + "%" + drive : "RAM — - VRAM — - GPU — - CPU —";
+		const meters = status.ramTotal ? "RAM " + gb(status.ram) + "/" + gb(status.ramTotal) + " GB - VRAM " + gb(status.vram) + "/" + gb(status.vramTotal) + " GB - GPU " + status.gpu + "%" + (status.gpuTemp ? " " + Math.round(status.gpuTemp) + "C" : "") + " - CPU " + Math.round(status.cpu) + "%" + drive : "RAM — - VRAM — - GPU — - CPU —";
 		element("meters").textContent = meters + " - " + others + (others === 1 ? " other PC" : " other PCs");
 		const waiting = (status.queued || []).length;
 		element("position").textContent = status.position || "queue 0 done 0";
