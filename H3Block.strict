@@ -66,8 +66,12 @@ Projected(linear Number, rows List(Numbers), input Numbers, rotated = true) Numb
 Attended(normed Numbers, rotation Numbers, routing = 0, exact = 0) Numbers slow
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(0).IsNearlyEqual(-0.328125, 0.03)
 	Tiny.Attended(Model.Values("reference.blocks.0.attn.input"), Rope.Turning)(3079).IsNearlyEqual(-0.205078, 0.03)
-	let merged = Heads(Batch(attention, Layer.Unbiased).Sums(Convrot(normed).Rotated), rotation, routing, exact).Merged
+	let merged = Attending(Convrot(normed).Rotated, rotation, routing, exact)
 	Batch(output, Layer.Unbiased).Sums(Convrot(merged).Rotated)
+Attending(input Numbers, rotation Numbers, routing Number, exact Number) Numbers slow
+	Opened(input, rotation, routing, exact).Merged
+Opened(input Numbers, rotation Numbers, routing Number, exact Number) Attention slow
+	Heads(Batch(attention, Layer.Unbiased).Sums(input), rotation, routing, exact)
 Heads(combined Numbers, rotation Numbers, routing = 0, exact = 0) Attention slow
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(0).IsNearlyEqual(-0.519531, 0.02)
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(4611).IsNearlyEqual(-0.022339, 0.02)

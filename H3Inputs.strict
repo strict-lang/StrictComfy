@@ -3,6 +3,10 @@ constant Sample = H3Inputs(H3Options.Parsed(List(Text)))
 constant Folder = H3Inputs(H3Options.Parsed(("--image", ".", "--count", "2")))
 constant Both = H3Inputs(H3Options.Parsed(("--image", ".", "--last_image", "a.png")))
 constant Pairs = (("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
+constant MostTokens = 90000
+constant TooMany = " H3 handles fast and correctly on a 24 GB GPU: above that it gets very slow and the start of the video and its sound break. Use a shorter --length or a smaller size, 576x1024 fits 15 s and 704x1280 fits 12 s"
+constant Long = H3Inputs(H3Options.Parsed(("--length", "396", "--width", "704", "--height", "1280")))
+constant Twelve = H3Inputs(H3Options.Parsed(("--length", "288", "--width", "704", "--height", "1280")))
 Problem Text slow
 	Sample.Problem is ""
 	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
@@ -13,7 +17,25 @@ Problem Text slow
 	if Prompts.Length is 0
 		return "--prompt " + options.prompt + " has no txt files"
 	let problem = options.Problem
-	problem is "" then options.files.Mixed else problem
+	problem is "" then Limits else problem
+Limits Text slow
+	Sample.Limits is ""
+	let oversized = Oversized
+	oversized is "" then options.files.Mixed else oversized
+Tokens Number
+	Long.Tokens is 102960
+	Twelve.Tokens is 76560
+	let shapes = options.Shapes
+	let guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
+	(shapes(0) + guides) * shapes(1) * shapes(2) / 4
+Oversized Text
+	Long.Oversized.StartsWith("704x1280 with 396 frames is 102960 video tokens, more than the 90000")
+	Twelve.Oversized is ""
+	let tokens = Tokens
+	if tokens <= MostTokens
+		return ""
+	let size = options.Fitted.width + "x" + options.Fitted.height + " with " + options.Clip + " frames is " + tokens
+	size + " video tokens, more than the " + MostTokens + TooMany
 Images Texts slow
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")
