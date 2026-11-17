@@ -45,9 +45,9 @@ Raw(span Numbers, center Number, stretch Number) Numbers
 		Kernel((index + span(0) - center + 0.5) / stretch)
 Kernel(position Number) Number
 	Lanczos.Kernel(0) is 1
-	(Lanczos.Kernel(3) is 0) and (Lanczos.Kernel(3.5) is 0) and (Lanczos.Kernel(-3.5) is 0)
+	Lanczos.Kernel(3) is 0 and Lanczos.Kernel(3.5) is 0 and Lanczos.Kernel(-3.5) is 0
 	Lanczos.Kernel(1.5).IsNearlyEqual(-0.1350949)
-	(position >= -3) and (position < 3) then Sinc(position) * Sinc(position / 3) else 0
+	position >= -3 and position < 3 then Sinc(position) * Sinc(position / 3) else 0
 Sinc(position Number) Number
 	Lanczos.Sinc(0) is 1
 	Lanczos.Sinc(0.5).IsNearlyEqual(2 / Number.Pi)
@@ -56,7 +56,7 @@ Sine(radians Number) Number
 	Lanczos.Sine(Number.Pi / 6).IsNearlyEqual(0.5)
 	Lanczos.Sine(3) is 0.1411200080598672
 	Lanczos.Sine(-7.5) is -0.9379999767747389
-	(Lanczos.Sine(Number.Pi) is 0) and (Lanczos.Sine(2 * Number.Pi) is 0)
+	Lanczos.Sine(Number.Pi) is 0 and Lanczos.Sine(2 * Number.Pi) is 0
 	let turns = (radians / Number.Pi + 0.5).Floor
 	let reduced = radians - turns * Number.Pi
 	mutable term = reduced

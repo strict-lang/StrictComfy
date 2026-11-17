@@ -21,7 +21,7 @@ constant Unused = Batch(List(Numbers), List(Number))
 constant None = H3Decoder(Unused, Unused, List(Number), List(H3DecoderBlock), List(Number), List(Number), Unused, List(Number), List(Number))
 constant Still = H3Decoder.Loaded(Safetensors("tinyh3imagevae.safetensors"))
 Loaded(model Safetensors) H3Decoder slow
-	(Tiny.blocks.Length is 2) and (Tiny.post.weights.Length is 24) and (Tiny.registers.Length is 1280)
+	Tiny.blocks.Length is 2 and Tiny.post.weights.Length is 24 and Tiny.registers.Length is 1280
 	let decoder = Safetensors(model.path, 32, model.prefix + "decoder.")
 	let embedded = MossText.Dense(decoder, "x_embedder")
 	let quantized = Split(model.Values("post_quant_conv.weight"), H3Format.Channels)
@@ -35,8 +35,8 @@ Loaded(model Safetensors) H3Decoder slow
 	H3Decoder(mixed, embedded, suffix, Blocks(model), weights, biases, projected, latents(0), latents(1))
 Blocks(model Safetensors) List(H3DecoderBlock) slow
 	Tiny.Blocks(Model).Length is 2
-	(Tiny.blocks.First.half is 24) and (Still.blocks.First.half is 16)
-	let planar = (model.Shape("decoder.proj_out.weight")(0) is StillRows) and (model.Entry("decoder.mask_token") is not "")
+	Tiny.blocks.First.half is 24 and Still.blocks.First.half is 16
+	let planar = model.Shape("decoder.proj_out.weight")(0) is StillRows and model.Entry("decoder.mask_token") is not ""
 	let half = planar then PlanarHalf else H3DecoderBlock.Decoding.half
 	let bits = planar then StillBits else 32
 	for H3.Named(TensorFile.Header(model.path), model.prefix + "decoder.transformer_blocks.").Length
@@ -96,7 +96,7 @@ Coordinates(frames Number, height Number, width Number) Numbers slow
 		2 * ((axis is 0 then time else (axis is 1 then (token / width).Floor % height else token % width)) + 0.5) / size - 1
 Planar(height Number, width Number) Numbers slow
 	Tiny.Planar(2, 4)(0) is -0.5
-	(Tiny.Planar(2, 4)(4) is -0.25) and (Tiny.Planar(2, 4)(3) is -0.5) and (Tiny.Planar(2, 4)(5) is 0)
+	Tiny.Planar(2, 4)(4) is -0.25 and Tiny.Planar(2, 4)(3) is -0.5 and Tiny.Planar(2, 4)(5) is 0
 	for height * width * 3
 		let token = (index / 3).Floor
 		let axis = index % 3
@@ -146,5 +146,5 @@ Unpatched(rows Numbers, frames Number, height Number, width Number) Numbers slow
 		let within = time % temporal * 256 + y % 16 * 16 + x % 16
 		rows((token * 3 + (index / (wide * high * frames * temporal)).Floor) * temporal * 256 + within)
 Temporal Number
-	(Tiny.Temporal is 4) and (Still.Temporal is 1)
+	Tiny.Temporal is 4 and Still.Temporal is 1
 	projection.weights.Length / StillRows

@@ -20,10 +20,10 @@ constant Sampled = Kept.Sampling(Tiny)
 constant Encoded = Kept.Encoding(TinyFiles)
 constant Crowded = Backend.IsCrowded(File(Tiny.Checkpoint).Length, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 Sampling(options H3ImageOptions) H3ImageResident slow
-	(Sampled.models.Length is 1) and (Sampled.refiners.Length is 1)
+	Sampled.models.Length is 1 and Sampled.refiners.Length is 1
 	Sampled.Sampling(Tiny).model is Sampled.model
 	let key = options.Checkpoint + "|" + options.Loras
-	if (key is model) and (models.Length is 1)
+	if key is model and models.Length is 1
 		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
 		return value
 	GpuMemory.Released
@@ -65,15 +65,15 @@ Referencing(image H3Image) H3ImageResident slow
 	H3ImageResident(picturing, references = image.Referenced(picturing.vae.pictures.First), referenceKey = key)
 Seeing(files H3Files) H3ImageResident slow
 	Encoded.Seeing(TinyFiles).visions.Length is 0
-	if (files.Images.Length is 0) or (visions.Length is 1)
+	if files.Images.Length is 0 or visions.Length is 1
 		return value
 	logger.Log("Loading the vision encoder of " + ModelFiles("").Described(files.Encoder) + Staying)
 	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
 	H3ImageResident(value, visions = List(QwenVision) + vision)
 Encoding(files H3Files) H3ImageResident slow
-	(Encoded.encoders.Length is 1) and (Encoded.tokenizers.Length is 1)
+	Encoded.encoders.Length is 1 and Encoded.tokenizers.Length is 1
 	Encoded.Encoding(TinyFiles).encoderFile is Encoded.encoderFile
-	if (files.Encoder is encoderFile) and (encoders.Length is 1)
+	if files.Encoder is encoderFile and encoders.Length is 1
 		return value
 	let started = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
@@ -89,7 +89,7 @@ Trimmed(options H3ImageOptions) H3ImageResident slow
 		GpuMemory.Evicted
 	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
 	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
-	if (encoders.Length is 0) or (isKept and (isCrowded is false))
+	if encoders.Length is 0 or isKept and isCrowded is false
 		return value
 	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
 	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", visions = List(QwenVision))

@@ -11,7 +11,7 @@ constant Example = ExamplePerson + ExampleStreet
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Templated Text slow
 	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
-	if (options.prompt is "prompt.txt") and (File(options.prompt).Exists is false)
+	if options.prompt is "prompt.txt" and File(options.prompt).Exists is false
 		return Example
 	PromptBatch(logger, "Image").Template(options.prompt)
 Contexts(prompts Texts) List(Numbers) slow
@@ -60,7 +60,7 @@ Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, 
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
 Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
 	Sample.Previewed(Sample.options.Sampling(Logger), List(Taef2Decoder)).preview is ""
-	if (options.preview is "") or (previewers.Length is 0)
+	if options.preview is "" or previewers.Length is 0
 		return sampling
 	MossSampling(sampling, preview = options.preview, previewer = previewers.First)
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Numbers slow
@@ -84,7 +84,7 @@ Described(seed Number, prompt Text) Text slow
 	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
 Expanded(arguments Texts) MossBatch slow
-	(Sample.Expanded(List(Text)).prompted is "") and (Workflowed.Expanded(Prompted).prompted is "")
+	Sample.Expanded(List(Text)).prompted is "" and Workflowed.Expanded(Prompted).prompted is ""
 	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
 	if options.files.workflow is ""
@@ -99,7 +99,7 @@ Expanded(arguments Texts) MossBatch slow
 Noted MossOptions
 	MossBatch(Logger, MossOptions.Parsed(("--width", "720"))).Noted.width is 704
 	let fitted = options.Fitted
-	if (fitted.width is options.width) and (fitted.height is options.height)
+	if fitted.width is options.width and fitted.height is options.height
 		return fitted
 	logger.Log("Moss size " + options.width + "x" + options.height + " changed to " + fitted.width + "x" + fitted.height)
 	fitted

@@ -24,14 +24,14 @@ Processor Number slow
 	let windows = Process.OperatingSystem is "Windows"
 	let last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
 	let later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" >nul 2>nul"
-	let result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
+	let result = Process.RunTool((windows then "cmd" else "sh"), (windows then later else "-c \"" + LinuxCpu + "\""))
 	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
-	(result.Failed or (number is Error)) then 0 else number.Clamp(0, 100)
+	result.Failed or number is Error then 0 else number.Clamp(0, 100)
 Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"queue 0 done 0\"") >= 0
 	let stats = net.meters is "" then Blank else net.meters
 	let preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
-	let stamp = (preview is not "") and File(preview).Exists then File(preview).Length else 0
+	let stamp = preview is not "" and File(preview).Exists then File(preview).Length else 0
 	let position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
 	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
 	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
@@ -59,7 +59,7 @@ Run(queue StrictGenQueue, id Number) Text
 	let file = "StrictGenJob-" + id + ".timed"
 	let current = id is queue.job.current
 	let waiting = id is in queue.pending
-	let kept = (waiting is false) and File(file).Exists then File(file).ReadLines else List(outer.Text)
+	let kept = waiting is false and File(file).Exists then File(file).ReadLines else List(outer.Text)
 	let shown = current then queue.job.Stamped(queue.job.Logged) else kept
 	let outcome = queue.outcomes.Length > id then queue.outcomes(id) else ""
 	let ended = outcome.StartsWith("error") then "error" else "done"
@@ -76,7 +76,7 @@ Position(queue StrictGenQueue) Text
 Waiting(queue StrictGenQueue) Texts
 	Sample.Waiting(StrictGenQueue.Empty).Length is 0
 	Sample.Waiting(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is ("Image fox")
-	Lines(queue, queue.job.current < 0 then queue.pending else List(Number) + queue.job.current + queue.pending)
+	Lines(queue, (queue.job.current < 0 then queue.pending else List(Number) + queue.job.current + queue.pending))
 Recent(queue StrictGenQueue) Texts
 	Sample.Recent(StrictGenQueue.Empty).Length is 0
 	queue.results.Reverse

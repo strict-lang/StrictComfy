@@ -21,16 +21,16 @@ Arguments(body Text) Texts slow
 Optional(json Json, mode Text) Texts slow
 	StrictGenForm.Optional(Json(Picture), "image") is ("--vae", "taef2.safetensors", "--skip", "off")
 	StrictGenForm.Optional(Json(Clip), "extend") is ExpectedClip.Slice(8, 8)
-	let video = (mode is "video") or (mode is "extend") or (mode is "imagevideo")
+	let video = mode is "video" or mode is "extend" or mode is "imagevideo"
 	let length = video then Pair("--length", json.get("length") to Text) + Switches(json) else List(Text)
 	let context = mode is "extend" then Pair("--context", json.get("context") to Text) else List(Text)
 	let clip = mode is "extend" then Pair("--video", json.get("video") to Text) else List(Text)
-	let still = StrictGenClip(Logger).Still(json.get("image") to Text)
+	let still = StrictGenClip(Logger).Still(json.get("image") to Text, json.get("zoom") to Text is "true")
 	let image = mode is "imagevideo" then Pair("--image", still) else List(Text)
 	let steps = json.get("steps") to Text
-	let counted = ((steps is "") or (steps is "0")) then List(Text) else Pair("--steps", steps)
+	let counted = steps is "" or steps is "0" then List(Text) else Pair("--steps", steps)
 	let tail = Vae(json) + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
-	length + context + clip + image + Pair("--last_image", json.get("lastImage") to Text) + counted + tail
+	length + context + clip + image + counted + tail
 Switches(json Json) Texts
 	StrictGenForm.Switches(Json("{\"upscale\":true}")) is ("--upscale")
 	StrictGenForm.Switches(Json("{\"upscale\":false,\"noTurbo\":true}")) is ("--no_turbo")
@@ -44,7 +44,7 @@ Loras(json Json) Texts
 	for json.get("loras").Elements
 		let path = value.get("path") to Text
 		if path is not ""
-			words = words + "--lora" + (path + ":" + (value.get("strength") to Text))
+			words = words + "--lora" + (path + ":" + value.get("strength") to Text)
 	words
 Remote(json Json) Texts
 	StrictGenForm.Remote(Json("{\"remote\":\"any\"}")).Length is 0
@@ -56,7 +56,7 @@ Remote(json Json) Texts
 More(json Json) Texts
 	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
 	let guidance = json.get("guidance") to Text
-	let guided = ((guidance is "") or (guidance is "0")) then "" else guidance
+	let guided = guidance is "" or guidance is "0" then "" else guidance
 	let numbers = StrictGenImage.Numbered(json) + Pair("--guidance", guided)
 	let sampling = Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text)
 	numbers + sampling + Pair("--scheduler", json.get("scheduler") to Text) + Files(json)
@@ -73,7 +73,7 @@ Vision(text Text) Text
 	StrictGenForm.Vision("768") is ""
 	StrictGenForm.Vision("off") is "off"
 	StrictGenForm.Vision("") is ""
-	(text is "") or (text is "768") then "" else text
+	text is "" or text is "768" then "" else text
 Vae(json Json) Texts
 	StrictGenForm.Vae(Json("{\"decoder\":\"taef2\"}")) is ("--vae", "taef2.safetensors")
 	StrictGenForm.Vae(Json("{\"decoder\":\"flux2-small-vae\"}")) is ("--vae", "full_encoder_small_decoder.safetensors")
@@ -81,8 +81,8 @@ Vae(json Json) Texts
 	StrictGenForm.Vae(Json("{\"decoder\":\"\"}")).Length is 0
 	let given = json.get("vae") to Text
 	let name = given is "" then json.get("decoder") to Text else given
-	let named = (name is "") or name.EndsWith(".safetensors") then name else name + ".safetensors"
-	Pair("--vae", named is "flux2-small-vae.safetensors" then "full_encoder_small_decoder.safetensors" else named)
+	let named = name is "" or name.EndsWith(".safetensors") then name else name + ".safetensors"
+	Pair("--vae", (named is "flux2-small-vae.safetensors" then "full_encoder_small_decoder.safetensors" else named))
 Pair(name Text, text Text) Texts
 	StrictGenForm.Pair("--seed", "").Length is 0
 	StrictGenForm.Pair("--seed", "7") is ("--seed", "7")
@@ -94,16 +94,16 @@ Selected(kind Text, arguments Texts) Text
 	StrictGenForm.Selected("h3", ("--last_image", "b.png")) is "imagevideo"
 	if kind is "moss"
 		return "image"
-	(("--image" is in arguments) or ("--last_image" is in arguments)) then "imagevideo" else "video"
+	"--image" is in arguments or "--last_image" is in arguments then "imagevideo" else "video"
 Imported(path Text) Text slow
 	StrictGenForm.Imported("tinymossworkflow.json").IndexOf("\"mode\":\"image\",") >= 0
 	StrictGenForm.Imported("tinyh3strictworkflow.json").IndexOf("\"mode\":\"imagevideo\"") >= 0
 	let text = Text.Combine(File(path).ReadLines, "\n")
 	let isCustom = text.IndexOf("SamplerCustomAdvanced") >= 0
-	let h3 = (text.IndexOf("StrictH3") >= 0) or (text.IndexOf("MiniMax") >= 0) or isCustom
+	let h3 = text.IndexOf("StrictH3") >= 0 or text.IndexOf("MiniMax") >= 0 or isCustom
 	let moss = MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
 	let arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else moss
-	Described(Selected(h3 then "h3" else "moss", arguments), arguments)
+	Described(Selected((h3 then "h3" else "moss"), arguments), arguments)
 Described(mode Text, arguments Texts) Text
 	StrictGenForm.Described("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
 	let width = Taken(arguments, "--width")
@@ -117,7 +117,7 @@ Taken(arguments Texts, name Text) Text
 	StrictGenForm.Taken(("--width", "480", "--height", "848"), "--width") is "480"
 	StrictGenForm.Taken(("--width", "480"), "--height") is ""
 	let at = arguments.Index(name)
-	(at < 0) or (at + 1 >= arguments.Length) then "" else arguments(at + 1)
+	at < 0 or at + 1 >= arguments.Length then "" else arguments(at + 1)
 Neighbor(paths Texts, current Text, step Number) Text
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", 1) is "c.png"
 	StrictGenForm.Neighbor(("a.png", "b.png", "c.png"), "b.png", -1) is "a.png"
@@ -141,4 +141,4 @@ Stepped(path Text, step Number) Text slow
 		return ""
 	let folder = Path(path).PathOnly.text
 	let extension = path.Lower.Split(".").Last
-	Neighbor(Listed(folder is "" then "." else folder, List(Text) + extension), path, step)
+	Neighbor(Listed((folder is "" then "." else folder), List(Text) + extension), path, step)

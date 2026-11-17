@@ -28,8 +28,8 @@ IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text) + "stop")
 	Backend.IsServing(List(Text) + "-") is false
 	Backend.IsServing(("encode", "a")) is false
-	let isCommand = (arguments is (Serving)) or (arguments is (Resident.Stopping))
-	isCommand or (arguments.Length is 0) or (arguments(0).StartsWith("-") and (arguments(0) is not "-"))
+	let isCommand = arguments is (Serving) or arguments is (Resident.Stopping)
+	isCommand or arguments.Length is 0 or arguments(0).StartsWith("-") and arguments(0) is not "-"
 Dispatched(arguments Texts) Number slow
 	Sample.Dispatched(List(Text) + Local) is -1
 	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
@@ -39,16 +39,16 @@ Dispatched(arguments Texts) Number slow
 		return -1
 	mutable code = Attempted(arguments)
 	mutable tries = 0
-	for as long as (code is -1) and ((tries is 0) or (Port is not 0)) and (tries < StartSeconds)
+	for as long as code is -1 and (tries is 0 or Port is not 0) and tries < StartSeconds
 		tries = tries + 1
 		code = Attempted(arguments)
-	(code is -1) and (Port is not 0) then Cleared else code
+	code is -1 and Port is not 0 then Cleared else code
 Attempted(arguments Texts) Number slow
 	let isRunning = File(resident.root + Resident.Stamp).Exists
-	if (isRunning is false) and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return Unserved
 	let forwarding = Forwarding(logger, resident.root)
-	if (isRunning is false) and Rooted
+	if isRunning is false and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
 		if forwarding.Started("") is Error
 			return Unserved
@@ -61,19 +61,19 @@ Waited(seconds Number) Number slow
 	let started = Process.Elapsed
 	mutable isBusy = false
 	mutable polled = (0, started - CheckSeconds)
-	for as long as (polled(0) is 0) and (isBusy or (Process.Elapsed - started < seconds))
+	for as long as polled(0) is 0 and (isBusy or Process.Elapsed - started < seconds)
 		polled = Polled(polled(1))
-		if (polled(0) is -1) and (isBusy is false)
+		if polled(0) is -1 and isBusy is false
 			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
 		isBusy = polled(0) < 0
-		polled = (polled(0) > 0) or (polled(0) is Gone) then polled else Paused(polled(1))
+		polled = polled(0) > 0 or polled(0) is Gone then polled else Paused(polled(1))
 	polled(0)
 Polled(checked Number) Numbers slow
 	Sample.Polled(0) is (0, 0)
 	let port = Port
-	let isDue = (port < 0) and (Process.Elapsed - checked >= CheckSeconds)
+	let isDue = port < 0 and Process.Elapsed - checked >= CheckSeconds
 	let nextCheck = isDue then Process.Elapsed else checked
-	(isDue and IsGone then Cleared else port, nextCheck)
+	((isDue and IsGone then Cleared else port), nextCheck)
 IsGone Boolean slow
 	Sample.IsGone is false
 	let stamp = File(resident.root + Resident.Stamp)
@@ -86,7 +86,7 @@ Cleared Number slow
 	forwarding.Kept(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
 	let kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
-	if (kept is 0) and ((Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors)) is 0)
+	if kept is 0 and Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors) is 0
 		logger.Log("(nothing in " + objects + "/server.log)")
 	killed + Gone
 Printed(path Text) Number slow
@@ -124,7 +124,7 @@ IsWanted(idle Number, built Number) Boolean slow
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
 	Sample.IsWanted(0, 0) is false
 	let hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
-	(File(Process.Current.executable).Modified is built) and (idle < IdleSeconds) and hasRoom
+	File(Process.Current.executable).Modified is built and idle < IdleSeconds and hasRoom
 IsCrowded(needed Number, available Number, total Number) Boolean
 	Sample.IsCrowded(0, 10 * Gigabyte, 128 * Gigabyte)
 	Sample.IsCrowded(0, 11 * Gigabyte, 128 * Gigabyte) is false
@@ -134,14 +134,14 @@ IsCrowded(needed Number, available Number, total Number) Boolean
 	Sample.IsCrowded(16 * Gigabyte, 18 * Gigabyte, 32 * Gigabyte)
 	Sample.IsCrowded(16 * Gigabyte, 19 * Gigabyte, 32 * Gigabyte) is false
 	Sample.IsCrowded(40 * Gigabyte, 0, 32 * Gigabyte) is false
-	(available > 0) and ((available - needed) * 100 < total * FreePercent)
+	available > 0 and (available - needed) * 100 < total * FreePercent
 IsOut(available Number, total Number) Boolean
 	Sample.IsOut(3 * Gigabyte, 128 * Gigabyte)
 	Sample.IsOut(5 * Gigabyte, 128 * Gigabyte) is false
 	Sample.IsOut(Gigabyte, 32 * Gigabyte)
 	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false
 	Sample.IsOut(0, 128 * Gigabyte) is false
-	(available > 0) and (available <= (total / LastShare < LowMemory then total / LastShare else LowMemory))
+	available > 0 and available <= (total / LastShare < LowMemory then total / LastShare else LowMemory)
 Restored(isMoved Boolean, home Text) slow
 	Socket.Output(0)
 	if isMoved
@@ -149,7 +149,7 @@ Restored(isMoved Boolean, home Text) slow
 Unpressed Boolean slow
 	Sample.Unpressed
 	let available = GpuMemory.Available
-	if (available > 0) and (available < LowDevice)
+	if available > 0 and available < LowDevice
 		GpuMemory.Yielded
 	let reply = Coordinator(logger, coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
@@ -161,4 +161,4 @@ Freed(request Text, isGone = true) Boolean slow
 	if isGone
 		GpuMemory.Yielded
 	resident.Released(request)
-	(Coordinator(logger, coordinator).Sent("done") is "exit") or isGone
+	Coordinator(logger, coordinator).Sent("done") is "exit" or isGone

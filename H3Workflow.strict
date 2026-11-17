@@ -29,7 +29,7 @@ Latent Json
 	Tiny.graph.Type(Tiny.Latent) is "MiniMaxH3ImageToVideo"
 	Strict.Latent.text is Strict.graph.Node(4).text
 	let sampler = Sampler
-	graph.Origin(Source(sampler, graph.Type(sampler) is "SamplerCustomAdvanced" then "latent_image" else "latent"))
+	graph.Origin(Source(sampler, (graph.Type(sampler) is "SamplerCustomAdvanced" then "latent_image" else "latent")))
 Source(node Json, input Text) Json
 	Tiny.Source(Tiny.graph.Node(8), "model").Elements(0) to Number is 5
 	Tiny.Source(Tiny.graph.Node(15), "last_frame").text is ""
@@ -58,14 +58,14 @@ Loras(node Json) Texts
 		return Stack(graph.Text(node, "stack_data", 1))
 	let flow = type is "ApplyHyperFlowH3"
 	let folder = flow then comfyui + "/models/hyperflow/" else ""
-	let named = folder + graph.Text(node, flow then "hyperflow_file" else "lora_name", 0)
-	ComfyInputs(graph).Lora(named, graph.Text(node, flow then "strength" else "strength_model", 1) to Number)
+	let named = folder + graph.Text(node, (flow then "hyperflow_file" else "lora_name"), 0)
+	ComfyInputs(graph).Lora(named, graph.Text(node, (flow then "strength" else "strength_model"), 1) to Number)
 Stack(text Text) Texts
 	Tiny.Stack("[{\"on\": true, \"lora\": \"h3\\\\a\", \"str\": 1.0}, {\"on\": false}]") is ("--lora", "h3/a:1")
 	Tiny.Stack("[]").Length is 0
 	mutable loras = List(Text)
 	for Json(text).Elements
-		if (value("on") to Text) is "true"
+		if value("on") to Text is "true"
 			loras = loras + ComfyInputs(graph).Lora(value("lora") to Text, value("str") to Number)
 	loras
 Sampling(sampler Json) Texts
@@ -83,7 +83,7 @@ Preset(sampler Json) Texts
 	let quality = ("--quality", graph.Text(sampler, "quality", 0), "--skip", graph.Text(sampler, "skip", 3))
 	if widgets.Length <= 5
 		return quality + Seed(sampler, "seed", 1)
-	quality + "--sampler" + (widgets(4) to Text) + "--scheduler" + (widgets(5) to Text) + Seed(sampler, "seed", 1)
+	quality + "--sampler" + widgets(4) to Text + "--scheduler" + widgets(5) to Text + Seed(sampler, "seed", 1)
 Seed(node Json, name Text, position Number) Texts
 	Tiny.Seed(Tiny.graph.Node(11), "noise_seed", 0) is ("--seed", "42")
 	Strict.Seed(Strict.Sampler, "seed", 1).Length is 0
@@ -115,7 +115,7 @@ Picture(link Json, option Text) Texts
 	let node = graph.Origin(link)
 	if graph.Type(node) is not "UnifiedResizeImageMask"
 		return (option, comfyui + "/input/" + graph.Text(node, "image", 0))
-	let cropped = (option is "--image") and (graph.Text(node, "crop", 9) is "center")
+	let cropped = option is "--image" and graph.Text(node, "crop", 9) is "center"
 	(cropped then List(Text) + "--crop" else List(Text)) + Picture(Source(node, "image"), option)
 Output Texts
 	Tiny.Output is ("--output", "./output/tiny_.mp4")

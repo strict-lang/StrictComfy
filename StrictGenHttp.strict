@@ -35,11 +35,11 @@ Body(raw Text) Text
 	let separator = raw.IndexOf("\r\n\r\n")
 	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
 Received(client Number) Numbers slow
-	if (client is Error) or (client <= 0)
+	if client is Error or client <= 0
 		return List(Number)
 	mutable bytes = List(Mutable(Number))
 	mutable idle = 0
-	for as long as (idle < (bytes.Length is 0 then EmptyPolls else ReceivePolls)) and (IsComplete(bytes) is false)
+	for as long as idle < (bytes.Length is 0 then EmptyPolls else ReceivePolls) and IsComplete(bytes) is false
 		let pending = Available(client)
 		if pending > 0
 			bytes = bytes + Read(client, pending)
@@ -79,14 +79,14 @@ Replied(client Number, kind Text, body Text) slow
 	let payload = Encoded(body)
 	Sent(client, Encoded(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
 SendFile(client Number, path Text) slow
-	if (path is "") or (File(path).Exists is false)
+	if path is "" or File(path).Exists is false
 		Replied(client, "text/plain", "missing")
 		return
 	let payload = File(path).ReadBytes
-	let changing = (path.IndexOf("StrictGenStep") >= 0) or path.StartsWith(StrictGen.Inputs)
+	let changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGen.Inputs)
 	let cache = changing then "no-store" else "public, max-age=86400"
 	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
-	Sent(client, Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
+	Sent(client, (Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload))
 Sent(client Number, bytes Numbers) slow
 	StrictGenHttp.Sent(0, List(Number) + 1) is not Error
 	if Socket.Send(client, bytes) is Error
@@ -97,18 +97,16 @@ Kind(path Text) Text
 	StrictGenHttp.Kind("a.jpg") is "image/jpeg"
 	StrictGenHttp.Kind("a.mp4") is "video/mp4"
 	StrictGenHttp.Kind("a.png") is "image/png"
-	(StrictGenHttp.Kind("a.jpeg") is "image/jpeg") and (StrictGenHttp.Kind("a.bin") is "application/octet-stream")
+	StrictGenHttp.Kind("a.jpeg") is "image/jpeg" and StrictGenHttp.Kind("a.bin") is "application/octet-stream"
 	let extension = path.Lower.Split(".").Last
-	let image = (extension is "jpg") or (extension is "jpeg") then "image/jpeg" else "application/octet-stream"
+	let image = extension is "jpg" or extension is "jpeg" then "image/jpeg" else "application/octet-stream"
 	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
 Encoded(text Text) Numbers
 	StrictGenHttp.Encoded("Ab") is (65, 98)
-	for text
-		value.number
+	StrictGenHttp.Encoded(Text.Utf8((195, 188))) is (195, 188)
+	text.Bytes
 Decoded(bytes Numbers) Text
 	StrictGenHttp.Decoded((65, 98)) is "Ab"
-	Text.Combine(Letters(bytes), "")
-Letters(bytes Numbers) Texts
-	StrictGenHttp.Letters((65, 98)) is ("A", "b")
-	for bytes
-		Character(value) to Text
+	StrictGenHttp.Decoded((195, 188)) is Text.Utf8((195, 188))
+	StrictGenHttp.Decoded((195, 188)).Length is 1
+	Text.Utf8(bytes)

@@ -43,7 +43,7 @@ Filter(size Numbers, seconds Number, heard Boolean) Text
 Heard(path Text) Boolean slow
 	Sample.Heard("missing-clip.mp4") is false
 	let streams = Process.RunTool("ffprobe", AudioStreams + path + "\"")
-	if streams.Failed or (streams.Output.Trim is "")
+	if streams.Failed or streams.Output.Trim is ""
 		logger.Log(path + " has no audio, the extended video starts with silence")
 		return false
 	true

@@ -13,7 +13,7 @@ Node(id Number) Json
 	Tiny.Type(Tiny.Node(15)) is "MiniMaxH3ImageToVideo"
 	Tiny.Node(99) is Error("NodeNotFound:99")
 	for nodes
-		if (value("id") to Number) is id
+		if value("id") to Number is id
 			return value
 	Error("NodeNotFound:" + id)
 Type(node Json) Text
@@ -23,7 +23,7 @@ Active(types Texts) Jsons
 	Tiny.Active(List(Text) + "LoraLoaderModelOnly").Length is 0
 	Tiny.Active(("UNETLoader", "KSamplerSelect")).Length is 2
 	for nodes
-		if ((value("mode") to Number) is 0) and (Type(value) is in types)
+		if value("mode") to Number is 0 and Type(value) is in types
 			value
 Widget(node Json, name Text, position Number) Json
 	Tiny.Widget(Tiny.Node(1), "unet_name", 0) to Text is "tinyh3.safetensors"
@@ -42,14 +42,14 @@ Input(node Json, name Text) Json
 	Tiny.Input(Tiny.Node(9), "model").Elements(0) to Number is 8
 	Tiny.Input(Tiny.Node(15), "last_frame").text is ""
 	for Inputs(node)
-		if ((value("name") to Text) is name) and ((value("link") to Text) is not "null")
+		if value("name") to Text is name and value("link") to Text is not "null"
 			return Linking(value("link") to Number)
 	Json("")
 Linking(id Number) Json
 	Tiny.Linking(14).Elements(1) to Number is 15
 	Tiny.Linking(99) is Error("LinkNotFound:99")
 	for links
-		if (value.Elements(0) to Number) is id
+		if value.Elements(0) to Number is id
 			return value
 	Error("LinkNotFound:" + id)
 Origin(link Json) Json
@@ -61,20 +61,20 @@ Producer(link Json) Json
 	Tiny.Producer(Tiny.Linking(2)).Elements(0) to Number is 3
 	let origin = Origin(link)
 	let type = Type(origin)
-	if ((origin("mode") to Number) is 0) and ((type is in known) or (type is in Values))
+	if origin("mode") to Number is 0 and (type is in known or type is in Values)
 		return link
 	Producer(Passed(origin, link.Elements(5) to Text))
 Passed(node Json, type Text) Json
-	(Tiny.Passed(Tiny.Node(4), "STRING") is Tiny.Linking(3)) and (Tiny.Passed(Tiny.Node(4), "*") is Tiny.Linking(3))
-	(Tiny.Passed(Tiny.Node(4), "INT") is Tiny.Linking(4)) and (Tiny.Passed(Tiny.Node(15), "*") is Tiny.Linking(15))
-	(Wild.Passed(Wild.Node(1), "STRING") is Wild.Linking(2)) and (Wild.Passed(Wild.Node(2), "STRING") is Wild.Linking(3))
+	Tiny.Passed(Tiny.Node(4), "STRING") is Tiny.Linking(3) and Tiny.Passed(Tiny.Node(4), "*") is Tiny.Linking(3)
+	Tiny.Passed(Tiny.Node(4), "INT") is Tiny.Linking(4) and Tiny.Passed(Tiny.Node(15), "*") is Tiny.Linking(15)
+	Wild.Passed(Wild.Node(1), "STRING") is Wild.Linking(2) and Wild.Passed(Wild.Node(2), "STRING") is Wild.Linking(3)
 	Tiny.Passed(Tiny.Node(5), "INT") is Error("UnsupportedNode:RandomNumber")
 	Wild.Passed(Wild.Node(3), "STRING") is Error("UnsupportedNode:Any_Switch")
 	for Inputs(node)
-		if (value("link") to Text) is not "null"
+		if value("link") to Text is not "null"
 			let link = Linking(value("link") to Number)
 			let linked = link.Elements(5) to Text
-			if (linked is type) or (linked is "*") or (type is "*")
+			if linked is type or linked is "*" or type is "*"
 				return link
 	Error("UnsupportedNode:" + Type(node).Replace(" ", "_"))
 Skipped Texts
@@ -84,8 +84,7 @@ Skipped Texts
 	mutable skipped = List(Text)
 	for nodes
 		let type = Type(value)
-		let isKnown = (type is in known) or (type is in Values)
-		if ((value("mode") to Number) is 0) and (isKnown is false) and (type is not in skipped)
+		if value("mode") to Number is 0 and type is not in known and type is not in Values and type is not in skipped
 			skipped = skipped + type
 	skipped
 Text(node Json, name Text, position Number) Text
@@ -100,10 +99,10 @@ Value(link Json) Text
 	Tiny.Value(Tiny.Linking(18)) is "832"
 	Produced(Origin(link), link.Elements(2) to Number)
 Produced(node Json, slot Number) Text
-	Tiny.Produced(Tiny.Node(3), 0).StartsWith("[{") and (Tiny.Produced(Tiny.Node(19), 3) is "832")
+	Tiny.Produced(Tiny.Node(3), 0).StartsWith("[{") and Tiny.Produced(Tiny.Node(19), 3) is "832"
 	Tiny.Produced(Tiny.Node(23), 0) is Error("UnsupportedValue:EnhancementUtils_ImageLoadWithSubfolders")
 	Tiny.Produced(Tiny.Node(21), 0) is Error("UnsupportedValue:easy_imageInsetCrop")
-	(Wild.Produced(Wild.Node(5), 0) is "a fox") and (Wild.Produced(Wild.Node(6), 0) is "7")
+	Wild.Produced(Wild.Node(5), 0) is "a fox" and Wild.Produced(Wild.Node(6), 0) is "7"
 	let type = Type(node)
 	if type is "ComfyMathExpression"
 		return Expressed(node, slot) to Text
@@ -111,7 +110,7 @@ Produced(node Json, slot Number) Text
 		return ComfySize(ComfyGraph(nodes, links, known), node).Sized(slot) to Text
 	if type is not in Values
 		return Error("UnsupportedValue:" + type.Replace(" ", "_"))
-	Widget(node, type is "DPRandomGenerator" then "text" else "value", 0) to Text
+	Widget(node, (type is "DPRandomGenerator" then "text" else "value"), 0) to Text
 Expressed(node Json, slot Number) Number
 	Tiny.Expressed(Tiny.Node(20), 1) is 124
 	Wild.Expressed(Wild.Node(7), 0) is 3.5
@@ -119,7 +118,7 @@ Expressed(node Json, slot Number) Number
 	Wild.Expressed(Wild.Node(9), 0) is 70
 	mutable values = List(Number)
 	for Inputs(node)
-		if (value("name") to Text).StartsWith("values.") and ((value("link") to Text) is not "null")
-			values = values + (Value(Producer(Linking(value("link") to Number))) to Number)
+		if (value("name") to Text).StartsWith("values.") and value("link") to Text is not "null"
+			values = values + Value(Producer(Linking(value("link") to Number))) to Number
 	let result = MathExpression(Widget(node, "expression", 0) to Text, values).Result
 	slot is 1 then result.Truncated else result

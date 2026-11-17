@@ -29,7 +29,7 @@ Asked(arguments Texts, forced Boolean) Text slow
 IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
 	let named = Remote(logger).Named(arguments)
-	(named is Error) or (named >= 0) then named is 0 else IsContinued(arguments, forced)
+	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
@@ -37,12 +37,12 @@ IsContinued(arguments Texts, forced Boolean) Boolean slow
 		return true
 	let reply = Coordinator(logger, coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
-	if (sent is Error) or (sent >= 0)
+	if sent is Error or sent >= 0
 		return sent is 0
 	let settled = reply.StartsWith("wait") then Coordinator(logger, coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		Use(arguments, forced).Explained(settled)
-	(settled.StartsWith("refused") is false) and ((settled is not "") or Use(arguments, forced).Checked)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).Checked)
 Refused(reply Text) Boolean
 	Sample.Refused("refused\tH3Video")
 	Sample.Refused("") is false
@@ -61,7 +61,7 @@ Unparsed(arguments Texts) Text
 	Sample.Unparsed(("--colour", "red")) is "--colour is not an option of H3Video, see H3Video --help"
 	Sample.Unparsed(("--count", "many")) is "--count must be a number"
 	let parsed = H3Options.Parsed(arguments)
-	(parsed is Error) then Explained((parsed to Text).Lines.First.Replace("Error: ", "")) else ""
+	parsed is Error then Explained((parsed to Text).Lines.First.Replace("Error: ", "")) else ""
 Explained(problem Text) Text
 	Sample.Explained("UnknownChoice:--quality") is QualityChoices
 	Sample.Explained("InvalidNumber:--count") is "--count must be a number"

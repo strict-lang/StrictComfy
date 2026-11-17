@@ -14,9 +14,9 @@ Run(arguments Texts) Number
 	if "--help" is in arguments
 		Help
 		return 0
-	if (arguments.Length > 1) and (arguments(0) is "encode")
+	if arguments.Length > 1 and arguments(0) is "encode"
 		return H3Encoding(logger, arguments).Encoded
-	if (arguments.Length > 1) and (arguments(0) is "--commands")
+	if arguments.Length > 1 and arguments(0) is "--commands"
 		return H3Commands(logger, arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed then 0 else 1
 	if Backend.IsServing(arguments)
 		return H3Client(logger, H3Server.Root).Ran(arguments)
@@ -117,7 +117,7 @@ Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout slow
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
-	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), video(2), video(3))
+	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), Size(video(3), video(2)))
 Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number slow
 	H3Video(Logger).Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
 	let curves = h3.Curves(layout.Times(sigma))

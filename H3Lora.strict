@@ -40,8 +40,8 @@ Strength(entry Text) Number
 	let parts = entry.Split("=")
 	parts.Length is 1 then 1 else parts.Last to Number
 Found(path Text, name Text, strength Number) MossLora slow
-	(Half.Found(Flow.loras, "f.o.", 1).rank is 0) and (Half.Found(Flow.loras, "f.k.", 1).up is (128))
-	(Half.Found(Flow.loras, "o.", 1).up is (64, 128)) and (Half.Found(Flow.loras, "a.mlp.fc1.", 1).up is (128, 64))
+	Half.Found(Flow.loras, "f.o.", 1).rank is 0 and Half.Found(Flow.loras, "f.k.", 1).up is (128)
+	Half.Found(Flow.loras, "o.", 1).up is (64, 128) and Half.Found(Flow.loras, "a.mlp.fc1.", 1).up is (128, 64)
 	Half.Found(Reference.path, "blocks.0.mlp.fc1.", 1).up(0) is -5.78125
 	let header = TensorFile.Header(path)
 	let prefix = Prefixed(header, name)
@@ -62,7 +62,7 @@ IsFlipped(header Text) Boolean
 	Half.IsFlipped("\"hyperflow\":\"true\"")
 	Half.IsFlipped("\"hyperflow\":\"true\",\"hyperflow_fc1_layout\":\"gate_value\"") is false
 	Half.IsFlipped("") is false
-	(header.IndexOf("\"hyperflow\":\"true\"") >= 0) and (header.IndexOf("\"hyperflow_fc1_layout\":\"gate_value\"") < 0)
+	header.IndexOf("\"hyperflow\":\"true\"") >= 0 and header.IndexOf("\"hyperflow_fc1_layout\":\"gate_value\"") < 0
 Swapped(lora MossLora, flipped Boolean) MossLora
 	Half.Swapped(MossLora(MossLora.Tiny, up = (1, 2, 3, 4)), true).up is (3, 4, 1, 2)
 	Half.Swapped(MossLora.Tiny, false) is MossLora.Tiny
@@ -93,12 +93,12 @@ Values(weights Safetensors, name Text) Numbers slow
 	Half.Values(H3Block.Model, "blocks.0.norm1") is not H3Block.Model.Values("blocks.0.norm1.weight")
 	Changed(name, "diff", weights.Values(name + ".weight"))
 Weighted(weights Safetensors, rows List(Numbers), name Text) List(Numbers) slow
-	(Flow.Weighted(Reference, ((1, 2), (3, 4)), "o")(1)(0) is 5) and (Flow.Weighted(Reference, ((1), (3)), "p")(1)(0) is 3)
+	Flow.Weighted(Reference, ((1, 2), (3, 4)), "o")(1)(0) is 5 and Flow.Weighted(Reference, ((1), (3)), "p")(1)(0) is 3
 	Flow.Weighted(Safetensors(Flow.loras), ((0, 0), (0, 0)), "adaln_proj.linear") is ((11, 22), (33, 44))
 	let width = rows.First.Length
 	let lora = Stacked(name + ".")
 	let fits = lora.rank > 0 and lora.down.Length is lora.rank * width and lora.up.Length is lora.rank * rows.Length
-	let delta = Changed(name, "diff", fits then lora.Dense else List(Number))
+	let delta = Changed(name, "diff", (fits then lora.Dense else List(Number)))
 	if delta.Length is 0
 		return rows
 	if name.EndsWith("adaln_proj.linear")
@@ -123,7 +123,7 @@ Prefixed(header Text, name Text, suffix = "lora_") Text
 	Half.Prefixed("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."
 	Half.Prefixed("\"b.fc1.alpha\"", "b.fc1.") is ""
 	Half.Prefixed("\"b.norm1.diff_b\"", "b.norm1.", "diff\"") is ""
-	(Half.Prefixed("\"b.fc1.lora_A\"", "b.fc1.") is "b.fc1.") and (Half.Prefixed("\"x.b.fc1.lora_A\"", "b.fc1.") is "")
+	Half.Prefixed("\"b.fc1.lora_A\"", "b.fc1.") is "b.fc1." and Half.Prefixed("\"x.b.fc1.lora_A\"", "b.fc1.") is ""
 	for ("diffusion_model." + name, name, "lora_unet_" + name.Substring(0, name.Length - 1).Replace(".", "_") + ".")
 		if header.IndexOf("\"" + value + suffix) >= 0
 			return value

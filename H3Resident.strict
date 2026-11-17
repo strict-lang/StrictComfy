@@ -22,7 +22,7 @@ Encoding(files H3Files) H3Resident slow
 	Encoded.encoders.Length is 1
 	Encoded.Encoding(Files).encoders.First.blocks.Length is 2
 	Encoded.Encoding(Files).encoderFile is Encoded.encoderFile
-	if (files.Encoder is encoderFile) and (encoders.Length is 1)
+	if files.Encoder is encoderFile and encoders.Length is 1
 		return value
 	if isCrowded
 		GpuMemory.Released
@@ -44,7 +44,7 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	Sampled.samplers.First.blocks.Length is 2
 	Sampled.refiners.Length is 1
 	Sampled.Sampling("tinyh3.safetensors", "").model is Sampled.model
-	if (Key(checkpoint, loras) is model) and (samplers.Length is 1)
+	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
 	GpuMemory.Released
 	let h3 = H3Video(logger).Loaded(checkpoint, loras)
@@ -56,9 +56,9 @@ Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).model is ""
 	Encoded.Trimmed("tinyh3.safetensors", "", true).encoders.Length is 0
 	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
-	if (samplers.Length is 1) and (IsSampling(checkpoint, loras) is false)
+	if samplers.Length is 1 and IsSampling(checkpoint, loras) is false
 		return Unsampled("Freeing the loaded H3 first, this run needs another model or LoRAs")
-	let isDropped = isTight and (encoders.Length is 1)
+	let isDropped = isTight and encoders.Length is 1
 	if isDropped
 		logger.Log("Freeing the text encoder, little memory is left (it loads again for a new prompt)")
 	isDropped then H3Resident(value, encoders = List(Qwen3), encoderFile = "") else value
@@ -93,10 +93,10 @@ IsSampling(checkpoint Text, loras Text) Boolean
 	Sampled.IsSampling("tinyh3.safetensors", "")
 	Sampled.IsSampling("tinyh3.safetensors", "a=1") is false
 	None.IsSampling("tinyh3.safetensors", "") is false
-	(Key(checkpoint, loras) is model) and (samplers.Length is 1)
+	Key(checkpoint, loras) is model and samplers.Length is 1
 Decoding(files Texts) H3Resident slow
 	Sampled.Decoding(Decoders).decodings.Length is 1
 	Sampled.Decoding(Decoders).Decoding(Decoders).vaes is Text.Combine(Decoders, "|")
-	if (Text.Combine(files, "|") is vaes) and (decodings.Length is 1)
+	if Text.Combine(files, "|") is vaes and decodings.Length is 1
 		return value
 	H3Resident(value, decodings = H3Video(logger).Decoding(List(H3Decoding), files), vaes = Text.Combine(files, "|"))

@@ -21,8 +21,8 @@ Remote(at Number, endpoint Text, id Number) StrictGenJob
 	StrictGenJob(value, current = at, remote = endpoint, remoteId = id)
 Logged Texts slow
 	StrictGenJob.Logged.Length is 0
-	let rows = (current >= 0) and (log is not "") and File(log).Exists then File(log).ReadLines else List(Text)
-	(rows.Length > 0) and (rows.Last.Trim is "") then rows.Slice(0, rows.Length - 1) else rows
+	let rows = current >= 0 and log is not "" and File(log).Exists then File(log).ReadLines else List(Text)
+	rows.Length > 0 and rows.Last.Trim is "" then rows.Slice(0, rows.Length - 1) else rows
 Timed(rows Texts) StrictGenJob
 	StrictGenJob.Local(1).Timed(("a", "b")).times.Length is 2
 	StrictGenJob(StrictGenJob.Local(1), times = List(Number) + 1).Timed(("a", "b")).times(0) is 1
@@ -54,7 +54,7 @@ Warmed(executable Text, command Text) Boolean slow
 	File(script).Write(Script(executable, Quoted(command.Split("\n") + "--warm"), WarmLog, WarmDone))
 	Spawned(script)
 Spawned(script Text) Boolean slow
-	if (Process.OperatingSystem is "Windows") is false
+	if Process.OperatingSystem is "Windows" is false
 		return Process.Find("sh").Started(script) is 0
 	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").Failed is false
 Quoted(words Texts) Text
@@ -70,7 +70,7 @@ Found(rows Texts) Texts
 	StrictGenJob.Found(List(Text) + "hello").Length is 0
 	for rows
 		let parts = value.Split(" ")
-		if (parts.Length > 1) and ((parts.First is "Saved") or (parts.First is "Wrote"))
+		if parts.Length > 1 and (parts.First is "Saved" or parts.First is "Wrote")
 			parts(1)
 Prompts(rows Texts) Texts
 	StrictGenJob.Prompts(("Image 1/1, seed 2", "Prompt: a red fox", "Saved a.jpg")) is ("a red fox")
@@ -89,9 +89,9 @@ Executable(name Text) Text slow
 	let file = folder + "/" + name + suffix
 	File(file).Exists then file else name + suffix
 Program(mode Text) Text
-	(StrictGenJob.Program("image") is "MossImage") and (StrictGenJob.Program("h3image") is "H3Image")
+	StrictGenJob.Program("image") is "MossImage" and StrictGenJob.Program("h3image") is "H3Image"
 	StrictGenJob.Program("extend") is "H3Video"
-	mode is "image" then "MossImage" else mode is "h3image" then "H3Image" else "H3Video"
+	mode is "image" then "MossImage" else (mode is "h3image" then "H3Image" else "H3Video")
 Script(executable Text, arguments Text, logFile Text, doneFile Text) Texts
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
@@ -99,7 +99,7 @@ Script(executable Text, arguments Text, logFile Text, doneFile Text) Texts
 Stopped(program Text) None slow
 	StrictGenJob.Stopped("StrictGenMissing") is not Error
 	let executable = Executable(program)
-	if (executable.StartsWith(program) is false) and Process.RunTool(executable, "stop").Failed
+	if executable.StartsWith(program) is false and Process.RunTool(executable, "stop").Failed
 		return Error("ServersNotStopped: " + program)
 StopAll None slow
 	Stopped("MossImage")

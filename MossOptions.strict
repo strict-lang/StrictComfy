@@ -37,7 +37,7 @@ Sampling(logger Logger) MossSampling
 	let spectral = Spectral(preset)
 	let mode = spectral(0) > 0 then "on" else "off"
 	let used = guidance > 0 then guidance else preset(1)
-	MossSampling(logger, width / 16, Evaluated, used, mode, spectral(0) > 0 then spectral(0) else 5, spectral(1), Span)
+	MossSampling(logger, width / 16, Evaluated, used, mode, (spectral(0) > 0 then spectral(0) else 5), spectral(1), Span)
 Evaluated Number
 	MossOptions.Parsed(("--quality", "best25steps")).Evaluated is 25
 	MossOptions.Parsed(("--steps", "12")).Evaluated is 12
@@ -47,7 +47,7 @@ Spectral(preset Numbers) Numbers
 	MossOptions.Parsed(List(Text)).Spectral((8, 1, 3, 3)) is (3, 3)
 	MossOptions.Parsed(("--spectrum", "off", "--quality", "fast")).Spectral((8, 1, 3, 3)) is (0, 2)
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3")).Spectral((8, 1, 0, 2)) is (2, 3)
-	spectrum is "" then (preset(2), preset(3)) else spectrum is "off" then (0, 2) else Rates
+	spectrum is "" then (preset(2), preset(3)) else (spectrum is "off" then (0, 2) else Rates)
 Rates Numbers
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3")).Rates is (2, 3)
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3", "--steps", "6")).Rates is Error("InvalidSpectrum")
@@ -55,7 +55,7 @@ Rates Numbers
 	MossOptions.Parsed(("--spectrum", "spectrum8_w2p3p4")).Rates is Error("InvalidSpectrum")
 	let parts = spectrum.Split("_w")
 	let rates = parts.Last.Split("p")
-	let valid = (parts.First is "spectrum" + Evaluated) and (parts.Length is 2) and (rates.Length is 2)
+	let valid = parts.First is "spectrum" + Evaluated and parts.Length is 2 and rates.Length is 2
 	valid then (rates.First to Number, rates.Last to Number) else Error("InvalidSpectrum")
 Span MossSpan
 	MossOptions.Parsed(List(Text)).Span is MossSpan.Off
@@ -68,7 +68,7 @@ Span MossSpan
 	let parts = skip.Split(":")
 	let first = parts.First to Number
 	let last = parts.Last to Number
-	let valid = (parts.Length is 2) and (first >= 0) and (first < last) and (last <= MossBlock.Layers)
+	let valid = parts.Length is 2 and first >= 0 and first < last and last <= MossBlock.Layers
 	valid then MossSpan(first, last) else Error("InvalidSkip")
 Loras Text slow
 	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
@@ -79,7 +79,7 @@ Loras Text slow
 	if files.model.EndsWith(".gguf")
 		return lora.Length is 0 then "" else Error("LorasNeedSafetensorsModel")
 	let specs = Specs
-	if (Evaluated > 8) or Baked or Distilled(specs)
+	if Evaluated > 8 or Baked or Distilled(specs)
 		return Text.Combine(specs, ";")
 	let installed = File(files.Folder + "/loras/" + MossFiles.FourSteps).Exists
 	Text.Combine(List(Text) + (files.Located(Turbo(installed), "loras") + "=1") + specs, ";")
@@ -88,13 +88,13 @@ Baked Boolean
 	MossOptions.Parsed(("--model", "moss-image-sft-dit-int8-convrot-dmd.safetensors")).Baked
 	MossOptions.Parsed(List(Text)).Baked is false
 	let name = files.model.Lower
-	(name.IndexOf("dmd") >= 0) or (name.IndexOf("4step") >= 0)
+	name.IndexOf("dmd") >= 0 or name.IndexOf("4step") >= 0
 Turbo(installed Boolean) Text
 	MossOptions.Parsed(("--steps", "4")).Turbo(true) is MossFiles.FourSteps
 	MossOptions.Parsed(("--quality", "fastest2steps")).Turbo(true) is MossFiles.FourSteps
 	MossOptions.Parsed(("--steps", "4")).Turbo(false) is MossFiles.Dmd
 	MossOptions.Parsed(List(Text)).Turbo(true) is MossFiles.Dmd
-	(Evaluated <= 4) and installed then MossFiles.FourSteps else MossFiles.Dmd
+	Evaluated <= 4 and installed then MossFiles.FourSteps else MossFiles.Dmd
 Distilled(specs Texts) Boolean
 	MossOptions.Parsed(List(Text)).Distilled(("x/moss_image_sft_4step_v2.0.safetensors=1", "a=1"))
 	MossOptions.Parsed(List(Text)).Distilled(("x/dmd_turbo_lora.safetensors=0"))
@@ -102,7 +102,7 @@ Distilled(specs Texts) Boolean
 	MossOptions.Parsed(List(Text)).Distilled(("a/dmd_turbo", "_lora.safetensors=1")) is false
 	let combined = Text.Combine(specs, ";")
 	let dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
-	dmd or (combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0)
+	dmd or combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0
 Located Text slow
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
 	MossOptions.Parsed(TinyModels).Named("") is ""
@@ -111,9 +111,9 @@ Located Text slow
 	let decoder = Decoder
 	let encoder = files.Encoder
 	let tokenizer = files.Tokenizer
-	let early = (model is Error) then (model to Text) else ((loras is Error) then (loras to Text) else "")
-	let late = (decoder is Error) then (decoder to Text) else ((encoder is Error) then (encoder to Text) else "")
-	Named(early + late + ((tokenizer is Error) then (tokenizer to Text) else ""))
+	let early = model is Error then model to Text else (loras is Error then loras to Text else "")
+	let late = decoder is Error then decoder to Text else (encoder is Error then encoder to Text else "")
+	Named(early + late + (tokenizer is Error then tokenizer to Text else ""))
 Decoder Text slow
 	MossOptions.Parsed(TinyModels).Decoder is "tinyvae.safetensors"
 	MossOptions.Parsed(("--models", ".", "--quality", "fastest")).Decoder is Error("FileNotFound:flux2-vae.safetensors")

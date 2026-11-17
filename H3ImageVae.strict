@@ -13,10 +13,10 @@ constant Pictured = None.Picturing(H3VaeEncoder.Model.path)
 IsDecoding(path Text) Boolean
 	Decoder.IsDecoding(Image)
 	None.IsDecoding(Image) is false
-	(path is decoderFile) and (decoders.Length + tinies.Length is 1)
+	path is decoderFile and decoders.Length + tinies.Length is 1
 Decoding(path Text) H3ImageVae slow
-	(Decoder.decoders.Length is 1) and (Decoder.tinies.Length is 0)
-	(Tiny.tinies.Length is 1) and (Tiny.decoders.Length is 0)
+	Decoder.decoders.Length is 1 and Decoder.tinies.Length is 0
+	Tiny.tinies.Length is 1 and Tiny.decoders.Length is 0
 	if Taeh3Decoder.Is(path)
 		let tiny = List(Taeh3Decoder) + Taeh3Decoder.Loaded(path)
 		return H3ImageVae(value, decoderFile = path, decoders = List(H3Vae), tinies = tiny)
@@ -25,7 +25,7 @@ Decoding(path Text) H3ImageVae slow
 IsPicturing(path Text) Boolean
 	Pictured.IsPicturing(H3VaeEncoder.Model.path)
 	Decoder.IsPicturing(Image) is false
-	(path is pictureFile) and (pictures.Length is 1)
+	path is pictureFile and pictures.Length is 1
 Picturing(path Text) H3ImageVae slow
 	Pictured.pictures.Length is 1
 	Decoder.Picturing(H3VaeEncoder.Model.path).decoders.Length is 1

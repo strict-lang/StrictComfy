@@ -38,7 +38,7 @@ Configured(width Number, mode Text, steps Number, warmup Number, period Number, 
 	Image.Configured(4, "on", 8, 3, 2, 5) is Error and Image.Configured(4, "x", 8, 3, 2, 2) is Error
 	Image.Configured(4, "on", 8, 3, 1, 2) is Error and Image.Configured(4, "on", 0, 3, 2, 2) is Error
 	let fit = SpectralFit(degree, 0.1, 0.5)
-	if (fit.IsValid is false) or (mode is not in ("off", "shadow", "on"))
+	if fit.IsValid is false or mode is not in ("off", "shadow", "on")
 		return Error("Invalid Spectrum configuration")
 	if (IsCount(period, 2) and IsCount(steps, 1)) is false
 		return Error("Invalid Spectrum schedule")
@@ -49,4 +49,4 @@ IsCount(number Number, minimum Number) Boolean
 	Image.IsCount(2, 2) and Image.IsCount(0, 0)
 	Image.IsCount(1, 2) is false
 	Image.IsCount(2.5, 2) is false
-	(number >= minimum) and (number.Floor is number)
+	number >= minimum and number.Floor is number

@@ -1,0 +1,67 @@
+has options H3Options
+constant TokensPerGibibyte = 3750
+constant Gibibyte = 1073741824
+constant Mebibyte = 1048576
+constant Unknown = 90000
+constant Factors = (21, 6, 5, 3, 2)
+constant BaseSeconds = 2.1
+constant BaseTokens = 14400
+constant Growth = 1.36
+constant LongestInSeconds = 90
+constant Minute = 60
+constant Twelve = H3Estimate(H3Options.Parsed(("--length", "288", "--width", "704", "--height", "1280")))
+constant SmallRequest = "GET /estimate?mode=video&width=848&height=480&length=124&quality=fast&vram=24564 HTTP/1.1"
+constant ExtendRequest = "GET /estimate?mode=extend&width=640&height=352&length=124&context=22&vram=10240 HTTP/1.1"
+constant Small = H3Estimate(H3Options.Parsed(("--length", "124", "--width", "848", "--height", "480")))
+Budget(vram Number) Number
+	H3Estimate.Budget(24564 * Mebibyte) is 90000
+	H3Estimate.Budget(12288 * Mebibyte) is 45000
+	H3Estimate.Budget(32768 * Mebibyte) is 120000
+	H3Estimate.Budget(0) is Unknown
+	vram <= 0 then Unknown else (vram / Gibibyte * TokensPerGibibyte / 1000).Round * 1000
+Local Number slow
+	H3Estimate.Local > 0
+	Budget(MachineUse(Logger, "H3Video", 0, 0).Device(0))
+Estimate(budget Number) Text
+	Small.Estimate(90000) is "Sampling roughly 6 x 2.1 s = 13 s, 14k of 90k video tokens"
+	Twelve.Estimate(90000).EndsWith("77k of 90k video tokens, past half the VRAM budget, every step gets much slower")
+	let tokens = H3Inputs(options).Tokens
+	let factor = Factors(options.quality) * options.Evaluated / options.Preset.First
+	let step = StepSeconds(tokens, budget)
+	let sampling = "Sampling roughly " + factor.Round(1) + " x " + step.Round(1) + " s = " + Lasting(factor * step)
+	sampling + ", " + (tokens / 1000).Round + "k of " + (budget / 1000).Round + "k video tokens" + Caution(tokens, budget)
+StepSeconds(tokens Number, budget Number) Number
+	Small.StepSeconds(14400, 90000) is BaseSeconds
+	Small.StepSeconds(63360, 90000).Round is 31
+	Small.StepSeconds(75480, 90000).Round is 56
+	let knee = budget / 2
+	let crowded = tokens > knee then (tokens / knee) ^ 2 else 1
+	BaseSeconds * (tokens / BaseTokens) ^ Growth * crowded
+Caution(tokens Number, budget Number) Text
+	Small.Caution(100, 90) is ", more than this GPU handles, H3 refuses it"
+	Small.Caution(50, 90) is ", past half the VRAM budget, every step gets much slower"
+	Small.Caution(40, 90) is ""
+	if tokens > budget
+		return ", more than this GPU handles, H3 refuses it"
+	tokens > budget / 2 then ", past half the VRAM budget, every step gets much slower" else ""
+Lasting(seconds Number) Text
+	Small.Lasting(29.4) is "29 s"
+	Small.Lasting(150) is "2.5 min"
+	seconds < LongestInSeconds then seconds.Round + " s" else (seconds / Minute).Round(1) + " min"
+Told(raw Text) Text
+	H3Estimate.Told(SmallRequest).StartsWith("Sampling roughly 6 x 2.1 s")
+	H3Estimate.Told(ExtendRequest).EndsWith("k of 38k video tokens")
+	let sized = ("--width", Asked(raw, "width"), "--height", Asked(raw, "height"), "--length", Asked(raw, "length"))
+	let chosen = sized + Optional(raw, "quality") + Optional(raw, "steps")
+	let video = ("--video", "a.mp4", "--context", Asked(raw, "context"))
+	let vram = Asked(raw, "vram") to Number
+	let parsed = H3Options.Parsed(chosen + (Asked(raw, "mode") is "extend" then video else List(Text)))
+	H3Estimate(parsed).Estimate(Budget(vram is Error then 0 else vram * Mebibyte))
+Asked(raw Text, name Text) Text
+	H3Estimate.Asked(SmallRequest, "width") is "848"
+	StrictGenHttp.Query(raw, name)
+Optional(raw Text, name Text) Texts
+	H3Estimate.Optional(SmallRequest, "quality") is ("--quality", "fast")
+	H3Estimate.Optional(SmallRequest, "steps").Length is 0
+	let given = Asked(raw, name)
+	given is "" then List(Text) else ("--" + name, given)

@@ -31,7 +31,7 @@ Models(kind Text) Texts slow
 Kind(path Text) Text slow
 	Tiny.Kind("tinymoss.safetensors") is "moss"
 	Tiny.Kind("tinyh3.safetensors") is "h3"
-	(Tiny.Kind("tinyh3image.safetensors") is "h3image") and (Tiny.Kind("tinyvae.safetensors") is "")
+	Tiny.Kind("tinyh3image.safetensors") is "h3image" and Tiny.Kind("tinyvae.safetensors") is ""
 	if path.Lower.EndsWith(".gguf")
 		return path.Lower.IndexOf("moss") >= 0 then "moss" else ""
 	let header = TensorFile.Header(path)

@@ -23,14 +23,13 @@ Mark(path Text) Text
 	let picture = ImageLoader(path).Loaded
 	if picture is Error
 		return " " + options.files.vision + " " + options.width + "x" + options.height
-	let encoder = H3Encoder(Logger, options.files, (options.height, options.width))
-	let seen = encoder.Viewed((picture.Size.Height, picture.Size.Width))
+	let seen = H3Encoder(Logger, options.files, (options.height, options.width)).Viewed((picture.Height, picture.Width))
 	" " + options.files.vision + " " + seen(1) + "x" + seen(0)
 Missing(paths Texts) Numbers slow
 	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0
 	Sample.Missing(("H3Batch.strict", "H3BatchMissing.safetensors", "H3BatchMissing.safetensors")) is (1)
 	for paths
-		if (File(value).Exists is false) and (paths.Index(value) is index)
+		if File(value).Exists is false and paths.Index(value) is index
 			index
 Read(paths Texts) List(Safetensors) slow
 	Sample.Read(List(Text) + "H3BatchMissing.safetensors") is Error("TextEncoderFailed")

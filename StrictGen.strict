@@ -18,7 +18,7 @@ Run(arguments Texts) Number slow
 	let port = Port(arguments)
 	if "stop" is in arguments
 		return Stopped(port) then 0 else 1
-	if (port < 1) or (port > Highest)
+	if port < 1 or port > Highest
 		logger.Log("Port " + port + " is not a port number, start with --port and a number from 1 to 65535")
 		return 1
 	Served(port) is Error then 1 else 0
@@ -32,13 +32,13 @@ Port(arguments Texts) Number
 	StrictGen(Logger).Port(List(Text)) is DefaultPort
 	StrictGen(Logger).Port(("--port", "8765")) is 8765
 	let at = arguments.Index("--port")
-	(at < 0) or (at + 1 >= arguments.Length) then DefaultPort else arguments(at + 1) to Number
+	at < 0 or at + 1 >= arguments.Length then DefaultPort else arguments(at + 1) to Number
 Served(port Number) slow
 	let socket = Socket.Listen(port)
 	if socket is Error
 		logger.Log("Port " + port + " is in use, probably by a running StrictGen; close it or start with --port <number>")
 		return socket
-	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket))
+	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket) + StrictGenHost.Utf8Console)
 	logger.Log("Page " + Located)
 	Directory.Create(Inputs)
 	Directory.Create(Outputs)
@@ -49,11 +49,11 @@ Looped(socket Number, queue StrictGenQueue, net StrictGenNet) slow
 	StrictGen(Logger).Looped(0, StrictGenQueue.Empty, StrictGenNet.Idle) is not Error
 	mutable state = queue
 	mutable peers = net
-	for Range(0, socket > 0 then Forever else 0)
+	for Range(0, (socket > 0 then Forever else 0))
 		let waiting = Socket.Waiting(socket) is 1
 		peers = waiting then peers else peers.Refreshed
 		state = Turned(socket, waiting, state, peers)
-		if state.notice.StartsWith(StrictGenQueue.Collecting) or (state.notice is StrictGenQueue.Quitting)
+		if state.notice.StartsWith(StrictGenQueue.Collecting) or state.notice is StrictGenQueue.Quitting
 			return Ended(state.notice)
 		peers = peers.Tick(state.IsBusy)
 		if waiting is false
@@ -76,7 +76,7 @@ Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
 	let choice = queue.NeedsAim then net.Chosen(queue.NextMode, queue.Pin) else ""
 	(choice is "" then queue else queue.Aimed(choice)).Advanced
 Answered(client Number, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
-	if (client is Error) or (client <= 0)
+	if client is Error or client <= 0
 		return queue
 	let bytes = StrictGenHttp.Received(client)
 	if IsSent(client, bytes)
@@ -104,7 +104,7 @@ Typed(route Text) Text
 	StrictGen(Logger).Typed("/") is "text/html"
 	StrictGen(Logger).Typed("/inputs") is "text/plain"
 	let isJson = route is in ("/run", "/stop", "/import", "/status", "/warm", "/quit")
-	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs")
+	let plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs", "/estimate")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 	if route is "/import"
@@ -119,7 +119,7 @@ Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 	Typed(route) is "text/plain" then Plain(route, raw, queue) else Page
 Warmed(body Text, queue StrictGenQueue) Text slow
 	StrictGen(Logger).Warmed("{\"mode\":\"video\"}", StrictGenQueue.Empty) is "{\"warming\":false}"
-	if queue.IsBusy or (queue.pending.Length > 0) or (Json(body).get("mode") to Text is not "image")
+	if queue.IsBusy or queue.pending.Length > 0 or Json(body).get("mode") to Text is not "image"
 		return "{\"warming\":false}"
 	let command = Text.Combine(StrictGenForm.Arguments(body), "\n")
 	"{\"warming\":" + (StrictGenJob.Warmed(StrictGenJob.Executable("MossImage"), command) then "true" else "false") + "}"
@@ -135,7 +135,7 @@ Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 		return Text.Combine(files.Listed(StrictGenHttp.Query(raw, "kind")), "\n")
 	if route is "/neighbor"
 		return StrictGenForm.Stepped(StrictGenHttp.Query(raw, "path"), StrictGenHttp.Query(raw, "step") to Number)
-	StrictGenStats(logger).Probed(StrictGenHttp.Query(raw, "path"))
+	route is "/estimate" then H3Estimate.Told(raw) else StrictGenStats(logger).Probed(StrictGenHttp.Query(raw, "path"))
 Stored(name Text, bytes Numbers) Text slow
 	StrictGen(Logger).Stored("a/b/upload-test.bin", (1, 2)) is "input/upload-test.bin"
 	Directory.Create(Inputs)

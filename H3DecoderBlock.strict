@@ -75,8 +75,8 @@ Rotated(combined Numbers, start Number, width Number, rotation Numbers, scales N
 		let other = combined(first + Paired(within)) * rotation((token * 2 + 1) * Decoding.head + within)
 		column < Decoding.head then (own + other) * scales((first / Decoding.head).Floor) * factor else 0
 Paired(within Number) Number
-	(Tiny.Paired(0) is Decoding.half) and (Tiny.Paired(Decoding.half) is 0) and (Tiny.Paired(60) is 60)
-	(H3DecoderBlock(Tiny, half = 16).Paired(0) is 16) and (H3DecoderBlock(Tiny, half = 16).Paired(40) is 40)
+	Tiny.Paired(0) is Decoding.half and Tiny.Paired(Decoding.half) is 0 and Tiny.Paired(60) is 60
+	H3DecoderBlock(Tiny, half = 16).Paired(0) is 16 and H3DecoderBlock(Tiny, half = 16).Paired(40) is 40
 	within < half then within + half else (within < 2 * half then within - half else within)
 Widened(numbers Numbers, factor Number) Numbers slow
 	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2

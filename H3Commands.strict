@@ -33,7 +33,7 @@ Lines Texts slow
 	if File(file).Exists is false
 		return Error("FileNotFound:" + file)
 	for File(file).ReadLines
-		if (value.Trim is not "") and (value.Trim.StartsWith("#") is false)
+		if value.Trim is not "" and value.Trim.StartsWith("#") is false
 			value.Trim
 Batches(lines Texts) List(H3Batch) slow
 	Sample.Batches(Sample.Lines).Last.options.prompt is "a b.txt"
@@ -64,7 +64,7 @@ Encoded(plans List(H3Plan)) Number slow
 	encoded
 Encoding(plan H3Plan) Text slow
 	let options = plan.batch.options
-	let pictures = (options.files.lastImage is not "") or (Text.Combine(plan.images, "") is not "")
+	let pictures = options.files.lastImage is not "" or Text.Combine(plan.images, "") is not ""
 	let size = " " + options.width + "x" + options.height + " " + options.files.lastImage
 	options.files.Encoder + (pictures then size else "")
 Merged(plans List(H3Plan), key Text) H3Plan slow

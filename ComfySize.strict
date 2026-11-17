@@ -24,7 +24,7 @@ Selected(dimension Number) Number
 	NamedSelector.Selected(0) is 704
 	let ratio = Ratio(Widget("aspect_ratio", 0))
 	let multiple = Widget("multiple", 2) to Number
-	let scale = ((Widget("megapixels", 1) to Number) * 1024 * 1024 / (ratio(0) * ratio(1))).SquareRoot
+	let scale = (Widget("megapixels", 1) to Number * 1024 * 1024 / (ratio(0) * ratio(1))).SquareRoot
 	(ratio(dimension) * scale / multiple).Counted("Even") * multiple
 Ratio(name Text) Numbers
 	Selector.Ratio("9:16 (Portrait Widescreen)") is (9, 16)
@@ -34,20 +34,20 @@ Ratio(name Text) Numbers
 Resized(dimension Number) Number
 	Total.Resized(0) is 480
 	Shorter.Resized(1) is 1344
-	(Named.Resized(0) is 656) and (Named.Resized(1) is 480)
+	Named.Resized(0) is 656 and Named.Resized(1) is 480
 	let size = Scaled(Widget("scale_mode", 0))
 	Snapped(size, Widget("divisible_by", 10) to Number, Widget("maintain_aspect", MaintainAspect) is "true")(dimension)
 Scaled(mode Text) Numbers
 	Total.Scaled("Total Pixels (MP)") is (480, 854)
 	Total.Scaled("Dimensions (W x H)") is (1024, 1024)
 	Shorter.Scaled("Shorter Side") is (768, 1365)
-	(Named.Scaled("Total Pixels (MP)") is (542, 406)) and (Named.Scaled("Dimensions (W x H)") is (640, 480))
+	Named.Scaled("Total Pixels (MP)") is (542, 406) and Named.Scaled("Dimensions (W x H)") is (640, 480)
 	if mode.StartsWith("Dimensions")
 		return (Widget("width", 4) to Number, Widget("height", 5) to Number)
 	let ratio = Ratio(Widget("aspect_ratio", 1))
 	if mode.StartsWith("Total Pixels") is false
 		return Sides(mode, ratio)
-	let area = (Widget("megapixels", 7) to Number) * 1000000
+	let area = Widget("megapixels", 7) to Number * 1000000
 	let width = (area * ratio(0) / ratio(1)).SquareRoot.Counted("Even")
 	(width, (area / width).Counted("Even"))
 Sides(mode Text, ratio Numbers) Numbers
@@ -57,10 +57,10 @@ Sides(mode Text, ratio Numbers) Numbers
 	Named.Sides("Shorter Side", (16, 9)) is (889, 500)
 	Named.Sides("Longer Side", (16, 9)) is (900, 506)
 	Named.Sides("Multiplier", (9, 16)) is (12, 21)
-	let shorter = (Widget("short_side_target", 3) to Number) / (ratio(0) < ratio(1) then ratio(0) else ratio(1))
-	let longer = (Widget("long_side_target", 2) to Number) / (ratio(0) > ratio(1) then ratio(0) else ratio(1))
+	let shorter = Widget("short_side_target", 3) to Number / (ratio(0) < ratio(1) then ratio(0) else ratio(1))
+	let longer = Widget("long_side_target", 2) to Number / (ratio(0) > ratio(1) then ratio(0) else ratio(1))
 	let multiplied = Widget("multiplier", 6) to Number
-	let scale = mode is "Shorter Side" then shorter else mode is "Longer Side" then longer else multiplied
+	let scale = mode is "Shorter Side" then shorter else (mode is "Longer Side" then longer else multiplied)
 	((ratio(0) * scale).Counted("Even"), (ratio(1) * scale).Counted("Even"))
 Snapped(size Numbers, divisor Number, keepsAspect Boolean) Numbers
 	Total.Snapped((480, 854), 32, false) is (480, 832)

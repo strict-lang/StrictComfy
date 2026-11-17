@@ -38,7 +38,7 @@ Attended(mixed FeatureMap, budget = Budget) Numbers slow
 		attended = attended + Chunk(queries, mixed, transposed, index * rows, (positions - index * rows).Clamp(1, rows))
 	attended
 Rows(positions Number, budget Number) Number
-	(FluxAttention.Rows(24, 130) is 5) and (FluxAttention.Rows(24, 10) is 1) and (FluxAttention.Rows(24, Budget) is 24)
+	FluxAttention.Rows(24, 130) is 5 and FluxAttention.Rows(24, 10) is 1 and FluxAttention.Rows(24, Budget) is 24
 	(budget / positions).Floor.Clamp(1, positions)
 Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count Number) Numbers slow
 	Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 0, 24).Length is 384
@@ -54,7 +54,7 @@ Transposed(values Numbers, size Number) BFloat16s
 	let positions = values.Length / (3 * size)
 	let offset = 2 * size
 	for values.Length / 3
-		values((index % positions) * 3 * size + offset + (index / positions).Floor)
+		values(index % positions * 3 * size + offset + (index / positions).Floor)
 Queries(values Numbers, biases Numbers) BFloat16s slow
 	Middle.Queries((1, 2, 3), (0.5, 0, 0))(0).IsNearlyEqual(1.5)
 	Middle.Queries(Spaced, (2, 4, 6, 8, 0, 0, 0, 0, 0, 0, 0, 0)) is (1.5, 3, 4.5, 6, 3.5, 5, 6.5, 8)

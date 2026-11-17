@@ -50,7 +50,7 @@ Coefficients(step Number) Numbers
 	let decay = sigmas(step + 1) / sigmas(step)
 	if kind is 6
 		return (0, 1 - sigmas(step + 1), 0, sigmas(step + 1))
-	(kind is 1) and (denoised.Length > 0) then Multistep(step) else (decay, 1 - decay, 0, 0)
+	kind is 1 and denoised.Length > 0 then Multistep(step) else (decay, 1 - decay, 0, 0)
 Multistep(step Number) Numbers
 	Second.denoised(0).IsNearlyEqual(0.5 * 0.984375 + 0.25 * 0.9375)
 	Toy.Multistep(2) is (0.75, 0.569927842, -0.319927842, 0)

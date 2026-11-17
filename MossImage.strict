@@ -7,9 +7,9 @@ Run(arguments Texts) Number
 	if "--help" is in arguments
 		logger.Log("MossImage.exe [options] makes Moss images, " + Positional + "\n" + MossOptions.Usage)
 		return 0
-	if (arguments.Length is 4) and (arguments(0) is "-")
+	if arguments.Length is 4 and arguments(0) is "-"
 		return Served(Loaded(arguments(1), arguments(2)), arguments(3)) then 0 else 1
-	if (arguments.Length is 4) and (arguments(0).StartsWith("-") is false)
+	if arguments.Length is 4 and arguments(0).StartsWith("-") is false
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
 	let server = MossServer(logger, MossServer.Backended(logger))

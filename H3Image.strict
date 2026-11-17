@@ -10,14 +10,14 @@ constant Tiny = H3Image(Logger, H3ImageOptions.Parsed(("--models", ".", "--width
 constant Edit = H3Image(Logger, H3ImageOptions.Parsed(("--image", "tinyframe.png")))
 Run(arguments Texts) Number
 	H3Image(Logger).Run(List(Text) + "--help") is 0
-	(H3Image(Logger).Run(("--colour", "--local")) is 1) and (H3Image(Logger).Run(("a", "fox")) is 1)
+	H3Image(Logger).Run(("--colour", "--local")) is 1 and H3Image(Logger).Run(("a", "fox")) is 1
 	if "--help" is in arguments
 		Help
 		return 0
 	if "coordinator" is in arguments
 		return Coordinator(logger).Served is Error then 1 else 0
 	let given = arguments - MachineUse.Force
-	if (given.Length > 1) and (given(0) is "encode")
+	if given.Length > 1 and given(0) is "encode"
 		return H3Image(logger, H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
 	Backend.IsServing(arguments) then H3ImageServer(logger, H3ImageServer.Backended(logger)).Ran(arguments) else Unknown
 Help
@@ -101,12 +101,12 @@ Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds N
 		GpuMemory.Finished
 		latent
 Target Numbers slow
-	(Tiny.Target is (64, 64)) and (Edit.Target is (1024, 2048))
+	Tiny.Target is (64, 64) and Edit.Target is (1024, 2048)
 	options.Size(Original)
 Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Numbers slow
 	Tiny.Generated(H3ImageModel.Tiny, H3ImageModel.Prompt, (1, 1, 1), 3, List(Numbers)).Length is 384
 	let size = Target
-	let layout = H3ImageLayout(tags, Pictured, size(0) / 16, size(1) / 16)
+	let layout = H3ImageLayout(tags, Pictured, Size(size(1) / 16, size(0) / 16))
 	let conditions = model.Conditioned(references, layout, seed)
 	let sigmas = model.Sigmas(options.steps)
 	let completion = Completion(logger, "Sampling", options.steps, Process.Elapsed)

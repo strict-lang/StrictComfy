@@ -41,7 +41,7 @@ Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers)
 		moments
 Reported(fraction Number, step Number, started Number) slow
 	Tiny.Reported(0.3, 0.1, Process.Elapsed) is not Error
-	if ((fraction * 4).Floor > ((fraction - step) * 4).Floor) and (fraction < Finished)
+	if (fraction * 4).Floor > ((fraction - step) * 4).Floor and fraction < Finished
 		let elapsed = Process.Elapsed - started
 		let estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
 		logger.Log("Encoding the video context " + (fraction * 100).Round + "% " + estimate)
@@ -70,4 +70,4 @@ Planar(frame Numbers) Numbers
 	Tiny.Planar((1, 2, 3, 4, 5, 6)) is (1, 4, 2, 5, 3, 6)
 	let pixels = frame.Length / 3
 	for frame.Length
-		frame((index % pixels) * 3 + (index / pixels).Floor)
+		frame(index % pixels * 3 + (index / pixels).Floor)

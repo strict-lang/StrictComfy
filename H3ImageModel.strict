@@ -30,7 +30,7 @@ Grid(header Text) Numbers
 	for rest.Substring(open, rest.IndexOf("]") - open).Split(", ")
 		value to Number
 Nearest(sigma Number) Number
-	(Tiny.Nearest(1) is 0) and (Tiny.Nearest(0.88) is 2) and (Tiny.Nearest(0) is 6)
+	Tiny.Nearest(1) is 0 and Tiny.Nearest(0.88) is 2 and Tiny.Nearest(0) is 6
 	mutable nearest = 0
 	for grid
 		if (value - sigma).Absolute < (grid(nearest) - sigma).Absolute
@@ -45,7 +45,7 @@ Weights(sigma Number, next Number) Numbers
 	let stop = (Nearest(next), start + 1).Maximum
 	let total = grid(start) - grid(stop)
 	for heads.Length
-		index is 0 then 1 else (index >= start) and (index < stop) then (grid(index) - grid(index + 1)) / total else 0
+		index is 0 then 1 else (index >= start and index < stop then (grid(index) - grid(index + 1)) / total else 0)
 Conditioned(latents List(Numbers), layout H3ImageLayout, seed Number) Numbers slow
 	Rows(0).IsNearlyEqual(Model.Values("edit.rows")(0), 0.0001)
 	Rows(191).IsNearlyEqual(Model.Values("edit.rows")(191), 0.0001)
@@ -60,7 +60,7 @@ Rotation(layout H3ImageLayout) Numbers slow
 Hidden(latent Numbers, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Tiny.Hidden(Model.Values("latent"), Prompt, H3ImageLayout.Tiny, Rows).Length is 2304
 	let kept = layout.Conditions is 0 then text else text + h3.videoPatches.Sums(conditions)
-	kept + h3.videoPatches.Sums(h3.Patched(latent, layout.Grid(layout.height, layout.width)))
+	kept + h3.videoPatches.Sums(h3.Patched(latent, layout.Grid(layout.Size)))
 Output(latent Numbers, sigma Number, next Number, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Edited(0).IsNearlyEqual(Model.Values("edit.output")(0), 0.05)
 	Edited(383).IsNearlyEqual(Model.Values("edit.output")(383), 0.05)
@@ -79,7 +79,7 @@ Final(hidden Numbers, curves Numbers, layout H3ImageLayout, weights Numbers) Num
 	let first = (layout.Words + layout.Conditions) * width
 	let target = Safetensors.Part(hidden, first, hidden.Length - first, 1)
 	let normed = H3Block.Modulated(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
-	for h3.final.Unpatched(Headed(normed, weights), layout.Grid(layout.height, layout.width))
+	for h3.final.Unpatched(Headed(normed, weights), layout.Grid(layout.Size))
 		-value
 Headed(normed Numbers, weights Numbers) Numbers slow
 	Tiny.Headed(Layer.Zeros(256), (1, 0, 0, 0, 0, 0)) is Tiny.heads(0).biases
@@ -90,13 +90,13 @@ Headed(normed Numbers, weights Numbers) Numbers slow
 	sum
 Sigmas(steps Number) Numbers
 	Tiny.Sigmas(6)(1).IsNearlyEqual(0.9676536, 0.000001) and Tiny.Sigmas(6)(5).IsNearlyEqual(0.2326104, 0.000001)
-	(Tiny.Sigmas(6)(3) is 0.75) and (Tiny.Sigmas(4).Length is 5) and (Tiny.Sigmas(4).Last is 0)
+	Tiny.Sigmas(6)(3) is 0.75 and Tiny.Sigmas(4).Length is 5 and Tiny.Sigmas(4).Last is 0
 	Tiny.Sigmas(4)(3).IsNearlyEqual(0.3823914, 0.000001) and Tiny.Sigmas(8)(7).IsNearlyEqual(0.1740067, 0.000001)
 	let spacing = 1000 / steps
 	for steps + 1
 		index is steps then 0 else Sigma((1000 - (index * spacing).Floor) / 1000)
 Sigma(time Number) Number
-	(Tiny.Sigma(1) is 1) and (Tiny.Sigma(0.5) is 0.75) and (Tiny.Sigma(0) is 0)
+	Tiny.Sigma(1) is 1 and Tiny.Sigma(0.5) is 0.75 and Tiny.Sigma(0) is 0
 	let last = grid.Length - 1
 	let place = time.Clamp(0, 1) * last
 	let low = place.Floor.Clamp(0, last - 1)

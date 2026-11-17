@@ -29,7 +29,7 @@ constant Local = H3ImageOptions.Parsed(("--models", "."))
 Checkpoint Text slow
 	Local.Checkpoint is Error("FileNotFound:" + Base)
 	H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors")).Checkpoint is "tinyh3image.safetensors"
-	ModelFiles(models).Located(model is "" then Base else model, "diffusion_models")
+	ModelFiles(models).Located((model is "" then Base else model), "diffusion_models")
 Decoder Text slow
 	Local.Decoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).Decoder(vae, Vae)
@@ -60,7 +60,7 @@ Original Numbers slow
 	if image is ""
 		return List(Number)
 	let picture = ImageLoader(image).Loaded
-	(picture.Size.Height, picture.Size.Width)
+	(picture.Height, picture.Width)
 Size(original Numbers) Numbers
 	Local.Size(List(Number)) is (2048, 2048)
 	H3ImageOptions.Parsed(("--width", "1000")).Size(List(Number)) is (2048, 992)
@@ -68,7 +68,7 @@ Size(original Numbers) Numbers
 	Local.Size((600, 900)) is (1024, 1536)
 	let fallback = original.Length is 0 then (Area, Area) else Scaled(original, 1024, 2 * 1024)
 	let high = height > 0 then ComfySize.Plain.Snap(height, 32) else fallback(0)
-	(high, width > 0 then ComfySize.Plain.Snap(width, 32) else fallback(1))
+	(high, (width > 0 then ComfySize.Plain.Snap(width, 32) else fallback(1)))
 Vision(original Numbers) Numbers
 	Local.Vision((600, 900)) is (1024, 1536)
 	Local.Vision((3000, 2000)) is (1536, 1024)
@@ -86,8 +86,8 @@ Problem Text slow
 	H3ImageOptions.Parsed(("--steps", "0")).Problem is "--steps and --count must be at least 1"
 	H3ImageOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg or .png"
 	H3ImageOptions.Parsed(("--image", "missing.png")).Problem is "--image missing.png was not found"
-	if (steps < 1) or (count < 1)
+	if steps < 1 or count < 1
 		return "--steps and --count must be at least 1"
 	if (output.Lower.EndsWith(".jpg") or output.Lower.EndsWith(".png")) is false
 		return "--output must end with .jpg or .png"
-	(image is "") or File(image).Exists then "" else "--image " + image + " was not found"
+	image is "" or File(image).Exists then "" else "--image " + image + " was not found"

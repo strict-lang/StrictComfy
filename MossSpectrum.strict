@@ -20,12 +20,12 @@ IsActual(step Number) Boolean
 	MossSpectrum(Primed, steps = 12, period = 3).IsActual(6) is false
 	MossSpectrum(Primed, steps = 12, period = 3).IsActual(7)
 	MossSpectrum(Tiny, mode = "on").IsActual(5)
-	((step < warmup) or (step >= steps - 1)) or (history.Ready is false) or ((step - warmup) % period is period - 1)
+	step < warmup or step >= steps - 1 or history.Ready is false or (step - warmup) % period is period - 1
 IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(1) is false
 	Tiny.IsSpanning(2)
 	Tiny.IsSpanning(7) is false
-	(step > 1) and (step < steps - 1)
+	step > 1 and step < steps - 1
 Coord(step Number) Number
 	Tiny.Coord(0) is -1
 	Tiny.Coord(7) is 1
@@ -39,7 +39,7 @@ Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers
 		return MossSpectrum(value, output = moss.Head(evaluated.output, vector), span = evaluated)
 	if mode is not in ("on", "shadow")
 		return Error("Unknown Spectrum mode")
-	if (mode is "on") and (IsActual(step) is false)
+	if mode is "on" and IsActual(step) is false
 		return Forecast(moss, vector, step)
 	Measured(moss, latent, text, rotation, vector, step)
 Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, step Number) MossSpectrum
@@ -49,12 +49,12 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 	Shadowed(image, coord)
 	let bytes = image.Length * 2 * history.maximum
 	let head = moss.Head(image, vector)
-	if (NeedsHistory(step) is false) or (bytes > cacheBytes)
+	if NeedsHistory(step) is false or bytes > cacheBytes
 		let updated = bytes > cacheBytes then "off" else mode
 		return MossSpectrum(value, output = head, mode = updated, history = SpectralHistory, span = evaluated)
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
 Shadowed(image Numbers, coord Number) None
-	if (mode is "shadow") and history.Ready
+	if mode is "shadow" and history.Ready
 		let error = MossImage(logger).RelativeError(history.Predicted(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum

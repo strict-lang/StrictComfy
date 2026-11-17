@@ -16,7 +16,7 @@ Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Text slow
 	let moss = Loaded(Loras(first))
 	let decoders = Decoders(Settings(first)(4))
 	mutable line = first
-	for as long as (line is not "") and (Setup(line) is Setup(first))
+	for as long as line is not "" and Setup(line) is Setup(first)
 		if Prompt(line) is not prompt
 			prompt = Prompt(line)
 			context = Encoded(prompt, encoders, HasRoom(line))
@@ -64,13 +64,13 @@ HasRoom(line Text) Boolean
 	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 1\ta fox")
 	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
-	(words.Length > 6) and (words(6) is not "0")
+	words.Length > 6 and words(6) is not "0"
 KeepsEncoder(line Text) Boolean
 	MossWeb(Logger).KeepsEncoder(Sample) is false
 	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 1\ta fox") is false
 	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
-	(words.Length > 6) and (words(6) is "2")
+	words.Length > 6 and words(6) is "2"
 Encoders(line Text, prompt Text) List(Qwen3) slow
 	if KeepsEncoder(line) is false
 		return List(Qwen3)

@@ -13,13 +13,13 @@ Loaded(file Text, models Text) H3Previewer slow
 	if file is ""
 		return None
 	let tiny = ModelFiles(models).Located("taeh3.safetensors", "vae_approx")
-	if (tiny is Error) or (Taeh3Decoder.Is(tiny) is false)
+	if tiny is Error or Taeh3Decoder.Is(tiny) is false
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
 Written(latent Numbers, shape Numbers) None slow
 	Tiny.Written(Clip, Shape) is not Error
 	File(Tiny.path).Exists
-	if (decoders.Length is 0) or (latent.Length is 0)
+	if decoders.Length is 0 or latent.Length is 0
 		return
 	let picked = Picked(shape(1))
 	let wide = picked.Length * shape(3)
@@ -33,7 +33,7 @@ Saved(pixels Numbers, width Number) slow
 	File(part).Rename(path)
 Picked(count Number) Numbers
 	Tiny.Picked(2) is (0, 1)
-	(Tiny.Picked(64).Length is Frames) and (Tiny.Picked(31).Last is 30)
+	Tiny.Picked(64).Length is Frames and Tiny.Picked(31).Last is 30
 	let used = count.Clamp(1, Frames)
 	for used
 		(index * count / used).Floor

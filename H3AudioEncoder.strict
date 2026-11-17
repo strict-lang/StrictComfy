@@ -47,7 +47,7 @@ Dot(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Num
 		let tap = (index / channels).Floor
 		let input = index % channels
 		let place = at * stride + tap - pad
-		let inside = (place >= 0) and (place < time)
+		let inside = place >= 0 and place < time
 		let weight = (output * channels + input) * kernel + tap
 		sum = sum + (inside then signal(place * channels + input) * weights(weight) else 0)
 	sum
@@ -72,7 +72,7 @@ Block(signal Numbers, block Number, stride Number) Numbers slow
 		state = Gpt2Block.Added(state, H3Conv.Loaded(model, prefix + "3", 1).Output(second))
 	let name = "encoder.block." + block + ".block.4"
 	let snake = Snaked(state, model.Values("encoder.block." + block + ".block.3.alpha"))
-	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, 64 * (2 ^ (block - 1)))
+	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, 64 * 2 ^ (block - 1))
 Projected(signal Numbers) Numbers slow
 	let reduced = Linear(Gpt2Block.Added(signal, Attend(Norm(signal, "pre_block.norm1", 2048))), "pre_block.proj")
 	let normed = Norm(reduced, "pre_block.norm2", 32)

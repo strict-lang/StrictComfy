@@ -21,7 +21,7 @@ constant Video = Tiny.Frames(Latent + Latent, (2, 2, 3))
 constant Narrow = FeatureMap(Layer.Zeros(16), 2, 4, Layer.Zeros(4))
 constant Started = Tiny.Entered(Latent, 3)
 Loaded(path Text) Taeh3Decoder slow
-	(Tiny.blocks.Length is 9) and (Tiny.grows.Length is 3) and (Tiny.narrows.Length is 3)
+	Tiny.blocks.Length is 9 and Tiny.grows.Length is 3 and Tiny.narrows.Length is 3
 	Tiny.grows(1).biases.Length is 16
 	let model = Safetensors(path, 32, "decoder.")
 	let entered = FluxResnet.Convolved(model, "1")
@@ -33,11 +33,11 @@ Is(path Text) Boolean
 Blocks(model Safetensors) List(Taef2Block) slow
 	Tiny.Blocks(Model)(8).convolutions.Length is 3
 	for Layers
-		Taef2Block.Loaded(model, (value to Text) + ".")
+		Taef2Block.Loaded(model, value to Text + ".")
 Grows(model Safetensors) List(Convolution) slow
 	Tiny.Grows(Model).First.biases.Length is 8
 	for GrowLayers
-		FluxResnet.Convolved(model, (value to Text) + ".conv")
+		FluxResnet.Convolved(model, value to Text + ".conv")
 Narrows(model Safetensors) List(Convolution) slow
 	Tiny.Narrows(Model).Last.biases is Layer.Zeros(4)
 	for NarrowLayers
@@ -56,7 +56,7 @@ Patched(latent Numbers, width Number) Numbers slow
 	let final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
 	exit.Applied(final, final.Identity, Activation.Relu).Completed
 Frames(latent Numbers, shape Numbers) Numbers slow
-	(Video.Length is 5 * Pixels.Length) and Video.Sum.IsNearlyEqual(1035.427, 0.5)
+	Video.Length is 5 * Pixels.Length and Video.Sum.IsNearlyEqual(1035.427, 0.5)
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)
 	Video(15928).IsNearlyEqual(0.2726, 0.002) and Video(18694).IsNearlyEqual(0.2345, 0.002)
 	let third = Passed(Expanded(Passed(Expanded(Passed(Inputs(latent, shape), 0), 0), 1), 1), 2)
@@ -93,7 +93,7 @@ Passed(maps List(FeatureMap), group Number) List(FeatureMap) slow
 Step(maps List(FeatureMap), block Taef2Block) List(FeatureMap) slow
 	Tiny.Step(List(FeatureMap) + Narrow + Narrow, Tiny.blocks(6)).Length is 2
 	for maps
-		block.Remembered(value, index is 0 then Empty(value) else maps(index - 1))
+		block.Remembered(value, (index is 0 then Empty(value) else maps(index - 1)))
 Expanded(maps List(FeatureMap), which Number) List(FeatureMap) slow
 	Tiny.Expanded(List(FeatureMap) + Started, 1).Length is 2
 	let stride = which is 0 then 1 else 2

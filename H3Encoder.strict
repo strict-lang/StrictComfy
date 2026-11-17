@@ -111,7 +111,7 @@ Viewed(original Numbers) Numbers
 	if files.vision is "off"
 		return frame
 	let box = H3Picture.Cropped(original, frame)
-	let side = ((files.vision to Number), (box(1), box(3)).Minimum).Minimum
+	let side = (files.vision to Number, (box(1), box(3)).Minimum).Minimum
 	if side < (frame(0), frame(1)).Minimum
 		return frame
 	let high = frame(0) >= frame(1) then side * frame(0) / frame(1) else side
@@ -125,12 +125,12 @@ Multiple(amount Number, cap Number, least Number) Number
 Seen(image Text) Numbers
 	Plain.Seen("tinyframe.png") is Plain.frame
 	let path = image is "" then files.lastImage else image
-	if (files.vision is "off") or (path is "")
+	if files.vision is "off" or path is ""
 		return frame
 	let picture = ImageLoader(path).Loaded
-	let first = Viewed((picture.Size.Height, picture.Size.Width))
-	if (files.lastImage is "") or (image is "")
+	let first = Viewed((picture.Height, picture.Width))
+	if files.lastImage is "" or image is ""
 		return first
 	let other = ImageLoader(files.lastImage).Loaded
-	let last = Viewed((other.Size.Height, other.Size.Width))
+	let last = Viewed((other.Height, other.Width))
 	first(0) * first(1) <= last(0) * last(1) then first else last

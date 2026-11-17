@@ -13,3 +13,7 @@ Number(row Number) Number slow
 	let rows = Rows
 	let found = rows.Length > row then rows(row).Trim to Number else 0
 	found is Error then 0 else found
+Utf8Console Text slow
+	StrictGenHost.Utf8Console is ""
+	let switched = Process.OperatingSystem is "Windows" then Process.RunTool("cmd", "/c chcp 65001").Succeeded else true
+	switched then "" else ", the console could not switch to UTF-8 and shows only ASCII letters correctly"

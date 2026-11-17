@@ -1,10 +1,11 @@
 """Scales H3 videos up 2x with NVIDIA RTX Video Super Resolution (nvidia-vfx), in place.
 
-H3Video.exe --upscale starts this with ComfyUI's Python as a resident helper, which keeps torch and the
-model loaded (about 450 MB of VRAM) so every video after the first costs ~2 s instead of ~10 s:
+H3Video.exe --upscale starts this with ComfyUI's Python when a batch starts decoding, so loading torch and
+the model (about 450 MB of VRAM) overlaps the VAE decode and every video costs ~2 s instead of ~10 s:
     python -I RtxVideo.py --serve port parentPid stampFile
 POST /upscale (body: mp4 path) queues a video, POST /result (same body) answers busy, the summary line
-or "error: ...". It ends when the parent process is gone, after 15 idle minutes or when this file changes.
+or "error: ...", POST /quit ends it after the batch: kept in VRAM while H3 samples it slowed every step.
+It also ends when the parent process is gone, after 15 idle minutes or when this file changes.
     python -I RtxVideo.py video.mp4    upscales one video and exits
 ffmpeg decodes the frames, nvvfx upscales them on the GPU, ffmpeg encodes them like H3Video (libx264
 crf 18) and copies the audio, then the result replaces the mp4. Its comment tag keeps the generated size
@@ -112,6 +113,9 @@ def serve(port, parent, stamp):
                     answer = results.get(path, "error: no such video was queued")
                     if answer != "busy":
                         results.pop(path, None)
+                elif self.path == "/quit":
+                    answer = "bye"
+                    threading.Thread(target=server.shutdown, daemon=True).start()
                 else:
                     answer = "error: unknown request " + self.path
             data = answer.encode("utf-8")

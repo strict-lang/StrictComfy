@@ -38,11 +38,11 @@ Posted(route Text, body Text) StrictGenQueue slow
 		if job.current < 0
 			File("StrictGenJob.log").Delete
 		let added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenTitle.Summary(body), body, pin)
-		return StrictGenQueue(added, notice = "Run started", aim = (pin is "local" then "local" else added.aim))
+		return StrictGenQueue(added, notice = "Run started", aim = pin is "local" then "local" else added.aim)
 	route is "/quit" then StrictGenQueue(Cleared, notice = Quitting) else Cleared
 Advanced StrictGenQueue slow
 	Empty.Advanced.job.current is -1
-	job.current >= 0 then Polled else (pending.Length is 0) or halted or (aim is "") then value else Launch
+	job.current >= 0 then Polled else (pending.Length is 0 or halted or aim is "" then value else Launch)
 Launch StrictGenQueue slow
 	if aim is ""
 		return value
@@ -62,8 +62,8 @@ Refused(reason Text) StrictGenQueue
 	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
 Sent(endpoint Text) StrictGenQueue slow
 	let index = pending.First
-	let id = StrictGenRemote.Delivered(endpoint, bodies.Length > index then bodies(index) else "")
-	if (id is "") or id.StartsWith("error")
+	let id = StrictGenRemote.Delivered(endpoint, (bodies.Length > index then bodies(index) else ""))
+	if id is "" or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
 	let remote = StrictGenJob.Remote(index, endpoint, id to Number)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = remote, aim = "")
@@ -71,17 +71,17 @@ Polled StrictGenQueue slow
 	if job.remote is not ""
 		return Remote
 	let rows = job.Logged
-	if (job.done is "") or (File(job.done).Exists is false)
+	if job.done is "" or File(job.done).Exists is false
 		return StrictGenQueue(value, job = job.Timed(rows))
 	let paths = job.Existing(job.Found(rows))
 	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
 	let reason = StrictGenConsole(logger).Failure(rows)
-	Finished(paths, paths.Length is 0 then reason else lines(job.current), job.Prompts(rows))
+	Finished(paths, (paths.Length is 0 then reason else lines(job.current)), job.Prompts(rows))
 Remote StrictGenQueue slow
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First
-	if (answer is "wait") or (kind is "wait") or (answer is "")
+	if answer is "wait" or kind is "wait" or answer is ""
 		return value
 	if kind is "error"
 		return Finished(List(Text), answer, List(Text))
@@ -91,10 +91,10 @@ Remote StrictGenQueue slow
 	Finished(List(Text) + path, lines(job.current), List(Text))
 Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
 	let empty = paths.Length is 0
-	let recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
+	let recorded = Noted(job.current, (empty then "error\t" + caption else "file\t" + paths.Last))
 	let shown = Captions(paths, caption, prompts)
 	let made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
-	let done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = (empty then caption else notice))
+	let done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)
 	halted then done else done.Advanced
 Captions(paths Texts, caption Text, prompts Texts) Texts
 	mutable kept = captions
@@ -106,7 +106,7 @@ IsBusy Boolean
 	job.current >= 0
 NeedsAim Boolean
 	Empty.NeedsAim is false
-	(pending.Length > 0) and (job.current < 0) and (aim is "") and (halted is false)
+	pending.Length > 0 and job.current < 0 and aim is "" and halted is false
 NextMode Text
 	Empty.NextMode is ""
 	Empty.Added("video", ("--length", "24"), "owl").NextMode is "video"
@@ -114,16 +114,16 @@ NextMode Text
 Pin Text
 	Empty.Pin is ""
 	Empty.Added("video", ("--length", "24"), "owl", "", "local").Pin is "local"
-	(pending.Length is 0) or (pins.Length <= pending.First) then "" else pins(pending.First)
+	pending.Length is 0 or pins.Length <= pending.First then "" else pins(pending.First)
 Aimed(target Text) StrictGenQueue
 	Empty.Aimed("local").aim is "local"
 	StrictGenQueue(value, aim = target)
 Report(id Number) Text
 	Empty.Report(0) is "error\tmissing"
 	Empty.Added("image", ("--width", "32"), "fox").Report(0) is "wait"
-	if (id < 0) or (id >= modes.Length)
+	if id < 0 or id >= modes.Length
 		return "error\tmissing"
-	if (id is job.current) or (id is in pending) or (outcomes.Length <= id)
+	if id is job.current or id is in pending or outcomes.Length <= id
 		return "wait"
 	outcomes(id) is "" then "wait" else outcomes(id)
 Noted(at Number, text Text) Texts

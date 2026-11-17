@@ -69,12 +69,12 @@ Tick(isBusy Boolean) StrictGenNet slow
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
 Noted(line Text, now Number) StrictGenNet
 	let parts = line.Split("\t")
-	if (parts.Length < 8) or (parts(1) is not "strictgen")
+	if parts.Length < 8 or parts(1) is not "strictgen"
 		return value
 	let port = parts(2) to Number
-	if parts.Length > 8 then (parts(8) to Number) is id else port is httpPort
+	if parts.Length > 8 then parts(8) to Number is id else port is httpPort
 		return StrictGenNet(value, own = parts(0))
-	(port is Error) or (parts(0) is own) then value else Remembered(parts, now)
+	port is Error or parts(0) is own then value else Remembered(parts, now)
 Remembered(parts Texts, now Number) StrictGenNet
 	Idle.Remembered(Heard4090, 1).peers.Length is 1
 	let named = parts.Length > 9 then parts(9) else ""
@@ -82,14 +82,14 @@ Remembered(parts Texts, now Number) StrictGenNet
 	let known = Address(peer)
 	let kept = Kept(peer, known)
 	if kept.Length > peers.Length
-		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + ((parts(3) to Number) / Gigabyte).Round(1) + " GB")
+		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + (parts(3) to Number / Gigabyte).Round(1) + " GB")
 	StrictGenNet(value, peers = kept)
 Fresh(now Number) Texts
 	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(200).Length is 0
 	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(110).Length is 1
 	for peers
 		let seen = value.Split("\t").Last to Number
-		if (seen is Error) or (now - seen < FreshSeconds)
+		if seen is Error or now - seen < FreshSeconds
 			value
 Kept(peer Text, address Text) Texts
 	mutable kept = List(Mutable(Text))
@@ -111,7 +111,7 @@ Chosen(mode Text, pin Text) Text
 	StrictGenNet(Mixed, seenGpu = false).Chosen("video", "10.0.0.4:59140") is "10.0.0.4:59140"
 	if pin is "local"
 		return Fits(mode, total) then "local" else "none"
-	if (pin is not "") and (pin is not "any")
+	if pin is not "" and pin is not "any"
 		return Pinned(mode, pin) then pin else "none"
 	seenGpu is false then "local" else Automatic(mode)
 Automatic(mode Text) Text
@@ -125,7 +125,7 @@ Automatic(mode Text) Text
 	let better = video then Best(total, H3Mb) else ""
 	if better is not ""
 		return better
-	let fallback = Fits(mode, total) then "local" else Best(0, video then H3Mb else MossMb)
+	let fallback = Fits(mode, total) then "local" else Best(0, (video then H3Mb else MossMb))
 	fallback is "" then "none" else fallback
 Best(floor Number, least Number) Text
 	mutable chosen = ""
@@ -133,9 +133,7 @@ Best(floor Number, least Number) Text
 	for peers
 		let parts = value.Split("\t")
 		let whole = parts.Length > 2 then parts(2) to Number else 0
-		let recent = (parts.Last to Number is Error) or ((Process.Elapsed - (parts.Last to Number)) < FreshSeconds)
-		let roomy = (whole > largest) and (whole >= least) and recent
-		if (parts.Length > 5) and (parts(5) is "0") and roomy
+		if parts.Length > 5 and parts(5) is "0" and whole > largest and whole >= least
 			largest = whole
 			chosen = Address(value)
 	chosen
@@ -148,7 +146,7 @@ Fits(mode Text, whole Number) Boolean
 IsLarge(mode Text) Boolean
 	Idle.IsLarge("extend") and Idle.IsLarge("h3image")
 	Idle.IsLarge("image") is false
-	(mode is "video") or (mode is "extend") or (mode is "imagevideo") or (mode is "h3image")
+	mode is "video" or mode is "extend" or mode is "imagevideo" or mode is "h3image"
 Pinned(mode Text, address Text) Boolean
 	for peers
 		if Address(value) is address
@@ -159,6 +157,6 @@ Labels Texts
 	StrictGenNet(Idle, peers = List(Text) + Big).Labels.First.StartsWith("10.0.0.3:59139")
 	for peers
 		let parts = value.Split("\t")
-		let whole = parts.Length > 2 then (parts(2) to Number) / Gigabyte else 0
+		let whole = parts.Length > 2 then parts(2) to Number / Gigabyte else 0
 		let named = parts.Length > 8 then parts(7) else ""
 		Address(value) + "\t" + parts(6) + " " + whole.Round(1) + " GB\t" + named + "\t" + parts(6)

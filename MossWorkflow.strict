@@ -65,7 +65,7 @@ Stack(node Json) Texts
 	for 4
 		let name = graph.Text(node, "lora_0" + (index + 1), 2 * index)
 		let strength = graph.Text(node, "strength_0" + (index + 1), 2 * index + 1) to Number
-		if (name is not "None") and (strength is not 0)
+		if name is not "None" and strength is not 0
 			loras = loras + ComfyInputs(graph).Lora(name, strength)
 	loras
 Sampling(sampler Json) Texts

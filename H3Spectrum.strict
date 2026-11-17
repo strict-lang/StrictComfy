@@ -24,13 +24,12 @@ IsActual(step Number) Boolean slow
 	H3Spectrum(Started, steps = 8).IsActual(6)
 	H3Spectrum(Started, steps = 8, period = 3).IsActual(2) is false
 	H3Spectrum(Started, period = 0).IsActual(1)
-	let protected = (period < 2) or (step < warmup) or (step >= steps - 1) or (anchors.Length is 0)
-	protected or ((step - warmup) % period is period - 1)
+	period < 2 or step < warmup or step >= steps - 1 or anchors.Length is 0 or (step - warmup) % period is period - 1
 Remembers(step Number) Boolean
 	Tiny.Remembers(1)
 	Tiny.Remembers(2) is false
 	H3Spectrum(4, SpectralFit.Line).Remembers(0) is false
-	(period >= 2) and (step < steps - 2)
+	period >= 2 and step < steps - 2
 Coord(sigma Number, layout H3Layout) Number
 	Tiny.Coord(1, H3Layout.Tiny) is -1
 	Tiny.Coord(0, H3Layout.Tiny) is 1
@@ -50,7 +49,7 @@ IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(1) is false
 	Tiny.IsSpanning(2)
 	Tiny.IsSpanning(3) is false
-	(step > warmup) and (step < steps - 1)
+	step > warmup and step < steps - 1
 Stepped(solver Solver, step Number, job H3Job) Solver
 	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is not Error
 	Safetensors("h3preview-step6.safetensors").Written("video", (7, 7)) is not Error

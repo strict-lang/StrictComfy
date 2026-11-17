@@ -11,7 +11,7 @@ Delivered(endpoint Text, body Text) Text slow
 	if response is ""
 		return "error\t" + endpoint + " did not answer"
 	let accepted = Json(response).get("accepted") to Text
-	(accepted is "") or (accepted is "-1") then "error\tThe other StrictGen did not queue the job" else accepted
+	accepted is "" or accepted is "-1" then "error\tThe other StrictGen did not queue the job" else accepted
 Prepared(host Text, port Number, body Text) Text slow
 	let json = Json(body)
 	let video = json.get("video") to Text
@@ -19,7 +19,7 @@ Prepared(host Text, port Number, body Text) Text slow
 	let sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
 	image is "" then sent else Rewritten(sent, image, Uploaded(host, port, image))
 Uploaded(host Text, port Number, path Text) Text slow
-	if (path is "") or (File(path).Exists is false)
+	if path is "" or File(path).Exists is false
 		return path
 	let saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
 	saved is "" then path else saved
@@ -28,7 +28,7 @@ Asked(endpoint Text, id Number) Text slow
 	parts.Length < 2 then "error\tmissing" else Posted(parts(0), parts(1) to Number, "/job?id=" + id, "")
 Saved(endpoint Text, path Text) Text slow
 	let parts = endpoint.Split(":")
-	if (parts.Length < 2) or (path is "")
+	if parts.Length < 2 or path is ""
 		return ""
 	let bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
 	if bytes.Length is 0
@@ -77,8 +77,8 @@ HeaderEnd(bytes Numbers) Number
 	StrictGenRemote.HeaderEnd((13, 10, 13, 10, 65)) is 4
 	StrictGenRemote.HeaderEnd((13, 10)) is -1
 	for bytes
-		if (index + 3 < bytes.Length) and (bytes(index) is CarriageReturn) and (bytes(index + 1) is LineFeed)
-			if (bytes(index + 2) is CarriageReturn) and (bytes(index + 3) is LineFeed)
+		if index + 3 < bytes.Length and bytes(index) is CarriageReturn and bytes(index + 1) is LineFeed
+			if bytes(index + 2) is CarriageReturn and bytes(index + 3) is LineFeed
 				return index + 4
 	-1
 After(bytes Numbers) Numbers
@@ -88,6 +88,6 @@ Marked(body Text) Text
 	StrictGenRemote.Marked("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
 	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1, body.Length - 1) else body
 Rewritten(body Text, path Text, saved Text) Text
-	(saved is "") or (saved is path) then body else body.Replace(Escaped(path), Escaped(saved))
+	saved is "" or saved is path then body else body.Replace(Escaped(path), Escaped(saved))
 Escaped(path Text) Text
 	path.Replace("\\", "\\\\").Replace("\"", "\\\"")

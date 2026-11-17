@@ -29,10 +29,10 @@ Listened(server Number) Number slow
 	let built = File(Process.Current.executable).Modified
 	mutable kept = MossResident(logger, true)
 	mutable last = Process.Elapsed
-	for as long as (kept.code is not Backend.Stopped) and backend.IsWanted(Process.Elapsed - last, built)
+	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
 		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
-		kept = (socket is not Error) then Replied(socket, kept) else kept
-		last = (socket is not Error) then Process.Elapsed else last
+		kept = socket is not Error then Replied(socket, kept) else kept
+		last = socket is not Error then Process.Elapsed else last
 		kept = backend.Unpressed then kept else MossResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 	Backend.Clean
@@ -40,14 +40,14 @@ Replied(socket Number, kept MossResident) MossResident slow
 	let resident = backend.resident
 	let request = resident.Requested(socket)
 	let isStopping = resident.Arguments(request) is (Resident.Stopping)
-	let isRunning = resident.IsCurrent(request) and (isStopping is false)
+	let isRunning = resident.IsCurrent(request) and isStopping is false
 	let skipped = MossResident(kept, code = isStopping then Backend.Stopped else -1)
 	let served = isRunning then Ran(socket, request, kept) else skipped
 	let isFailed = served is Error
 	if isFailed
 		GpuMemory.Evicted
-	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
-	(isFailed or closed) then MossResident(logger, true) else served
+	let closed = Ended(socket, (isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code)), request)
+	isFailed or closed then MossResident(logger, true) else served
 Ran(socket Number, request Text, kept MossResident) MossResident slow
 	let home = Directory.Current
 	let folder = backend.resident.Folder(request)
@@ -69,7 +69,7 @@ Asked(arguments Texts, forced Boolean) Text slow
 IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
 	let named = Remote(logger).Named(arguments)
-	(named is Error) or (named >= 0) then named is 0 else IsContinued(arguments, forced)
+	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
@@ -77,12 +77,12 @@ IsContinued(arguments Texts, forced Boolean) Boolean slow
 		return true
 	let reply = Coordinator(logger, backend.coordinator).Sent(line)
 	let sent = Remote(logger).Sent(arguments, "", reply, line)
-	if (sent is Error) or (sent >= 0)
+	if sent is Error or sent >= 0
 		return sent is 0
 	let settled = reply.StartsWith("wait") then Coordinator(logger, backend.coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		Use(arguments, forced).Explained(settled)
-	(settled.StartsWith("refused") is false) and ((settled is not "") or Use(arguments, forced).Checked)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).Checked)
 Ended(socket Number, code Number, request Text) Boolean slow
 	Sample.Ended(0, 1, "broken") is false
 	if backend.resident.Finished(socket, code) is Error

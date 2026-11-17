@@ -38,7 +38,7 @@ Expanded(template Text, seed Number) Text
 	expanded.IndexOf("{") >= 0 then Error("UnclosedBrace") else expanded
 Simplified(template Text) Text
 	Sample.Simplified("a {big|small} {red|{dark|light} blue} cat") is "a big red cat"
-	(Sample.Simplified("a cat") is "a cat") and (Sample.Simplified("a } b") is "a } b")
+	Sample.Simplified("a cat") is "a cat" and Sample.Simplified("a } b") is "a } b"
 	mutable text = template
 	for template.Count("}")
 		let next = text.IndexOf("}") < 0 then text else Chosen(text, 0)
