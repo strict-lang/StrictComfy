@@ -17,7 +17,7 @@
 	header #position { font: inherit; color: #8b97a5; background: none; border: 0; padding: 0; cursor: pointer; }
 	footer { flex: none; text-align: center; font-size: 12px; color: #6b7785; padding: 0 16px 4px; }
 	footer a { color: #5fb3f6; text-decoration: none; }
-	main { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 28px; padding: 8px 16px; box-sizing: border-box; }
+	main { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 12px; padding: 8px 4px; box-sizing: border-box; }
 	section.controls { width: min(540px, 44vw); display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: none; }
 	#fields { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; display: flex; flex-direction: column; gap: 10px; padding-right: 6px; }
 	section.view { flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; min-width: 440px; }
@@ -48,17 +48,17 @@
 	#stage.zoomed { cursor: grab; }
 	.side { flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 	#inputSide { margin-right: auto; }
-	#inputStrip { align-self: flex-end; }
+	#inputStrip { align-self: flex-start; }
 	#outputSide { margin-left: auto; }
 	.side.away { visibility: hidden; }
-	.strip { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-gutter: stable; padding-right: 10px; }
+	.strip { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-gutter: stable; padding-right: 4px; }
 	#inputPicked { flex: none; width: 181px; height: 318px; border: 2px solid #5fb3f6; border-radius: 6px; overflow: hidden; background: #141b23; box-sizing: border-box; position: relative; }
 	#inputPicked img, #inputPicked video { width: 177px; height: 314px; object-fit: contain; display: block; }
 	#inputPicked span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #d8dee9; background: rgba(11, 15, 20, 0.75); padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.strip button.thumb { flex: none; width: 94px; height: 164px; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: #141b23; cursor: pointer; position: relative; }
+	.strip button.thumb { flex: none; width: 94px; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: #141b23; cursor: pointer; position: relative; }
 	.strip button.thumb:hover { border-color: #2b3540; }
 	.strip button.thumb.on { border-color: #5fb3f6; }
-	.strip button.thumb img, .strip button.thumb video { width: 90px; height: 160px; object-fit: contain; display: block; pointer-events: none; }
+	.strip button.thumb img, .strip button.thumb video { width: 90px; object-fit: contain; display: block; pointer-events: none; }
 	.strip button.thumb span { position: absolute; right: 3px; bottom: 3px; font-size: 10px; color: #d8dee9; background: rgba(11, 15, 20, 0.7); border-radius: 3px; padding: 0 3px; }
 	#stage > * { transition: opacity 0.15s; }
 	#stage.dim > * { opacity: 0.2; transition: opacity 0.4s; }

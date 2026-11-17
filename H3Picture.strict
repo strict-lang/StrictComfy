@@ -72,10 +72,9 @@ Frame(path Text, size Numbers, cropped Boolean) Numbers slow
 	Framed(path, size, size, cropped)
 Framed(path Text, aspect Numbers, size Numbers, cropped Boolean) Numbers slow
 	Tiny.Framed("tinyframe.png", (3, 3), (3, 3), true)(4).IsNearlyEqual(35 / 255)
-	let image = ImageLoader(path).Loaded
-	let original = (image.Height, image.Width)
+	let original = (ImageCodec.Height(path), ImageCodec.Width(path))
 	let box = cropped then Cropped(original, aspect) else (0, original(0), 0, original(1))
-	for Lanczos.Resized(Bytes(image.Colors, original(1), box), (box(1), box(3)), size)
+	for Lanczos.Resized(Bytes(ImageCodec.Pixels(path, 3), original(1), box), (box(1), box(3)), size)
 		value / Byte.Max
 Cropped(original Numbers, size Numbers) Numbers
 	Tiny.Cropped((2, 4), (2, 2)) is (0, 2, 1, 2)
@@ -84,11 +83,11 @@ Cropped(original Numbers, size Numbers) Numbers
 	let left = wider > 1 then ((original(1) - original(1) / wider) / 2).Round else 0
 	let top = wider < 1 then ((original(0) - original(0) * wider) / 2).Round else 0
 	(top, original(0) - 2 * top, left, original(1) - 2 * left)
-Bytes(colors List(ColorValue), width Number, box Numbers) Numbers
-	Tiny.Bytes((ColorValue(1, 0, 0.5), ColorValue(0, 1, 0)), 2, (0, 1, 1, 1)) is (0, 255, 0)
+Bytes(rgb Numbers, width Number, box Numbers) Numbers
+	Tiny.Bytes((255, 0, 128, 0, 255, 0), 2, (0, 1, 1, 1)) is (0, 255, 0)
 	let pixels = box(1) * box(3)
 	for 3 * pixels
 		let pixel = index % pixels
-		let channel = (index / pixels).Floor
-		let color = colors((box(0) + (pixel / box(3)).Floor) * width + box(2) + pixel % box(3))
-		((channel is 0 then color.Red else channel is 1 then color.Green else color.Blue) * Byte.Max).Round
+		let row = box(0) + (pixel / box(3)).Floor
+		let column = box(2) + pixel % box(3)
+		rgb((row * width + column) * 3 + (index / pixels).Floor)

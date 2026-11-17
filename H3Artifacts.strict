@@ -20,10 +20,10 @@ Pictures(image Text) Texts
 			" " + value + " " + File(value).Length + " " + Mark(value)
 Mark(path Text) Text
 	Sample.Mark("tinyframe.png").IndexOf("768") > 0
-	let picture = ImageLoader(path).Loaded
-	if picture is Error
+	let height = ImageCodec.Height(path)
+	if height is Error
 		return " " + options.files.vision + " " + options.width + "x" + options.height
-	let seen = H3Encoder(Logger, options.files, (options.height, options.width)).Viewed((picture.Height, picture.Width))
+	let seen = H3Encoder(Logger, options.files, (options.height, options.width)).Viewed((height, ImageCodec.Width(path)))
 	" " + options.files.vision + " " + seen(1) + "x" + seen(0)
 Missing(paths Texts) Numbers slow
 	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0
