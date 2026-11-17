@@ -57,9 +57,7 @@ Prompted Text slow
 Original Numbers slow
 	H3ImageOptions.Parsed(("--image", "tinyframe.png")).Original is (2, 4)
 	Local.Original.Length is 0
-	if image is ""
-		return List(Number)
-	(ImageCodec.Height(image), ImageCodec.Width(image))
+	image is "" then List(Number) else (ImageCodec.Height(image), ImageCodec.Width(image))
 Size(original Numbers) Numbers
 	Local.Size(List(Number)) is (2048, 2048)
 	H3ImageOptions.Parsed(("--width", "1000")).Size(List(Number)) is (2048, 992)

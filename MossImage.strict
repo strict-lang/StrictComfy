@@ -59,11 +59,11 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	logger.Log("latent error " + RelativeError(sampled, steps.Values("latent")))
 	if MossFiles.FailedNumber(sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
 		return
-Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers slow
+Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers native
 	MossImage(Logger, 4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
 	let moss = Loaded(model, lora)
 	MossFiles.FailedNumber(Compared(moss, step)) then List(Number) else Sampled(moss, euler, steps, context)
-Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number slow
+Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number native
 	MossImage(Logger, 2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
 	let before = Process.Elapsed
 	let image = decoder.Decoded(latent, width)
@@ -73,7 +73,7 @@ Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number 
 	if path is not ""
 		ImageSaver(path).Save(Image(Size(shape(2), shape(1)), FluxImage(logger).Colors(image)))
 	psnr
-Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers slow
+Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers native
 	MossImage(Logger, 4).Sampled(Moss.Tiny, Euler(1, 5), Reference, Moss.Context).Length is 256
 	mutable latent = steps.Values(steps.Entry("x.0") is "" then "x" else "x.0")
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
@@ -84,7 +84,7 @@ Sampled(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers slow
 		latent = euler.Stepped(latent, moss.Output(latent, sigmas(index), text, rotation), sigmas, index)
 		MossTiming(logger).Measured(index, before, latent, steps)
 	latent
-Compared(moss Moss, step Safetensors) Number slow
+Compared(moss Moss, step Safetensors) Number native
 	MossImage(Logger, 4).Compared(Moss.Tiny, Reference) < 0.05
 	let context = step.Values("context")
 	let vector = moss.TimeEmbedded(step.Values("timestep").First)
@@ -96,7 +96,7 @@ Compared(moss Moss, step Safetensors) Number slow
 	logger.Log("text embedder error " + RelativeError(text, step.Values("text_embedder")))
 	logger.Log("video embedder error " + RelativeError(video, step.Values("video_embedder")))
 	Layered(moss, step, video + text, modulation)
-Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number slow
+Layered(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number native
 	MossImage(Logger, 4).Layered(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
 	let text = step.Values("context").Length / moss.textProjection.weights.First.Length
 	let rotation = MossBlock.Rotations((hidden.Length / moss.finalNorm.Length - text) / width, width, text, 128)

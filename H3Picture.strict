@@ -88,6 +88,4 @@ Bytes(rgb Numbers, width Number, box Numbers) Numbers
 	let pixels = box(1) * box(3)
 	for 3 * pixels
 		let pixel = index % pixels
-		let row = box(0) + (pixel / box(3)).Floor
-		let column = box(2) + pixel % box(3)
-		rgb((row * width + column) * 3 + (index / pixels).Floor)
+		rgb(((box(0) + (pixel / box(3)).Floor) * width + box(2) + pixel % box(3)) * 3 + (index / pixels).Floor)
