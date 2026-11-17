@@ -86,7 +86,7 @@ SendFile(client Number, path Text) slow
 	let changing = (path.IndexOf("StrictGenStep") >= 0) or path.StartsWith(StrictGen.Inputs)
 	let cache = changing then "no-store" else "public, max-age=86400"
 	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
-	Sent(client, Encoded(OkHeader + Kind(path) + length) + payload)
+	Sent(client, Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
 Sent(client Number, bytes Numbers) slow
 	StrictGenHttp.Sent(0, List(Number) + 1) is not Error
 	if Socket.Send(client, bytes) is Error

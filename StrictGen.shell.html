@@ -106,7 +106,7 @@
 <div id="offline" class="hidden">The StrictGen server does not answer, start StrictGen.exe again on the PC that runs it</div>
 <header>
 	<div id="job">Idle</div>
-	<div id="meters">RAM — · VRAM — · GPU — · CPU —</div>
+	<div id="meters">RAM - VRAM - GPU - CPU</div>
 	<div id="right">
 		<select id="machine"><option value="">This PC</option></select>
 		<div id="queue"><button id="position" type="button">queue 0 done 0</button><div id="menu" class="hidden"></div></div>
@@ -195,6 +195,7 @@
 					<label class="field"><input id="crop" type="checkbox" checked> crop first frame</label>
 					<label class="field"><input id="local" type="checkbox"> local</label>
 					<label class="field"><input id="force" type="checkbox"> force</label>
+					<label class="field" id="noTurboLabel" title="Never add the turbo or TaoMate LoRA, for models with one merged in. Names with turbo, dmd, 8step, 4step, hyperflow, distill or lightx2v are detected anyway"><input id="noTurbo" type="checkbox"> no turbo LoRA</label>
 				</div>
 				<label>Output<input id="output" type="text" placeholder="numbered default"></label>
 				<label>Models folder<input id="models" type="text" placeholder="ComfyUI models"></label>
@@ -223,7 +224,7 @@
 	</section>
 	<aside class="side" id="outputSide"><div class="strip" id="outputStrip"></div></aside>
 </main>
-<footer>Made with <a href="https://strict-lang.org" target="_blank" rel="noopener">Strict</a> © 2026</footer>
+<footer>Made with <a href="https://strict-lang.org" target="_blank" rel="noopener">Strict</a> (c) 2026</footer>
 <script>
 	const element = id => document.getElementById(id);
 	const snap = n => Math.max(32, Math.floor(Number(n) / 32) * 32);
@@ -283,7 +284,8 @@
 		prompt: element("prompt").value, size: element("size").value, width: Number(element("width").value), height: Number(element("height").value),
 		quality: element("quality").value, steps: Number(element("steps").value), skip: element("skip").value, model: element("model").value,
 		loras: state.loras, decoder: element("decoder").value, length: Number(element("length").value), context: Number(element("context").value),
-		input: element("input").value, lastImage: element("lastImage").value, upscale: element("upscale").checked
+		input: element("input").value, lastImage: element("lastImage").value, noUpscale: !!state.noUpscale,
+		noTurbo: element("noTurbo").checked
 	});
 	const save = () => {
 		const all = stored();
@@ -305,7 +307,9 @@
 		element("decoder").value = data.decoder || "";
 		choose(element("length"), String(data.length || 124)); element("context").value = data.context;
 		element("input").value = data.input || ""; element("lastImage").value = data.lastImage || "";
-		element("upscale").checked = !!data.upscale;
+		state.noUpscale = !!data.noUpscale;
+		element("upscale").checked = !element("upscale").disabled && !state.noUpscale;
+		element("noTurbo").checked = !!data.noTurbo;
 	};
 	const showMode = () => {
 		const mode = state.mode;
@@ -321,6 +325,7 @@
 		element("lengthLabel").classList.toggle("hidden", !video);
 		element("lengthNote").classList.toggle("hidden", mode !== "extend");
 		element("upscaleLabel").classList.toggle("hidden", !video);
+		element("noTurboLabel").classList.toggle("hidden", !video);
 		element("guidance").parentElement.classList.toggle("hidden", !moss);
 		element("spectrum").parentElement.classList.toggle("hidden", !moss);
 		element("sampler").parentElement.classList.toggle("hidden", edit);
@@ -422,7 +427,8 @@
 			scheduler: element("scheduler").value, crop: element("crop").checked ? "true" : "false", vision: element("vision").value,
 			output: element("output").value, models: element("models").value, textEncoder: element("textEncoder").value,
 			vae: element("vae").value, audioVae: element("audioVae").value, local: element("local").checked, force: element("force").checked,
-			remote: element("machine").value, upscale: !element("upscale").disabled && element("upscale").checked
+			remote: element("machine").value, upscale: !element("upscale").disabled && element("upscale").checked,
+			noTurbo: element("noTurbo").checked
 		};
 		if (state.mode === "extend") body.video = element("input").value;
 		if (state.mode === "imagevideo") { body.image = element("input").value; body.lastImage = element("lastImage").value; }
@@ -990,6 +996,7 @@
 	const showUpscaler = () => {
 		const able = upscalable();
 		element("upscale").disabled = !able;
+		element("upscale").checked = able && !state.noUpscale;
 		element("upscaleLabel").classList.toggle("off", !able);
 		element("upscaleLabel").title = able ? "Scales each finished video up 2x on the GPU (about 2 s), a little more detail on good videos"
 			: "Needs an NVIDIA RTX card and nvidia-vfx in ComfyUI's Python (install ComfyUI_Nvidia_VFX_Nodes)";
@@ -1011,13 +1018,13 @@
 	const showStatus = status => {
 		const others = (status.peers || []).length;
 		const drive = status.drive ? " - Drive " + gb(status.drive) + " GB free" : "";
-		const meters = status.ramTotal ? "RAM " + gb(status.ram) + "/" + gb(status.ramTotal) + " GB - VRAM " + gb(status.vram) + "/" + gb(status.vramTotal) + " GB - GPU " + status.gpu + "%" + (status.gpuTemp ? " " + Math.round(status.gpuTemp) + "C" : "") + " - CPU " + Math.round(status.cpu) + "%" + drive : "RAM — - VRAM — - GPU — - CPU —";
+		const meters = status.ramTotal ? "RAM " + gb(status.ram) + "/" + gb(status.ramTotal) + " GB - VRAM " + gb(status.vram) + "/" + gb(status.vramTotal) + " GB - GPU " + status.gpu + "%" + (status.gpuTemp ? " " + Math.round(status.gpuTemp) + "C" : "") + " - CPU " + Math.round(status.cpu) + "%" + drive : "RAM - VRAM - GPU - CPU";
 		element("meters").textContent = meters + " - " + others + (others === 1 ? " other PC" : " other PCs");
 		const waiting = (status.queued || []).length;
 		element("position").textContent = status.position || "queue 0 done 0";
 		const row = text => { const line = document.createElement("div"); line.textContent = text; return line; };
 		const title = text => { const line = document.createElement("div"); line.textContent = text; line.style.color = "#8b97a5"; return line; };
-		element("menu").replaceChildren(title("Running"), row(status.running || "—"), title("Queued"), ...((status.queued || []).map(row)), title("Done"), ...((status.done || []).slice(-8).map(row)));
+		element("menu").replaceChildren(title("Running"), row(status.running || "-"), title("Queued"), ...((status.queued || []).map(row)), title("Done"), ...((status.done || []).slice(-8).map(row)));
 		showMachines(status);
 		showActivity(status);
 		const running = (status.runs || []).find(run => run.state === "running");
@@ -1043,13 +1050,15 @@
 		const lastRun = (status.runs || []).slice(-1)[0];
 		const saved = (status.runs || []).reduce((count, run) => count + run.lines.filter(line => /\t(Saved|Wrote) /.test(line)).length, 0);
 		const made = (lastRun ? lastRun.id : 0) + ":" + saved + ":" + (status.results || []).length;
-		if (state.made !== undefined && made !== state.made) loadOutputs(true);
+		const last = running ? split(running.lines[running.lines.length - 1] || "")[1] : "";
+		const upscaling = /^Wrote .*\.mp4$|^Upscaling .* with RTX Video Super Resolution$/.test(last);
+		if (state.made !== undefined && made !== state.made && !upscaling) loadOutputs(true);
 		else if (wasBusy && !status.busy) loadOutputs(true).then(() => setTimeout(settle, 1500));
 		if (wasBusy && !status.busy && !waiting) setTimeout(() => { if (state.pending && !state.busy) { state.pending = null; showResult(); } }, 3000);
 		if (!status.busy && !waiting && state.awaiting && !(state.clicked && performance.now() - state.clicked < 10000) && !wasBusy && !state.settling) {
 			state.settling = setTimeout(() => { state.settling = 0; settle(); }, 2000);
 		}
-		state.made = made;
+		if (!upscaling) state.made = made;
 		if (running) showPreview(status);
 		else { state.previewStamp = 0; state.hasPreview = false; }
 		showOverlay(running, !!state.hasPreview);
@@ -1058,6 +1067,7 @@
 		try { showStatus(await timed_fetch("/status").then(response => response.json())); state.misses = 0; offline(false); }
 		catch { state.misses = (state.misses || 0) + 1; if (state.misses >= 2) offline(true); }
 	};
+	element("upscale").onchange = () => { state.noUpscale = !element("upscale").checked; };
 	document.querySelector("section").addEventListener("change", save);
 	element("repeat").onchange = save;
 	const view = read(viewKey, {});

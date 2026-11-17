@@ -22,7 +22,7 @@ Optional(json Json, mode Text) Texts slow
 	StrictGenForm.Optional(Json(Picture), "image") is ("--vae", "taef2.safetensors", "--skip", "off")
 	StrictGenForm.Optional(Json(Clip), "extend") is ExpectedClip.Slice(8, 8)
 	let video = (mode is "video") or (mode is "extend") or (mode is "imagevideo")
-	let length = video then Pair("--length", json.get("length") to Text) + Upscaled(json) else List(Text)
+	let length = video then Pair("--length", json.get("length") to Text) + Switches(json) else List(Text)
 	let context = mode is "extend" then Pair("--context", json.get("context") to Text) else List(Text)
 	let clip = mode is "extend" then Pair("--video", json.get("video") to Text) else List(Text)
 	let still = StrictGenClip(Logger).Still(json.get("image") to Text)
@@ -31,10 +31,12 @@ Optional(json Json, mode Text) Texts slow
 	let counted = ((steps is "") or (steps is "0")) then List(Text) else Pair("--steps", steps)
 	let tail = Vae(json) + Pair("--audio_vae", json.get("audioVae") to Text) + Pair("--skip", json.get("skip") to Text)
 	length + context + clip + image + Pair("--last_image", json.get("lastImage") to Text) + counted + tail
-Upscaled(json Json) Texts
-	StrictGenForm.Upscaled(Json("{\"upscale\":true}")) is ("--upscale")
-	StrictGenForm.Upscaled(Json("{}")).Length is 0
-	json.get("upscale") to Text is "true" then List(Text) + "--upscale" else List(Text)
+Switches(json Json) Texts
+	StrictGenForm.Switches(Json("{\"upscale\":true}")) is ("--upscale")
+	StrictGenForm.Switches(Json("{\"upscale\":false,\"noTurbo\":true}")) is ("--no_turbo")
+	StrictGenForm.Switches(Json("{}")).Length is 0
+	let upscale = json.get("upscale") to Text is "true" then List(Text) + "--upscale" else List(Text)
+	upscale + (json.get("noTurbo") to Text is "true" then List(Text) + "--no_turbo" else List(Text))
 Loras(json Json) Texts
 	StrictGenForm.Loras(Json("{\"loras\":[{\"path\":\"a.safetensors\",\"strength\":0.5}]}")).Last is "a.safetensors:0.5"
 	StrictGenForm.Loras(Json("{}")).Length is 0

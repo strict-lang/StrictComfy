@@ -104,14 +104,18 @@ IsFew Boolean
 	H3Options.Parsed(("--quality", "fastest4steps")).IsFew
 	H3Options.Parsed(("--quality", "fastest2steps")).IsFew and (H3Options.Parsed(List(Text)).IsFew is false)
 	(quality is H3Quality.Fastest4Steps) or (quality is H3Quality.Fastest2Steps)
-Turbos Texts
-	H3Options.Parsed(TurboNames).Turbos.Length is 3
-	H3Options.Parsed(("--lora", "h3/minimax_h3_taomate_3step.safetensors")).Turbos.Length is 0
-	H3Options.Parsed(("--lora", "turbo.safetensors")).Turbos.Length is 1
+HasTurbo Boolean
+	H3Options.Parsed(TurboNames).HasTurbo and H3Options.Parsed(("--lora", "turbo.safetensors")).HasTurbo
+	H3Options.Parsed(("--lora", "h3/minimax_h3_taomate_3step.safetensors")).HasTurbo is false
+	H3Options.Parsed(("--model", "PRISM_DMAD_PDMD_int8.safetensors")).HasTurbo
+	H3Options.Parsed(List(Text) + "--no_turbo").HasTurbo
+	H3Options.Parsed(List(Text)).HasTurbo is false
+	if files.NoTurbo or files.IsDistilled(files.model)
+		return true
 	for lora
-		let name = Path(value).FileName.text.Lower
-		if (name.IndexOf("turbo") >= 0) or (name.IndexOf("8step") >= 0)
-			value
+		if files.IsDistilled(value)
+			return true
+	false
 IsLarge Boolean
 	H3Options.Parsed(("--width", "384", "--height", "640")).IsLarge is false
 	H3Options.Parsed(("--length", "53")).IsLarge is false
@@ -132,16 +136,15 @@ Loras Text slow
 	let given = local.Specs(lora)
 	if IsFew
 		return Few(local, given)
-	let turbo = (files.model + Text.Combine(given, ";")).Lower.Replace("hyperflow", "turbo").IndexOf("turbo") >= 0
-	let nested = files.Turbo
-	let added = (Evaluated > 8) or turbo then List(Text) else List(Text) + (local.Located(nested, "loras") + TurboStrength)
-	Text.Combine(added + given, ";")
+	let named = files.Turbo
+	let turbo = Evaluated > 8 or HasTurbo then List(Text) else List(Text) + (local.Located(named, "loras") + TurboStrength)
+	Text.Combine(turbo + given, ";")
 Few(local ModelFiles, given Texts) Text slow
 	H3Options.Parsed(("--models", ".", "--lora", "tinyhyperflow.safetensors")).Loras is "tinyhyperflow.safetensors=1"
 	H3Options.Parsed(FourStepArguments).Few(ModelFiles("."), List(Text) + GivenTaoMate) is GivenTaoMate
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
 	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo
-	let isGiven = (Turbos.Length > 0) or (Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0)
+	let isGiven = HasTurbo or Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0
 	Text.Combine((isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")) + given, ";")
 Clip Number
 	H3Options.Parsed(List(Text)).Clip is 124

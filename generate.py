@@ -27,6 +27,8 @@ SCHEDULERS, NOISY = ['simple', 'sgm_uniform', 'normal', 'beta', 'beta57', 'linea
 	'dpmpp_2m_sde', 'lcm'}
 # the model and turbo LoRA of ComfyUI's H3 template (video_minimax_h3_t2v)
 H3_BASE, H3_TURBO = 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', 'minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors:1'
+# checkpoint names with a turbo LoRA merged in, the same markers as H3Files.Distilled
+DISTILLED = ('turbo', 'hyperflow', 'dmd', '8step', '4step', 'distill', 'lightx2v')
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
 # H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, description
 QUALITIES = {
@@ -379,7 +381,7 @@ def turbo_patched(patches, turbo):
 
 def unapplied(loras, checkpoint, patches):
 	"""The H3 quality LoRAs the model does not have yet: no turbo LoRA for a turbo checkpoint, none a LoraLoader applied."""
-	baked = 'turbo' in Path(checkpoint).name.lower()
+	baked = any(marker in Path(checkpoint).name.lower() for marker in DISTILLED)
 	return [(path, strength) for path, strength in loras if not (baked and 'turbo' in Path(path).name.lower()) and
 		not (patches and turbo_patched(patches, path))]
 
