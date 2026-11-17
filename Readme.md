@@ -91,6 +91,8 @@ It needs `diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors` and
 
 Before loading models, all three check that the RAM and VRAM they need are free (H3 about 23 GB RAM and up to 18 GB VRAM, Moss about 15 GB RAM and 6 GB VRAM, at most half the RAM and three quarters of the VRAM of the machine). If the machine has them but other programs hold them, the run stops right away and lists the programs using them, our own backends with the command that frees them, for example `type 'H3Video stop' to free them`. `--force` (or `STRICT_FORCE=1`, also for the LLM programs in Strict) runs anyway, which is very slow or fails while the others hold the memory. A GPU smaller than the model is fine: the run says so and keeps the rest in RAM, slower.
 
+`Release/Windows/StrictGen.exe` (on Linux `Release/Linux/StrictGen`) serves a local browser UI (`http://localhost:8001`, `--port` changes it) for Moss Image, H3 Video, H3 Video Extend, H3 Image to Video and H3 Image, with live step previews, time and token budget estimates, a run queue and automatic discovery of other StrictGen PCs on the local network. `StrictGen.exe stop` ends it and all running backends.
+
 ## Building from source
 
 With [Strict](https://github.com/strict-lang/Strict) on the PATH, in this folder:
@@ -99,9 +101,11 @@ With [Strict](https://github.com/strict-lang/Strict) on the PATH, in this folder
 strict build MossImage windows
 strict build H3Video windows
 strict build H3Image windows
+strict build StrictGen windows
 strict build MossImage linux
 strict build H3Video linux
 strict build H3Image linux
+strict build StrictGen linux
 ```
 
 Tests: `python test_generate.py` with ComfyUI's Python, `strict test MossImage.strict`, `strict check .`

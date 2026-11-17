@@ -1,7 +1,6 @@
 has logger
 constant Sample = StrictGenClip(Logger)
 constant Zoomed = "input/zoomed"
-constant Crop = "-vf crop=iw/1.1:ih/1.1"
 constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height:format_tags=comment -of csv=p=0 \""
 constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
@@ -54,18 +53,30 @@ Cut(waveform Numbers, drop Number) Numbers
 	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
 	let half = waveform.Length / 2
 	waveform.Slice(drop, half - drop) + waveform.Slice(half + drop, half - drop)
-Still(path Text, isZoomed Boolean) Text slow
-	Sample.Still("missing-clip.mp4", false) is "missing-clip.mp4"
-	Sample.Still("a.png", false) is "a.png"
-	Sample.Still("", true) is ""
+Still(path Text, zoom Text) Text slow
+	Sample.Still("missing-clip.mp4", "") is "missing-clip.mp4"
+	Sample.Still("a.png", "false") is "a.png"
+	Sample.Still("", "25") is ""
 	let isVideo = path.Lower.EndsWith(".mp4")
 	let last = isVideo then Rendered("-sseof -1", path, "-update 1", StrictGen.Inputs, "-last.png") else path
 	if isVideo and last is not path
 		logger.Log("Using the last frame of " + path + " as the first frame")
-	let still = isZoomed and last is not "" then Rendered("", last, Crop, Zoomed, "-zoom10.png") else last
-	if still is not last
-		logger.Log("Zoomed 10% into " + last)
-	still
+	Closer(last, zoom)
+Closer(path Text, zoom Text) Text slow
+	Sample.Closer("", "25") is ""
+	Sample.Closer("missing.png", "") is "missing.png"
+	let percent = zoom is "true" then 10 else (zoom is "" or zoom is "false" then 0 else zoom to Number)
+	if percent <= 0 or path is ""
+		return path
+	let closer = Rendered("", path, Crop(percent), Zoomed, "-zoom" + percent + ".png")
+	if closer is not path
+		logger.Log("Zoomed " + percent + "% into " + path)
+	closer
+Crop(percent Number) Text
+	Sample.Crop(10) is "-vf crop=iw/1.1:ih/1.1"
+	Sample.Crop(25) is "-vf crop=iw/1.25:ih/1.25"
+	let scale = 1 + percent / 100
+	"-vf crop=iw/" + scale + ":ih/" + scale
 Rendered(before Text, path Text, after Text, folder Text, suffix Text) Text slow
 	Sample.Rendered("", "missing.png", "", Zoomed, "-zoom10.png") is "missing.png"
 	let output = folder + "/" + Path(path).FileName.RemoveExtension.text + suffix

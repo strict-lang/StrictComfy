@@ -93,3 +93,5 @@ StrictGenWarm.*
 StrictGenCpu.txt
 StrictGenJob-*.timed
 *.cmd
+
+StrictGenJob-*.done

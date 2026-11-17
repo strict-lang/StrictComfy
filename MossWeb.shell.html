@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moss in the browser</title>
+<link rel="icon" href="MossWeb.ico">
 <style>
+	html { color-scheme: dark; }
 	html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; color: #d8dee9; font: 16px system-ui, sans-serif; }
 	body { display: flex; flex-direction: column; }
 	main { flex: 1; min-height: 0; display: flex; gap: 24px; justify-content: center; padding: 24px 24px 8px; box-sizing: border-box; }
@@ -29,6 +31,7 @@
 	#status { min-height: 1.4em; color: #8b97a5; font-size: 13px; }
 	#status.error { color: #e88388; }
 	#sizenote { color: #e8b383; font-size: 13px; }
+	#sizenote.calm { color: #8b97a5; }
 	#sizenote:empty { display: none; }
 	#log { flex: 1; min-height: 80px; font: 12px ui-monospace, monospace; color: #6b7785; white-space: pre-wrap; overflow: auto; margin: 0; background: #0f151c; border-radius: 6px; padding: 8px; }
 	#frame { flex: none; background: #141b23; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; color: #4b5663; }
@@ -78,7 +81,6 @@
 				<option value="fastest2steps">fastest2steps (2 steps)</option>
 			</select></label>
 		</div>
-		<div id="sizenote"></div>
 		<div class="row">
 			<label>Decoder<select id="decoder">
 				<option value="taef2" selected>taef2 (fastest)</option><option value="flux2-small-vae">flux2-small-vae (faster)</option>
@@ -86,6 +88,7 @@
 			</select></label>
 			<label>Seed<input id="seed" type="number" min="0" max="4294967295"></label>
 		</div>
+		<div id="sizenote" class="calm"></div>
 		<label>LoRAs <span class="links"><a href="#" id="add">add Moss LoRA (.safetensors)</a><input type="file" id="files" accept=".safetensors" multiple hidden></span><div id="loras"></div></label>
 		<button id="start" disabled>Loading...</button>
 		<div id="progress"><div id="bar"></div></div>
@@ -210,6 +213,8 @@
 		if (sampled) {
 			const [first = 0, second = first] = began.stepTimes;
 			began.sampled = (sampled[1] - first + second) / 1000;
+			const [width, height] = began.size.split(" ").map(Number), tokens = width / 16 * (height / 16);
+			if (second > 0 && tokens <= budget / 2) { baseStep = second / 1000 / Math.pow(tokens / 1590, 1.25); estimate(); }
 		}
 		if (step) {
 			began.step = Number(step[1]);
@@ -241,8 +246,8 @@
 		const value = width + " " + height;
 		if (![...size.options].some(option => option.value === value)) size.add(new Option(width + "x" + height + " (workflow)", value));
 		size.value = value;
-		size.onchange();
 		quality.value = workflowQuality;
+		size.onchange();
 		prompt.value = workflowPrompt;
 		const missing = loras.filter(lora => !lora.isUploaded).map(lora => lora.name);
 		show("Workflow loaded" + (missing.length ? ", add these LoRAs: " + missing.join(", ") : ""), missing.length > 0);
@@ -354,14 +359,46 @@
 		frame.style.width = width * scale + "px";
 		frame.style.height = height * scale + "px";
 	};
+	const factors = { best: 8, fast: 5, faster: 4, fastest: 3, fastest2steps: 2 };
+	const decodes = { taef2: 0.1, "flux2-small-vae": 0.8, "flux2-vae": 2.0 };
+	let baseStep = roomy === 2 ? 0.8 : roomy === 1 ? 1.0 : isMobile ? 25 : 2.2;
+	const budget = isMobile ? 900 : roomy === 2 ? 9000 : roomy === 1 ? 7200 : 3600;
+	const lasting = seconds => seconds < 10 ? seconds.toFixed(1).replace(/\.0$/, "") + " s" : seconds < 90 ? Math.round(seconds) + " s" : (seconds / 60).toFixed(1) + " min";
+	const round = value => value < 1 ? value.toFixed(2).replace(/0$/, "") : value.toFixed(1).replace(/\.0$/, "");
+	const estimate = () => {
+		const [width, height] = size.value.split(" ").map(Number), side = Math.min(width, height);
+		const tokens = width / 16 * (height / 16), knee = budget / 2, crowded = tokens > knee ? Math.pow(tokens / knee, 2) : 1;
+		const factor = factors[quality.value] || 3, step = baseStep * Math.pow(tokens / 1590, 1.25) * crowded;
+		const vae = decoder.value, decode = (decodes[vae] || 0.1) * Math.pow(tokens / 1590, vae === "flux2-vae" ? 1.3 : 1) * (vae === "flux2-vae" && tokens > 2500 ? 1.5 : 1);
+		const mobileNote = isMobile && side > 240 ? ", above 240p a phone takes a minute or more and can run out of memory, mostly in the last step: reloading the page or closing other apps helps" : "";
+		const vaeNote = !mobileNote && vae === "flux2-vae" && tokens > 2500 ? ", flux2-vae has finer details but needs a lot of browser memory at this size (taef2 is much faster)" : "";
+		const caution = mobileNote || (tokens > budget ? ", more than a browser tab handles on this GPU, use a smaller size or the desktop version"
+			: tokens > knee ? ", past half the browser GPU budget, every step gets much slower" : vaeNote);
+		const note = element("sizenote");
+		note.textContent = "Sampling roughly " + factor + " x " + round(step) + " s + " + round(decode) + " s " + vae + " = " + lasting(factor * step + decode)
+			+ ", " + (tokens / 1000).toFixed(1).replace(/\.0$/, "") + "k of " + (budget / 1000).toFixed(1).replace(/\.0$/, "") + "k image tokens" + caution;
+		note.classList.toggle("calm", !caution);
+	};
 	size.onchange = () => {
 		if (!began.isRunning) framed = size.value;
-		const side = Math.min(...size.value.split(" ").map(Number));
-		element("sizenote").textContent = !isMobile || side <= 240 ? "" : "Above 240p a phone takes a minute or more per image and can run out of memory, mostly in the last step: reloading the page or closing other apps helps.";
+		estimate();
 		fitted();
 	};
+	quality.onchange = estimate;
+	decoder.onchange = estimate;
 	addEventListener("resize", fitted);
 	size.onchange();
+	window.onkeydown = event => {
+		const typing = event.target.matches("input, textarea, select");
+		if (event.key === "Enter" && !event.shiftKey && !event.isComposing && (event.ctrlKey || event.target === prompt || !typing) && !event.target.matches("button, a")) {
+			event.preventDefault();
+			if (!start.disabled) start.click();
+			return;
+		}
+		if (typing) return;
+		if (event.code === "ArrowLeft") browsed(gallery.index - 1);
+		if (event.code === "ArrowRight") browsed(gallery.index + 1);
+	};
 	var Module = {
 		noInitialRun: true,
 		strictFiles: {

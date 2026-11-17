@@ -25,7 +25,15 @@ Shown(id Number, rows Texts, first Number, until Number)
 	for Range(first, until.Clamp(first, rows.Length))
 		let parts = rows(value).Split("\t")
 		if parts.Last.Trim is not ""
-			logger.Log("Run " + (id + 1) + " " + parts.First + "s: " + parts.Last.Trim)
+			logger.Log("Run " + (id + 1) + " " + Seconds(parts.First to Number) + "s: " + parts.Last.Trim)
+Seconds(seconds Number) Text
+	Sample.Seconds(41) is "41.0"
+	Sample.Seconds(0.9) is "00.9"
+	Sample.Seconds(5.24) is "05.2"
+	Sample.Seconds(123.45) is "123.5"
+	let tenths = (seconds * 10).Round
+	let whole = (tenths / 10).Floor
+	(whole < 10 then "0" else "") + whole + "." + tenths % 10
 Ended(queue StrictGenQueue, id Number, first Number) slow
 	Sample.Ended(Added, 0, 0) is not Error
 	let file = "StrictGenJob-" + id + ".timed"

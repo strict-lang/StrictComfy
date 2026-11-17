@@ -18,7 +18,7 @@ Budget(vram Number) Number
 	H3Estimate.Budget(12288 * Mebibyte) is 45000
 	H3Estimate.Budget(32768 * Mebibyte) is 120000
 	H3Estimate.Budget(0) is Unknown
-	vram <= 0 then Unknown else (vram / Gibibyte * TokensPerGibibyte / 1000).Round * 1000
+	vram is 0 then Unknown else (vram / Gibibyte * TokensPerGibibyte / 1000).Round * 1000
 Local Number slow
 	H3Estimate.Local > 0
 	Budget(MachineUse(Logger, "H3Video", 0, 0).Device(0))
@@ -51,6 +51,9 @@ Lasting(seconds Number) Text
 Told(raw Text) Text
 	H3Estimate.Told(SmallRequest).StartsWith("Sampling roughly 6 x 2.1 s")
 	H3Estimate.Told(ExtendRequest).EndsWith("k of 38k video tokens")
+	H3Estimate.Told(MossEstimate.ImageRequest).StartsWith("Sampling roughly 5 x 0.15 s")
+	if Asked(raw, "mode") is "image"
+		return MossEstimate.Told(raw)
 	let sized = ("--width", Asked(raw, "width"), "--height", Asked(raw, "height"), "--length", Asked(raw, "length"))
 	let chosen = sized + Optional(raw, "quality") + Optional(raw, "steps")
 	let video = ("--video", "a.mp4", "--context", Asked(raw, "context"))

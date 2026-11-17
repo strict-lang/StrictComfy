@@ -10,6 +10,7 @@ Completed(kept MossResident) MossResident slow
 	let started = Process.Elapsed
 	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
 	let template = batch.prompted is "" then batch.Templated else batch.prompted
+	batch.logger.Log(MossEstimate(options).Estimate(MossEstimate.Local))
 	Prompted(kept, seeds, PromptBatch(batch.logger, "Image").Prompts(List(Text) + template, seeds), started)
 Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossResident slow
 	let encoded = kept.Encoded(batch, prompts.Unique)

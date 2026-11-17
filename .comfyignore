@@ -4,5 +4,7 @@
 tiny*
 test_generate.py
 MossWeb*
+ideas.md
+performance.md
 .editorconfig
 .gitattributes

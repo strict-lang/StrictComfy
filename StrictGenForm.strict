@@ -25,7 +25,7 @@ Optional(json Json, mode Text) Texts slow
 	let length = video then Pair("--length", json.get("length") to Text) + Switches(json) else List(Text)
 	let context = mode is "extend" then Pair("--context", json.get("context") to Text) else List(Text)
 	let clip = mode is "extend" then Pair("--video", json.get("video") to Text) else List(Text)
-	let still = StrictGenClip(Logger).Still(json.get("image") to Text, json.get("zoom") to Text is "true")
+	let still = StrictGenClip(Logger).Still(json.get("image") to Text, json.get("zoom") to Text)
 	let image = mode is "imagevideo" then Pair("--image", still) else List(Text)
 	let steps = json.get("steps") to Text
 	let counted = steps is "" or steps is "0" then List(Text) else Pair("--steps", steps)

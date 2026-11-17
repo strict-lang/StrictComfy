@@ -48,11 +48,12 @@
 	#stage.zoomed { cursor: grab; }
 	.side { flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 	#inputSide { margin-right: auto; }
+	#inputStrip { align-self: flex-end; }
 	#outputSide { margin-left: auto; }
 	.side.away { visibility: hidden; }
 	.strip { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; scrollbar-gutter: stable; padding-right: 10px; }
-	#inputPicked { flex: none; width: 116px; height: 204px; border: 2px solid #5fb3f6; border-radius: 6px; overflow: hidden; background: #141b23; box-sizing: border-box; position: relative; }
-	#inputPicked img, #inputPicked video { width: 112px; height: 200px; object-fit: contain; display: block; }
+	#inputPicked { flex: none; width: 181px; height: 318px; border: 2px solid #5fb3f6; border-radius: 6px; overflow: hidden; background: #141b23; box-sizing: border-box; position: relative; }
+	#inputPicked img, #inputPicked video { width: 177px; height: 314px; object-fit: contain; display: block; }
 	#inputPicked span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #d8dee9; background: rgba(11, 15, 20, 0.75); padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.strip button.thumb { flex: none; width: 94px; height: 164px; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: #141b23; cursor: pointer; position: relative; }
 	.strip button.thumb:hover { border-color: #2b3540; }
@@ -82,6 +83,7 @@
 	.field.off { opacity: 0.5; }
 	.labelled { font-size: 13px; color: #8b97a5; display: flex; flex-direction: column; gap: 4px; }
 	.titled { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+	.titled select { padding: 1px 4px; font-size: 12px; margin-left: 6px; }
 	#log { min-height: 200px; max-height: 360px; overflow: auto; font: 12px ui-monospace, monospace; color: #d8dee9; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
 	#log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	#log div.run { color: #5fb3f6; margin-top: 8px; }
@@ -132,7 +134,7 @@
 			<label>Prompt<textarea id="prompt">a red fox in a snowy forest at dawn, photo</textarea></label>
 			<div id="inputs">
 				<div class="labelled" id="inputLabel">
-					<div class="titled"><span id="inputTitle">Image or video</span><label class="field hidden" id="zoomLabel" title="Crops the outer 10% of the image or last video frame, more detail at low resolutions"><input id="zoom" type="checkbox"> zoom in 10%</label></div>
+					<div class="titled"><span id="inputTitle">Image or video</span><label class="field hidden" id="zoomLabel" title="Zooms into the center of the image or last video frame, more detail at low resolutions">zoom in <select id="zoom"><option value="">off</option><option value="10">10%</option><option value="20">20%</option><option value="30">30%</option><option value="40">40%</option><option value="50">50%</option><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option></select></label></div>
 					<div class="row">
 						<button class="small" id="inputPrev" type="button">&#9664;</button>
 						<input id="input" type="text" placeholder="png, jpg, or mp4" style="flex: 1">
@@ -255,14 +257,14 @@
 	const defaultsFor = mode => {
 		if (mode === "h3image") return {
 			prompt: "a red fox in a snowy birch forest at sunrise, soft golden light, detailed fur, photo", size: "2048 2048", width: 2048, height: 2048,
-			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "", length: 124, context: 22, input: "", zoom: false
+			quality: "", steps: 6, skip: "", model: h3ImageModel, loras: [], decoder: "", length: 124, context: 22, input: "", zoom: ""
 		};
 		const video = mode !== "image";
 		return {
 			prompt: video ? "a red fox walking through snow, cinematic" : "a red fox in a snowy forest at dawn, photo",
 			size: video ? "480 848" : "720 1280", width: video ? 480 : 720, height: video ? 848 : 1280,
 			quality: "fast", steps: stepsFor(mode, "fast"), skip: skipFor(mode, "fast"), model: video ? h3Model : mossModel,
-			loras: [], decoder: "", length: 124, context: 22, input: "", zoom: false
+			loras: [], decoder: "", length: 124, context: 22, input: "", zoom: ""
 		};
 	};
 	const fill = (select, pairs, chosen) => {
@@ -283,7 +285,7 @@
 		prompt: element("prompt").value, size: element("size").value, width: Number(element("width").value), height: Number(element("height").value),
 		quality: element("quality").value, steps: Number(element("steps").value), skip: element("skip").value, model: element("model").value,
 		loras: state.loras, decoder: element("decoder").value, length: Number(element("length").value), context: Number(element("context").value),
-		input: element("input").value, zoom: element("zoom").checked, noUpscale: !!state.noUpscale,
+		input: element("input").value, zoom: element("zoom").value, noUpscale: !!state.noUpscale,
 		noTurbo: element("noTurbo").checked
 	});
 	const save = () => {
@@ -305,7 +307,7 @@
 		drawLoras();
 		element("decoder").value = data.decoder || "";
 		choose(element("length"), String(data.length || 124)); element("context").value = data.context;
-		element("input").value = data.input || ""; element("zoom").checked = !!data.zoom;
+		element("input").value = data.input || ""; element("zoom").value = data.zoom === true ? "10" : data.zoom ? String(Math.min(80, Math.max(10, Math.round(Number(data.zoom) / 10) * 10))) : "";
 		state.noUpscale = !!data.noUpscale;
 		element("upscale").checked = !element("upscale").disabled && !state.noUpscale;
 		element("noTurbo").checked = !!data.noTurbo;
@@ -404,10 +406,10 @@
 	};
 	const estimate = () => {
 		const shown = element("tokenNote");
-		if (!isVideo(state.mode)) { shown.classList.add("hidden"); state.estimated = ""; return; }
+		if (!isVideo(state.mode) && state.mode !== "image") { shown.classList.add("hidden"); state.estimated = ""; return; }
 		const [width, height] = sizeOf();
 		const query = new URLSearchParams({ mode: state.mode, width, height, length: element("length").value, context: element("context").value,
-			quality: element("quality").value, steps: element("steps").value, vram: vramFor() }).toString();
+			quality: element("quality").value, steps: element("steps").value, vae: element("vae").value || element("decoder").value, vram: vramFor() }).toString();
 		if (query === state.estimated) return;
 		state.estimated = query;
 		fetch("/estimate?" + query).then(response => response.ok ? response.text() : "").then(text => {
@@ -433,6 +435,8 @@
 		estimate();
 	};
 	element("steps").addEventListener("input", estimate);
+	element("decoder").onchange = estimate;
+	element("vae").oninput = estimate;
 	element("size").onchange = () => { element("custom").classList.toggle("hidden", element("size").value !== "custom"); note(); };
 	element("width").oninput = note;
 	element("height").oninput = note;
@@ -453,7 +457,7 @@
 			noTurbo: element("noTurbo").checked
 		};
 		if (state.mode === "extend") body.video = element("input").value;
-		if (state.mode === "imagevideo") { body.image = element("input").value; body.zoom = element("zoom").checked; }
+		if (state.mode === "imagevideo") { body.image = element("input").value; body.zoom = element("zoom").value; }
 		if (state.mode === "h3image") body.image = element("input").value;
 		return body;
 	};
@@ -559,15 +563,18 @@
 		element("stage").classList.remove("dim");
 		element("overlay").classList.add("hidden");
 	};
-	const media = (path, url) => {
+	const media = (path, source, box = "") => {
+		const url = box ? source + "#" + box : source;
 		if (state.shown === url) { settle(); return; }
 		state.shown = url;
 		stopStrip();
 		if (path.toLowerCase().endsWith(".mp4")) {
 			const video = document.createElement("video");
-			video.src = url; video.loop = true; video.controls = true; video.muted = !!state.muted;
+			video.src = source; video.style.objectViewBox = box; video.loop = true; video.controls = true; video.muted = !!state.muted;
 			video.onvolumechange = () => { if (!video.forced) state.muted = video.muted; };
-			video.play().catch(() => { video.forced = true; video.muted = true; video.play().catch(() => { }); });
+			video.onplay = () => { if (state.shown === url) state.paused = false; };
+			video.onpause = () => { if (state.shown === url && video.isConnected) state.paused = true; };
+			if (!state.paused) video.play().catch(() => { video.forced = true; video.muted = true; video.play().catch(() => { }); });
 			video.onloadedmetadata = () => { if (state.shown === url) shape(video.videoWidth, video.videoHeight); };
 			place(video);
 			settle();
@@ -577,7 +584,8 @@
 		image.draggable = false;
 		image.onload = () => { if (state.shown !== url) return; shape(image.naturalWidth, image.naturalHeight); place(image); settle(); };
 		image.onerror = settle;
-		image.src = url;
+		image.style.objectViewBox = box;
+		image.src = source;
 	};
 	const stopStrip = () => { state.stripImage = null; if (state.strip) { clearInterval(state.strip); state.strip = null; } };
 	const showStrip = image => {
@@ -674,14 +682,14 @@
 		const pending = state.pending;
 		if (pending.preview) { if (state.stripImage !== pending.preview) showStrip(pending.preview); return true; }
 		if (!pending.input) return false;
-		media(pending.input, "/file?path=" + encodeURIComponent(pending.input));
+		media(pending.input, "/file?path=" + encodeURIComponent(pending.input), pending.box);
 		element("stage").classList.remove("dim");
 		return true;
 	};
 	const showInput = () => {
 		const path = element("input").value;
 		if (!usesInput(state.mode) || !path || state.busy) return;
-		media(path, "/file?path=" + encodeURIComponent(path));
+		media(path, "/file?path=" + encodeURIComponent(path), state.mode === "imagevideo" ? zoomBox() : "");
 		element("infoText").textContent = "Input " + path.split("/").pop();
 		element("infoTime").textContent = "";
 	};
@@ -827,16 +835,30 @@
 		} else node.draggable = false;
 		node.src = url;
 		const label = document.createElement("span");
-		label.textContent = path.split("/").pop() + (video ? " (last frame)" : "");
 		box.title = path;
 		box.replaceChildren(node, label);
+		showZoom();
 	};
+	const showZoom = () => {
+		const box = element("inputPicked"), node = box.firstChild, label = box.querySelector("span");
+		if (!node || !label) return;
+		const percent = Number(element("zoom").value) || 0;
+		node.style.objectViewBox = zoomBox();
+		const name = box.dataset.path.split("/").pop() + (box.dataset.path.toLowerCase().endsWith(".mp4") ? " (last frame)" : "");
+		label.textContent = (percent ? "zoom " + percent + "% - " : "") + name;
+	};
+	const zoomBox = () => {
+		const percent = Number(element("zoom").value) || 0;
+		return percent ? "inset(" + ((1 - 1 / (1 + percent / 100)) * 50).toFixed(2) + "%)" : "";
+	};
+	element("zoom").onchange = () => { showZoom(); save(); showInput(); };
 	const isPicture = path => /\.(png|jpe?g)$/i.test(path);
 	const loadInputs = async () => {
 		const strip = element("inputStrip");
 		element("inputSide").classList.toggle("away", state.mode !== "imagevideo");
 		if (state.mode !== "imagevideo") return;
 		showPicked();
+		showZoom();
 		let text = "";
 		try { text = await timed_fetch("/inputs", {}, 10).then(response => response.ok ? response.text() : ""); } catch { }
 		const uploaded = text.split("\n").filter(line => /^[\d.e+]+\t\S/.test(line)).map(line => line.trim().split("\t"));
@@ -975,7 +997,7 @@
 			state.keepInfo = true;
 			return;
 		}
-		state.pending = { input, preview: null };
+		state.pending = { input, preview: null, box: state.mode === "imagevideo" ? zoomBox() : "" };
 		state.index = state.outputs.length - 1;
 		state.keepInfo = false;
 		showResult();
