@@ -8,15 +8,20 @@ constant Fallback = "<!doctype html><html><head><title>StrictGen</title></head><
 constant Inputs = "input"
 constant Outputs = "output"
 constant DefaultPort = 8001
-Run(arguments Texts) Number
-	StrictGen(Logger).Run(List(Text) + "--help") is 0
+constant Highest = 65535
+constant Usage = "StrictGen.exe [--port " + DefaultPort + "] serves a page for images and video on that port\nStrictGen.exe stop [--port n] ends it and the MossImage, H3Video and H3Image backends"
+constant FixedFirst = "\nso this gets fixed first, release builds only warn and go on"
+Run(arguments Texts) Number slow
 	if "--help" is in arguments
-		logger.Log("StrictGen.exe [--port " + DefaultPort + "] serves a page for images and video on that port")
-		logger.Log("StrictGen.exe stop [--port n] ends it and the MossImage, H3Video and H3Image backends")
+		logger.Log(Usage)
 		return 0
+	let port = Port(arguments)
 	if "stop" is in arguments
-		return Stopped(Port(arguments)) then 0 else 1
-	Served(Port(arguments)) is Error then 1 else 0
+		return Stopped(port) then 0 else 1
+	if (port < 1) or (port > Highest)
+		logger.Log("Port " + port + " is not a port number, start with --port and a number from 1 to 65535")
+		return 1
+	Served(port) is Error then 1 else 0
 Stopped(port Number) Boolean slow
 	logger.Log("Stopping StrictGen on port " + port + " and the MossImage, H3Video and H3Image backends")
 	let answer = StrictGenRemote.Posted("127.0.0.1", port, "/quit", "")
@@ -29,7 +34,6 @@ Port(arguments Texts) Number
 	let at = arguments.Index("--port")
 	(at < 0) or (at + 1 >= arguments.Length) then DefaultPort else arguments(at + 1) to Number
 Served(port Number) slow
-	StrictGen(Logger).Served(-1) is Error
 	let socket = Socket.Listen(port)
 	if socket is Error
 		logger.Log("Port " + port + " is in use, probably by a running StrictGen; close it or start with --port <number>")
@@ -60,12 +64,13 @@ Turned(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) S
 	StrictGenConsole(logger).Told(queue, Steered(answered, net))
 Ended(reason Text) Number slow
 	StrictGenJob.StopAll
-	reason is StrictGenQueue.Quitting then Error("StrictGenStopped") else Broken(reason)
-Broken(reason Text) Number
-	StrictGen(Logger).Broken("GarbageCollectionExceedsLimit: test") is Error
-	logger.Log("A backend ended with " + reason.Split(":").First + ", StrictGen stops its backends and ends here")
-	logger.Log("so this gets fixed first, release builds only warn and go on")
+	if reason is StrictGenQueue.Quitting
+		return Error("StrictGenStopped")
+	logger.Log(Broken(reason))
 	Error("GarbageCollectionExceedsLimit")
+Broken(reason Text) Text
+	StrictGen(Logger).Broken("GarbageCollectionExceedsLimit: test").EndsWith(FixedFirst)
+	"A backend ended with " + reason.Split(":").First + ", StrictGen stops its backends and ends here" + FixedFirst
 Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
 	StrictGen(Logger).Steered(StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
 	let choice = queue.NeedsAim then net.Chosen(queue.NextMode, queue.Pin) else ""

@@ -1,6 +1,6 @@
 has logger
 constant Sample = StrictGenClip(Logger)
-constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 \""
+constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height:format_tags=comment -of csv=p=0 \""
 constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
 TailRgb(path Text, context Number, width Number, height Number) Numbers slow

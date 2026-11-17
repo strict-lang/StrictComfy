@@ -76,6 +76,8 @@ Prefetched(paths Texts, what Text)
 	Sample.Prefetched(List(Text) + "tinyqkvlora.safetensors", "LoRA") is not Error
 	logger.Log(ModelFiles("").Prefetching(paths, what))
 Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean) slow
+	if options.files.Upscale
+		RtxVideo(logger, options).Warmed
 	let texts = refiner.Texts(conditions)
 	for plan.seeds
 		let before = Process.Elapsed
@@ -121,6 +123,8 @@ Saved(decoding H3Decoding, latent Numbers, output Text) slow
 		if File(path).Length is 0
 			File(path).Delete
 		return Error("VideoNotWritten")
+	if options.files.Upscale
+		RtxVideo(logger, options).Upscaled(path)
 Joined(decoded List(Numbers), size Numbers, path Text) slow
 	let video = options.files.video
 	if video is ""

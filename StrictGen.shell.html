@@ -77,7 +77,8 @@
 	#menu div { font-size: 13px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d8dee9; }
 	details { color: #8b97a5; font-size: 13px; }
 	details > * { margin-top: 8px; }
-	details .field { flex-direction: row; align-items: center; }
+	.field { flex-direction: row; align-items: center; }
+	.field.off { opacity: 0.5; }
 	#log { min-height: 200px; max-height: 360px; overflow: auto; font: 12px ui-monospace, monospace; color: #d8dee9; background: #0f151c; border-radius: 6px; padding: 8px; margin: 0; }
 	#log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	#log div.run { color: #5fb3f6; margin-top: 8px; }
@@ -167,6 +168,7 @@
 			</div>
 			<label id="lengthLabel">Length<select id="length"></select></label>
 			<div class="note hidden" id="lengthNote"></div>
+			<label class="field hidden off" id="upscaleLabel"><input id="upscale" type="checkbox" disabled> 2x upscale with RTX Video Super Resolution</label>
 			<label>Model<select id="model"></select></label>
 			<label>LoRAs
 				<div class="row">
@@ -281,7 +283,7 @@
 		prompt: element("prompt").value, size: element("size").value, width: Number(element("width").value), height: Number(element("height").value),
 		quality: element("quality").value, steps: Number(element("steps").value), skip: element("skip").value, model: element("model").value,
 		loras: state.loras, decoder: element("decoder").value, length: Number(element("length").value), context: Number(element("context").value),
-		input: element("input").value, lastImage: element("lastImage").value
+		input: element("input").value, lastImage: element("lastImage").value, upscale: element("upscale").checked
 	});
 	const save = () => {
 		const all = stored();
@@ -303,6 +305,7 @@
 		element("decoder").value = data.decoder || "";
 		choose(element("length"), String(data.length || 124)); element("context").value = data.context;
 		element("input").value = data.input || ""; element("lastImage").value = data.lastImage || "";
+		element("upscale").checked = !!data.upscale;
 	};
 	const showMode = () => {
 		const mode = state.mode;
@@ -317,6 +320,7 @@
 		element("skipLabel").classList.toggle("hidden", edit);
 		element("lengthLabel").classList.toggle("hidden", !video);
 		element("lengthNote").classList.toggle("hidden", mode !== "extend");
+		element("upscaleLabel").classList.toggle("hidden", !video);
 		element("guidance").parentElement.classList.toggle("hidden", !moss);
 		element("spectrum").parentElement.classList.toggle("hidden", !moss);
 		element("sampler").parentElement.classList.toggle("hidden", edit);
@@ -418,7 +422,7 @@
 			scheduler: element("scheduler").value, crop: element("crop").checked ? "true" : "false", vision: element("vision").value,
 			output: element("output").value, models: element("models").value, textEncoder: element("textEncoder").value,
 			vae: element("vae").value, audioVae: element("audioVae").value, local: element("local").checked, force: element("force").checked,
-			remote: element("machine").value
+			remote: element("machine").value, upscale: !element("upscale").disabled && element("upscale").checked
 		};
 		if (state.mode === "extend") body.video = element("input").value;
 		if (state.mode === "imagevideo") { body.image = element("input").value; body.lastImage = element("lastImage").value; }
@@ -974,8 +978,25 @@
 	};
 	element("stop").onclick = () => timed_fetch("/stop", { method: "POST" }).then(() => offline(false)).catch(() => offline(true));
 	element("position").onclick = () => element("menu").classList.toggle("hidden");
-	element("machine").onchange = () => { state.wanted = element("machine").value; save(); state.shown = ""; loadOutputs(true); };
+	element("machine").onchange = () => { state.wanted = element("machine").value; save(); state.shown = ""; loadOutputs(true); showUpscaler(); };
+	const rtx = name => /RTX/i.test(name || "");
+	const upscalable = () => {
+		const status = state.status || {}, peers = status.peers || [], chosen = element("machine").value;
+		const own = !!status.upscaler && rtx(status.gpuName);
+		if (chosen === "local" || !peers.length) return own;
+		if (!chosen) return own || peers.some(peer => rtx(peer.gpu));
+		return rtx((peers.find(peer => peer.address === chosen) || {}).gpu);
+	};
+	const showUpscaler = () => {
+		const able = upscalable();
+		element("upscale").disabled = !able;
+		element("upscaleLabel").classList.toggle("off", !able);
+		element("upscaleLabel").title = able ? "Scales each finished video up 2x on the GPU (about 2 s), a little more detail on good videos"
+			: "Needs an NVIDIA RTX card and nvidia-vfx in ComfyUI's Python (install ComfyUI_Nvidia_VFX_Nodes)";
+	};
 	const showMachines = status => {
+		state.status = status;
+		showUpscaler();
 		const peers = status.peers || [], machine = element("machine");
 		const own = (status.name || "This PC") + (card(status.gpuName) ? " (" + card(status.gpuName) + ")" : "");
 		const options = peers.length ? [["", "Best"], ["local", own], ...peers.map(peer => [peer.address, peer.name ? peer.name + " (" + card(peer.gpu) + ")" : peer.label])] : [["", own]];
