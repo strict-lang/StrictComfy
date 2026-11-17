@@ -159,4 +159,4 @@ Labels Texts
 		let parts = value.Split("\t")
 		let whole = parts.Length > 2 then parts(2) to Number / Gigabyte else 0
 		let named = parts.Length > 8 then parts(7) else ""
-		Address(value) + "\t" + parts(6) + " " + whole.Round(1) + " GB\t" + named + "\t" + parts(6)
+		Address(value) + "\t" + parts(6) + " " + whole.Round(1) + " GB\t" + named + "\t" + parts(6) + "\t" + parts(2)

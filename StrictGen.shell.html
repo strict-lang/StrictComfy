@@ -36,6 +36,7 @@
 	button.run { flex: 1; font: inherit; font-size: 18px; padding: 10px 18px; border: 0; border-radius: 8px; background: #5fb3f6; color: #0b0f14; cursor: pointer; }
 	button.stop { background: #e88388; color: #0b0f14; border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer; font: inherit; }
 	.note { color: #e8b383; font-size: 13px; }
+	.note.calm { color: #8b97a5; }
 	.hidden { display: none !important; }
 	#loras { display: flex; flex-direction: column; gap: 4px; }
 	.lora { display: flex; gap: 8px; align-items: center; }
@@ -164,6 +165,7 @@
 			</div>
 			<label id="lengthLabel">Length<select id="length"></select></label>
 			<div class="note hidden" id="lengthNote"></div>
+			<div class="note calm hidden" id="tokenNote"></div>
 			<label class="field hidden off" id="upscaleLabel"><input id="upscale" type="checkbox" disabled> 2x upscale with RTX Video Super Resolution</label>
 			<label>Model<select id="model"></select></label>
 			<label>LoRAs
@@ -395,8 +397,29 @@
 	});
 	element("frame").addEventListener("pointerup", () => { state.dragged = state.drag && state.drag.moved; state.drag = null; });
 	element("frame").addEventListener("dblclick", () => zoomTo(1, 0, 0));
+	const vramFor = () => {
+		const status = state.status || {}, chosen = element("machine").value;
+		const peer = (status.peers || []).find(peer => peer.address === chosen);
+		return peer ? peer.vram : Math.round((status.vramTotal || 0) / 1048576);
+	};
+	const estimate = () => {
+		const shown = element("tokenNote");
+		if (!isVideo(state.mode)) { shown.classList.add("hidden"); state.estimated = ""; return; }
+		const [width, height] = sizeOf();
+		const query = new URLSearchParams({ mode: state.mode, width, height, length: element("length").value, context: element("context").value,
+			quality: element("quality").value, steps: element("steps").value, vram: vramFor() }).toString();
+		if (query === state.estimated) return;
+		state.estimated = query;
+		fetch("/estimate?" + query).then(response => response.ok ? response.text() : "").then(text => {
+			if (state.estimated !== query) return;
+			shown.textContent = text;
+			shown.classList.toggle("hidden", !text);
+			shown.classList.toggle("calm", !/half|refuses/.test(text));
+		}).catch(() => { });
+	};
 	const note = () => {
 		fit();
+		estimate();
 		if (state.mode !== "extend") return;
 		const length = Number(element("length").value) || 24, context = Number(element("context").value);
 		const total = videoSnap(context + length);
@@ -407,7 +430,9 @@
 		element("steps").value = stepsFor(state.mode, element("quality").value);
 		element("skip").value = skipFor(state.mode, element("quality").value);
 		save();
+		estimate();
 	};
+	element("steps").addEventListener("input", estimate);
 	element("size").onchange = () => { element("custom").classList.toggle("hidden", element("size").value !== "custom"); note(); };
 	element("width").oninput = note;
 	element("height").oninput = note;
@@ -996,6 +1021,7 @@
 	};
 	const showMachines = status => {
 		state.status = status;
+		estimate();
 		showUpscaler();
 		const peers = status.peers || [], machine = element("machine");
 		const own = (status.name || "This PC") + (card(status.gpuName) ? " (" + card(status.gpuName) + ")" : "");

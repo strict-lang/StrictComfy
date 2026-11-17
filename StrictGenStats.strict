@@ -103,7 +103,7 @@ Peers(net StrictGenNet) Text slow
 	mutable items = List(Text)
 	for net.Labels
 		let parts = value.Split("\t")
-		let named = ",\"name\":" + parts(2).Code + ",\"gpu\":" + parts(3).Code
+		let named = ",\"name\":" + parts(2).Code + ",\"gpu\":" + parts(3).Code + ",\"vram\":" + parts(4)
 		items = items + ("{\"address\":" + parts.First.Code + ",\"label\":" + parts(1).Code + named + "}")
 	"[" + outer.Text.Combine(items, ",") + "]"
 Step(lines Texts) Text
