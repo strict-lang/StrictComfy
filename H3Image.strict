@@ -103,7 +103,7 @@ Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds N
 Target Numbers slow
 	Tiny.Target is (64, 64) and Edit.Target is (1024, 2048)
 	options.Size(Original)
-Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Numbers slow
+Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Numbers native
 	Tiny.Generated(H3ImageModel.Tiny, H3ImageModel.Prompt, (1, 1, 1), 3, List(Numbers)).Length is 384
 	let size = Target
 	let layout = H3ImageLayout(tags, Pictured, Size(size(1) / 16, size(0) / 16))

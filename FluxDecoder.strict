@@ -65,7 +65,7 @@ Unpatchified(latent Numbers, width Number, channels Number) Numbers slow
 		let row = (position / (2 * width)).Floor
 		let source = (index % channels) * 4 + (row % 2) * 2 + position % 2
 		latent((source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor)
-Entered(latent Numbers, width Number) FeatureMap slow
+Entered(latent Numbers, width Number) FeatureMap native
 	Tiny.Entered(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
 	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
 	let channels = means.Length / 4
@@ -73,7 +73,7 @@ Entered(latent Numbers, width Number) FeatureMap slow
 	let patches = FeatureMap(unpatchified, 2 * width, channels, Layer.Zeros(channels))
 	let quantized = convolutions(0).Projected(patches)
 	convolutions(1).Applied(quantized, quantized.Identity, Activation.Linear)
-Decoded(latent Numbers, width Number) Numbers slow
+Decoded(latent Numbers, width Number) Numbers native
 	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.7881, 0.02)
 	Tiny.Decoded(Latent, 2)(96).IsNearlyEqual(0.9225, 0.02)
 	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.0001)

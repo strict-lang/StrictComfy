@@ -30,7 +30,7 @@ Sampling(options H3ImageOptions) H3ImageResident slow
 	let loaded = Loaded(options)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
-Loaded(options H3ImageOptions) H3ImageModel slow
+Loaded(options H3ImageOptions) H3ImageModel native
 	None.Loaded(Tiny).heads.Length is 6
 	let started = Process.Elapsed
 	logger.Log("Loading H3 Image " + ModelFiles("").Described(options.Checkpoint) + " from disk into memory")
@@ -38,14 +38,14 @@ Loaded(options H3ImageOptions) H3ImageModel slow
 	let report = H3Lora(options.Loras).Report + Staying
 	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + report)
 	loaded
-Decoding(path Text) H3ImageResident slow
+Decoding(path Text) H3ImageResident native
 	Sampled.Decoding(Tiny.Decoder).vae.decoders.Length is 1
 	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).vae.decoderFile is Tiny.Decoder
 	if vae.IsDecoding(path)
 		return value
 	logger.Log("Loading the H3 Image decoder " + ModelFiles("").Described(path) + Staying)
 	H3ImageResident(value, vae = vae.Decoding(path))
-Picturing(path Text) H3ImageResident slow
+Picturing(path Text) H3ImageResident native
 	Sampled.Picturing(H3VaeEncoder.Model.path).vae.pictures.Length is 1
 	if vae.IsPicturing(path)
 		return value
@@ -63,14 +63,14 @@ Referencing(image H3Image) H3ImageResident slow
 		return H3ImageResident(value, references = List(Numbers), referenceKey = "")
 	let picturing = Picturing(image.options.VaeEncoder)
 	H3ImageResident(picturing, references = image.Referenced(picturing.vae.pictures.First), referenceKey = key)
-Seeing(files H3Files) H3ImageResident slow
+Seeing(files H3Files) H3ImageResident native
 	Encoded.Seeing(TinyFiles).visions.Length is 0
 	if files.Images.Length is 0 or visions.Length is 1
 		return value
 	logger.Log("Loading the vision encoder of " + ModelFiles("").Described(files.Encoder) + Staying)
 	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
 	H3ImageResident(value, visions = List(QwenVision) + vision)
-Encoding(files H3Files) H3ImageResident slow
+Encoding(files H3Files) H3ImageResident native
 	Encoded.encoders.Length is 1 and Encoded.tokenizers.Length is 1
 	Encoded.Encoding(TinyFiles).encoderFile is Encoded.encoderFile
 	if files.Encoder is encoderFile and encoders.Length is 1
@@ -82,7 +82,7 @@ Encoding(files H3Files) H3ImageResident slow
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s" + Staying)
 	let encoded = H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder)
 	H3ImageResident(encoded, tokenizers = List(Gpt2Tokens) + encoder.Tokenizer, visions = List(QwenVision))
-Trimmed(options H3ImageOptions) H3ImageResident slow
+Trimmed(options H3ImageOptions) H3ImageResident native
 	Encoded.Trimmed(Tiny).encoders.Length is (Crowded then 0 else 1)
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
 	if GpuMemory.Held + GpuMemory.Available < File(options.Checkpoint).Length + File(encoderFile).Length

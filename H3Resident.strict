@@ -94,7 +94,7 @@ IsSampling(checkpoint Text, loras Text) Boolean
 	Sampled.IsSampling("tinyh3.safetensors", "a=1") is false
 	None.IsSampling("tinyh3.safetensors", "") is false
 	Key(checkpoint, loras) is model and samplers.Length is 1
-Decoding(files Texts) H3Resident slow
+Decoding(files Texts) H3Resident native
 	Sampled.Decoding(Decoders).decodings.Length is 1
 	Sampled.Decoding(Decoders).Decoding(Decoders).vaes is Text.Combine(Decoders, "|")
 	if Text.Combine(files, "|") is vaes and decodings.Length is 1

@@ -2,7 +2,7 @@ has path Text
 constant Tiny = MossGguf("tinymoss.gguf")
 constant Opened = Tiny.Loaded
 constant Forward = Opened.Output(Moss.Model.Values("reference.x"), 0.75, Opened.TextEmbedded(Moss.Context, 3), MossBlock.Rotation)
-Loaded Moss slow
+Loaded Moss native
 	Opened.texts.Length is 2
 	Forward(5).IsNearlyEqual(-0.5156, 0.05)
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)

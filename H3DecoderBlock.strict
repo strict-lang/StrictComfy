@@ -47,11 +47,11 @@ Biases(batch Batch, order Numbers) Numbers slow
 	Tiny.Biases(Batch(((1), (2)), (3, 4)), (1, 0)) is (4, 3)
 	for order
 		batch.biases(value)
-Output(input Numbers, rotation Numbers) Numbers slow
+Output(input Numbers, rotation Numbers) Numbers native
 	Tiny.Output(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
 	let attended = Scaled(input, Attended(H3Block.Normalized(input, firstNorm), rotation), firstScale)
 	Scaled(attended, Fed(H3Block.Normalized(attended, secondNorm)), secondScale)
-Attended(normed Numbers, rotation Numbers) Numbers slow
+Attended(normed Numbers, rotation Numbers) Numbers native
 	Tiny.Attended(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
 	let combined = Projected(attention, normed)
 	let width = combined.Length / (rotation.Length / 2 / Decoding.head) / 3
@@ -90,7 +90,7 @@ Narrowed(numbers Numbers) Numbers slow
 	Tiny.Narrowed(Layer.Zeros(128)).Length is 64
 	for numbers.Length / 2
 		numbers((index / Decoding.head).Floor * 2 * Decoding.head + index % Decoding.head)
-Fed(normed Numbers) Numbers slow
+Fed(normed Numbers) Numbers native
 	Tiny.Fed(H3Decoder.Embedding).Length is 8448
 	Projected(down, H3Block.Activated(Projected(up, normed), down.weights.First.Length))
 Scaled(input Numbers, update Numbers, scale Numbers) Numbers slow

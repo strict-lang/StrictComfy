@@ -31,7 +31,7 @@ Coord(step Number) Number
 	Tiny.Coord(7) is 1
 	MossSpectrum(Tiny, steps = 1).Coord(0) is 0
 	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
-Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum slow
+Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum native
 	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, MossBlock.Rotation, 0).output.Length is 256
 	let vector = moss.TimeEmbedded(sigma)
 	if mode is "off"

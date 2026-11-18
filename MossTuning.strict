@@ -8,7 +8,7 @@ constant Unmerged = MossBlock.Loaded(Safetensors("tinymossint4.safetensors"), "l
 constant Merging = MossBlock.Loaded(MossBlock.Model, "layers.0.", Lora)
 constant Output = Unmerged.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
 constant Reference = Merging.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
-Deltas List(MossLora) slow
+Deltas List(MossLora) native
 	Fours.Deltas.Length is 4
 	MossTuning(Fours.rows, "").Deltas.Length is 0
 	Floats.Deltas.Length is 0

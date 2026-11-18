@@ -17,7 +17,7 @@ Loaded(model Safetensors, name Text, spacing Number) H3Conv slow
 	let shape = model.Shape(name + ".weight")
 	let offsets = model.Entry(name + ".bias") is not "" then model.Values(name + ".bias") else Layer.Zeros(shape(0))
 	H3Conv(model.Values(name + ".weight"), offsets, shape(2), spacing)
-Output(signal Numbers) Numbers slow
+Output(signal Numbers) Numbers native
 	Pre.Output(Entered).Length is 512
 	Pre.Output(Entered)(133).IsNearlyEqual(Model.Values("reference.conv_pre")(21), 0.01)
 	let inputs = weights.Length / biases.Length / kernel
@@ -38,7 +38,7 @@ Biased(values Numbers) Numbers
 	H3Conv(List(Number), (1, 2), 1, 1).Biased((0, 0, 1, 1)) is (1, 2, 2, 3)
 	for values
 		value + biases(index % biases.Length)
-Upsampled(signal Numbers, stride Number) Numbers slow
+Upsampled(signal Numbers, stride Number) Numbers native
 	Pair.Upsampled((3, 4), 2) is (3, 6, 4, 8)
 	Up.Upsampled(Raised, 5).Length is 1280
 	Up.Upsampled(Raised, 5)(451).IsNearlyEqual(Model.Values("reference.ups.0")(67), 0.01)

@@ -27,7 +27,7 @@ Dense(block Safetensors, name Text) Batch slow
 	Tiny.Dense(Model, "final_linear_video").biases is (0)
 	let biased = block.Entry(name + ".bias") is not ""
 	Batch(block.Rows(name + ".weight"), biased then block.Values(name + ".bias") else List(Number) + 0)
-Output(input Numbers, rotation Numbers) Numbers slow
+Output(input Numbers, rotation Numbers) Numbers native
 	Tiny.Output(Input, MossBlock.Rotations(0, 0, 3, 128)).Length is 768
 	let normed = Qwen3Block.Normalized(input, 0, input.Length, firstNorm)
 	let attended = Added(input, projection.Sums(MossBlock.Merged(attention.Sums(normed), rotation, queryNorm, keyNorm)))

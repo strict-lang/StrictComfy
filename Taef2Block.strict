@@ -24,7 +24,7 @@ Convolutions(block Safetensors) List(Convolution) slow
 	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
 	for (0, 2, 4)
 		FluxResnet.Convolved(block, "conv." + value)
-Output(map FeatureMap) FeatureMap slow
+Output(map FeatureMap) FeatureMap native
 	Pooling.Output(Entered).values(0).IsNearlyEqual(1.2786, 0.001)
 	Pooling.Output(Entered).values(1).IsNearlyEqual(0.02821, 0.001)
 	let input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
@@ -32,7 +32,7 @@ Output(map FeatureMap) FeatureMap slow
 	let second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
 	let shortcut = skip.weights.Length is 0 then input else skip.Projected(input)
 	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
-Remembered(map FeatureMap, past FeatureMap) FeatureMap slow
+Remembered(map FeatureMap, past FeatureMap) FeatureMap native
 	Taeh3Decoder.Tiny.blocks.First.Remembered(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
 	let doubled = 2 * map.channels
 	let joined = FeatureMap(Joined(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))

@@ -10,7 +10,7 @@ constant TimeDown = (1, 2, 2, 1, 1, 1)
 constant Taps = 3
 constant Pair = ((1, 2), (3, 4))
 constant Zero = List(Number) + 0
-Loaded(model Safetensors) H3ClipEncoder slow
+Loaded(model Safetensors) H3ClipEncoder native
 	Tiny.entry.weights.Length is 2592
 	Tiny.strides is (1, 2, 2, 1, 1)
 	let still = H3VaeEncoder.Loaded(model)
@@ -20,11 +20,11 @@ Loaded(model Safetensors) H3ClipEncoder slow
 	let entered = Stacked(model, "encoder.conv_in")
 	let exited = Stacked(model, "encoder.conv_out")
 	H3ClipEncoder(still, entered, befores, afters, Downsamples(model, names), Strides(names), exited)
-Stacks(model Safetensors, names Texts, convolution Text) List(Convolution) slow
+Stacks(model Safetensors, names Texts, convolution Text) List(Convolution) native
 	Tiny.Stacks(H3VaeEncoder.Model, List(Text) + "0.block.0", "conv1").First.biases.Length is 32
 	for names
 		Stacked(model, "encoder.down." + value + "." + convolution)
-Downsamples(model Safetensors, names Texts) List(Convolution) slow
+Downsamples(model Safetensors, names Texts) List(Convolution) native
 	Tiny.downsamples(3).biases.Length is 64
 	Tiny.downsamples(4).biases.Length is 0
 	for names
@@ -37,7 +37,7 @@ Strides(names Texts) Numbers
 	Tiny.Strides(("0.block.1", "2.block.0")) is (1, 2)
 	for names
 		TimeDown(value.Substring(0, value.IndexOf(".")) to Number)
-Stacked(model Safetensors, name Text) Convolution slow
+Stacked(model Safetensors, name Text) Convolution native
 	Tiny.Stacked(H3VaeEncoder.Model, "encoder.conv_out").biases.Length is 48
 	let shape = model.Shape(name + ".weight")
 	let spread = Spread(model.Values(name + ".weight"), shape)
@@ -118,7 +118,7 @@ Block(at Number, states List(FeatureMap)) List(FeatureMap) slow
 		let source = states(index)
 		outputs = outputs + (block.shortcut.biases.Length is 0 then source else block.shortcut.Projected(source)).Plus(value)
 	outputs
-Moments(frames List(FeatureMap)) List(Numbers) slow
+Moments(frames List(FeatureMap)) List(Numbers) native
 	Tiny.Moments((H3VaeEncoder.Tile, H3VaeEncoder.Tile)).Length is 1
 	Tiny.Moments(List(FeatureMap) + H3VaeEncoder.Tile).First(0).IsNearlyEqual(H3VaeEncoder.Moment(0), 0.01)
 	mutable states = Temporal(entry, frames, encoder.normOut, false, Activation.Linear)

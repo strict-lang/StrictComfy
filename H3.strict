@@ -13,7 +13,7 @@ constant Kept = H3Layout((1, 0, 1), List(Number) + 0, 3, 2, Size(4, 4))
 constant Keyed = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, Kept, Model.Values("i2v.rows"), Tiny.Rotation(Kept))
 constant Fenced = H3(Tiny, blocks = Tiny.blocks + H3Block(Tiny.blocks(0), attention = List(Numbers)))
 constant Word = Prompt.Slice(0, 256)
-Loaded(path Text, loras = "") H3 slow
+Loaded(path Text, loras = "") H3 native
 	Tiny.blocks.Length is 2
 	MossImage(Logger).RelativeError(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
@@ -82,11 +82,11 @@ Routed(routing Number, block Number) Number slow
 Rotation(layout H3Layout) Numbers slow
 	Turned(0) is 1
 	Rope.Video.Table(layout.Positions, inverse, 1)
-Hidden(latent Numbers, sound Numbers, text Numbers, layout H3Layout, conditions Numbers) Numbers slow
+Hidden(latent Numbers, sound Numbers, text Numbers, layout H3Layout, conditions Numbers) Numbers native
 	Tiny.Hidden(Model.Values("video"), Model.Values("audio"), Prompt, H3Layout.Tiny, List(Number)).Length is 4352
 	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
 	kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
-Ran(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Numbers slow
+Ran(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Numbers native
 	Tiny.Ran(Prompt, Prompt, Prompt, Turned, H3Layout.Tiny, 1, 1) is Prompt
 	Fenced.Ran(Word, Word.Slice(0, 8), List(Number) + 0, Turned.Slice(0, 256), H3Layout.Tiny, 0, 2).Length is 256
 	mutable state = hidden

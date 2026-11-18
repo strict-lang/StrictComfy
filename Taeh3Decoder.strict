@@ -48,7 +48,7 @@ Decoded(latent Numbers, width Number) Numbers slow
 	Pixels(1537).IsNearlyEqual(Reference(1537), 0.002) and Pixels(3071).IsNearlyEqual(Reference(3071), 0.002)
 	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
 	Shuffled(Patched(latent, width), 8 * width)
-Patched(latent Numbers, width Number) Numbers slow
+Patched(latent Numbers, width Number) Numbers native
 	Tiny.Patched(Latent, 3).Length is 4608
 	let first = Passed(List(FeatureMap) + Entered(latent, width), 0).First
 	let second = Passed(List(FeatureMap) + narrows(0).Doubled(Grown(first, 0, 0)), 1).First
@@ -82,7 +82,7 @@ Entered(latent Numbers, width Number) FeatureMap slow
 	let clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
 	let map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
 	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
-Passed(maps List(FeatureMap), group Number) List(FeatureMap) slow
+Passed(maps List(FeatureMap), group Number) List(FeatureMap) native
 	Tiny.Passed(List(FeatureMap) + Started, 0).First.channels is 8
 	Tiny.Passed(List(FeatureMap) + Narrow + Narrow, 2).Last.values.Length is 16
 	mutable state = maps

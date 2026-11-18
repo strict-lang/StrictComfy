@@ -37,7 +37,7 @@ Visions List(QwenVision) slow
 	Seeing.Visions.First.deepstacks.Length is 3
 	for files.Images.Length.Clamp(0, 1)
 		QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
-Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, pictures List(Numbers)) Numbers slow
+Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, pictures List(Numbers)) Numbers native
 	Tiny.Contexts(Tiny.Loaded, List(Numbers) + (1, 2, 3), List(Text) + "", List(Text) + Written, List(Numbers)) is (192)
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
 	Safetensors(Written).Values("tags") is (1, 1, 1)
@@ -53,7 +53,7 @@ Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	Tiny.Texts(List(Numbers), (1, 2)) is List(Numbers) + (1, 2)
 	Tiny.Texts(List(Numbers) + (5, 151652), (1, 2)) is ((5, 151652), (151653, 1, 2))
 	pictures.Length is 0 then List(Numbers) + chosen else pictures + (List(Number) + H3Qwen.VisionEnd + chosen)
-Hidden(encoder Qwen3, texts List(Numbers), image Text) Numbers slow
+Hidden(encoder Qwen3, texts List(Numbers), image Text) Numbers native
 	Tiny.Hidden(Tiny.Loaded, List(Numbers) + (1, 2, 3), "").Length is 192
 	Imaged.Hidden(Imaged.Loaded, ((1, 2), (3, 4, 5)), "tinyframe.png").Length is 704
 	if texts.Length is 1

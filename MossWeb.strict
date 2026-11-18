@@ -116,7 +116,7 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	let width = options.width / 16
 	let image = decoders.Length is 0 then previewer.Decoded(latent, width) else decoders.First.Decoded(latent, width)
 	batch.Saved(image, decoded, words(0) to Number, "", "MossWeb.jpg")
-Decoders(decoder Text) List(FluxDecoder) slow
+Decoders(decoder Text) List(FluxDecoder) native
 	MossWeb(Logger).Decoders("taef2").Length is 0
 	MossWeb(Logger).Decoders("tinyvae").Length is 1
 	decoder is "taef2" then List(FluxDecoder) else List(FluxDecoder) + FluxDecoder.Loaded(decoder + ".safetensors", 32)

@@ -7,7 +7,7 @@ constant Finished = 0.999
 constant Frame = H3VaeEncoder.Model.Values("reference.image")
 Loaded(vae Text) H3Clip slow
 	H3Clip(logger, H3ClipEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
-Encoded(frames List(Numbers), size Numbers) Numbers slow
+Encoded(frames List(Numbers), size Numbers) Numbers native
 	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
 	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
 	let boxes = (tiling.Starts(size(0)), tiling.Starts(size(1)))
@@ -39,7 +39,7 @@ Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers)
 		let moments = network.Moments(Pixels(frames, size, box))
 		Reported(progress(0) / progress(1) + (index + 1) * step, step, progress(2))
 		moments
-Reported(fraction Number, step Number, started Number) slow
+Reported(fraction Number, step Number, started Number) native
 	Tiny.Reported(0.3, 0.1, Process.Elapsed) is not Error
 	if (fraction * 4).Floor > ((fraction - step) * 4).Floor and fraction < Finished
 		let elapsed = Process.Elapsed - started

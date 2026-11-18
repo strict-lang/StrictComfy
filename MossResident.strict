@@ -85,7 +85,7 @@ Previewing(batch MossBatch) MossResident slow
 		return value
 	let path = ModelFiles(batch.options.files.models).Located("taef2.safetensors", "vae_approx")
 	path is Error then value else MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
-Decoders(path Text) MossResident slow
+Decoders(path Text) MossResident native
 	MossResident(Logger).Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
 	Unloaded.Decoders("tinytaef2.safetensors").taefs.First is Taef2Decoder.None
 	Unloaded.Decoders("tinyvae.safetensors").fluxes.Length is 1

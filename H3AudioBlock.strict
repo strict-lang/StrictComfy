@@ -16,7 +16,7 @@ Snakes(model Safetensors, prefix Text) List(H3Snake) slow
 	Tiny.Snakes(H3Conv.Model, "decoder.resblocks.0.")(5).alphas.Length is 64
 	for 6
 		H3Snake.Loaded(model, prefix + "activations." + index + ".")
-Output(signal Numbers) Numbers slow
+Output(signal Numbers) Numbers native
 	Tiny.Output(H3Snake.Upsampled)(451).IsNearlyEqual(H3Conv.Model.Values("reference.resblocks.0")(67), 0.005)
 	mutable state = signal
 	for firsts

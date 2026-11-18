@@ -16,7 +16,7 @@ Loaded(file Text, models Text) H3Previewer slow
 	if tiny is Error or Taeh3Decoder.Is(tiny) is false
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
-Written(latent Numbers, shape Numbers) None slow
+Written(latent Numbers, shape Numbers) None native
 	Tiny.Written(Clip, Shape) is not Error
 	File(Tiny.path).Exists
 	if decoders.Length is 0 or latent.Length is 0
