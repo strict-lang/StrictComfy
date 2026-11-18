@@ -24,7 +24,7 @@ Limits Text slow
 	oversized is "" then options.files.Mixed else oversized
 Tokens Number
 	Long.Tokens is 102960
-	Twelve.Tokens is 76560
+	Twelve.Tokens is 72160
 	let shapes = options.Shapes
 	let guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
 	(shapes(0) + guides) * shapes(1) * shapes(2) / 4

@@ -15,15 +15,15 @@ constant SamplePixels = 44
 constant Last = "/last.latent.safetensors"
 constant Note = "/last.latent.txt"
 Total(context Number, added Number) Number
-	Sample.Total(22, 24) is 56
-	Sample.Total(22, 124) is 158
-	Sample.Total(39, 5) is 56
-	((context + added - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5
+	Sample.Total(22, 24) is 39
+	Sample.Total(22, 124) is 141
+	Sample.Total(39, 5) is 39
+	H3Format.Grouped(context + added)
 LatentCount(length Number) Number
 	Sample.LatentCount(22) is 7
 	Sample.LatentCount(39) is 12
 	Sample.LatentCount(90) is 27
-	(((length - 5) / H3Format.FrameGroup).Ceiling * H3Format.FrameGroup + 5 - 5) / H3Format.FrameGroup * 5 + 2
+	(H3Format.Grouped(length) - 5) / H3Format.FrameGroup * 5 + 2
 AudioCount(length Number) Number
 	Sample.AudioCount(22) is 37
 	Sample.AudioCount(39) is 65

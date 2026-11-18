@@ -228,7 +228,7 @@
 <script>
 	const element = id => document.getElementById(id);
 	const snap = n => Math.max(32, Math.floor(Number(n) / 32) * 32);
-	const videoSnap = n => Math.ceil((Number(n) - 5) / 17) * 17 + 5;
+	const videoSnap = n => Math.max(0, Math.floor((Number(n) - 5) / 17)) * 17 + 5;
 	const previewFrames = frames => Math.min(32, (videoSnap(frames) - 5) / 17 * 5 + 2);
 	const mossSteps = { fastest2steps: 2, fastest: 4, faster: 8, fast: 8, best: 8, best25steps: 25, best50steps: 50 };
 	const h3Steps = { fastest2steps: 2, fastest4steps: 4, faster: 8, fast: 8, best: 8 };
