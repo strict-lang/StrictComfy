@@ -85,8 +85,10 @@ Encoding(files H3Files) H3ImageResident native
 Trimmed(options H3ImageOptions) H3ImageResident native
 	Encoded.Trimmed(Tiny).encoders.Length is (Crowded then 0 else 1)
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
-	if GpuMemory.Held + GpuMemory.Available < File(options.Checkpoint).Length + File(encoderFile).Length
+	if GpuMemory.Held + GpuMemory.Available < File(options.Checkpoint).Length
 		GpuMemory.Evicted
+	else if encoderFile is not "" and GpuMemory.Available < File(options.Checkpoint).Length
+		GpuMemory.Released
 	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
 	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	if encoders.Length is 0 or isKept and isCrowded is false

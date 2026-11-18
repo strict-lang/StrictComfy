@@ -3,7 +3,8 @@ constant Sample = H3Inputs(H3Options.Parsed(List(Text)))
 constant Folder = H3Inputs(H3Options.Parsed(("--image", ".", "--count", "2")))
 constant Both = H3Inputs(H3Options.Parsed(("--image", ".", "--last_image", "a.png")))
 constant Pairs = (("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
-constant TooMany = " this GPU handles (3750 per GB of VRAM): above that it gets very slow and the start of the video and its sound break. Use a shorter --length or a smaller size. Past half of that budget a slight slowdown is expected, and past three quarters it might run much slower"
+constant TooMany = " this GPU handles (3750 per GB of VRAM): above that it gets very slow and the start of the video and its sound break. "
+constant Slowdown = "Use a shorter --length or a smaller size. Past half of that budget a slight slowdown is expected, and past three quarters it might run much slower"
 constant Long = H3Inputs(H3Options.Parsed(("--length", "396", "--width", "704", "--height", "1280")))
 constant Twelve = H3Inputs(H3Options.Parsed(("--length", "288", "--width", "704", "--height", "1280")))
 Problem Text slow
@@ -35,7 +36,7 @@ Oversized(budget Number) Text
 	if tokens <= budget
 		return ""
 	let size = options.Fitted.width + "x" + options.Fitted.height + " with " + options.Clip + " frames is " + tokens
-	size + " video tokens, more than the " + budget + TooMany
+	size + " video tokens, more than the " + budget + TooMany + Slowdown
 Images Texts slow
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")

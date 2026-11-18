@@ -5,17 +5,17 @@ constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=wid
 constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
 TailRgb(path Text, context Number, width Number, height Number) Numbers slow
-	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed")
+	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed: missing-clip.mp4")
 	let rgb = path + ".tail.rgb"
 	let seconds = context / H3Format.FramesPerSecond + 1
 	if Process.RunTool("ffmpeg", StrictGenJoin(logger).Extract(path, rgb, (height, width), seconds)).Failed
-		return Error("FfmpegFailed")
+		return Error("FfmpegFailed: " + path)
 	let frame = width * height * 3
 	let raw = Scaled(File(rgb).ReadBytes)
 	File(rgb).Delete
 	let count = raw.Length / frame
 	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
-	last.Length < context * frame then Error("ShortVideo") else last
+	last.Length < context * frame then Error("ShortVideo: " + context) else last
 TailPcm(path Text, seconds Number) Numbers slow
 	Sample.TailPcm("missing-clip.mp4", 2).Length is 128000
 	let pcm = path + ".tail.pcm"

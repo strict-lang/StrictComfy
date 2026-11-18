@@ -21,7 +21,7 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossRe
 	batch.options.files.Eased
 	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
 	let made = batch.Images(decoding, seeds, prompts, c)
-	batch.options.files.Freed
+	batch.options.files.Eased
 	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)
 Warmed(kept MossResident) MossResident slow

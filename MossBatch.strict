@@ -69,7 +69,7 @@ Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Te
 Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Text slow
 	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
-		ImageSaver(path).Save(Image(Size(options.width, options.height), FluxImage(logger).Colors(image)))
+		ImageCodec.SavePng(path, Rgba(image), options.width)
 	else
 		ImageCodec.SaveJpeg(path, image, options.width, JpegQuality)
 	if options.JsonOutput
@@ -77,6 +77,11 @@ Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, dec
 	let decoded = decoding > 0 then ", decoded in " + (decoding * 1000).Round + " ms" else ""
 	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms" + decoded)
 	path
+Rgba(rgb Numbers) Numbers
+	Sample.Rgba((0.2, 0.4, 0.6)) is (0.2, 0.4, 0.6, 1)
+	for rgb.Length / 3 * 4
+		let channel = index % 4
+		channel is 3 then 1 else rgb((index / 4).Floor * 3 + channel)
 Described(seed Number, prompt Text) Text slow
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")
 	let sampling = options.Sampling(Logger)

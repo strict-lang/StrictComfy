@@ -65,10 +65,11 @@ Workflow Text slow
 	ModelFiles(models).Workflow(workflow)
 Freed slow
 	Encoding.Freed is not Error
-	if GpuMemory.Held + GpuMemory.Available > File(Checkpoint).Length + File(Encoder).Length
-		GpuMemory.Released
-	else
+	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
 		GpuMemory.Evicted
+	else
+		GpuMemory.Released
+		GpuMemory.Freed(Spare)
 Eased slow
 	Encoding.Eased is not Error
 	if GpuMemory.Available < Spare

@@ -7,6 +7,7 @@ constant Decodes = (0.02, 0.08, 0.22)
 constant BaseSeconds = 0.15
 constant BaseTokens = 3520
 constant Growth = 1.25
+constant MaxCrowd = 1.6
 constant ShortInSeconds = 10
 constant Default = MossEstimate(MossOptions.Parsed(List(Text)))
 constant Fast = MossEstimate(MossOptions.Parsed(("--quality", "fast")))
@@ -50,7 +51,7 @@ StepSeconds(tokens Number, budget Number) Number
 	Default.StepSeconds(10000, 18000).Round(2) is 0.55
 	Large.StepSeconds(16384, 18000).Round(1) is 1.3
 	let knee = budget * 3 / 4
-	let crowd = tokens > knee then ((tokens / knee) ^ Growth).Clamp(1, 1.6) else 1
+	let crowd = tokens > knee then ((tokens / knee) ^ Growth).Clamp(1, MaxCrowd) else 1
 	BaseSeconds * (tokens / BaseTokens) ^ Growth * crowd
 Lasting(seconds Number) Text
 	Default.Lasting(0.97) is "1 s"

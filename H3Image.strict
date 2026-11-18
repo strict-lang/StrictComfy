@@ -130,7 +130,7 @@ Written(path Text, pixels Numbers, size Numbers)
 	Tiny.Written("artifacts/H3ImageTest.png", (0, 1, 0.5, 0.25, 0, 1), (1, 2)) is not Error
 	let interleaved = Interleaved(pixels, size(0) * size(1))
 	if path.Lower.EndsWith(".png")
-		ImageSaver(path).Save(Image(Size(size(1), size(0)), FluxImage(logger).Colors(interleaved)))
+		ImageCodec.SavePng(path, MossBatch.Sample.Rgba(interleaved), size(1))
 	else
 		ImageCodec.SaveJpeg(path, interleaved, size(1), MossBatch.JpegQuality)
 Interleaved(pixels Numbers, plane Number) Numbers

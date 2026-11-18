@@ -65,7 +65,7 @@ Turned(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) S
 Ended(reason Text) Number slow
 	StrictGenJob.StopAll
 	if reason is StrictGenQueue.Quitting
-		return Error("StrictGenStopped")
+		return Error("StrictGenStopped: " + reason)
 	logger.Log(Broken(reason))
 	Error("GarbageCollectionExceedsLimit")
 Broken(reason Text) Text
