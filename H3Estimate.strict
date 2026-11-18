@@ -24,7 +24,7 @@ Local Number slow
 	Budget(MachineUse(Logger, "H3Video", 0, 0).Device(0))
 Estimate(budget Number) Text
 	Small.Estimate(90000) is "Sampling roughly 6 x 2.1 s = 13 s, 14k of 90k video tokens"
-	Twelve.Estimate(90000).EndsWith("77k of 90k video tokens, past half the VRAM budget, every step gets much slower")
+	Twelve.Estimate(90000).EndsWith("77k of 90k video tokens, might run much slower")
 	let tokens = H3Inputs(options).Tokens
 	let factor = Factors(options.quality) * options.Evaluated / options.Preset.First
 	let step = StepSeconds(tokens, budget)
@@ -39,11 +39,15 @@ StepSeconds(tokens Number, budget Number) Number
 	BaseSeconds * (tokens / BaseTokens) ^ Growth * crowded
 Caution(tokens Number, budget Number) Text
 	Small.Caution(100, 90) is ", more than this GPU handles, H3 refuses it"
-	Small.Caution(50, 90) is ", past half the VRAM budget, every step gets much slower"
+	Small.Caution(68, 90) is ", might run much slower"
+	Small.Caution(50, 90) is ", slight slowdown expected"
+	Small.Caution(45, 90) is ", slight slowdown expected"
 	Small.Caution(40, 90) is ""
 	if tokens > budget
 		return ", more than this GPU handles, H3 refuses it"
-	tokens > budget / 2 then ", past half the VRAM budget, every step gets much slower" else ""
+	if tokens >= budget * 3 / 4
+		return ", might run much slower"
+	tokens >= budget / 2 then ", slight slowdown expected" else ""
 Lasting(seconds Number) Text
 	Small.Lasting(29.4) is "29 s"
 	Small.Lasting(150) is "2.5 min"

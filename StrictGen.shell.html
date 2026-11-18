@@ -416,7 +416,7 @@
 			if (state.estimated !== query) return;
 			shown.textContent = text;
 			shown.classList.toggle("hidden", !text);
-			shown.classList.toggle("calm", !/half|refuses/.test(text));
+			shown.classList.toggle("calm", !/refuses|much slower|very slow|out of memory/.test(text));
 		}).catch(() => { });
 	};
 	const note = () => {

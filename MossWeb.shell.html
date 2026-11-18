@@ -504,13 +504,14 @@
 	const baseTokens = 1590;
 	const factors = { best: 8, fast: 5, faster: 4, fastest: 3, fastest2steps: 2 };
 	const decodes = { taef2: 0.1, "flux2-small-vae": 0.8, "flux2-vae": 2.0 };
-	let baseStep = roomy === 2 ? 0.8 : roomy === 1 ? 1.0 : isMobile ? 25 : 2.2;
-	const budget = isMobile ? 900 : roomy === 2 ? 9000 : roomy === 1 ? 7200 : 3600;
+	// S25 Ultra, fastest, taef2, before a saved run: 240p about 16 s, 368p about 1 min, 480p about 2 min
+	let baseStep = roomy === 2 ? 0.8 : roomy === 1 ? 1.0 : isMobile ? 41 : 2.2;
+	const budget = isMobile ? 4000 : roomy === 2 ? 9000 : roomy === 1 ? 7200 : 3600;
 	let measured = null;
 	try { measured = JSON.parse(localStorage.getItem("mossweb-pace")); } catch { measured = null; }
 	if (!measured || !(measured.seconds > 0) || !(measured.tokens > 0) || !(measured.factor > 0)) measured = null;
-	const growth = tokens => Math.pow(tokens / baseTokens, 1.25);
-	const crowdedBy = tokens => { const knee = budget / 2; return tokens > knee ? Math.pow(tokens / knee, 2) : 1; };
+	const growth = tokens => Math.pow(tokens / baseTokens, isMobile ? 1.5 : 1.25);
+	const crowdedBy = tokens => { const knee = budget * 0.75; return tokens > knee ? Math.min(1.6, Math.pow(tokens / knee, 1.25)) : 1; };
 	const decodeSeconds = (vae, tokens) => (decodes[vae] || 0.1) * Math.pow(tokens / baseTokens, vae === "flux2-vae" ? 1.3 : 1) * (vae === "flux2-vae" && tokens > 2500 ? 1.5 : 1);
 	const lasting = seconds => seconds < 10 ? seconds.toFixed(1).replace(/\.0$/, "") + " s" : seconds < 90 ? Math.round(seconds) + " s" : (seconds / 60).toFixed(1) + " min";
 	const round = value => value < 1 ? value.toFixed(2).replace(/0$/, "") : value.toFixed(1).replace(/\.0$/, "");
@@ -522,7 +523,7 @@
 		estimate();
 	};
 	const estimate = () => {
-		const [width, height] = size.value.split(" ").map(Number), side = Math.min(width, height);
+		const [width, height] = size.value.split(" ").map(Number);
 		const tokens = width / 16 * (height / 16), crowded = crowdedBy(tokens);
 		const factor = factors[quality.value] || 3;
 		let unit = baseStep;
@@ -531,16 +532,16 @@
 			unit = sample / (measured.factor * growth(measured.tokens) * crowdedBy(measured.tokens));
 		}
 		const step = unit * growth(tokens) * crowded, vae = decoder.value, decode = decodeSeconds(vae, tokens);
-		const mobileNote = isMobile && side > 240 ? ", above 240p a phone takes a minute or more and can run out of memory, mostly in the last step: reloading the page or closing other apps helps" : "";
-		const vaeNote = !mobileNote && vae === "flux2-vae" && tokens > 2500 ? ", flux2-vae has finer details but needs a lot of browser memory at this size (taef2 is much faster)" : "";
-		const caution = mobileNote || (tokens > budget ? ", more than a browser tab handles on this GPU, use a smaller size or the desktop version"
-			: tokens > budget / 2 ? ", past half the browser GPU budget, every step gets much slower" : vaeNote);
+		const mobileNote = isMobile && tokens > 1800 ? ", above 480p a phone gets much slower and can run out of memory, mostly in the last step: a smaller size stays quick, and reloading the page or closing other apps helps" : "";
+		const vaeNote = vae === "flux2-vae" && tokens > 2500 ? ", flux2-vae has finer details but needs a lot of browser memory at this size (taef2 is much faster)" : "";
+		const caution = tokens > budget ? ", more than a browser tab handles on this GPU, it might run out of memory: use a smaller size or the desktop version"
+			: mobileNote || (tokens >= budget * 0.75 ? ", might run much slower" : tokens >= budget * 0.5 ? ", slight slowdown expected" : vaeNote);
 		const thousands = value => (value / 1000).toFixed(1).replace(/\.0$/, "");
 		const note = element("sizenote");
 		note.textContent = factor + " x " + round(step) + " s + " + round(decode) + " s " + vae + " = " + lasting(factor * step + decode)
 			+ ", " + thousands(tokens) + "k/" + thousands(budget) + "k" + (measured ? ", from " + (gpuLabel || "last image") : "") + caution;
 		note.title = note.textContent;
-		note.classList.toggle("calm", !caution);
+		note.classList.toggle("calm", caution === "" || caution.startsWith(", slight"));
 	};
 	size.onchange = () => {
 		if (!began.isRunning) framed = size.value;
