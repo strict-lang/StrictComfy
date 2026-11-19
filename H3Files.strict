@@ -62,9 +62,10 @@ Workflow Text slow
 	H3Files.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
 Cropped(index Number) Boolean
-	H3Files.Parsed(List(Text)).Cropped(1)
+	H3Files.Parsed(("--crop=false")).Cropped(1)
 	H3Files.Parsed(List(Text)).Cropped(0)
 	H3Files.Parsed(("--crop=false")).Cropped(0) is false
+	H3Files.Parsed(("--upscale", "false")).Upscale is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or index is 1
 Problem Text slow

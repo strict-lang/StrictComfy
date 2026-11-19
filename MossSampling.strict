@@ -32,13 +32,40 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 	mutable positive = State
 	mutable unconditional = State
 	mutable latent = noise
+	mutable stamps = List(Number) + (preview is "" then GpuMemory.Stamped else -1)
+	mutable times = List(Number) + started
+	mutable logged = 0
 	for steps
 		positive = positive.Advanced(moss, latent, sigmas(index), text, rotation, index)
 		unconditional = Unconditioned(unconditional, moss, latent, sigmas(index), negative, rotation, index)
 		latent = Euler(steps, 5).Stepped(latent, Guided(positive.output, unconditional.output), sigmas, index)
-		previous = Progressed(index, started, previous, latent, positive.output, sigmas(index + 1))
-	logger.Log(Summary(label, previous - started, positive))
+		if preview is ""
+			stamps = stamps + GpuMemory.Stamped
+			times = times + Process.Elapsed
+			logged = Logged(stamps, times, logged, index + 1 >= steps)
+		else
+			previous = Progressed(index, started, previous, latent, positive.output, sigmas(index + 1))
+	let finished = preview is "" then Process.Elapsed else previous
+	logger.Log(Summary(label, finished - started, positive))
 	latent
+Logged(stamps Numbers, times Numbers, logged Number, waiting Boolean) Number slow
+	MossSampling(Logger).Logged((0, 1, 2), (1, 1.5, 2.25), 0, true) is (GpuMemory.Elapsed(0, 1) is -1 then 2 else 2)
+	mutable count = logged
+	for as long as count < times.Length - 1 and (waiting or IsDone(stamps, count))
+		if IsDone(stamps, count)
+			let elapsed = GpuMemory.Elapsed(stamps(count), stamps(count + 1))
+			let total = GpuMemory.Elapsed(stamps(0), stamps(count + 1))
+			let took = elapsed < 0 then times(count + 1) - times(count) else elapsed / 1000
+			let average = total < 0 then (times(count + 1) - times(0)) / (count + 1) else total / 1000 / (count + 1)
+			logger.Log(Progress(count, took, average))
+			count = count + 1
+		else
+			Process.Wait(0.002)
+	count
+IsDone(stamps Numbers, step Number) Boolean
+	MossSampling(Logger).IsDone((-1, 0, 1), 0) is false
+	MossSampling(Logger).IsDone((0, 1, -1), 1)
+	stamps(step + 1) < 0 or GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1
 Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number slow
 	GpuMemory.Finished
 	let now = Process.Elapsed

@@ -21,10 +21,10 @@ Contexts(prompts Texts) List(Numbers) slow
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	Encoded(encoder, ids, prompts)
 Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) List(Numbers) slow
-	for ids
-		let hidden = encoder.Prefilled(value, 0).hidden
+	let hiddens = ids.Length is 1 then List(Numbers) + encoder.Prefilled(ids.First, 0).hidden else encoder.PrefilledBatch(ids)
+	for hiddens
 		logger.Log("Encoded prompt " + (index + 1) + "/" + prompts.Length + ": " + prompts(index))
-		Qwen3Block.Normalized(hidden, 0, hidden.Length, encoder.norm)
+		Qwen3Block.Normalized(value, 0, value.Length, encoder.norm)
 Tokenizer Gpt2Tokens slow
 	Gpt2Tokens.Folder(options.files.Tokenizer)
 Tokenized(tokens Gpt2Tokens, prompts Texts) List(Numbers) slow
