@@ -109,9 +109,7 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	let options = MossOptions.Parsed(("--quality", words(3)) + sized)
 	let batch = MossBatch(logger, options)
 	let sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep.jpg", previewer = previewer)
-	let sampled = Process.Elapsed
 	let latent = batch.Sampled(moss, sampling, words(0) to Number, context, "Image")
-	logger.Log("Sampled in " + (Process.Elapsed - sampled).Round(1) + " s")
 	let decoded = Process.Elapsed
 	let width = options.width / 16
 	let image = decoders.Length is 0 then previewer.Decoded(latent, width) else decoders.First.Decoded(latent, width)
