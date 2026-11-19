@@ -78,9 +78,8 @@ Heads(combined Numbers, rotation Numbers, routing = 0, exact = 0) Attention nati
 	Tiny.Heads(Model.Values("reference.blocks.0.attn.qkv_proj"), Rope.Turning).Merged(8703).IsNearlyEqual(0.490234, 0.02)
 	let size = queryNorm.Length
 	let width = combined.Length / (rotation.Length / 2 / size) / 3
-	let scales = Qwen3Block.Scales(combined, size, Epsilon)
-	let queries = Rope.Video.Rotated(combined, 0, width, queryNorm, rotation, scales)
-	let keys = Rope.Video.Rotated(combined, width, width, keyNorm, rotation, scales)
+	let queries = Rope.Video.Rotated(combined, 0, width, queryNorm, rotation)
+	let keys = Rope.Video.Rotated(combined, width, width, keyNorm, rotation)
 	let values = Batch.Columns(combined, 3 * width, 2 * width, width)
 	Attention(queries, keys, values, width / size, width / size, size, 1, false, 0, 0, true, routing, exact)
 FedForward(normed Numbers, chunk Number) Numbers native
@@ -109,19 +108,11 @@ Activated(expanded Numbers, width Number) BFloat16s slow
 		gate / (1 + (-gate).Exponential) * expanded(first + width)
 Normalized(input Numbers, weights Numbers) Numbers slow
 	Tiny.Normalized((3, 4), (1, 2))(1).IsNearlyEqual(2.262742)
-	let width = weights.Length
-	let scales = Qwen3Block.Scales(input, width, Epsilon)
-	for input.Length
-		input(index) * scales((index / width).Floor) * weights(index % width)
+	RowModulated(input, weights, List(Number), List(Number), 0, Epsilon).Modulated
 Modulated(input Numbers, weights Numbers, modulation Numbers, starts Numbers, part Number) BFloat16s slow
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 0, 1), List(Number) + 0, 0)(1).IsNearlyEqual(4.525483)
 	Tiny.Modulated((3, 4), (1, 2), (9, 9, 0.5, 0, 0, 1), List(Number) + 1, 0)(0).IsNearlyEqual(1.348528)
-	let width = weights.Length
-	let scales = Qwen3Block.Scales(input, width, Epsilon)
-	for input.Length
-		let normed = input(index) * scales((index / width).Floor)
-		let at = (starts((index / width).Floor) + part) * width + index % width
-		normed * weights(index % width) * (1 + modulation(at + width)) + modulation(at)
+	RowModulated(input, weights, modulation, starts, part, Epsilon).Modulated
 Gated(input Numbers, update Numbers, modulation Numbers, starts Numbers, part Number) BFloat16s slow
 	H3Block(Tiny, attentionNorm = (1, 1)).Gated((1, 2), (3, 4), (0, 0, 0, 0, 2, 3), List(Number) + 0, 2) is (7, 14)
 	let width = attentionNorm.Length

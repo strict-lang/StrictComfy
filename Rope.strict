@@ -3,7 +3,7 @@ has half Number
 constant Video = Rope(128, 48)
 constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Turning = Video.Table(H3Layout.Tiny.Positions, H3Layout.Inverse, 1)
-Table(positions Numbers, inverse Numbers, scale Number) Numbers slow
+Table(positions Numbers, inverse Numbers, scale Number) Float32s slow
 	Turning(3329).IsNearlyEqual(-0.869141)
 	Turning(3505).IsNearlyEqual(0.494564)
 	Turning(3748).IsNearlyEqual(-0.999574)
@@ -24,20 +24,17 @@ Turned(at Number, angle Degrees) Number
 	if within >= 2 * half
 		return at < head then 1 else 0
 	at < head then angle.Cos else (within < half then -angle.Sin else angle.Sin)
-Still(tokens Number) Numbers
+Still(tokens Number) Float32s
 	Video.Still(17).Length is 4352
 	Video.Still(17)(129) is 0
 	Video.Still(17)(257) is 1
 	let period = 2 * head
 	for tokens * period
 		index % period < head then 1 else 0
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers, scales Numbers) BFloat16s slow
-	Video.Rotated(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, Turning, Turning, Turning).Length is 8704
-	for combined.Length / 3
-		let token = (index / width).Floor
-		let within = index % head
-		let first = index - within + token * 2 * width + start
-		let scale = scales((first / head).Floor)
-		let paired = within < half then within + half else within < 2 * half then within - half else within
-		let own = combined(first + within) * weights(within) * rotation(token * 2 * head + within)
-		(own + (combined(first + paired) * weights(paired) * rotation((token * 2 + 1) * head + within))) * scale
+Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s slow
+	Video.Rotated(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, H3Block.Tiny.queryNorm, Turning).Length is 8704
+	RopeRotated(combined, start, width, weights, rotation, half, head, H3Block.Epsilon).Rotated
+Even(number Number) Float32s
+	Rope(4, 1).Even(2) is (2, 2, 2, 2)
+	for head
+		number
