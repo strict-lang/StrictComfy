@@ -88,7 +88,7 @@ Mixed Text slow
 	if checkpoint is Error
 		return ""
 	let header = TensorFile.Header(checkpoint)
-	let blocks = H3.Tiny.Named(header, "blocks.").Length
+	let blocks = H3.Named(header, "blocks.").Length
 	let quantized = Quantized(header).Length
 	let kinds = quantized + " int8 and " + (blocks - quantized) + " bf16 or fp16 blocks"
 	let unsupported = " is not supported yet: it mixes " + kinds + ", only models with one kind of blocks work"

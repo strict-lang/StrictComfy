@@ -26,7 +26,7 @@ Sampling(options H3ImageOptions) H3ImageResident slow
 	if key is model and models.Length is 1
 		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
 		return value
-	GpuMemory.Released
+	GpuMemory.Evicted
 	let loaded = Loaded(options)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
@@ -85,16 +85,22 @@ Encoding(files H3Files) H3ImageResident native
 Trimmed(options H3ImageOptions) H3ImageResident native
 	Encoded.Trimmed(Tiny).encoders.Length is (Crowded then 0 else 1)
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
-	if GpuMemory.Held + GpuMemory.Available < File(options.Checkpoint).Length
-		GpuMemory.Evicted
-	else if encoderFile is not "" and GpuMemory.Available < File(options.Checkpoint).Length
-		GpuMemory.Released
+	Fitted(options)
 	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
 	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	if encoders.Length is 0 or isKept and isCrowded is false
 		return value
 	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
 	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", visions = List(QwenVision))
+Fitted(options H3ImageOptions) native
+	Encoded.Fitted(Tiny) is not Error
+	let checkpoint = File(options.Checkpoint).Length
+	if GpuMemory.Held + GpuMemory.Available < checkpoint
+		GpuMemory.Evicted
+	else if options.image is "" and GpuMemory.Held + GpuMemory.Available < checkpoint + File(encoderFile).Length
+		GpuMemory.Freed(File(encoderFile).Length)
+	else if GpuMemory.Available < checkpoint
+		GpuMemory.Released
 Staying Text
 	Kept.Staying.StartsWith(", it stays")
 	H3ImageResident(Logger).Staying is ""

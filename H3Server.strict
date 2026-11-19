@@ -16,7 +16,7 @@ Listened(server Number) Number slow
 		kept = socket is not Error then Trimmed(socket, request, kept) else kept
 		kept = socket is not Error then Replied(socket, request, kept) else kept
 		last = socket is not Error then Process.Elapsed else last
-		kept = backend.Unpressed then kept else H3Resident(kept, code = Backend.Stopped)
+		kept = backend.Unpressed(socket is not Error) then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 	Backend.Clean
 Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
@@ -79,6 +79,6 @@ Ran(socket Number, request Text, kept H3Resident) H3Resident slow
 	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	let unpressed = backend.Unpressed
+	let unpressed = backend.Unpressed(true)
 	backend.Restored(isMoved, home)
 	unpressed then served else H3Resident(kept, code = Backend.Stopped)

@@ -33,7 +33,7 @@ Listened(server Number) Number slow
 		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
 		kept = socket is not Error then Replied(socket, kept) else kept
 		last = socket is not Error then Process.Elapsed else last
-		kept = backend.Unpressed then kept else MossResident(kept, code = Backend.Stopped)
+		kept = backend.Unpressed(socket is not Error) then kept else MossResident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
 	Backend.Clean
 Replied(socket Number, kept MossResident) MossResident slow
@@ -58,7 +58,7 @@ Ran(socket Number, request Text, kept MossResident) MossResident slow
 	let served = MossServed(MossBatch(logger, MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	let unpressed = backend.Unpressed
+	let unpressed = backend.Unpressed(true)
 	backend.Restored(isMoved, home)
 	unpressed then served else MossResident(kept, code = Backend.Stopped)
 Asked(arguments Texts, forced Boolean) Text slow

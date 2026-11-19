@@ -146,10 +146,10 @@ Restored(isMoved Boolean, home Text) slow
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)
-Unpressed Boolean slow
-	Sample.Unpressed
+Unpressed(isBusy = false) Boolean slow
+	Sample.Unpressed and Sample.Unpressed(true)
 	let available = GpuMemory.Available
-	if available > 0 and available < LowDevice
+	if isBusy is false and available > 0 and available < LowDevice
 		GpuMemory.Yielded
 	let reply = Coordinator(logger, coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"

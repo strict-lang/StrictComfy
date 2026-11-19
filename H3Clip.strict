@@ -5,8 +5,6 @@ constant Tiny = H3Clip(Logger, H3ClipEncoder.Tiny, H3Tiles.Tiny)
 constant ClipLength = 17
 constant Finished = 0.999
 constant Frame = H3VaeEncoder.Model.Values("reference.image")
-Loaded(vae Text) H3Clip slow
-	H3Clip(logger, H3ClipEncoder.Loaded(Safetensors(vae, 32)), H3Tiles.Real)
 Encoded(frames List(Numbers), size Numbers) Numbers native
 	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
 	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
