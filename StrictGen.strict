@@ -148,8 +148,5 @@ Page Text slow
 	found is "" then Fallback else Text.Combine(File(found).ReadLines, "\n")
 Located Text slow
 	StrictGen(Logger).Located.EndsWith("StrictGen.shell.html")
-	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
-	for (beside + "/" + Shell, beside + "/../../" + Shell, beside + "/../" + Shell, Shell)
-		if File(value).Exists
-			return value
-	""
+	let local = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/" + Shell
+	File(local).Exists then local else (File(Shell).Exists then Shell else "")
