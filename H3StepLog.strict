@@ -38,14 +38,14 @@ IsDone(step Number) Boolean
 	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0) is (GpuMemory.Elapsed(0, 1) is not -1)
 	H3StepLog(Timed, stamps = (-1, 0, 1)).IsDone(0) is false
 	H3StepLog(Timed, stamps = (0, 1, -1)).IsDone(1)
-	stamps(step + 1) < 0 or GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1
+	StepTimes(stamps, times).IsDone(step)
 Logging(step Number) Number
 	Timed.Logging(1) is 2
 	logger.Log(Line(step, GpuMemory.Elapsed(stamps(step), stamps(step + 1))))
 	step + 1
 Waited(step Number) Number slow
 	Timed.Waited(1) is 1
-	Process.Wait(0.002)
+	Process.Wait(StepTimes.Pause)
 	step
 Line(step Number, took Number) Text
 	Timed.Line(1, -1) is "step 1 750 ms, forecasts 1"
