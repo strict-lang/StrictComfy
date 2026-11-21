@@ -1,0 +1,15 @@
+has loras Text
+constant Rows = Safetensors("tinymoss.safetensors", 32, "layers.0.proj.")
+Started(rows Safetensors, name Text) List(Numbers) slow
+	H3Ahead("").Started(Rows, "o").Length is 0
+	loras is "" or rows.Entry(name + ".comfy_quant") is "" then List(Numbers) else RowsAhead(rows).Started(name)
+Prepared(rows Safetensors, name Text, prefix Text, filled List(Numbers)) List(Numbers) slow
+	H3Ahead("").Prepared(Rows, "o", "", List(Numbers)) is MossBlock.Tiny.output
+	if filled.Length is 0
+		return H3Lora(loras).Merged(rows, name, prefix)
+	let lora = H3Lora(loras).Stacked(prefix + name + ".")
+	let ahead = RowsAhead(rows)
+	if lora.rank is 0
+		return ahead.Finished(filled)
+	let tuned = ahead.Retuned(filled, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
+	tuned.Length > 0 then tuned else H3Lora(loras).Merged(rows, name, prefix)

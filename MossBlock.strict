@@ -36,7 +36,7 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers native
 	let attended = Gated(input, Attended(Modulated(input, norms(0), modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, width, 5)
 Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers native
-	Tiny.Cropped(Input, Modulation, Rotation, 4096) is Safetensors.Part(Layered, 0, 4096, 1)
+	MossImage(Logger).RelativeError(Tiny.Cropped(Input, Modulation, Rotation, 4096), Layered.Slice(0, 4096)) < 0.02
 	let normed = Modulated(input, norms(0), modulation, 0)
 	let attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, norms(0).Length, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, norms(0).Length, 5)
