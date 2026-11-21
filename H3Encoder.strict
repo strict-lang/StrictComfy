@@ -14,16 +14,16 @@ constant Video = H3Encoder(H3Files.Parsed(("--vision", "768")), (832, 480))
 constant Plain = H3Encoder(H3Files.Parsed(("--vision", "off")), (832, 480))
 constant Spelled = Gpt2Tokens.Parsed("{\"<\": 0, \"P\": 1, \"i\": 2, \"c\": 3, \"t\": 4, \"u\": 5, \"r\": 6, \"e\": 7, \"\\u0120\": 8, \"1\": 9, \"2\": 10, \">\": 11, \":\": 12}", List(Text))
 Encoded(prompts Texts, images Texts, paths Texts) Number slow
-	let before = Process.Elapsed
+	before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
-	let encoder = Loaded
+	encoder = Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	EncodedWith(encoder, Tokenizer, prompts, images, paths)
 Tokenizer Gpt2Tokens slow
 	Gpt2Tokens.Folder(files.ComfyUI + "/comfy/text_encoders/qwen25_tokenizer")
 EncodedWith(encoder Qwen3, tokens Gpt2Tokens, prompts Texts, images Texts, paths Texts) Number slow
-	let loaded = visions.Length > 0 then value else H3Encoder(value, visions = Visions)
-	let reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
+	loaded = visions.Length > 0 then value else H3Encoder(value, visions = Visions)
+	reading = ModelFiles("").Prefetching(prefetched, "H3 and its LoRAs")
 	if reading is not ""
 		logger.Log(reading + " while encoding")
 	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
@@ -41,10 +41,10 @@ Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, picture
 	Safetensors(Written).Values("context")(100).IsNearlyEqual(2.307147, 0.02)
 	Safetensors(Written).Values("tags") is (1, 1, 1)
 	for paths
-		let texts = Texts(pictures, chosen(index))
-		let prompt = "prompt " + (index + 1) + "/" + paths.Length
+		texts = Texts(pictures, chosen(index))
+		prompt = "prompt " + (index + 1) + "/" + paths.Length
 		logger.Log("Encoding " + prompt + " on the GPU" + (index is 0 then ", uploading the text encoder into VRAM" else ""))
-		let hidden = Hidden(Qwen3(encoder, progress = "Encoding " + prompt), texts, images(index))
+		hidden = Hidden(Qwen3(encoder, progress = "Encoding " + prompt), texts, images(index))
 		GpuMemory.Finished
 		Safetensors(value).Written(("context", "tags"), (hidden, Tags(texts, hidden.Length / encoder.norm.Length)))
 		hidden.Length
@@ -57,7 +57,7 @@ Hidden(encoder Qwen3, texts List(Numbers), image Text) Numbers native
 	Imaged.Hidden(Imaged.Loaded, ((1, 2), (3, 4, 5)), "tinyframe.png").Length is 704
 	if texts.Length is 1
 		return encoder.Prefilled(texts.First, 0).hidden
-	let seen = Seen(image)
+	seen = Seen(image)
 	Qwen3Images(encoder, visions.First).Prefilled(texts, Frames(image, seen), seen(0), seen(1)).hidden
 Frames(image Text, seen Numbers) List(Numbers) slow
 	Tiny.Frames("", Tiny.frame).Length is 0
@@ -81,13 +81,13 @@ Labels(tokens Gpt2Tokens) List(Numbers)
 Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 	Tiny.Tokens(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens"), ("ab", "")) is ((3), (151643))
 	for prompts
-		let chosen = tokens.Encoded(value)
+		chosen = tokens.Encoded(value)
 		chosen.Length is 0 then List(Number) + H3Qwen.EndOfText else chosen
 Tags(texts List(Numbers), total Number) Numbers
 	Tiny.Tags(List(Numbers) + (5, 6), 2) is (1, 1)
 	Tiny.Tags(((7, 151652), (151653, 8)), 6) is (1, 0, 0, 0, 0, 1)
 	Tiny.Tags(((7, 151652), (151653, 8, 151652), (151653, 9)), 11) is (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
-	let images = texts.Length - 1
+	images = texts.Length - 1
 	mutable text = 0
 	for texts
 		text = text + value.Length
@@ -109,25 +109,25 @@ Viewed(original Numbers) Numbers
 	Plain.Viewed((1792, 1024)) is (832, 480)
 	if files.vision is "off"
 		return frame
-	let box = H3Picture.Cropped(original, frame)
-	let side = (files.vision to Number, (box(1), box(3)).Minimum).Minimum
+	box = H3Picture.Cropped(original, frame)
+	side = (files.vision to Number, (box(1), box(3)).Minimum).Minimum
 	if side < (frame(0), frame(1)).Minimum
 		return frame
-	let high = frame(0) >= frame(1) then side * frame(0) / frame(1) else side
-	let wide = frame(0) >= frame(1) then side else side * frame(1) / frame(0)
+	high = frame(0) >= frame(1) then side * frame(0) / frame(1) else side
+	wide = frame(0) >= frame(1) then side else side * frame(1) / frame(0)
 	(Multiple(high, box(1), frame(0)), Multiple(wide, box(3), frame(1)))
 Multiple(amount Number, cap Number, least Number) Number
 	Video.Multiple(1331.2, 1775, 832) is 1344
-	let nearest = (amount / 32).Round * 32
-	let bounded = nearest > cap then nearest - 32 else nearest
+	nearest = (amount / 32).Round * 32
+	bounded = nearest > cap then nearest - 32 else nearest
 	bounded < least then least else bounded
 Seen(image Text) Numbers
 	Plain.Seen("tinyframe.png") is Plain.frame
-	let path = image is "" then files.lastImage else image
+	path = image is "" then files.lastImage else image
 	if files.vision is "off" or path is ""
 		return frame
-	let first = Viewed((ImageCodec.Height(path), ImageCodec.Width(path)))
+	first = Viewed((ImageCodec.Height(path), ImageCodec.Width(path)))
 	if files.lastImage is "" or image is ""
 		return first
-	let last = Viewed((ImageCodec.Height(files.lastImage), ImageCodec.Width(files.lastImage)))
+	last = Viewed((ImageCodec.Height(files.lastImage), ImageCodec.Width(files.lastImage)))
 	first(0) * first(1) <= last(0) * last(1) then first else last

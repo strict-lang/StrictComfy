@@ -9,7 +9,7 @@ Outputs(folder Text) Texts slow
 	if Directory.Exists(folder) is false
 		return List(Text)
 	for StrictGenForm.Listed(folder, Media)
-		let path = folder + "/" + Path(value).FileName.text
+		path = folder + "/" + Path(value).FileName.text
 		File(path).Modified + "\t" + path + "\t" + File(path).Length
 Listed(kind Text) Texts slow
 	Tiny.Listed("moss").Length is 0
@@ -19,12 +19,12 @@ Listed(kind Text) Texts slow
 	Models(kind)
 Models(kind Text) Texts slow
 	Tiny.Models("h3").Length is 0
-	let folder = ModelFiles(models).Folder + "/diffusion_models"
+	folder = ModelFiles(models).Folder + "/diffusion_models"
 	if Directory.Exists(folder) is false
 		return List(Text)
 	mutable names = List(Mutable(Text))
 	for StrictGenForm.Listed(folder, Extensions)
-		let name = Path(value).FileName.text
+		name = Path(value).FileName.text
 		if Kind(folder + "/" + name) is kind
 			names.Add(name)
 	names
@@ -34,15 +34,15 @@ Kind(path Text) Text slow
 	Tiny.Kind("tinyh3image.safetensors") is "h3image" and Tiny.Kind("tinyvae.safetensors") is ""
 	if path.Lower.EndsWith(".gguf")
 		return path.Lower.IndexOf("moss") >= 0 then "moss" else ""
-	let header = TensorFile.Header(path)
+	header = TensorFile.Header(path)
 	if header.IndexOf("shared_block_modulation") >= 0
 		return "moss"
 	header.IndexOf("adaln_t_table") < 0 then "" else (header.IndexOf("audio_patch_proj") >= 0 then "h3" else "h3image")
 Loras(model Text) Texts slow
 	Tiny.Loras("moss").Length is 0
 	Tiny.Loras("h3").Length is 0
-	let folder = ModelFiles(models).Folder + "/loras/" + model
-	let named = Directory.Exists(folder) then Named(folder, model + "/") else List(Text)
+	folder = ModelFiles(models).Folder + "/loras/" + model
+	named = Directory.Exists(folder) then Named(folder, model + "/") else List(Text)
 	model is "h3" then named + Named(ModelFiles(models).Folder + "/hyperflow", "") else named
 Named(folder Text, prefix Text) Texts slow
 	Tiny.Named("missing", "a/").Length is 0

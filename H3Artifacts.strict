@@ -7,9 +7,9 @@ Cached(prompts Texts, images Texts) Texts
 	Sample.Cached(("a", "a"), ("", "tinyframe.png")).First is not Sample.Cached(("a", "a"), ("", "tinyframe.png")).Last
 	Sample.Cached(List(Text) + "a", List(Text) + "").First.EndsWith("/context-876170803-1.safetensors")
 	Custom.Cached(List(Text) + "a", List(Text) + "") is not Sample.Cached(List(Text) + "a", List(Text) + "")
-	let named = options.files.textEncoder is "" then H3Batch.Encoder else options.files.textEncoder
+	named = options.files.textEncoder is "" then H3Batch.Encoder else options.files.textEncoder
 	for prompts
-		let identity = named + Text.Combine(Pictures(images(index)), "") + "\n"
+		identity = named + Text.Combine(Pictures(images(index)), "") + "\n"
 		Folder + "/context-" + HashCode(identity + value).number + "-" + value.Length + ".safetensors"
 Pictures(image Text) Texts
 	Sample.Pictures("").Length is 0
@@ -20,10 +20,10 @@ Pictures(image Text) Texts
 			" " + value + " " + File(value).Length + " " + Mark(value)
 Mark(path Text) Text
 	Sample.Mark("tinyframe.png").IndexOf("768") > 0
-	let height = ImageCodec.Height(path)
+	height = ImageCodec.Height(path)
 	if height is Error
 		return " " + options.files.vision + " " + options.width + "x" + options.height
-	let seen = H3Encoder(options.files, (options.height, options.width)).Viewed((height, ImageCodec.Width(path)))
+	seen = H3Encoder(options.files, (options.height, options.width)).Viewed((height, ImageCodec.Width(path)))
 	" " + options.files.vision + " " + seen(1) + "x" + seen(0)
 Missing(paths Texts) Numbers slow
 	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0

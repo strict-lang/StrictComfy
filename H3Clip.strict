@@ -7,11 +7,11 @@ constant Frame = H3VaeEncoder.Model.Values("reference.image")
 Encoded(frames List(Numbers), size Numbers) Numbers native
 	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
 	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
-	let boxes = (tiling.Starts(size(0)), tiling.Starts(size(1)))
-	let started = Process.Elapsed
+	boxes = (tiling.Starts(size(0)), tiling.Starts(size(1)))
+	started = Process.Elapsed
 	mutable latents = List(Numbers)
 	for Clips(frames.Length)
-		let part = frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength))
+		part = frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength))
 		latents = latents + Latents(part, size, boxes, (value, frames.Length, started))
 	Ordered(latents)
 Clips(count Number) Numbers
@@ -20,27 +20,27 @@ Clips(count Number) Numbers
 	for (count / ClipLength).Ceiling
 		index * ClipLength
 Latents(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers) List(Numbers) slow
-	let picture = H3Picture(network.encoder, tiling)
-	let tiles = Tiles(frames, size, boxes, progress)
+	picture = H3Picture(network.encoder, tiling)
+	tiles = Tiles(frames, size, boxes, progress)
 	for tiles.First.Length
 		picture.Normalized(Column(tiles, index), boxes(0), boxes(1), size, List(Number))
 Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers) List(List(Numbers)) slow
-	let ys = boxes(0)
-	let xs = boxes(1)
-	let count = ys.Length * xs.Length
-	let step = frames.Length / count / progress(1)
-	let tall = tiling.Length(size(0))
-	let wide = tiling.Length(size(1))
+	ys = boxes(0)
+	xs = boxes(1)
+	count = ys.Length * xs.Length
+	step = frames.Length / count / progress(1)
+	tall = tiling.Length(size(0))
+	wide = tiling.Length(size(1))
 	for count
-		let box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
-		let moments = network.Moments(Pixels(frames, size, box))
+		box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
+		moments = network.Moments(Pixels(frames, size, box))
 		Reported(progress(0) / progress(1) + (index + 1) * step, step, progress(2))
 		moments
 Reported(fraction Number, step Number, started Number) native
 	Tiny.Reported(0.3, 0.1, Process.Elapsed) is not Error
 	if (fraction * 4).Floor > ((fraction - step) * 4).Floor and fraction < Finished
-		let elapsed = Process.Elapsed - started
-		let estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
+		elapsed = Process.Elapsed - started
+		estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
 		logger.Log("Encoding the video context " + (fraction * 100).Round + "% " + estimate)
 Pixels(frames List(Numbers), size Numbers, box Numbers) List(FeatureMap)
 	for frames
@@ -52,19 +52,19 @@ Column(tiles List(List(Numbers)), at Number) List(Numbers)
 Ordered(latents List(Numbers)) Numbers
 	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(1) is 100
 	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(2) is 1
-	let plane = latents.First.Length / H3Format.Channels
-	let count = latents.Length
-	let volume = count * plane
+	plane = latents.First.Length / H3Format.Channels
+	count = latents.Length
+	volume = count * plane
 	for count * latents.First.Length
-		let channel = (index / volume).Floor
+		channel = (index / volume).Floor
 		latents((index / plane).Floor % count)(channel * plane + index % plane)
 Frames(rgb Numbers, count Number, width Number, height Number) List(Numbers)
 	Tiny.Frames((1, 2, 3, 4, 5, 6), 2, 1, 1) is ((1, 2, 3), (4, 5, 6))
-	let frame = width * height * 3
+	frame = width * height * 3
 	for count
 		Planar(rgb.Slice(index * frame, frame))
 Planar(frame Numbers) Numbers
 	Tiny.Planar((1, 2, 3, 4, 5, 6)) is (1, 4, 2, 5, 3, 6)
-	let pixels = frame.Length / 3
+	pixels = frame.Length / 3
 	for frame.Length
 		frame(index % pixels * 3 + (index / pixels).Floor)

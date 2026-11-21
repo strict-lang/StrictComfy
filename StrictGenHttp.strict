@@ -8,16 +8,16 @@ Route(raw Text) Text
 	StrictGenHttp.Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
 	StrictGenHttp.Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
 	StrictGenHttp.Route("GET") is "/"
-	let parts = raw.Split("\r\n").First.Split(" ")
-	let target = parts.Length > 1 then parts(1) else "/"
-	let question = target.IndexOf("?")
+	parts = raw.Split("\r\n").First.Split(" ")
+	target = parts.Length > 1 then parts(1) else "/"
+	question = target.IndexOf("?")
 	question < 0 then target else target.Substring(0, question)
 Query(raw Text, name Text) Text
 	StrictGenHttp.Query("GET /file?path=a.jpg HTTP/1.1\r\n\r\n", "path") is "a.jpg"
 	StrictGenHttp.Query("GET /file?path=a+b.jpg HTTP/1.1\r\n\r\n", "path") is "a b.jpg"
-	let target = raw.Split("\r\n").First.Split(" ")
-	let full = target.Length > 1 then target(1) else ""
-	let question = full.IndexOf("?")
+	target = raw.Split("\r\n").First.Split(" ")
+	full = target.Length > 1 then target(1) else ""
+	question = full.IndexOf("?")
 	for (question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)).Split("&")
 		if value.StartsWith(name + "=")
 			return Unescaped(value.Substring(name.Length + 1, value.Length - name.Length - 1))
@@ -32,7 +32,7 @@ Unescaped(text Text) Text
 Body(raw Text) Text
 	StrictGenHttp.Body("POST /run HTTP/1.1\r\n\r\n{\"a\":1}") is "{\"a\":1}"
 	StrictGenHttp.Body("GET / HTTP/1.1\r\n\r\n") is ""
-	let separator = raw.IndexOf("\r\n\r\n")
+	separator = raw.IndexOf("\r\n\r\n")
 	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
 Received(client Number) Numbers slow
 	if client is Error or client <= 0
@@ -40,7 +40,7 @@ Received(client Number) Numbers slow
 	mutable bytes = List(Mutable(Number))
 	mutable idle = 0
 	for as long as idle < (bytes.Length is 0 then EmptyPolls else ReceivePolls) and IsComplete(bytes) is false
-		let pending = Available(client)
+		pending = Available(client)
 		if pending > 0
 			bytes = bytes + Read(client, pending)
 		idle = pending > 0 then 0 else (pending < 0 then ReceivePolls else idle + 1)
@@ -49,43 +49,43 @@ Received(client Number) Numbers slow
 	bytes
 Available(client Number) Number slow
 	StrictGenHttp.Available(0) is -1
-	let pending = Socket.Pending(client)
+	pending = Socket.Pending(client)
 	pending is Error then -1 else pending
 Read(client Number, count Number) Numbers slow
 	StrictGenHttp.Read(0, 1).Length is 0
-	let read = Socket.Receive(client, count)
+	read = Socket.Receive(client, count)
 	read is Error then List(Number) else read
 Head(bytes Numbers) Text
 	StrictGenHttp.Head(StrictGenHttp.Encoded("GET / HTTP/1.1\r\n\r\nab")) is "GET / HTTP/1.1\r\n\r\n"
 	StrictGenHttp.Head(StrictGenHttp.Encoded("GET / HT")) is ""
-	let start = Decoded(bytes.Slice(0, bytes.Length.Clamp(0, HeadBytes)))
-	let separator = start.IndexOf("\r\n\r\n")
+	start = Decoded(bytes.Slice(0, bytes.Length.Clamp(0, HeadBytes)))
+	separator = start.IndexOf("\r\n\r\n")
 	separator < 0 then "" else start.Substring(0, separator + 4)
 IsComplete(bytes Numbers) Boolean
 	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("GET / HTTP/1.1\r\n\r\n"))
 	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab"))
 	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab")) is false
-	let head = Head(bytes)
+	head = Head(bytes)
 	if head is ""
 		return false
-	let start = head.Lower.IndexOf("content-length: ")
-	let length = start < 0 then 0 else head.Substring(start + 16, head.Length - start - 16).Split("\r\n").First to Number
+	start = head.Lower.IndexOf("content-length: ")
+	length = start < 0 then 0 else head.Substring(start + 16, head.Length - start - 16).Split("\r\n").First to Number
 	bytes.Length - head.Length >= length
 Payload(bytes Numbers) Numbers
 	StrictGenHttp.Payload(StrictGenHttp.Encoded("POST / HTTP/1.1\r\n\r\nab")) is (97, 98)
-	let head = Head(bytes)
+	head = Head(bytes)
 	bytes.Slice(head.Length, bytes.Length - head.Length)
 Replied(client Number, kind Text, body Text) slow
-	let payload = Encoded(body)
+	payload = Encoded(body)
 	Sent(client, Encoded(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
 SendFile(client Number, path Text) slow
 	if path is "" or File(path).Exists is false
 		Replied(client, "text/plain", "missing")
 		return
-	let payload = File(path).ReadBytes
-	let changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGen.Inputs)
-	let cache = changing then "no-store" else "public, max-age=86400"
-	let length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
+	payload = File(path).ReadBytes
+	changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGen.Inputs)
+	cache = changing then "no-store" else "public, max-age=86400"
+	length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
 	Sent(client, (Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload))
 Sent(client Number, bytes Numbers) slow
 	StrictGenHttp.Sent(0, List(Number) + 1) is not Error
@@ -98,8 +98,8 @@ Kind(path Text) Text
 	StrictGenHttp.Kind("a.mp4") is "video/mp4"
 	StrictGenHttp.Kind("a.png") is "image/png"
 	StrictGenHttp.Kind("a.jpeg") is "image/jpeg" and StrictGenHttp.Kind("a.bin") is "application/octet-stream"
-	let extension = path.Lower.Split(".").Last
-	let image = extension is "jpg" or extension is "jpeg" then "image/jpeg" else "application/octet-stream"
+	extension = path.Lower.Split(".").Last
+	image = extension is "jpg" or extension is "jpeg" then "image/jpeg" else "application/octet-stream"
 	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
 Encoded(text Text) Numbers
 	StrictGenHttp.Encoded("Ab") is (65, 98)

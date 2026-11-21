@@ -6,18 +6,18 @@ Arguments(json Json) Texts
 	StrictGenImage.Arguments(Json(Edit)) is Expected.Slice(6, 12)
 	StrictGenImage.Arguments(Json("{\"steps\":0,\"local\":\"true\"}")) is ("--output", "output/H3Image.jpg", "--local")
 	StrictGenImage.Arguments(Json(Full)) is Filed
-	let steps = json.get("steps") to Text
-	let counted = steps is "0" then List(Text) else StrictGenForm.Pair("--steps", steps)
-	let numbers = Named(json, "--image", "image") + counted + Numbered(json)
-	let files = Output(json, "H3Image.jpg") + Named(json, "--models", "models")
-	let models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
+	steps = json.get("steps") to Text
+	counted = steps is "0" then List(Text) else StrictGenForm.Pair("--steps", steps)
+	numbers = Named(json, "--image", "image") + counted + Numbered(json)
+	files = Output(json, "H3Image.jpg") + Named(json, "--models", "models")
+	models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
 	numbers + StrictGenForm.Loras(json) + files + models + StrictGenForm.Vae(json) + Flags(json)
 Output(json Json, named Text) Texts
 	StrictGenImage.Output(Json("{}"), "MossImage.jpg") is ("--output", "output/MossImage.jpg")
 	StrictGenImage.Output(Json("{\"output\":\"a.mp4\"}"), "H3Video.mp4") is ("--output", "output/a.mp4")
 	StrictGenImage.Output(Json("{\"output\":\"x/b.png\"}"), "H3Image.jpg") is ("--output", "x/b.png")
-	let given = json.get("output") to Text
-	let file = given is "" then named else given
+	given = json.get("output") to Text
+	file = given is "" then named else given
 	StrictGenForm.Pair("--output", (Path(file).PathOnly.text is "" then StrictGen.Outputs + "/" + file else file))
 Default(mode Text) Text
 	StrictGenImage.Default("image") is "MossImage.jpg" and StrictGenImage.Default("h3image") is "H3Image.jpg"
@@ -29,11 +29,11 @@ Named(json Json, option Text, field Text) Texts
 Numbered(json Json) Texts
 	StrictGenImage.Numbered(Json("{\"seed\":-1,\"count\":1}")).Length is 0
 	StrictGenImage.Numbered(Json("{\"seed\":7,\"count\":3}")) is ("--seed", "7", "--count", "3")
-	let seed = json.get("seed") to Text
-	let count = json.get("count") to Text
-	let seeded = seed is "-1" then "" else seed
+	seed = json.get("seed") to Text
+	count = json.get("count") to Text
+	seeded = seed is "-1" then "" else seed
 	StrictGenForm.Pair("--seed", seeded) + StrictGenForm.Pair("--count", (count is "1" then "" else count))
 Flags(json Json) Texts
 	StrictGenImage.Flags(Json("{\"force\":\"true\",\"local\":\"true\"}")) is ("--force", "--local")
-	let flag = json.get("force") to Text is "true" then List(Text) + "--force" else List(Text)
+	flag = json.get("force") to Text is "true" then List(Text) + "--force" else List(Text)
 	flag + (json.get("local") to Text is "true" then List(Text) + "--local" else List(Text))

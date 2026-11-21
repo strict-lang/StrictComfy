@@ -29,19 +29,19 @@ constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
 Opened(port Number) StrictGenNet slow
-	let socket = Socket.Beacon(StrictGenNet.BeaconPort)
+	socket = Socket.Beacon(StrictGenNet.BeaconPort)
 	if socket is Error
 		logger.Log("UDP " + StrictGenNet.BeaconPort + " is already in use, this StrictGen will not see other PCs")
-	let started = (Time.Now * 1000).Floor % 1000000000
+	started = (Time.Now * 1000).Floor % 1000000000
 	StrictGenNet(value, httpPort = port, beacon = socket is Error then 0 else socket, id = started)
 Measured StrictGenNet slow
-	let result = Process.RunTool("nvidia-smi", Query)
-	let parts = result.Failed then List(Text) else result.Output.Split("\n").First.Split(",")
-	let named = parts.Length < 3 then "" else parts(0).Trim
-	let whole = parts.Length < 3 then 0 else parts(1).Trim to Number
-	let available = parts.Length < 3 then 0 else parts(2).Trim to Number
-	let memory = GpuMemory.HostAvailable / 1048576
-	let sized = StrictGenNet(value, gpu = named, total = whole is Error then Void else whole, ram = memory, seenGpu = true)
+	result = Process.RunTool("nvidia-smi", Query)
+	parts = result.Failed then List(Text) else result.Output.Split("\n").First.Split(",")
+	named = parts.Length < 3 then "" else parts(0).Trim
+	whole = parts.Length < 3 then 0 else parts(1).Trim to Number
+	available = parts.Length < 3 then 0 else parts(2).Trim to Number
+	memory = GpuMemory.HostAvailable / 1048576
+	sized = StrictGenNet(value, gpu = named, total = whole is Error then Void else whole, ram = memory, seenGpu = true)
 	StrictGenNet(sized, free = available is Error then Void else available)
 Refreshed StrictGenNet slow
 	if Process.Elapsed - metered <= 8
@@ -50,8 +50,8 @@ Refreshed StrictGenNet slow
 Shouted StrictGenNet slow
 	if beacon <= 0
 		return StrictGenNet(value, shouted = Process.Elapsed)
-	let state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
-	let line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id + "\t" + StrictGenHost.Name
+	state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
+	line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id + "\t" + StrictGenHost.Name
 	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
@@ -65,22 +65,22 @@ Heard StrictGenNet slow
 		line = Socket.Hear(beacon)
 	StrictGenNet(found, peers = found.Fresh(Process.Elapsed))
 Tick(isBusy Boolean) StrictGenNet slow
-	let heard = StrictGenNet(value, busy = isBusy).Heard
+	heard = StrictGenNet(value, busy = isBusy).Heard
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
 Noted(line Text, now Number) StrictGenNet
-	let parts = line.Split("\t")
+	parts = line.Split("\t")
 	if parts.Length < 8 or parts(1) is not "strictgen"
 		return value
-	let port = parts(2) to Number
+	port = parts(2) to Number
 	if parts.Length > 8 then parts(8) to Number is id else port is httpPort
 		return StrictGenNet(value, own = parts(0))
 	port is Error or parts(0) is own then value else Remembered(parts, now)
 Remembered(parts Texts, now Number) StrictGenNet
 	Idle.Remembered(Heard4090, 1).peers.Length is 1
-	let named = parts.Length > 9 then parts(9) else ""
-	let peer = Text.Combine(parts.Slice(0, 1) + parts.Slice(2, 6) + named, "\t") + "\t" + now
-	let known = Address(peer)
-	let kept = Kept(peer, known)
+	named = parts.Length > 9 then parts(9) else ""
+	peer = Text.Combine(parts.Slice(0, 1) + parts.Slice(2, 6) + named, "\t") + "\t" + now
+	known = Address(peer)
+	kept = Kept(peer, known)
 	if kept.Length > peers.Length
 		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + (parts(3) to Number / Gigabyte).Round(1) + " GB")
 	StrictGenNet(value, peers = kept)
@@ -88,7 +88,7 @@ Fresh(now Number) Texts
 	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(200).Length is 0
 	StrictGenNet(Idle, peers = List(Text) + Big).Fresh(110).Length is 1
 	for peers
-		let seen = value.Split("\t").Last to Number
+		seen = value.Split("\t").Last to Number
 		if seen is Error or now - seen < FreshSeconds
 			value
 Kept(peer Text, address Text) Texts
@@ -99,7 +99,7 @@ Kept(peer Text, address Text) Texts
 	kept + peer
 Address(peer Text) Text
 	Idle.Address(Big) is "10.0.0.3:59139"
-	let parts = peer.Split("\t")
+	parts = peer.Split("\t")
 	parts.Length < 2 then "" else parts(0) + ":" + parts(1)
 Chosen(mode Text, pin Text) Text
 	Idle.Chosen("image", "") is "local"
@@ -121,18 +121,18 @@ Automatic(mode Text) Text
 	StrictGenNet(Roomy, peers = (BusyCard, Small)).Automatic("video") is "local"
 	StrictGenNet(Seen, peers = List(Text) + Big).Automatic("image") is "10.0.0.3:59139"
 	StrictGenNet(Seen, peers = List(Text) + BusyCard).Automatic("video") is "none"
-	let video = IsLarge(mode)
-	let better = video then Best(total, H3Mb) else ""
+	video = IsLarge(mode)
+	better = video then Best(total, H3Mb) else ""
 	if better is not ""
 		return better
-	let fallback = Fits(mode, total) then "local" else Best(0, (video then H3Mb else MossMb))
+	fallback = Fits(mode, total) then "local" else Best(0, (video then H3Mb else MossMb))
 	fallback is "" then "none" else fallback
 Best(floor Number, least Number) Text
 	mutable chosen = ""
 	mutable largest = floor
 	for peers
-		let parts = value.Split("\t")
-		let whole = parts.Length > 2 then parts(2) to Number else 0
+		parts = value.Split("\t")
+		whole = parts.Length > 2 then parts(2) to Number else 0
 		if parts.Length > 5 and parts(5) is "0" and whole > largest and whole >= least
 			largest = whole
 			chosen = Address(value)
@@ -156,7 +156,7 @@ Labels Texts
 	Idle.Labels.Length is 0
 	StrictGenNet(Idle, peers = List(Text) + Big).Labels.First.StartsWith("10.0.0.3:59139")
 	for peers
-		let parts = value.Split("\t")
-		let whole = parts.Length > 2 then parts(2) to Number / Gigabyte else 0
-		let named = parts.Length > 8 then parts(7) else ""
+		parts = value.Split("\t")
+		whole = parts.Length > 2 then parts(2) to Number / Gigabyte else 0
+		named = parts.Length > 8 then parts(7) else ""
 		Address(value) + "\t" + parts(6) + " " + whole.Round(1) + " GB\t" + named + "\t" + parts(6) + "\t" + parts(2)

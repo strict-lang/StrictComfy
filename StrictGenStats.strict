@@ -11,59 +11,59 @@ constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0
 Text Text slow
 	Sample.Text.IndexOf("\"ram\"") >= 0
 	Sample.Text.IndexOf("\"cpu\"") >= 0
-	let total = GpuMemory.HostTotal
-	let free = GpuMemory.HostAvailable
-	let device = MachineUse("StrictGen", 0, 0).Device
-	let vram = device(0) > device(1) then device(0) - device(1) else 0
-	let ram = total > free then total - free else 0
-	let memory = "{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0)
+	total = GpuMemory.HostTotal
+	free = GpuMemory.HostAvailable
+	device = MachineUse("StrictGen", 0, 0).Device
+	vram = device(0) > device(1) then device(0) - device(1) else 0
+	ram = total > free then total - free else 0
+	memory = "{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0)
 	memory + ",\"gpu\":" + device(2) + ",\"cpu\":" + Processor + ",\"drive\":" + StrictGenHost.Number(1) + "}"
 Processor Number slow
 	Sample.Processor >= 0
-	let windows = Process.OperatingSystem is "Windows"
-	let last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
-	let later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" >nul 2>nul"
-	let result = Process.RunTool((windows then "cmd" else "sh"), (windows then later else "-c \"" + LinuxCpu + "\""))
-	let number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
+	windows = Process.OperatingSystem is "Windows"
+	last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
+	later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" >nul 2>nul"
+	result = Process.RunTool((windows then "cmd" else "sh"), (windows then later else "-c \"" + LinuxCpu + "\""))
+	number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
 	result.Failed or number is Error then 0 else number.Clamp(0, 100)
 Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"queue 0 done 0\"") >= 0
-	let stats = net.meters is "" then Blank else net.meters
-	let preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
-	let stamp = preview is not "" and File(preview).Exists then File(preview).Length else 0
-	let position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
-	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
-	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
-	let upscaler = RtxVideo(H3Options.Parsed(List(Text))).IsAvailable then "true" else "false"
-	let machine = ",\"name\":" + StrictGenHost.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"upscaler\":" + upscaler
+	stats = net.meters is "" then Blank else net.meters
+	preview = queue.job.preview is "" then StrictGen.Preview else queue.job.preview
+	stamp = preview is not "" and File(preview).Exists then File(preview).Length else 0
+	position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
+	busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
+	head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
+	upscaler = RtxVideo(H3Options.Parsed(List(Text))).IsAvailable then "true" else "false"
+	machine = ",\"name\":" + StrictGenHost.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"upscaler\":" + upscaler
 	head + machine + ",\"gpuTemp\":" + StrictGenHost.Number(3) + Made(queue) + ",\"peers\":" + Peers(net) + "}"
 Made(queue StrictGenQueue) Text slow
 	Sample.Made(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
-	let made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
-	let running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
-	let recent = ",\"recent\":" + Codes(Recent(queue)) + ",\"running\":" + running.Code
-	let lists = ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
-	let activity = ",\"notice\":" + queue.notice.Code + ",\"runs\":" + Runs(queue)
+	made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
+	running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
+	recent = ",\"recent\":" + Codes(Recent(queue)) + ",\"running\":" + running.Code
+	lists = ",\"queued\":" + Codes(Lines(queue, queue.pending)) + ",\"done\":" + Codes(queue.captions)
+	activity = ",\"notice\":" + queue.notice.Code + ",\"runs\":" + Runs(queue)
 	made + recent + lists + activity + ",\"examples\":" + Codes(Examples)
 Runs(queue StrictGenQueue) Text slow
 	Sample.Runs(StrictGenQueue.Empty) is "[]"
 	Sample.Runs(Queued).IndexOf("\"state\":\"queued\"") > 0
-	let first = (queue.modes.Length - RunsShown).Clamp(0, queue.modes.Length)
+	first = (queue.modes.Length - RunsShown).Clamp(0, queue.modes.Length)
 	mutable items = List(outer.Text)
 	for Range(first, queue.modes.Length)
 		items = items + Run(queue, value)
 	"[" + outer.Text.Combine(items, ",") + "]"
 Run(queue StrictGenQueue, id Number) Text
 	Sample.Run(Queued, 0).StartsWith("{\"id\":1,\"title\":\"fox\"")
-	let file = "StrictGenJob-" + id + ".timed"
-	let current = id is queue.job.current
-	let waiting = id is in queue.pending
-	let kept = waiting is false and File(file).Exists then File(file).ReadLines else List(outer.Text)
-	let shown = current then queue.job.Stamped(queue.job.Logged) else kept
-	let outcome = queue.outcomes.Length > id then queue.outcomes(id) else ""
-	let ended = outcome.StartsWith("error") then "error" else "done"
-	let state = current then "running" else (waiting then "queued" else ended)
-	let head = "{\"id\":" + (id + 1) + ",\"title\":" + queue.lines(id).Code + ",\"state\":" + state.Code
+	file = "StrictGenJob-" + id + ".timed"
+	current = id is queue.job.current
+	waiting = id is in queue.pending
+	kept = waiting is false and File(file).Exists then File(file).ReadLines else List(outer.Text)
+	shown = current then queue.job.Stamped(queue.job.Logged) else kept
+	outcome = queue.outcomes.Length > id then queue.outcomes(id) else ""
+	ended = outcome.StartsWith("error") then "error" else "done"
+	state = current then "running" else (waiting then "queued" else ended)
+	head = "{\"id\":" + (id + 1) + ",\"title\":" + queue.lines(id).Code + ",\"state\":" + state.Code
 	head + ",\"outcome\":" + outcome.Code + ",\"lines\":" + Codes(shown) + "}"
 Joined(lines Texts) Text
 	Sample.Joined(("a", "b")) is "a\nb"
@@ -86,13 +86,13 @@ Examples Texts slow
 	Sample.Examples.Length >= 0
 	mutable found = List(Mutable(Text))
 	for (1, 2, 3, 4, 5, 6, 7, 8, 9)
-		let path = Example(value)
+		path = Example(value)
 		if path is not ""
 			found.Add(path)
 	found
 Example(number Number) Text slow
-	let name = "MossWebExample" + number + ".jpg"
-	let beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+	name = "MossWebExample" + number + ".jpg"
+	beside = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
 	for (beside + "/" + name, beside + "/../../" + name, beside + "/../" + name, name)
 		if File(value).Exists
 			return value
@@ -101,8 +101,8 @@ Peers(net StrictGenNet) Text slow
 	Sample.Peers(StrictGenNet.Idle) is "[]"
 	mutable items = List(Text)
 	for net.Labels
-		let parts = value.Split("\t")
-		let named = ",\"name\":" + parts(2).Code + ",\"gpu\":" + parts(3).Code + ",\"vram\":" + parts(4)
+		parts = value.Split("\t")
+		named = ",\"name\":" + parts(2).Code + ",\"gpu\":" + parts(3).Code + ",\"vram\":" + parts(4)
 		items = items + ("{\"address\":" + parts.First.Code + ",\"label\":" + parts(1).Code + named + "}")
 	"[" + outer.Text.Combine(items, ",") + "]"
 Step(lines Texts) Text
@@ -123,5 +123,5 @@ Codes(lines Texts) Text slow
 	"[" + outer.Text.Combine(quoted, ",") + "]"
 Probed(path Text) Text slow
 	Sample.Probed("missing-clip.mp4") is ""
-	let probed = File(path).Exists then StrictGenClip.Probe(path) else ""
+	probed = File(path).Exists then StrictGenClip.Probe(path) else ""
 	RtxVideo(H3Options.Parsed(List(Text))).Sized(probed)

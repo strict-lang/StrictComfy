@@ -25,17 +25,17 @@ Local Number slow
 Estimate(budget Number) Text
 	Small.Estimate(90000) is "Sampling roughly 6 x 2.1 s = 13 s, 14k of 90k video tokens"
 	Twelve.Estimate(90000).EndsWith("72k of 90k video tokens, might run much slower")
-	let tokens = H3Inputs(options).Tokens
-	let factor = Factors(options.quality) * options.Evaluated / options.Preset.First
-	let step = StepSeconds(tokens, budget)
-	let sampling = "Sampling roughly " + factor.Round(1) + " x " + step.Round(1) + " s = " + Lasting(factor * step)
+	tokens = H3Inputs(options).Tokens
+	factor = Factors(options.quality) * options.Evaluated / options.Preset.First
+	step = StepSeconds(tokens, budget)
+	sampling = "Sampling roughly " + factor.Round(1) + " x " + step.Round(1) + " s = " + Lasting(factor * step)
 	sampling + ", " + (tokens / 1000).Round + "k of " + (budget / 1000).Round + "k video tokens" + Caution(tokens, budget)
 StepSeconds(tokens Number, budget Number) Number
 	Small.StepSeconds(14400, 90000) is BaseSeconds
 	Small.StepSeconds(63360, 90000).Round is 31
 	Small.StepSeconds(75480, 90000).Round is 56
-	let knee = budget / 2
-	let crowded = tokens > knee then (tokens / knee) ^ 2 else 1
+	knee = budget / 2
+	crowded = tokens > knee then (tokens / knee) ^ 2 else 1
 	BaseSeconds * (tokens / BaseTokens) ^ Growth * crowded
 Caution(tokens Number, budget Number) Text
 	Small.Caution(100, 90) is ", more than this GPU handles, H3 refuses it"
@@ -58,11 +58,11 @@ Told(raw Text) Text
 	H3Estimate.Told(MossEstimate.ImageRequest).StartsWith("Sampling roughly 5 x 0.15 s")
 	if Asked(raw, "mode") is "image"
 		return MossEstimate.Told(raw)
-	let sized = ("--width", Asked(raw, "width"), "--height", Asked(raw, "height"), "--length", Asked(raw, "length"))
-	let chosen = sized + Optional(raw, "quality") + Optional(raw, "steps")
-	let video = ("--video", "a.mp4", "--context", Asked(raw, "context"))
-	let vram = Asked(raw, "vram") to Number
-	let parsed = H3Options.Parsed(chosen + (Asked(raw, "mode") is "extend" then video else List(Text)))
+	sized = ("--width", Asked(raw, "width"), "--height", Asked(raw, "height"), "--length", Asked(raw, "length"))
+	chosen = sized + Optional(raw, "quality") + Optional(raw, "steps")
+	video = ("--video", "a.mp4", "--context", Asked(raw, "context"))
+	vram = Asked(raw, "vram") to Number
+	parsed = H3Options.Parsed(chosen + (Asked(raw, "mode") is "extend" then video else List(Text)))
 	H3Estimate(parsed).Estimate(Budget(vram is Error then 0 else vram * Mebibyte))
 Asked(raw Text, name Text) Text
 	H3Estimate.Asked(SmallRequest, "width") is "848"
@@ -70,5 +70,5 @@ Asked(raw Text, name Text) Text
 Optional(raw Text, name Text) Texts
 	H3Estimate.Optional(SmallRequest, "quality") is ("--quality", "fast")
 	H3Estimate.Optional(SmallRequest, "steps").Length is 0
-	let given = Asked(raw, name)
+	given = Asked(raw, name)
 	given is "" then List(Text) else ("--" + name, given)

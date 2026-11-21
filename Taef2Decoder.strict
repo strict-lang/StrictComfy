@@ -11,7 +11,7 @@ constant None = Taef2Decoder(Taef2Block.Unused, List(Taef2Block), List(Convoluti
 Loaded(path Text) Taef2Decoder slow
 	Tiny.blocks.Length is 10
 	Tiny.upsamples(2).biases is Layer.Zeros(8)
-	let model = Safetensors(path, 32, "decoder.layers.")
+	model = Safetensors(path, 32, "decoder.layers.")
 	Taef2Decoder(FluxResnet.Convolved(model, "0"), Blocks(model), Upsamples(model), FluxResnet.Convolved(model, "18"))
 Is(path Text) Boolean
 	Taef2Decoder.Is("tinytaef2.safetensors")
@@ -24,7 +24,7 @@ Blocks(model Safetensors) List(Taef2Block) native
 Upsamples(model Safetensors) List(Convolution) native
 	Tiny.Upsamples(Taef2Block.Model).Length is 3
 	for UpsampleLayers
-		let upsample = FluxResnet.Convolved(model, value to Text)
+		upsample = FluxResnet.Convolved(model, value to Text)
 		Convolution(upsample.Folds, upsample.biases)
 Entered(latent Numbers, width Number) FeatureMap native
 	Tiny.Entered(Latent, 2).values(0).IsNearlyEqual(0.53169, 0.0001)
@@ -35,7 +35,7 @@ Channels Number
 	entry.weights.Length / entry.biases.Length / 9
 Started(values Numbers, width Number) FeatureMap native
 	Tiny.Started(FluxDecoder.Unpatchified(Latent, 2, Tiny.Channels), 4).width is 4
-	let map = FeatureMap(Clamped(values), width, Channels, Layer.Zeros(Channels))
+	map = FeatureMap(Clamped(values), width, Channels, Layer.Zeros(Channels))
 	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
 Clamped(values Numbers) Numbers
 	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
@@ -48,7 +48,7 @@ Decoded(latent Numbers, width Number) Numbers native
 	Finished(Entered(latent, width))
 Finished(map FeatureMap) Numbers native
 	Tiny.Finished(Tiny.Entered(Latent, 2)).Length is 4608
-	let upsampled = Upsampled(map)
+	upsampled = Upsampled(map)
 	for exit.Applied(upsampled, upsampled.Identity, Activation.Linear).Completed
 		value.Clamp
 Shrunk(size Number) Number
@@ -59,27 +59,27 @@ Blended(values Numbers, row Number, x Number, size Numbers, channels Number, cha
 	Tiny.Blended((1, 3), 0, 0.5, (2, 1), 1, 0) is 2
 	Tiny.Blended((1, 3, 5, 7), 1, 0, (2, 2), 1, 0) is 5
 	Tiny.Blended((1, 10, 3, 30), 0, 0.5, (2, 1), 2, 1) is 20
-	let left = x.Floor
-	let right = (left + 1).Clamp(0, size(0) - 1)
-	let start = row * size(0)
-	let first = values((start + left) * channels + channel)
+	left = x.Floor
+	right = (left + 1).Clamp(0, size(0) - 1)
+	start = row * size(0)
+	first = values((start + left) * channels + channel)
 	first + (values((start + right) * channels + channel) - first) * (x - left)
 Resampled(values Numbers, size Numbers, target Numbers, channels Number) Numbers slow
 	Tiny.Resampled((1, 3), (2, 1), (1, 1), 1) is (2)
 	Tiny.Resampled((1, 2, 3, 4), (2, 2), (2, 2), 1) is (1, 2, 3, 4)
 	Tiny.Resampled((0, 4, 8, 12), (2, 2), (1, 1), 1) is (6)
 	for target(0) * target(1) * channels
-		let pixel = (index / channels).Floor
-		let x = ((pixel % target(0) + 0.5) * size(0) / target(0) - 0.5).Clamp(0, size(0) - 1)
-		let y = (((pixel / target(0)).Floor + 0.5) * size(1) / target(1) - 0.5).Clamp(0, size(1) - 1)
-		let top = y.Floor
-		let upper = Blended(values, top, x, size, channels, index % channels)
+		pixel = (index / channels).Floor
+		x = ((pixel % target(0) + 0.5) * size(0) / target(0) - 0.5).Clamp(0, size(0) - 1)
+		y = (((pixel / target(0)).Floor + 0.5) * size(1) / target(1) - 0.5).Clamp(0, size(1) - 1)
+		top = y.Floor
+		upper = Blended(values, top, x, size, channels, index % channels)
 		upper + (Blended(values, (top + 1).Clamp(0, size(1) - 1), x, size, channels, index % channels) - upper) * (y - top)
 Previewed(latent Numbers, width Number) Numbers native
 	Tiny.Previewed(Latent, 2).Length is 2304
-	let full = FluxDecoder.Unpatchified(latent, width, Channels)
-	let size = (2 * width, full.Length / Channels / (2 * width))
-	let target = (Shrunk(size(0)), Shrunk(size(1)))
+	full = FluxDecoder.Unpatchified(latent, width, Channels)
+	size = (2 * width, full.Length / Channels / (2 * width))
+	target = (Shrunk(size(0)), Shrunk(size(1)))
 	Finished(Started(Resampled(full, size, target, Channels), target(0)))
 Upsampled(map FeatureMap) FeatureMap native
 	Tiny.Upsampled(Tiny.Entered(Latent, 2)).width is 32

@@ -42,8 +42,8 @@ Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layou
 	MossImage.RelativeError(Held.output, H3.Forward) < 0.005
 	if IsActual(step) is false
 		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
-	let evaluated = span.Evaluated(h3, latent, sound, sigma, text, layout, conditions, rotation, IsSpanning(step))
-	let kept = Remembers(step) then Remembered(Coord(sigma, layout), evaluated.output) else value
+	evaluated = span.Evaluated(h3, latent, sound, sigma, text, layout, conditions, rotation, IsSpanning(step))
+	kept = Remembers(step) then Remembered(Coord(sigma, layout), evaluated.output) else value
 	H3Spectrum(kept, output = evaluated.output, span = evaluated)
 IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(1) is false
@@ -56,23 +56,23 @@ Stepped(solver Solver, step Number, job H3Job) Solver
 	Previewed.latent(1).IsNearlyEqual(2 - 5 / 24 * 4)
 	Safetensors("h3preview-step6.safetensors").Values("video")(1).IsNearlyEqual(-0.5)
 	H3Spectrum(Tiny, output = (0, 0)).Stepped(Solver(Solver.Toy, kind = 6), 1, H3Job.Noisy).latent(0) is -0.842754
-	let stepped = solver.Stepped(output, step, 0, job.Noise("video", step))
-	let path = job.Preview(step)
+	stepped = solver.Stepped(output, step, 0, job.Noise("video", step))
+	path = job.Preview(step)
 	if path is not ""
 		Safetensors(path).Written("video", stepped.denoised)
 	stepped
 Remembered(coord Number, anchor Numbers) H3Spectrum slow
 	Started.Remembered(0.8, Started.output).anchors.Length is 2
 	Started.Remembered(0.8, Started.output).Remembered(0.9, Started.output).coords is (0.8, 0.9)
-	let kept = anchors.Length.Clamp(0, fit.degree)
-	let start = anchors.Length - kept
+	kept = anchors.Length.Clamp(0, fit.degree)
+	start = anchors.Length - kept
 	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
 Predicted(coord Number) Numbers slow
 	Started.Predicted(0).Length is 960
 	MossImage.RelativeError(Recalled.Predicted(1), Started.output * 5) < 0.000001
 	if anchors.Length < fit.degree + 1
 		return anchors.Last
-	let weights = fit.Weights(coords, coord)
+	weights = fit.Weights(coords, coord)
 	mutable mixed = H3Span.Combined(anchors.First * 0, anchors.First, weights.First)
 	for anchors.Length - 1
 		mixed = H3Span.Combined(mixed, anchors(index + 1), weights(index + 1))

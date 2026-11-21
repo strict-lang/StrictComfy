@@ -20,8 +20,8 @@ Added(mode Text, command Texts, line Text, body Text = "", pin Text = "") Strict
 	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Added("video", ("--length", "24"), "owl").pending.Length is 2
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
-	let queued = StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"))
-	let kept = StrictGenQueue(queued, bodies = bodies + body, pins = pins + pin, outcomes = outcomes + "")
+	queued = StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"))
+	kept = StrictGenQueue(queued, bodies = bodies + body, pins = pins + pin, outcomes = outcomes + "")
 	StrictGenQueue(kept, lines = lines + line, pending = pending + (modes.Length), halted = false)
 Cleared StrictGenQueue
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
@@ -32,11 +32,11 @@ Posted(route Text, body Text) StrictGenQueue slow
 	Empty.Added("image", ("--width", "32"), "fox").Posted("/stop", "").pending.Length is 0
 	Empty.Posted("/quit", "").notice is Quitting
 	if route is "/run"
-		let json = Json(body)
-		let pin = json.get("placed") to Text is "true" then "local" else json.get("remote") to Text
+		json = Json(body)
+		pin = json.get("placed") to Text is "true" then "local" else json.get("remote") to Text
 		if job.current < 0
 			File("StrictGenJob.log").Delete
-		let added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenTitle.Summary(body), body, pin)
+		added = Added(json.get("mode") to Text, StrictGenForm.Arguments(body), StrictGenTitle.Summary(body), body, pin)
 		return StrictGenQueue(added, notice = "Run started", aim = pin is "local" then "local" else added.aim)
 	route is "/quit" then StrictGenQueue(Cleared, notice = Quitting) else Cleared
 Advanced StrictGenQueue slow
@@ -49,51 +49,51 @@ Launch StrictGenQueue slow
 		return Refused("No StrictGen on the network can run this")
 	if aim.IndexOf(":") >= 0
 		return Sent(aim)
-	let index = pending.First
-	let executable = StrictGenJob.Executable(StrictGenJob.Program(modes(index)))
-	let local = StrictGenJob.Local(index)
+	index = pending.First
+	executable = StrictGenJob.Executable(StrictGenJob.Program(modes(index)))
+	local = StrictGenJob.Local(index)
 	if local.Started(executable, modes(index), commands(index)) is false
 		return Refused("Could not start " + executable)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = local, aim = "")
 Refused(reason Text) StrictGenQueue
-	let left = pending.Slice(1, pending.Length - 1)
-	let outcome = Noted(pending.First, "error\t" + reason)
+	left = pending.Slice(1, pending.Length - 1)
+	outcome = Noted(pending.First, "error\t" + reason)
 	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
 Sent(endpoint Text) StrictGenQueue slow
-	let index = pending.First
-	let id = StrictGenRemote.Delivered(endpoint, (bodies.Length > index then bodies(index) else ""))
+	index = pending.First
+	id = StrictGenRemote.Delivered(endpoint, (bodies.Length > index then bodies(index) else ""))
 	if id is "" or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
-	let remote = StrictGenJob.Remote(index, endpoint, id to Number)
+	remote = StrictGenJob.Remote(index, endpoint, id to Number)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = remote, aim = "")
 Polled StrictGenQueue slow
 	if job.remote is not ""
 		return Remote
-	let rows = job.Logged
+	rows = job.Logged
 	if job.done is "" or File(job.done).Exists is false
 		return StrictGenQueue(value, job = job.Timed(rows))
-	let paths = job.Existing(job.Found(rows))
+	paths = job.Existing(job.Found(rows))
 	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
-	let reason = StrictGenConsole.Failure(rows)
+	reason = StrictGenConsole.Failure(rows)
 	Finished(paths, paths.Length is 0 then reason else lines(job.current), job.Prompts(rows))
 Remote StrictGenQueue slow
-	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
-	let kind = answer.Split("\t").First
+	answer = StrictGenRemote.Asked(job.remote, job.remoteId)
+	kind = answer.Split("\t").First
 	if answer is "wait" or kind is "wait" or answer is ""
 		return value
 	if kind is "error"
 		return Finished(List(Text), answer, List(Text))
-	let path = StrictGenRemote.Saved(job.remote, answer.Split("\t").Last)
+	path = StrictGenRemote.Saved(job.remote, answer.Split("\t").Last)
 	if path is ""
 		return Finished(List(Text), "The other StrictGen sent no file", List(Text))
 	Finished(List(Text) + path, lines(job.current), List(Text))
 Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
-	let empty = paths.Length is 0
-	let recorded = Noted(job.current, (empty then "error\t" + caption else "file\t" + paths.Last))
-	let shown = Captions(paths, caption, prompts)
-	let made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
-	let done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)
+	empty = paths.Length is 0
+	recorded = Noted(job.current, (empty then "error\t" + caption else "file\t" + paths.Last))
+	shown = Captions(paths, caption, prompts)
+	made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
+	done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)
 	halted then done else done.Advanced
 Captions(paths Texts, caption Text, prompts Texts) Texts
 	mutable kept = captions

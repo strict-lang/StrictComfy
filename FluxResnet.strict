@@ -11,18 +11,18 @@ Loaded(model Safetensors, prefix Text, groups Number) FluxResnet slow
 	Middle.first.biases.Length is 16
 	Middle.shortcut.biases.Length is 0
 	FluxResnet.Loaded(Model, "decoder.up.0.block.0.", 4).shortcut.weights.Length is 128
-	let block = Safetensors(model.path, 32, model.prefix + prefix)
-	let none = Convolution(List(Number), List(Number))
-	let projection = block.Entry("nin_shortcut.weight") is "" then none else Convolved(block, "nin_shortcut")
-	let entry = Convolved(block, "conv1")
+	block = Safetensors(model.path, 32, model.prefix + prefix)
+	none = Convolution(List(Number), List(Number))
+	projection = block.Entry("nin_shortcut.weight") is "" then none else Convolved(block, "nin_shortcut")
+	entry = Convolved(block, "conv1")
 	FluxResnet(Norm(block, "norm1", groups), entry, Norm(block, "norm2", groups), Convolved(block, "conv2"), projection)
 Output(map FeatureMap) FeatureMap native
 	Middle.Output(Input).Completed(0).IsNearlyEqual(-0.64259, 0.01)
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.31808, 0.01)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(0.60561, 0.01)
 	FluxResnet.Loaded(Model, "decoder.up.0.block.0.", 4).Output(Upsampled).Completed(256).IsNearlyEqual(-1.88429, 0.01)
-	let hidden = first.Applied(map, firstNorm.Affine(map), Activation.Swish)
-	let output = second.Applied(hidden, secondNorm.Affine(hidden), Activation.Swish)
+	hidden = first.Applied(map, firstNorm.Affine(map), Activation.Swish)
+	output = second.Applied(hidden, secondNorm.Affine(hidden), Activation.Swish)
 	(shortcut.biases.Length is 0 then map else shortcut.Projected(map)).Plus(output)
 Norm(model Safetensors, name Text, groups Number) GroupNorm slow
 	Middle.Norm(Model, "decoder.norm_out", 4).weights.Length is 8
@@ -30,6 +30,6 @@ Norm(model Safetensors, name Text, groups Number) GroupNorm slow
 Convolved(model Safetensors, name Text) Convolution slow
 	Middle.Convolved(Model, "decoder.conv_in").weights(1) is Model.Values("decoder.conv_in.weight")(9)
 	Middle.Convolved(Safetensors("tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
-	let shape = model.Shape(name + ".weight")
-	let biases = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
+	shape = model.Shape(name + ".weight")
+	biases = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
 	Convolution(Convolution.Rearranged(model.Values(name + ".weight"), shape(1), shape(2)), biases)

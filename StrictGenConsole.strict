@@ -7,7 +7,7 @@ Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue slow
 	Sample.Told(Added, Added).job.current is -1
 	for Range(before.modes.Length, after.modes.Length)
 		logger.Log("Run " + (value + 1) + " queued: " + after.lines(value))
-	let id = before.job.current
+	id = before.job.current
 	if id >= 0 and after.job.current is id
 		Shown(id, after.job.Stamped(after.job.Logged), before.job.times.Length, after.job.times.Length)
 	if id >= 0 and after.job.current is not id
@@ -16,13 +16,13 @@ Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue slow
 	Quieted(after)
 Started(before StrictGenQueue, after StrictGenQueue)
 	Sample.Started(StrictGenQueue.Empty, Added) is not Error
-	let job = after.job
+	job = after.job
 	if job.current >= 0 and job.current is not before.job.current
 		logger.Log("Run " + (job.current + 1) + " started" + (job.remote is "" then " here" else " on " + job.remote))
 Shown(id Number, rows Texts, first Number, until Number)
 	Sample.Shown(0, ("0\ta", "1.5\tb"), 1, 2) is not Error
 	for Range(first, until.Clamp(first, rows.Length))
-		let parts = rows(value).Split("\t")
+		parts = rows(value).Split("\t")
 		if parts.Last.Trim is not ""
 			logger.Log("Run " + (id + 1) + " " + Seconds(parts.First to Number) + "s: " + parts.Last.Trim)
 Seconds(seconds Number) Text
@@ -30,26 +30,26 @@ Seconds(seconds Number) Text
 	Sample.Seconds(0.9) is "00.9"
 	Sample.Seconds(5.24) is "05.2"
 	Sample.Seconds(123.45) is "123.5"
-	let tenths = (seconds * 10).Round
-	let whole = (tenths / 10).Floor
+	tenths = (seconds * 10).Round
+	whole = (tenths / 10).Floor
 	(whole < 10 then "0" else "") + whole + "." + tenths % 10
 Ended(queue StrictGenQueue, id Number, first Number) slow
 	Sample.Ended(Added, 0, 0) is not Error
-	let file = "StrictGenJob-" + id + ".timed"
-	let rows = File(file).Exists then File(file).ReadLines else List(Text)
+	file = "StrictGenJob-" + id + ".timed"
+	rows = File(file).Exists then File(file).ReadLines else List(Text)
 	Shown(id, rows, first, rows.Length)
-	let outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
+	outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
 	if outcome.Last.StartsWith(StrictGenQueue.Collecting)
 		return
 	logger.Log("Run " + (id + 1) + " " + (outcome.First is "file" then "done: " else "ended: ") + outcome.Last)
 Quieted(queue StrictGenQueue) StrictGenQueue slow
 	Sample.Quieted(Added).job.nagged is 0
 	Sample.Quieted(StrictGenQueue(Added, job = StrictGenJob(StrictGenJob.Local(0), started = 1))).job.nagged > 0
-	let job = queue.job
-	let last = job.started + (job.times.Length > 0 then job.times.Last else 0)
+	job = queue.job
+	last = job.started + (job.times.Length > 0 then job.times.Last else 0)
 	if job.current < 0 or job.remote is not "" or Time.Now - Quiet < (last > job.nagged then last else job.nagged)
 		return queue
-	let silent = (Time.Now - last).Round
+	silent = (Time.Now - last).Round
 	logger.Log("Run " + (job.current + 1) + ": no new output for " + silent + " s" + Backend(queue.modes(job.current)))
 	StrictGenQueue(queue, job = StrictGenJob(job, nagged = Time.Now))
 Failure(rows Texts) Text
@@ -61,11 +61,11 @@ Failure(rows Texts) Text
 	StrictGenQueue.NoOutput
 Backend(mode Text) Text slow
 	Sample.Backend("image") is not Error
-	let program = StrictGenJob.Program(mode)
-	let at = Backends.Index(program)
-	let folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
-	let file = folder + "/artifacts/" + (at >= 0 then Backends(at + 1) else "none") + "/obj/server.log"
-	let said = Said(File(file).Exists then File(file).ReadLines else List(Text))
+	program = StrictGenJob.Program(mode)
+	at = Backends.Index(program)
+	folder = Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text
+	file = folder + "/artifacts/" + (at >= 0 then Backends(at + 1) else "none") + "/obj/server.log"
+	said = Said(File(file).Exists then File(file).ReadLines else List(Text))
 	said is "" then "" else ", the " + program + " backend says: " + said
 Said(rows Texts) Text
 	Sample.Said(("Step 1", "  ", "")) is "Step 1"

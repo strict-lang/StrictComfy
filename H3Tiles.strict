@@ -11,10 +11,10 @@ Starts(size Number) Numbers
 	Tiny.Starts(64) is (0, 16, 32) and Tiny.Starts(16) is (0)
 	if size <= tile
 		return List(Number) + 0
-	let count = ((size - overlap) / (tile - overlap)).Ceiling
-	let spare = ((tile * count - overlap * (count - 1) - size) / 16).Floor
+	count = ((size - overlap) / (tile - overlap)).Ceiling
+	spare = ((tile * count - overlap * (count - 1) - size) / 16).Floor
 	for count
-		let extra = index < spare % (count - 1) then index else spare % (count - 1)
+		extra = index < spare % (count - 1) then index else spare % (count - 1)
 		index * (tile - overlap) - 16 * (index * (spare / (count - 1)).Floor + extra)
 Length(size Number) Number
 	Tiny.Length(16) is 16

@@ -17,9 +17,9 @@ IsDone(step Number) Boolean
 	stamps(step + 1) < 0 or GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1
 Took(step Number) Number
 	Timed.Took(1) is 0.75
-	let elapsed = GpuMemory.Elapsed(stamps(step), stamps(step + 1))
+	elapsed = GpuMemory.Elapsed(stamps(step), stamps(step + 1))
 	elapsed < 0 then times(step + 1) - times(step) else elapsed / 1000
 Average(step Number) Number
 	Timed.Average(1) is 0.625
-	let total = GpuMemory.Elapsed(stamps(0), stamps(step + 1))
+	total = GpuMemory.Elapsed(stamps(0), stamps(step + 1))
 	(total < 0 then times(step + 1) - times(0) else total / 1000) / (step + 1)

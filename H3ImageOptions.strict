@@ -63,8 +63,8 @@ Size(original Numbers) Numbers
 	H3ImageOptions.Parsed(("--width", "1000")).Size(List(Number)) is (2048, 992)
 	H3ImageOptions.Parsed(("--width", "512", "--height", "768")).Size((100, 100)) is (768, 512)
 	Local.Size((600, 900)) is (1024, 1536)
-	let fallback = original.Length is 0 then (Area, Area) else Scaled(original, 1024, 2 * 1024)
-	let high = height > 0 then ComfySize.Plain.Snap(height, 32) else fallback(0)
+	fallback = original.Length is 0 then (Area, Area) else Scaled(original, 1024, 2 * 1024)
+	high = height > 0 then ComfySize.Plain.Snap(height, 32) else fallback(0)
 	(high, (width > 0 then ComfySize.Plain.Snap(width, 32) else fallback(1)))
 Vision(original Numbers) Numbers
 	Local.Vision((600, 900)) is (1024, 1536)
@@ -73,8 +73,8 @@ Vision(original Numbers) Numbers
 Scaled(original Numbers, low Number, high Number) Numbers
 	Local.Scaled((3000, 5000), 1024, 2048) is (2048, 3424)
 	Local.Scaled((1200, 1300), 1024, 2048) is (1216, 1312)
-	let shortest = (original(0), original(1)).Minimum
-	let scale = shortest.Clamp(low, high) / shortest
+	shortest = (original(0), original(1)).Minimum
+	scale = shortest.Clamp(low, high) / shortest
 	for original
 		((value * scale / 32).Round * 32, 32).Maximum
 Problem Text slow

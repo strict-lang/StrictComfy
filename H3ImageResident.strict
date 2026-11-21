@@ -21,20 +21,20 @@ constant Crowded = Backend.IsCrowded(File(Tiny.Checkpoint).Length, GpuMemory.Hos
 Sampling(options H3ImageOptions) H3ImageResident slow
 	Sampled.models.Length is 1 and Sampled.refiners.Length is 1
 	Sampled.Sampling(Tiny).model is Sampled.model
-	let key = options.Checkpoint + "|" + options.Loras
+	key = options.Checkpoint + "|" + options.Loras
 	if key is model and models.Length is 1
 		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
 		return value
 	GpuMemory.Evicted
-	let loaded = Loaded(options)
-	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
+	loaded = Loaded(options)
+	refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
 Loaded(options H3ImageOptions) H3ImageModel native
 	None.Loaded(Tiny).heads.Length is 6
-	let started = Process.Elapsed
+	started = Process.Elapsed
 	logger.Log("Loading H3 Image " + ModelFiles("").Described(options.Checkpoint) + " from disk into memory")
-	let loaded = H3ImageModel.Loaded(options.Checkpoint, options.Loras)
-	let report = H3Lora(options.Loras).Report + Staying
+	loaded = H3ImageModel.Loaded(options.Checkpoint, options.Loras)
+	report = H3Lora(options.Loras).Report + Staying
 	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + report)
 	loaded
 Decoding(path Text) H3ImageResident native
@@ -53,47 +53,47 @@ Picturing(path Text) H3ImageResident native
 Referencing(image H3Image) H3ImageResident slow
 	Sampled.Referencing(H3Image.Tiny).references.Length is 0
 	Sampled.Referencing(H3Image.Tiny).vae.pictures.Length is 0
-	let path = image.options.image
-	let file = File(path)
-	let key = path is "" then "" else image.options.VaeEncoder + "|" + path + "|" + file.Length + "|" + file.Modified
+	path = image.options.image
+	file = File(path)
+	key = path is "" then "" else image.options.VaeEncoder + "|" + path + "|" + file.Length + "|" + file.Modified
 	if key is referenceKey
 		return value
 	if key is ""
 		return H3ImageResident(value, references = List(Numbers), referenceKey = "")
-	let picturing = Picturing(image.options.VaeEncoder)
+	picturing = Picturing(image.options.VaeEncoder)
 	H3ImageResident(picturing, references = image.Referenced(picturing.vae.pictures.First), referenceKey = key)
 Seeing(files H3Files) H3ImageResident native
 	Encoded.Seeing(TinyFiles).visions.Length is 0
 	if files.Images.Length is 0 or visions.Length is 1
 		return value
 	logger.Log("Loading the vision encoder of " + ModelFiles("").Described(files.Encoder) + Staying)
-	let vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
+	vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
 	H3ImageResident(value, visions = List(QwenVision) + vision)
 Encoding(files H3Files) H3ImageResident native
 	Encoded.encoders.Length is 1 and Encoded.tokenizers.Length is 1
 	Encoded.Encoding(TinyFiles).encoderFile is Encoded.encoderFile
 	if files.Encoder is encoderFile and encoders.Length is 1
 		return value
-	let started = Process.Elapsed
+	started = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
-	let encoder = H3Encoder(files)
-	let loaded = encoder.Loaded
+	encoder = H3Encoder(files)
+	loaded = encoder.Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s" + Staying)
-	let encoded = H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder)
+	encoded = H3ImageResident(value, encoders = List(Qwen3) + loaded, encoderFile = files.Encoder)
 	H3ImageResident(encoded, tokenizers = List(Gpt2Tokens) + encoder.Tokenizer, visions = List(QwenVision))
 Trimmed(options H3ImageOptions) H3ImageResident native
 	Encoded.Trimmed(Tiny).encoders.Length is (Crowded then 0 else 1)
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
 	Fitted(options)
-	let needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
-	let isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+	needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
+	isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	if encoders.Length is 0 or isKept and isCrowded is false
 		return value
 	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
 	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", visions = List(QwenVision))
 Fitted(options H3ImageOptions) native
 	Encoded.Fitted(Tiny) is not Error
-	let checkpoint = File(options.Checkpoint).Length
+	checkpoint = File(options.Checkpoint).Length
 	if GpuMemory.Held + GpuMemory.Available < checkpoint
 		GpuMemory.Evicted
 	else if options.image is "" and GpuMemory.Held + GpuMemory.Available < checkpoint + File(encoderFile).Length

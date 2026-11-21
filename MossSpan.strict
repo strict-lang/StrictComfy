@@ -16,12 +16,12 @@ Evaluated(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numb
 	Cached.reused is 0 and Skipped.reused is 1
 	if first is last
 		return MossSpan(value, output = moss.Features(latent, text, rotation, vector))
-	let modulation = moss.blockModulation.Sums(vector)
-	let before = moss.Ran(moss.Embedded(latent, text), modulation, rotation, latent, 0, first)
-	let skipping = allowed and residual.Length > 0 and skipped is false
-	let middle = Middle(moss, before, modulation, rotation, latent, skipping)
-	let after = moss.Ran(middle, modulation, rotation, latent, last, moss.layers.Length)
-	let cached = skipping then residual else H3Span.Combined(middle, before, -1)
+	modulation = moss.blockModulation.Sums(vector)
+	before = moss.Ran(moss.Embedded(latent, text), modulation, rotation, latent, 0, first)
+	skipping = allowed and residual.Length > 0 and skipped is false
+	middle = Middle(moss, before, modulation, rotation, latent, skipping)
+	after = moss.Ran(middle, modulation, rotation, latent, last, moss.layers.Length)
+	cached = skipping then residual else H3Span.Combined(middle, before, -1)
 	MossSpan(value, residual = cached, skipped = skipping, output = after, reused = reused + (skipping then 1 else 0))
 Middle(moss Moss, before Numbers, modulation Numbers, rotation Numbers, latent Numbers, skipping Boolean) Numbers slow
 	MossSpan(Tiny, residual = (5, 6)).Middle(Moss.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), true) is (6, 7)

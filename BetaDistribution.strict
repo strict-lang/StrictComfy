@@ -5,12 +5,12 @@ Quantile(probability Number) Number
 	BetaDistribution(0.6, 0.6).Quantile(0.875).IsNearlyEqual(0.942843636377586)
 	BetaDistribution(0.5, 0.7).Quantile(0.25).IsNearlyEqual(0.09617666129459618)
 	BetaDistribution(0.6, 0.6).Quantile(0.5) is 0.5
-	let total = Total
+	total = Total
 	mutable low = 0
 	mutable high = 1
 	for 32
-		let middle = (low + high) / 2
-		let below = Fraction(middle, total) < probability
+		middle = (low + high) / 2
+		below = Fraction(middle, total) < probability
 		low = below then middle else low
 		high = below then high else middle
 	high

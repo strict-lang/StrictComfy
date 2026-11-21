@@ -21,9 +21,9 @@ Guided(positive Numbers, negative Numbers) Numbers
 	for positive.Length
 		negative(index) + guidance * (positive(index) - negative(index))
 Sampled(moss Moss, noise Numbers, context Numbers, label Text) Numbers slow
-	let count = context.Length / moss.textProjection.weights.First.Length
-	let text = moss.TextEmbedded(context, count)
-	let negative = guidance is 1 then text else moss.TextEmbedded(context * 0, count)
+	count = context.Length / moss.textProjection.weights.First.Length
+	text = moss.TextEmbedded(context, count)
+	negative = guidance is 1 then text else moss.TextEmbedded(context * 0, count)
 	Looped(moss, noise, text, negative, moss.Rotation(noise, text, width), Euler(steps, 5).Sigmas, label)
 Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Numbers, sigmas Numbers, label Text) Numbers slow
 	mutable positive = State
@@ -42,7 +42,7 @@ Ended(label Text, seen StepTimes, positive MossSpectrum, latent Numbers) Numbers
 Noted(seen StepTimes, step Number, latent Numbers, output Numbers, sigma Number) StepTimes slow
 	MossSampling.Noted(StepTimes.Timed, 0, (1, 2), (1, 2), 0).logged >= 2
 	if preview is ""
-		let next = seen.Stepped
+		next = seen.Stepped
 		return StepTimes(next, logged = Logged(next, step + 1 >= steps))
 	StepTimes(seen, times = seen.times + Progressed(step, seen.times.First, seen.times.Last, latent, output, sigma))
 Logged(seen StepTimes, waiting Boolean) Number slow
@@ -57,12 +57,12 @@ Logged(seen StepTimes, waiting Boolean) Number slow
 	count
 Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number slow
 	GpuMemory.Finished
-	let now = Process.Elapsed
+	now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
 	if preview is "" or Previewing(step, now - previous) is false
 		return now
-	let pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
-	let part = preview + ".part"
+	pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
+	part = preview + ".part"
 	ImageCodec.SaveJpeg(part, pixels, previewer.Shrunk(2 * width) * 8, MossBatch.JpegQuality)
 	if File(preview).Exists
 		File(preview).Delete
@@ -76,7 +76,7 @@ Previewing(step Number, took = Shown) Boolean
 	MossSampling.Previewing(7) is false and MossSampling.Previewing(7, 0.1) is false
 	MossSampling(steps = 4).Previewing(2, 0.1) and MossSampling(steps = 4).Previewing(3, 0.1) is false
 	MossSampling(steps = 2).Previewing(0, 0.1) and MossSampling(steps = 2).Previewing(1, 0.1) is false
-	let early = took >= Shown or step is 0 or step is (steps / 2).Floor or step is steps - 2
+	early = took >= Shown or step is 0 or step is (steps / 2).Floor or step is steps - 2
 	step >= steps - 1 then finale else early
 Progress(step Number, last Number, average Number) Text
 	MossSampling.Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
@@ -85,8 +85,8 @@ Summary(label Text, seconds Number, state MossSpectrum) Text
 	MossSampling.Summary("Image 1/3 M1.jpg", 2.9774, MossSpectrum.Tiny) is "Image 1/3 M1.jpg sampled in 2977 ms"
 	MossSampling.Summary("A", 1, Forecasting) is "A sampled in 1000 ms, 3 of 8 steps forecast"
 	MossSampling.Summary("A", 1, Spanned) is "A sampled in 1000 ms, layers 6-36 reused in 2 steps"
-	let forecast = state.forecasts > 0 then ", " + state.forecasts + " of " + steps + " steps forecast" else ""
-	let layers = ", layers " + state.span.first + "-" + state.span.last + " reused in " + state.span.reused + " steps"
+	forecast = state.forecasts > 0 then ", " + state.forecasts + " of " + steps + " steps forecast" else ""
+	layers = ", layers " + state.span.first + "-" + state.span.last + " reused in " + state.span.reused + " steps"
 	label + " sampled in " + (seconds * 1000).Round + " ms" + forecast + (state.span.reused > 0 then layers else "")
 Unconditioned(state MossSpectrum, moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum
 	guidance is 1 then state else state.Advanced(moss, latent, sigma, text, rotation, step)
@@ -94,7 +94,7 @@ State MossSpectrum
 	MossSampling(warmup = 3).State.history.fit.degree is 2
 	MossSampling(warmup = 2).State.history.fit.degree is 1
 	MossSampling(warmup = 8).State.history.fit.degree is 4
-	let configured = MossSpectrumImage.Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
+	configured = MossSpectrumImage.Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
 	MossSpectrum(configured, span = span)
 Denoised(latent Numbers, output Numbers, sigma Number) Float32s
 	MossSampling.Denoised((1, 2), (2, 2), 0.5) is (0, 1)

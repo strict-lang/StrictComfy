@@ -10,9 +10,9 @@ Table(positions Numbers, inverse Numbers, scale Number) Float32s slow
 	Turning(3812) is 0
 	Video.Table((2, 0, 0), H3Layout.Inverse, 0.2617994)(128).IsNearlyEqual(-0.5)
 	for positions.Length / 3 * 2 * head
-		let at = index % (2 * head)
-		let pair = at % head % half
-		let position = positions((index / (2 * head)).Floor * 3 + (pair / inverse.Length).Floor)
+		at = index % (2 * head)
+		pair = at % head % half
+		position = positions((index / (2 * head)).Floor * 3 + (pair / inverse.Length).Floor)
 		Turned(at, Degrees(Radians(scale * position * inverse(pair % inverse.Length)) to Degrees))
 Turned(at Number, angle Degrees) Number
 	Video.Turned(0, Degrees(60)).IsNearlyEqual(0.5)
@@ -20,7 +20,7 @@ Turned(at Number, angle Degrees) Number
 	Video.Turned(180, Degrees(30)).IsNearlyEqual(0.5)
 	Video.Turned(100, Degrees(30)) is 1
 	Rope(64, 24).Turned(112, Degrees(30)) is 0
-	let within = at % head
+	within = at % head
 	if within >= 2 * half
 		return at < head then 1 else 0
 	at < head then angle.Cos else (within < half then -angle.Sin else angle.Sin)
@@ -28,7 +28,7 @@ Still(tokens Number) Float32s
 	Video.Still(17).Length is 4352
 	Video.Still(17)(129) is 0
 	Video.Still(17)(257) is 1
-	let period = 2 * head
+	period = 2 * head
 	for tokens * period
 		index % period < head then 1 else 0
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s slow

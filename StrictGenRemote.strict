@@ -3,61 +3,61 @@ constant Closing = "\r\nConnection: close\r\n\r\n"
 constant CarriageReturn = 13
 constant LineFeed = 10
 Delivered(endpoint Text, body Text) Text slow
-	let parts = endpoint.Split(":")
+	parts = endpoint.Split(":")
 	if parts.Length < 2
 		return "error\t" + endpoint
-	let prepared = Prepared(parts(0), parts(1) to Number, body)
-	let response = Posted(parts(0), parts(1) to Number, "/run", Marked(prepared))
+	prepared = Prepared(parts(0), parts(1) to Number, body)
+	response = Posted(parts(0), parts(1) to Number, "/run", Marked(prepared))
 	if response is ""
 		return "error\t" + endpoint + " did not answer"
-	let accepted = Json(response).get("accepted") to Text
+	accepted = Json(response).get("accepted") to Text
 	accepted is "" or accepted is "-1" then "error\tThe other StrictGen did not queue the job" else accepted
 Prepared(host Text, port Number, body Text) Text slow
-	let json = Json(body)
-	let video = json.get("video") to Text
-	let image = json.get("image") to Text
-	let sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
+	json = Json(body)
+	video = json.get("video") to Text
+	image = json.get("image") to Text
+	sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
 	image is "" then sent else Rewritten(sent, image, Uploaded(host, port, image))
 Uploaded(host Text, port Number, path Text) Text slow
 	if path is "" or File(path).Exists is false
 		return path
-	let saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
+	saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
 	saved is "" then path else saved
 Asked(endpoint Text, id Number) Text slow
-	let parts = endpoint.Split(":")
+	parts = endpoint.Split(":")
 	parts.Length < 2 then "error\tmissing" else Posted(parts(0), parts(1) to Number, "/job?id=" + id, "")
 Saved(endpoint Text, path Text) Text slow
-	let parts = endpoint.Split(":")
+	parts = endpoint.Split(":")
 	if parts.Length < 2 or path is ""
 		return ""
-	let bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
+	bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
 	if bytes.Length is 0
 		return ""
 	Directory.Create(StrictGen.Outputs)
-	let local = StrictGen.Outputs + "/" + Path(path).FileName.text
+	local = StrictGen.Outputs + "/" + Path(path).FileName.text
 	File(local).Write(bytes)
 	local
 Posted(host Text, port Number, path Text, body Text) Text slow
 	Sent(host, port, path, StrictGenHttp.Encoded(body))
 Sent(host Text, port Number, path Text, payload Numbers) Text slow
-	let header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + payload.Length + Closing
+	header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + payload.Length + Closing
 	StrictGenHttp.Decoded(After(Exchanged(host, port, StrictGenHttp.Encoded(header) + payload)))
 Gotten(host Text, port Number, path Text) Numbers slow
 	After(Exchanged(host, port, StrictGenHttp.Encoded("GET " + path + " HTTP/1.1\r\nHost: " + host + Closing)))
 Exchanged(host Text, port Number, bytes Numbers) Numbers slow
-	let socket = Socket.Try(host, port, 2)
+	socket = Socket.Try(host, port, 2)
 	if socket is Error
 		return List(Number)
 	if Socket.Send(socket, bytes) is Error
 		Socket.Close(socket)
 		return List(Number)
-	let response = Read(socket)
+	response = Read(socket)
 	Socket.Close(socket)
 	response
 Read(socket Number) Numbers slow
 	mutable bytes = List(Mutable(Number))
 	for Range(0, ReadPolls)
-		let pending = Socket.Pending(socket)
+		pending = Socket.Pending(socket)
 		if pending > 0
 			bytes = bytes + Socket.Receive(socket, pending)
 		if Finished(bytes)
@@ -65,13 +65,13 @@ Read(socket Number) Numbers slow
 		Process.Wait(0.01)
 	bytes
 Finished(bytes Numbers) Boolean
-	let end = HeaderEnd(bytes)
+	end = HeaderEnd(bytes)
 	if end < 0
 		return false
-	let header = StrictGenHttp.Decoded(bytes.Slice(0, end)).Lower
-	let start = header.IndexOf("content-length: ")
-	let digits = start < 0 then "0" else header.Substring(start + 16, header.Length - start - 16)
-	let length = digits.Split("\r\n").First to Number
+	header = StrictGenHttp.Decoded(bytes.Slice(0, end)).Lower
+	start = header.IndexOf("content-length: ")
+	digits = start < 0 then "0" else header.Substring(start + 16, header.Length - start - 16)
+	length = digits.Split("\r\n").First to Number
 	bytes.Length - end >= (length is Error then 0 else length)
 HeaderEnd(bytes Numbers) Number
 	StrictGenRemote.HeaderEnd((13, 10, 13, 10, 65)) is 4
@@ -82,7 +82,7 @@ HeaderEnd(bytes Numbers) Number
 				return index + 4
 	-1
 After(bytes Numbers) Numbers
-	let end = HeaderEnd(bytes)
+	end = HeaderEnd(bytes)
 	end < 0 then List(Number) else bytes.Slice(end, bytes.Length - end)
 Marked(body Text) Text
 	StrictGenRemote.Marked("{\"a\":1}") is "{\"placed\":true,\"a\":1}"

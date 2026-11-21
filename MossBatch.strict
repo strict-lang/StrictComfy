@@ -14,9 +14,9 @@ Templated Text slow
 		return Example
 	PromptBatch("Image").Template(options.prompt)
 Contexts(prompts Texts) List(Numbers) slow
-	let before = Process.Elapsed
-	let ids = Tokenized(Tokenizer, prompts)
-	let encoder = Encoder(Picked(ids))
+	before = Process.Elapsed
+	ids = Tokenized(Tokenizer, prompts)
+	encoder = Encoder(Picked(ids))
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	Encoded(encoder, ids, prompts)
 Encoded(encoder Qwen3, ids List(Numbers), prompts Texts) List(Numbers) slow
@@ -35,24 +35,24 @@ Picked(ids List(Numbers)) Numbers
 		picked = picked + value
 	picked
 Encoder(picked Numbers) Qwen3 slow
-	let path = options.files.Encoder
+	path = options.files.Encoder
 	logger.Log("Loading text encoder " + ModelFiles("").Described(path) + " from disk into memory")
-	let loading = QwenSafetensors(Safetensors(path, 32, "model.language_model."), 64, 256, 1, "Loading text encoder")
+	loading = QwenSafetensors(Safetensors(path, 32, "model.language_model."), 64, 256, 1, "Loading text encoder")
 	path.EndsWith(".gguf") then Qwen3.Loaded(path, 4, false) else loading.Loaded(10000000, picked)
 Reworded(encoder Qwen3, picked Numbers) Qwen3 slow
-	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
+	file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
 Images(kept MossResident, seeds Numbers, prompts Texts, contexts List(Numbers)) Number slow
-	let outputs = PromptBatch("Image").Outputs(options.output, seeds.Length)
+	outputs = PromptBatch("Image").Outputs(options.output, seeds.Length)
 	MossRun(value, kept, Previewed(options.Sampling(logger), kept.previewers), seeds, prompts, contexts, outputs).Images
 Loading(loras Text) Text slow
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
-	let merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
+	merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
 Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Texts slow
 	logger.Log("Decoding with " + kept.decoderFile)
-	let batch = MossBatch(options, prompted)
+	batch = MossBatch(options, prompted)
 	if kept.taefs.Length is 1
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
@@ -62,29 +62,29 @@ Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
 		return sampling
 	MossSampling(sampling, preview = options.preview, previewer = previewers.First)
 Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Text) Numbers slow
-	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
+	noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	sampling.Sampled(moss, noise, context, label)
 Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Text slow
-	let path = PromptBatch("Image").Saving(planned, options.output)
+	path = PromptBatch("Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
 		ImageCodec.SavePng(path, Rgba(image), options.width)
 	else
 		ImageCodec.SaveJpeg(path, image, options.width, JpegQuality)
 	if options.JsonOutput
 		File(path + ".json").Write(List(Text) + Described(seed, prompt))
-	let decoded = decoding > 0 then ", decoded in " + (decoding * 1000).Round + " ms" else ""
+	decoded = decoding > 0 then ", decoded in " + (decoding * 1000).Round + " ms" else ""
 	logger.Log("Saved " + path + " in " + ((Process.Elapsed - started) * 1000).Round + " ms" + decoded)
 	path
 Rgba(rgb Numbers) Numbers
 	Sample.Rgba((0.2, 0.4, 0.6)) is (0.2, 0.4, 0.6, 1)
 	for rgb.Length / 3 * 4
-		let channel = index % 4
+		channel = index % 4
 		channel is 3 then 1 else rgb((index / 4).Floor * 3 + channel)
 Described(seed Number, prompt Text) Text slow
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")
-	let sampling = options.Sampling(Logger)
-	let settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
-	let described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
+	sampling = options.Sampling(Logger)
+	settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
+	described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
 Expanded(arguments Texts) MossBatch slow
 	Sample.Expanded(List(Text)).prompted is "" and Workflowed.Expanded(Prompted).prompted is ""
@@ -92,16 +92,16 @@ Expanded(arguments Texts) MossBatch slow
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
 	if options.files.workflow is ""
 		return MossBatch(Noted)
-	let graph = ComfyGraph.Read(options.files.Workflow, MossWorkflow.Known)
-	let workflow = MossWorkflow(graph, ModelFiles(options.files.models).ComfyUI)
-	let settings = workflow.Arguments
+	graph = ComfyGraph.Read(options.files.Workflow, MossWorkflow.Known)
+	workflow = MossWorkflow(graph, ModelFiles(options.files.models).ComfyUI)
+	settings = workflow.Arguments
 	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
 	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(graph.Skipped, ", "))
-	let prompt = "--prompt" is in arguments then "" else workflow.Prompt
+	prompt = "--prompt" is in arguments then "" else workflow.Prompt
 	MossBatch(MossBatch(MossOptions.Parsed(settings + arguments)).Noted, prompt)
 Noted MossOptions
 	MossBatch(MossOptions.Parsed(("--width", "720"))).Noted.width is 704
-	let fitted = options.Fitted
+	fitted = options.Fitted
 	if fitted.width is options.width and fitted.height is options.height
 		return fitted
 	logger.Log("Moss size " + options.width + "x" + options.height + " changed to " + fitted.width + "x" + fitted.height)

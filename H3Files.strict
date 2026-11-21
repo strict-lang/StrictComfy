@@ -84,14 +84,14 @@ Problem Text slow
 Mixed Text slow
 	H3Files.Parsed(("--model", "tinyh3.safetensors")).Mixed is ""
 	Local.Mixed is ""
-	let checkpoint = Checkpoint
+	checkpoint = Checkpoint
 	if checkpoint is Error
 		return ""
-	let header = TensorFile.Header(checkpoint)
-	let blocks = H3.Named(header, "blocks.").Length
-	let quantized = Quantized(header).Length
-	let kinds = quantized + " int8 and " + (blocks - quantized) + " bf16 or fp16 blocks"
-	let unsupported = " is not supported yet: it mixes " + kinds + ", only models with one kind of blocks work"
+	header = TensorFile.Header(checkpoint)
+	blocks = H3.Named(header, "blocks.").Length
+	quantized = Quantized(header).Length
+	kinds = quantized + " int8 and " + (blocks - quantized) + " bf16 or fp16 blocks"
+	unsupported = " is not supported yet: it mixes " + kinds + ", only models with one kind of blocks work"
 	quantized is 0 or quantized is blocks then "" else Path(checkpoint).FileName.text + unsupported
 Quantized(header Text) Texts
 	Local.Quantized("{\"blocks.0.attn.qkv_proj.comfy_quant\":{},\"blocks.1.attn.qkv_proj.weight\":{}}").Length is 1
@@ -109,14 +109,14 @@ IsDistilled(name Text) Boolean
 	Local.IsDistilled("PRISM_DMAD_PDMD_int8.safetensors")
 	Local.IsDistilled("h3/fastvideo_fasth3_8step_v2.safetensors")
 	Local.IsDistilled("h3/minimax_h3_taomate_3step.safetensors") is false
-	let lower = Path(name).FileName.text.Lower
+	lower = Path(name).FileName.text.Lower
 	for Distilled
 		if lower.IndexOf(value) >= 0
 			return true
 	false
 Turbo Text slow
 	H3Files.Local.Turbo is H3Video.Turbo
-	let folder = ModelFiles(models).Folder + "/loras/"
+	folder = ModelFiles(models).Folder + "/loras/"
 	for (H3Video.TurboV4, H3Video.Turbo)
 		if File(folder + "h3/" + value).Exists
 			return "h3/" + value

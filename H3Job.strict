@@ -48,7 +48,7 @@ Noise(stream Text, step Number) Numbers
 	Dumped.Noise("video", 2) is (0.5, -1.5)
 	if video.Length > 0
 		return seed < 0 then List(Number) else Drawn(stream, step)
-	let name = stream + ".noise." + step
+	name = stream + ".noise." + step
 	file.Entry(name) is "" then List(Number) else file.Values(name)
 Drawn(stream Text, step Number) Numbers
 	Noisy.Drawn("video", 0).Length is 32
@@ -56,7 +56,7 @@ Drawn(stream Text, step Number) Numbers
 	Noisy.Drawn("video", 1) is not Noisy.Drawn("audio", 0)
 	Noisy.Drawn("video", 2) is MersenneTwister.Seeded(8).Normals(32)
 	Noisy.Drawn("audio", 1) is MersenneTwister.Seeded(7).Normals(64)
-	let count = stream is "video" then video.Length else audio.Length
+	count = stream is "video" then video.Length else audio.Length
 	MersenneTwister.Seeded((seed + 2 * step + (stream is "video" then 1 else 2)) % PromptBatch.SeedRange).Normals(count)
 Preview(step Number) Text
 	Reference.Preview(0) is ""
@@ -69,14 +69,14 @@ Patched(latent Numbers, size Numbers, noise Numbers) Numbers
 	Reference.Patched((0, 1, 2, 3, 4, 5, 6, 7), (1, 1, 2, 4), Layer.Zeros(8))(4).IsNearlyEqual(1.998)
 	Patches(0).IsNearlyEqual(Patchified(0), 0.0001) and Patches(383).IsNearlyEqual(Patchified(383), 0.0001)
 	Reference.Patched(Latent, (12, 2, 4, 4), Layer.Zeros(384))(200).IsNearlyEqual(0.999 * Latent(80))
-	let columns = 4 * size(0)
-	let half = size(3) / 2
+	columns = 4 * size(0)
+	half = size(3) / 2
 	for latent.Length
-		let row = (index / columns).Floor
-		let column = index % columns
-		let y = 2 * ((row / half).Floor % (size(2) / 2)) + (column % 4 / 2).Floor
-		let x = 2 * (row % half) + column % 2
-		let plane = ((column / 4).Floor * size(1) + (row / (size(2) / 2 * half)).Floor) * size(2)
+		row = (index / columns).Floor
+		column = index % columns
+		y = 2 * ((row / half).Floor % (size(2) / 2)) + (column % 4 / 2).Floor
+		x = 2 * (row % half) + column % 2
+		plane = ((column / 4).Floor * size(1) + (row / (size(2) / 2 * half)).Floor) * size(2)
 		H3Layout.Pinned * latent((plane + y) * size(3) + x) + (1 - H3Layout.Pinned) * noise(index)
 Rows(condition Safetensors) Numbers
 	H3Job(Noisy, rows = (1, 2)).Rows(Keyframe) is (1, 2)
@@ -91,14 +91,14 @@ HeldVideo(solver Solver, step Number) Solver
 	Noisy.HeldVideo(Solver.Toy, 0).latent is (1, -2)
 	if motion.frames is 0
 		return solver
-	let plane = shape(2) * shape(3)
-	let mixed = motion.Mixed(solver.latent, motion.video, video, shape(1), motion.frames, plane, solver.sigmas(step))
+	plane = shape(2) * shape(3)
+	mixed = motion.Mixed(solver.latent, motion.video, video, shape(1), motion.frames, plane, solver.sigmas(step))
 	Solver(solver, latent = mixed)
 HeldAudio(solver Solver, step Number) Solver
 	Noisy.HeldAudio(Solver.Toy, 0).latent is (1, -2)
 	if motion.sound is 0
 		return solver
-	let mixed = motion.Mixed(solver.latent, motion.audio, audio, audio.Length / 64, motion.sound, 1, solver.sigmas(step))
+	mixed = motion.Mixed(solver.latent, motion.audio, audio, audio.Length / 64, motion.sound, 1, solver.sigmas(step))
 	Solver(solver, latent = mixed)
 Keyed(latents List(Numbers), size Numbers, base Number) Numbers slow
 	Reference.Keyed(List(Numbers) + Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), 0)(5) is Patches(5)

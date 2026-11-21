@@ -2,7 +2,7 @@ Words(line Text) Texts
 	CommandWords.Words("--length 5  --prompt \"a b.txt\"") is ("--length", "5", "--prompt", "a b.txt")
 	CommandWords.Words("--prompt=\"a b.txt\" --seed 7") is ("--prompt=a b.txt", "--seed", "7")
 	CommandWords.Words("\"a\"\"b\" c") is ("a", "b", "c")
-	let parts = line.Split("\"")
+	parts = line.Split("\"")
 	mutable words = List(Text)
 	for parts
 		if IsJoined(parts, index)

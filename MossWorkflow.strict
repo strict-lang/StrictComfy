@@ -28,14 +28,14 @@ Arguments Texts
 	Tiny.Arguments.Length is 24
 	Tiny.Arguments(3) is "moss/tinylora.safetensors:0.5"
 	Tiny.Arguments.Last is "./output/tinymoss_.jpg"
-	let sampler = Sampler
-	let latent = graph.Origin(ComfyInputs(graph).Source(sampler, "latent_image"))
+	sampler = Sampler
+	latent = graph.Origin(ComfyInputs(graph).Source(sampler, "latent_image"))
 	Model(ComfyInputs(graph).Source(sampler, "model")) + Sampling(sampler) + Size(latent) + Files + Output
 Sampler Json
 	Tiny.graph.Node(5).text is Tiny.Sampler.text
 	Empty.Sampler is Error("NoMossSamplerFound")
 	Several.Sampler is Error("SeveralMossSamplers")
-	let samplers = graph.Active(Samplers)
+	samplers = graph.Active(Samplers)
 	if samplers.Length is 1
 		return samplers(0)
 	Error(samplers.Length is 0 then "NoMossSamplerFound" else "SeveralMossSamplers")
@@ -46,7 +46,7 @@ Model(link Json) Texts
 	Named.Model(ComfyInputs(Named.graph).Source(Named.graph.Node(2), "model")) is ("--model", "b")
 	if link.text is ""
 		return List(Text)
-	let node = graph.Origin(link)
+	node = graph.Origin(link)
 	if graph.Type(node) is "UNETLoader"
 		return ("--model", graph.Text(node, "unet_name", 0))
 	Model(ComfyInputs(graph).Source(node, "model")) + Loras(node)
@@ -63,8 +63,8 @@ Stack(node Json) Texts
 	Tiny.Stack(Stacked) is ("--lora", "moss/b.safetensors:0.75", "--lora", "moss/c.safetensors:0.5")
 	mutable loras = List(Text)
 	for 4
-		let name = graph.Text(node, "lora_0" + (index + 1), 2 * index)
-		let strength = graph.Text(node, "strength_0" + (index + 1), 2 * index + 1) to Number
+		name = graph.Text(node, "lora_0" + (index + 1), 2 * index)
+		strength = graph.Text(node, "strength_0" + (index + 1), 2 * index + 1) to Number
 		if name is not "None" and strength is not 0
 			loras = loras + ComfyInputs(graph).Lora(name, strength)
 	loras
@@ -72,17 +72,17 @@ Sampling(sampler Json) Texts
 	Tiny.Sampling(Tiny.Sampler) is ("--seed", "42", "--steps", "6", "--guidance", "1.5")
 	Tiny.Sampling(Strict) is ("--seed", "7", "--quality", "fast", "--skip", "6:36")
 	Tiny.Sampling(Custom) is ("--seed", "3", "--steps", "8", "--guidance", "2.5", "--spectrum", "off", "--skip", "off")
-	let seed = ComfyInputs(graph).Seed(sampler, "seed", 0)
-	let steps = ("--steps", graph.Text(sampler, "steps", 2), "--guidance", graph.Text(sampler, "cfg", 3))
+	seed = ComfyInputs(graph).Seed(sampler, "seed", 0)
+	steps = ("--steps", graph.Text(sampler, "steps", 2), "--guidance", graph.Text(sampler, "cfg", 3))
 	if graph.Type(sampler) is "KSampler"
 		return seed + steps
-	let quality = graph.Text(sampler, "quality", 7)
-	let custom = steps + "--spectrum" + graph.Text(sampler, "spectrum", 4)
+	quality = graph.Text(sampler, "quality", 7)
+	custom = steps + "--spectrum" + graph.Text(sampler, "spectrum", 4)
 	seed + (quality is "custom" then custom else ("--quality", quality)) + "--skip" + graph.Text(sampler, "skip", 8)
 Size(latent Json) Texts
 	Tiny.Size(Tiny.graph.Node(9)) is ("--width", "480", "--height", "1280", "--count", "2")
 	Tiny.Size(Latent) is ("--width", "512", "--height", "768", "--count", "3")
-	let sizes = ("--width", graph.Text(latent, "width", 0), "--height", graph.Text(latent, "height", 1))
+	sizes = ("--width", graph.Text(latent, "width", 0), "--height", graph.Text(latent, "height", 1))
 	sizes + "--count" + graph.Text(latent, "batch_size", 2)
 Files Texts
 	Tiny.Files is ("--text_encoder", "qwen3.5_9b_int8_convrot.safetensors", "--vae", "flux2-vae.safetensors")
@@ -91,14 +91,14 @@ Files Texts
 Loader(type Text, name Text, option Text) Texts
 	Tiny.Loader("VAELoader", "vae_name", "--vae") is ("--vae", "flux2-vae.safetensors")
 	Tiny.Loader("UpscaleModelLoader", "model_name", "--upscale").Length is 0
-	let loaders = graph.Active(List(Text) + type)
+	loaders = graph.Active(List(Text) + type)
 	loaders.Length is 1 then (option, graph.Text(loaders(0), name, 0)) else List(Text)
 Output Texts
 	Tiny.Output is ("--output", "./output/tinymoss_.jpg")
 	Empty.Output is ("--output", "./output/MossImage_.jpg")
 	Several.Output is ("--output", "./output/named_.jpg")
-	let saved = graph.Active(List(Text) + "SaveImage")
-	let prefix = saved.Length is 0 then "MossImage" else graph.Text(saved(0), "filename_prefix", 0)
+	saved = graph.Active(List(Text) + "SaveImage")
+	prefix = saved.Length is 0 then "MossImage" else graph.Text(saved(0), "filename_prefix", 0)
 	("--output", comfyui + "/output/" + prefix + "_.jpg")
 Prompt Text
 	Tiny.Prompt is "a {red|blue} fox"

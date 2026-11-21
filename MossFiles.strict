@@ -37,7 +37,7 @@ Decoder Text slow
 	MossFiles.Parsed(("--models", ".")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	if vae is not ""
 		return Located(vae, (File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"))
-	let full = Located("flux2-vae.safetensors", "vae")
+	full = Located("flux2-vae.safetensors", "vae")
 	full is Error and File(Tiny).Exists then Tiny else full
 Tiny Text slow
 	Local.Tiny is "./vae_approx/taef2.safetensors"
@@ -53,11 +53,11 @@ Encoder Text slow
 	Located((textEncoder is "" then "qwen3.5_9b_int8_convrot.safetensors" else textEncoder), "text_encoders")
 Tokenizer Text slow
 	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Tokenizer is Error("TokenizerNotFound")
-	let beside = Path(Encoder).PathOnly.text
-	let next = (beside is "" then "." else beside) + "/qwen35_tokenizer"
+	beside = Path(Encoder).PathOnly.text
+	next = (beside is "" then "." else beside) + "/qwen35_tokenizer"
 	if Directory.Exists(next)
 		return next
-	let installed = ModelFiles(models).ComfyUI + "/comfy/text_encoders/qwen35_tokenizer"
+	installed = ModelFiles(models).ComfyUI + "/comfy/text_encoders/qwen35_tokenizer"
 	Directory.Exists(installed) then installed else Error("TokenizerNotFound")
 Workflow Text slow
 	MossFiles.Parsed(("--workflow", "tinymossworkflow.json")).Workflow is "tinymossworkflow.json"

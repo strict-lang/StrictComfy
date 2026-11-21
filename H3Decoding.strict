@@ -8,7 +8,7 @@ constant FastLatent = Taeh3Decoder.Latent + Taeh3Decoder.Latent + H3Audio.Latent
 constant Both = Tiny.Decoded(Latent, (12, 3, 4))
 Loaded(log Logger, video Text, audio Text) H3Decoding native
 	Fast.tinies.Length is 1 and Tiny.tinies.Length is 0
-	let audioVae = H3Audio.Loaded(Safetensors(audio, 32))
+	audioVae = H3Audio.Loaded(Safetensors(audio, 32))
 	if Taeh3Decoder.Is(video)
 		return H3Decoding(H3Vae(H3Decoder.None, H3Tiles.Real), audioVae, List(Taeh3Decoder) + Taeh3Decoder.Loaded(video))
 	H3Decoding(H3Vae(H3Decoder.Loaded(Safetensors(video, 32)), H3Tiles.Real), audioVae)
@@ -16,9 +16,9 @@ Decoded(latent Numbers, shape Numbers) List(Numbers) native
 	Both(0).Length is H3Vae.Pixels.Length and MossImage.RelativeError(Both(0), H3Vae.Pixels) < 0.00001
 	Both(1) is H3Audio.Tiny.Normalized(H3Audio.Waveform)
 	Fast.Decoded(FastLatent, (2, 2, 3))(0).Length is 5 * Taeh3Decoder.Pixels.Length
-	let count = H3Format.Channels * shape(0) * shape(1) * shape(2)
-	let video = latent.Slice(0, count)
-	let frames = tinies.Length is 1 then tinies.First.Frames(video, shape) else vae.Decoded(video, shape)
+	count = H3Format.Channels * shape(0) * shape(1) * shape(2)
+	video = latent.Slice(0, count)
+	frames = tinies.Length is 1 then tinies.First.Frames(video, shape) else vae.Decoded(video, shape)
 	(frames, sound.Normalized(sound.Decoded(latent.Slice(count, latent.Length - count))))
 Tiled(tiling H3Tiles) H3Decoding
 	Tiny.Tiled(H3Tiles.Lean).vae.tiling is H3Tiles.Lean
@@ -35,8 +35,8 @@ Written(file Text, shape Numbers, index Number) None native
 	Tiny.Written("h3test", (24, 12, 3, 4), 0) is not Error
 	File("h3test-decoded.rgb").Length is 359424
 	Safetensors("h3test-decoded.safetensors", 32).Values("audio") is Both(1)
-	let before = Process.Elapsed
-	let decoded = Decoded(Safetensors(file + "-latent.safetensors", 32).Values("latent"), shape.Slice(1, 3))
+	before = Process.Elapsed
+	decoded = Decoded(Safetensors(file + "-latent.safetensors", 32).Values("latent"), shape.Slice(1, 3))
 	File(file + "-decoded.rgb").Write(H3Frames.Bytes(decoded(0)))
 	Safetensors(file + "-decoded.safetensors").Written("audio", decoded(1))
 	logger.Log("decoded " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")

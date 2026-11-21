@@ -5,41 +5,41 @@ constant SignedShortLimit = 32768
 constant UnsignedShortRange = 65536
 TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed: missing-clip.mp4")
-	let rgb = path + ".tail.rgb"
-	let seconds = context / H3Format.FramesPerSecond + 1
+	rgb = path + ".tail.rgb"
+	seconds = context / H3Format.FramesPerSecond + 1
 	if Process.RunTool("ffmpeg", StrictGenJoin.Extract(path, rgb, (height, width), seconds)).Failed
 		return Error("FfmpegFailed: " + path)
-	let frame = width * height * 3
-	let raw = Scaled(File(rgb).ReadBytes)
+	frame = width * height * 3
+	raw = Scaled(File(rgb).ReadBytes)
 	File(rgb).Delete
-	let count = raw.Length / frame
-	let last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
+	count = raw.Length / frame
+	last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
 	last.Length < context * frame then Error("ShortVideo: " + context) else last
 TailPcm(path Text, seconds Number) Numbers slow
 	Sample.TailPcm("missing-clip.mp4", 2).Length is 128000
-	let pcm = path + ".tail.pcm"
+	pcm = path + ".tail.pcm"
 	if Process.RunTool("ffmpeg", StrictGenJoin.ExtractAudio(path, pcm, seconds)).Failed
 		return Layer.Zeros(2 * (seconds * H3Frames.SampleRate).Round)
-	let waveform = Pcm(File(pcm).ReadBytes)
+	waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
 	waveform
 Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) None slow
 	Sample.Appended("a.mp4", (1, 2, 3), (1, 2), (1, 1), 22, "b.mp4") is Error("ShortVideo")
-	let frame = size(0) * size(1) * 3
+	frame = size(0) * size(1) * 3
 	if video.Length < (context + 1) * frame
 		return Error("ShortVideo")
-	let kept = context - StrictGenJoin.Overlap
-	let drop = StrictGenExtend.None.SoundDrop(kept)
+	kept = context - StrictGenJoin.Overlap
+	drop = StrictGenExtend.None.SoundDrop(kept)
 	if waveform.Length < (drop + 1) * 2
 		return Error("ShortAudio")
 	Merged(source, Trimmed(video, kept, frame), Cut(waveform, drop), size, output)
 Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
-	let tail = output + ".tail.mp4"
-	let saved = H3Frames.Saved(video, audio, size, tail)
+	tail = output + ".tail.mp4"
+	saved = H3Frames.Saved(video, audio, size, tail)
 	if saved is Error
 		return saved
-	let join = StrictGenJoin
-	let merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
+	join = StrictGenJoin
+	merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
 	File(tail).Delete
 	if merged.Failed
 		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)
@@ -50,54 +50,54 @@ Trimmed(video Numbers, context Number, frame Number) Numbers
 	video.Slice(context * frame, video.Length - context * frame)
 Cut(waveform Numbers, drop Number) Numbers
 	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
-	let half = waveform.Length / 2
+	half = waveform.Length / 2
 	waveform.Slice(drop, half - drop) + waveform.Slice(half + drop, half - drop)
 Still(path Text, zoom Text) Text slow
 	Sample.Still("missing-clip.mp4", "") is "missing-clip.mp4"
 	Sample.Still("a.png", "false") is "a.png"
 	Sample.Still("", "25") is ""
-	let isVideo = path.Lower.EndsWith(".mp4")
-	let last = isVideo then Rendered("-sseof -1", path, "-update 1", StrictGen.Inputs, "-last.png") else path
+	isVideo = path.Lower.EndsWith(".mp4")
+	last = isVideo then Rendered("-sseof -1", path, "-update 1", StrictGen.Inputs, "-last.png") else path
 	if isVideo and last is not path
 		logger.Log("Using the last frame of " + path + " as the first frame")
 	Closer(last, zoom)
 Closer(path Text, zoom Text) Text slow
 	Sample.Closer("", "25") is ""
 	Sample.Closer("missing.png", "") is "missing.png"
-	let percent = zoom is "true" then 10 else (zoom is "" or zoom is "false" then 0 else zoom to Number)
+	percent = zoom is "true" then 10 else (zoom is "" or zoom is "false" then 0 else zoom to Number)
 	if percent <= 0 or path is ""
 		return path
-	let closer = Rendered("", path, Crop(percent), Zoomed, "-zoom" + percent + ".png")
+	closer = Rendered("", path, Crop(percent), Zoomed, "-zoom" + percent + ".png")
 	if closer is not path
 		logger.Log("Zoomed " + percent + "% into " + path)
 	closer
 Crop(percent Number) Text
 	Sample.Crop(10) is "-vf crop=iw/1.1:ih/1.1"
 	Sample.Crop(25) is "-vf crop=iw/1.25:ih/1.25"
-	let scale = 1 + percent / 100
+	scale = 1 + percent / 100
 	"-vf crop=iw/" + scale + ":ih/" + scale
 Rendered(before Text, path Text, after Text, folder Text, suffix Text) Text slow
 	Sample.Rendered("", "missing.png", "", Zoomed, "-zoom10.png") is "missing.png"
-	let output = folder + "/" + Path(path).FileName.RemoveExtension.text + suffix
+	output = folder + "/" + Path(path).FileName.RemoveExtension.text + suffix
 	Directory.Create(StrictGen.Inputs)
 	Directory.Create(folder)
 	File(output).Delete
-	let args = "-y -loglevel error " + before + " -i \"" + path + "\" " + after + " \"" + output + "\""
+	args = "-y -loglevel error " + before + " -i \"" + path + "\" " + after + " \"" + output + "\""
 	Process.RunTool("ffmpeg", args).Failed or File(output).Exists is false then path else output
 Probe(path Text) Text slow
 	Sample.Probe("missing-clip.mp4") is ""
-	let result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")
+	result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")
 	result.Failed then "" else result.Output.Trim
 Pcm(bytes Numbers) Numbers
 	Sample.Pcm((0, 0, 0, 128)) is (0, -1)
 	Sample.Pcm((0, 128, 0, 0)).First is -1
-	let frames = bytes.Length / 4
+	frames = bytes.Length / 4
 	for frames * 2
 		Sampled(bytes, (index < frames then index * 4 else (index - frames) * 4 + 2))
 Sampled(bytes Numbers, at Number) Number
 	Sample.Sampled((0, 128), 0) is -1
 	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)
-	let unsigned = bytes(at) + bytes(at + 1) * 256
+	unsigned = bytes(at) + bytes(at + 1) * 256
 	(unsigned >= SignedShortLimit then unsigned - UnsignedShortRange else unsigned) / SignedShortLimit
 Scaled(bytes Numbers) Numbers
 	Sample.Scaled((0, 255)) is (0, 1)

@@ -6,7 +6,7 @@ Loaded(model Safetensors, prefix Text) H3AudioBlock slow
 	Tiny.firsts(2).dilation is 5
 	Tiny.seconds(0).dilation is 1
 	Tiny.snakes.Length is 6
-	let dilated = Convolutions(model, prefix + "convs1.", true)
+	dilated = Convolutions(model, prefix + "convs1.", true)
 	H3AudioBlock(dilated, Convolutions(model, prefix + "convs2.", false), Snakes(model, prefix))
 Convolutions(model Safetensors, prefix Text, dilated Boolean) List(H3Conv) slow
 	Tiny.Convolutions(H3Conv.Model, "decoder.resblocks.1.convs1.", true)(1).kernel is 7
@@ -20,6 +20,6 @@ Output(signal Numbers) Numbers native
 	Tiny.Output(H3Snake.Upsampled)(451).IsNearlyEqual(H3Conv.Model.Values("reference.resblocks.0")(67), 0.005)
 	mutable state = signal
 	for firsts
-		let hidden = snakes(2 * index + 1).Output(value.Output(snakes(2 * index).Output(state)))
+		hidden = snakes(2 * index + 1).Output(value.Output(snakes(2 * index).Output(state)))
 		state = Gpt2Block.Added(state, seconds(index).Output(hidden))
 	state

@@ -14,7 +14,7 @@ constant Unfound = ""
 constant Missing = "RTX Video Super Resolution needs nvidia-vfx in ComfyUI's Python (ComfyUI_Nvidia_VFX_Nodes installs it), the video keeps its size"
 Python Text slow
 	Tiny.Python is ""
-	let folder = ModelFiles(options.files.models).Folder
+	folder = ModelFiles(options.files.models).Folder
 	if folder is Error
 		return Unfound
 	for Pythons
@@ -23,9 +23,9 @@ Python Text slow
 	""
 Script Text slow
 	Tiny.Script.EndsWith(Named)
-	let root = H3Artifacts(options).Root
-	let folder = ModelFiles(options.files.models).Folder
-	let installed = folder is Error then root + "/" + Named else folder + "/../custom_nodes/StrictComfy/" + Named
+	root = H3Artifacts(options).Root
+	folder = ModelFiles(options.files.models).Folder
+	installed = folder is Error then root + "/" + Named else folder + "/../custom_nodes/StrictComfy/" + Named
 	for (root + "/" + Named, root + "/../../" + Named, installed)
 		if File(value).Exists
 			return value
@@ -39,17 +39,17 @@ Stamp Text
 Warmed slow
 	if IsAvailable is false or File(Stamp).Exists
 		return
-	let isWindows = Process.OperatingSystem is "Windows"
-	let started = Process.RunTool(isWindows then "powershell" else "sh", Detached(Python, Script, isWindows))
+	isWindows = Process.OperatingSystem is "Windows"
+	started = Process.RunTool(isWindows then "powershell" else "sh", Detached(Python, Script, isWindows))
 	if started.Failed
 		logger.Log("Could not start " + Python + " for RTX Video Super Resolution: " + started.error.Trim)
 Detached(python Text, script Text, isWindows Boolean) Text
 	Tiny.Detached("p.exe", "r.py", true).EndsWith(" \\\"" + Tiny.Stamp + "\\\"' -WindowStyle Hidden")
 	Tiny.Detached("p", "r.py", false).StartsWith("-c \"nohup 'p' -I 'r.py' --serve 18019 ")
-	let served = " --serve " + Port + " " + Process.Id + " "
-	let quoted = Quote + script + Quote + served + Quote + Stamp + Quote
-	let hidden = Starting + python + "' -ArgumentList '-I " + quoted + "' -WindowStyle Hidden"
-	let shell = "' -I '" + script + "'" + served + "'" + Stamp + "' >/dev/null 2>&1 &\""
+	served = " --serve " + Port + " " + Process.Id + " "
+	quoted = Quote + script + Quote + served + Quote + Stamp + Quote
+	hidden = Starting + python + "' -ArgumentList '-I " + quoted + "' -WindowStyle Hidden"
+	shell = "' -I '" + script + "'" + served + "'" + Stamp + "' >/dev/null 2>&1 &\""
 	isWindows then hidden else "-c \"nohup '" + python + shell
 Ended slow
 	if File(Stamp).Exists is false
@@ -61,15 +61,15 @@ Upscaled(path Text, isLast Boolean) slow
 		logger.Log(Missing)
 		return
 	logger.Log("Upscaling " + path + " 2x with RTX Video Super Resolution")
-	let full = Absolute(path)
-	let queued = Queued(full, File(Stamp).Exists)
-	let answer = queued is "queued" then Polled("/result", full, "busy", LongestSeconds) else queued
+	full = Absolute(path)
+	queued = Queued(full, File(Stamp).Exists)
+	answer = queued is "queued" then Polled("/result", full, "busy", LongestSeconds) else queued
 	logger.Log(answer.StartsWith("RTX") then answer else Failed(answer))
 	if isLast
 		Ended
 Queued(path Text, isRunning Boolean) Text slow
 	Warmed
-	let answer = Polled("/upscale", path, "", isRunning then PollSeconds else StartSeconds)
+	answer = Polled("/upscale", path, "", isRunning then PollSeconds else StartSeconds)
 	if answer is not "" or isRunning is false
 		return answer
 	File(Stamp).Delete
@@ -91,7 +91,7 @@ Absolute(path Text) Text
 	path.StartsWith("/") or path.IndexOf(":") is 1 then path else Directory.Current.Replace("\\", "/") + "/" + path
 Failed(error Text) Text
 	Tiny.Failed("FutureWarning: pynvml\nneeds an RTX card\n").EndsWith(" keeps its size: needs an RTX card")
-	let reason = error.Trim is "" then "the helper did not answer" else error.Trim.Lines.Last
+	reason = error.Trim is "" then "the helper did not answer" else error.Trim.Lines.Last
 	"RTX Video Super Resolution failed, the video keeps its size: " + reason
 Sized(probed Text) Text
 	Tiny.Sized("480,832") is "480 832"
@@ -100,10 +100,10 @@ Sized(probed Text) Text
 	Tiny.Sized("") is ""
 	if probed is ""
 		return ""
-	let lines = probed.Lines
-	let pixels = lines.First.Split(",")
-	let tagged = lines.Last.EndsWith(Tag) then lines.Last.Split(" ").First.Split("x") else pixels
-	let isDoubled = tagged.Length is 2 and pixels.Length is 2 and tagged(0) to Number * 2 is pixels(0) to Number
+	lines = probed.Lines
+	pixels = lines.First.Split(",")
+	tagged = lines.Last.EndsWith(Tag) then lines.Last.Split(" ").First.Split("x") else pixels
+	isDoubled = tagged.Length is 2 and pixels.Length is 2 and tagged(0) to Number * 2 is pixels(0) to Number
 	Snapped(isDoubled then tagged else pixels)
 Snapped(parts Texts) Text
 	Tiny.Snapped(("33", "64")) is "32 64"

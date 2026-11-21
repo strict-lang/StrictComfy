@@ -34,7 +34,7 @@ SoundDrop(context Number) Number
 LatentPath(path Text) Text
 	Sample.LatentPath("a.mp4") is "a.latent.safetensors"
 	Sample.LatentPath("dir/b.MP4") is "dir/b.latent.safetensors"
-	let dot = path.LastIndexOf(".")
+	dot = path.LastIndexOf(".")
 	(dot < 0 then path else path.Substring(0, dot)) + ".latent.safetensors"
 Ramp(count Number, start Number) Numbers
 	Sample.Ramp(3, 1) is (1, 2, 3)
@@ -42,51 +42,51 @@ Ramp(count Number, start Number) Numbers
 		start + index
 Prepare Text
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
-	let numbers = Ramp(10, 1) + Ramp(SampleAudio, SampleAudioStart)
-	let shape = (1, 10, 1, 1, SampleAudio, SamplePixels)
+	numbers = Ramp(10, 1) + Ramp(SampleAudio, SampleAudioStart)
+	shape = (1, 10, 1, 1, SampleAudio, SamplePixels)
 	Safetensors("strictgen-tail.latent.safetensors").Written(("latent", "shape"), (numbers, shape))
 	"strictgen-tail.latent.safetensors"
 Tail(values Numbers, temporal Number, keep Number, plane Number) Numbers
 	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1) is (3, 4, 7, 8)
 	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 2) is (5, 6, 7, 8)
-	let window = keep * plane
+	window = keep * plane
 	for values.Length / temporal / plane * window
-		let at = index % plane
-		let time = (index / plane).Floor % keep
+		at = index % plane
+		time = (index / plane).Floor % keep
 		values(((index / window).Floor * temporal + temporal - keep + time) * plane + at)
 FromLatent(path Text, context Number) StrictGenExtend
 	Sample.Prepare is "strictgen-tail.latent.safetensors" and Sample.FromLatent(Sample.Prepare, 22).video.Last is 10
-	let data = Safetensors(path, 32)
-	let shape = data.Values("shape")
-	let kept = LatentCount(context)
-	let heard = AudioCount(context)
+	data = Safetensors(path, 32)
+	shape = data.Values("shape")
+	kept = LatentCount(context)
+	heard = AudioCount(context)
 	if shape(1).Round < kept or shape(4).Round < heard or shape(5).Round < context
 		return StrictGenExtend(value, problem = "ShortLatent")
-	let count = shape(0).Round * shape(1).Round * shape(2).Round * shape(3).Round
-	let latent = data.Values("latent")
-	let seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
-	let listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
+	count = shape(0).Round * shape(1).Round * shape(2).Round * shape(3).Round
+	latent = data.Values("latent")
+	seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
+	listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
 	StrictGenExtend("", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
 Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") StrictGenExtend slow
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
 	Sample.Head("strictgen-tail.mp4", 22, (16, 16), ("", "")).frames is 7
 	Sample.Head("missing-clip.mp4", 22, (16, 16), ("", "")).problem is "missing-clip.mp4 could not be read as a video"
-	let beside = LatentPath(path)
-	let saved = File(beside).Exists then beside else Remembered(path, folder)
-	let read = saved is "" then StrictGenExtend(value, problem = "Missing") else FromLatent(saved, context)
-	let fits = read.problem is "" and read.tall * 16 is size(0) and read.wide * 16 is size(1)
-	let made = fits then read else FromMedia(path, context, size, vaes)
+	beside = LatentPath(path)
+	saved = File(beside).Exists then beside else Remembered(path, folder)
+	read = saved is "" then StrictGenExtend(value, problem = "Missing") else FromLatent(saved, context)
+	fits = read.problem is "" and read.tall * 16 is size(0) and read.wide * 16 is size(1)
+	made = fits then read else FromMedia(path, context, size, vaes)
 	fits and saved is beside then made else made.Written(beside, context)
 FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend slow
-	let rgb = StrictGenClip.TailRgb(path, context, size(1), size(0))
+	rgb = StrictGenClip.TailRgb(path, context, size(1), size(0))
 	if rgb is Error
 		return StrictGenExtend(value, problem = path + " could not be read as a video")
 	logger.Log("Encoding the last " + context + " frames of " + path + " with the H3 video VAE")
-	let started = Process.Elapsed
-	let clip = H3Clip(H3ClipEncoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
-	let pictured = clip.Encoded(clip.Frames(rgb, context, size(1), size(0)), size)
-	let waveform = StrictGenClip.TailPcm(path, context / H3Format.FramesPerSecond + 1)
-	let heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
+	started = Process.Elapsed
+	clip = H3Clip(H3ClipEncoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
+	pictured = clip.Encoded(clip.Frames(rgb, context, size(1), size(0)), size)
+	waveform = StrictGenClip.TailPcm(path, context / H3Format.FramesPerSecond + 1)
+	heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
 	logger.Log("Encoded the video context in " + (Process.Elapsed - started).Round(1) + " s")
 	StrictGenExtend("", pictured, heard, LatentCount(context), AudioCount(context), size(0) / 16, size(1) / 16)
 Starts Numbers
@@ -101,31 +101,31 @@ Latents List(Numbers)
 		Latent(index)
 Latent(at Number) Numbers
 	StrictGenExtend(Sample, video = Ramp(48, 0), frames = 2, tall = 1, wide = 1).Latent(0)(2) is 4
-	let plane = tall * wide
+	plane = tall * wide
 	for H3Format.Channels * plane
 		video(((index / plane).Floor * frames + at) * plane + index % plane)
 Written(path Text, context Number) StrictGenExtend slow
 	StrictGenExtend(Sample, problem = "Missing").Written("unwritten.latent.safetensors", 22).problem is "Missing"
 	if problem is not ""
 		return value
-	let shape = (H3Format.Channels, frames, tall, wide, sound, context)
+	shape = (H3Format.Channels, frames, tall, wide, sound, context)
 	Safetensors(path).Written(("latent", "shape"), (video + audio, shape))
 	logger.Log("Kept the video context in " + path + " for the next extends")
 	value
 Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
 	Sample.Mixed((1, 2, 3, 4), (30, 40), (1, 2, 3, 4), 4, 2, 1, 0) is (30, 40, 3, 4)
 	Sample.Mixed((1, 2, 3, 4), (30, 40), (10, 20, 3, 4), 4, 2, 1, 0.5) is (20, 30, 3, 4)
-	let volume = temporal * plane
+	volume = temporal * plane
 	for latent.Length
-		let time = (index / plane).Floor % temporal
-		let at = ((index / volume).Floor * keep + time) * plane + index % plane
+		time = (index / plane).Floor % temporal
+		at = ((index / volume).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - sigma) + noise(index) * sigma else latent(index)
 Remembered(path Text, folder Text) Text slow
 	Sample.Remembered("a.mp4", "missing-folder") is ""
 	Sample.Remembered("a.mp4", "") is ""
-	let named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
+	named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
 	named.Length > 0 and named.First is path.Replace("\\", "/") and File(folder + Last).Exists then folder + Last else ""
 Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
-	let shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
+	shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
 	Safetensors(folder + Last).Written(("latent", "shape"), (latent, shape))
 	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))

@@ -25,12 +25,12 @@ Routed(arguments Texts) Number slow
 		return Coordinator.Served is Error then Backend.Failed else 0
 	arguments.Length < 2 then 2 else (Diagnosed(arguments) then 0 else 1)
 Diagnosed(arguments Texts) Boolean slow
-	let loras = GenerationCommand.Option(arguments, 3, "")
+	loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
 		Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
 		return true
-	let conditions = Conditions(arguments(0))
-	let texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
+	conditions = Conditions(arguments(0))
+	texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
 	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments).Length > 0
 Served(h3 H3, refiner H3Refiner, arguments Texts) slow
 	mutable decodings = List(H3Decoding)
@@ -39,8 +39,8 @@ Served(h3 H3, refiner H3Refiner, arguments Texts) slow
 		decodings = Job(h3, refiner, decodings, dumps, arguments)
 		dumps = Process.InputLine
 Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Texts) List(H3Decoding) slow
-	let conditions = Conditions(dumps)
-	let files = Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
+	conditions = Conditions(dumps)
+	files = Generations(h3, conditions, refiner.Texts(conditions), dumps, arguments)
 	H3Files.Parsed(("--model", arguments(1))).Freed
 	mutable decodings = loaded
 	for files
@@ -55,10 +55,10 @@ Decoding(loaded List(H3Decoding), vaes Texts) List(H3Decoding) native
 	Decoders.Decoded(H3Decoding.Latent, (12, 3, 4))(1)(5000).IsNearlyEqual(H3Decoding.Both(1)(5000), 0.001)
 	if loaded.Length > 0
 		return loaded
-	let before = Process.Elapsed
-	let files = ModelFiles("")
+	before = Process.Elapsed
+	files = ModelFiles("")
 	logger.Log("Loading video VAE " + files.Described(vaes(0)) + " and audio VAE " + files.Described(vaes(1)))
-	let decoding = H3Decoding.Loaded(logger, vaes(0), vaes(1))
+	decoding = H3Decoding.Loaded(logger, vaes(0), vaes(1))
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	List(H3Decoding) + decoding
 Numbered(arguments Texts) Numbers
@@ -67,15 +67,15 @@ Numbered(arguments Texts) Numbers
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Loaded(model Text, loras Text) H3 native
 	H3Video.Loaded("tinyh3.safetensors", "").blocks.Length is 2
-	let started = Process.Elapsed
+	started = Process.Elapsed
 	logger.Log(Loading(model, loras))
-	let h3 = H3.Loaded(model, loras)
+	h3 = H3.Loaded(model, loras)
 	logger.Log("H3 loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
 	h3
 Loading(model Text, loras Text) Text slow
 	H3Video.Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
 	H3Video.Loading("tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
-	let loading = "Loading H3 " + ModelFiles("").Described(model) + " from disk into memory"
+	loading = "Loading H3 " + ModelFiles("").Described(model) + " from disk into memory"
 	if loras is ""
 		return loading
 	mutable names = List(Text)
@@ -84,64 +84,64 @@ Loading(model Text, loras Text) Text slow
 	loading + " and applying the LoRAs " + Text.Combine(names, ", ") + " on the GPU"
 Conditions(dumps Text) List(Safetensors) slow
 	H3Video.Conditions(".").Length is 1
-	let data = Safetensors(dumps + "/generation.safetensors", 32)
+	data = Safetensors(dumps + "/generation.safetensors", 32)
 	if File(data.path).Exists is false
 		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
 	for GenerationCommand.Count(data)
 		GenerationCommand.Job(data, dumps, index)
 Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) Texts slow
-	let numbers = Numbered(arguments)
-	let name = GenerationCommand.Option(arguments, 2, "strict")
+	numbers = Numbered(arguments)
+	name = GenerationCommand.Option(arguments, 2, "strict")
 	for conditions
-		let before = Process.Elapsed
-		let steps = value.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else value
-		let sampled = Generated(h3, value, H3Job(steps), texts(index), numbers, dumps)
-		let file = dumps + "/" + (value.Entry("video") is "" then name else name + "-" + index)
+		before = Process.Elapsed
+		steps = value.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else value
+		sampled = Generated(h3, value, H3Job(steps), texts(index), numbers, dumps)
+		file = dumps + "/" + (value.Entry("video") is "" then name else name + "-" + index)
 		Safetensors(file + "-latent.safetensors").Written("latent", sampled)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 		GpuMemory.Released
 		file
 Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Numbers native
 	Tiny.Generated(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
-	let shaped = Layout(job.VideoShape, job.AudioShape, condition)
-	let keyframes = job.Keyframes(shaped.keyframes)
-	let layout = H3Layout(shaped, keyframes = keyframes, shift = numbers(1), routing = numbers(5))
-	let rows = job.Rows(condition)
+	shaped = Layout(job.VideoShape, job.AudioShape, condition)
+	keyframes = job.Keyframes(shaped.keyframes)
+	layout = H3Layout(shaped, keyframes = keyframes, shift = numbers(1), routing = numbers(5))
+	rows = job.Rows(condition)
 	if File(dumps + "/step0.safetensors").Exists
 		logger.Log("step 0 error " + Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1))
-	let count = numbers(0) is 0 then job.Count else numbers(0)
-	let span = H3Span(numbers(6), numbers(7))
-	let spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
-	let sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
+	count = numbers(0) is 0 then job.Count else numbers(0)
+	span = H3Span(numbers(6), numbers(7))
+	spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
+	sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
 	Sampled(h3, job, text, layout, rows, spectrum, Solver(numbers(8), sigmas, job.Video))
 Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout slow
 	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
-	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
+	keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), Size(video(3), video(2)))
 Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number native
 	H3Video.Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
-	let curves = h3.Curves(layout.Times(sigma))
-	let named = first.Entry("text") is "" then "token_refiner" else "text"
+	curves = h3.Curves(layout.Times(sigma))
+	named = first.Entry("text") is "" then "token_refiner" else "text"
 	logger.Log("refined text error " + MossImage.RelativeError(text, first.Values(named)))
 	logger.Log("curve rows error " + MossImage.RelativeError(curves, first.Values("t_emb")))
 	Layered(h3, first, curves, layout, sigma)
 Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Number native
 	H3Video.Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
-	let rotation = h3.Rotation(layout)
-	let starts = layout.Rows(sigma)
+	rotation = h3.Rotation(layout)
+	starts = layout.Rows(sigma)
 	mutable state = first.Values("blocks.0.input")
 	mutable error = 0
 	for h3.blocks
 		state = value.Output(state, curves, starts, rotation, h3.Routed(layout.routing, index), h3.Leading(layout))
-		let name = "blocks." + index
+		name = "blocks." + index
 		if first.Entry(name) is not ""
 			error = MossImage.RelativeError(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
 Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Numbers native
 	Tiny.Sampled(H3.Tiny, H3Job.Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
-	let rotation = h3.Rotation(layout)
+	rotation = h3.Rotation(layout)
 	mutable seen = job.HeldVideo(solver, 0)
 	mutable heard = job.HeldAudio(Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = job.Audio), 0)
 	mutable state = spectrum

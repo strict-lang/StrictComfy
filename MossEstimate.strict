@@ -19,7 +19,7 @@ constant FastRequest = "GET /estimate?mode=image&width=480&height=848&quality=fa
 Tokens Number
 	Default.Tokens is BaseTokens
 	Large.Tokens is 16384
-	let fitted = options.Fitted
+	fitted = options.Fitted
 	fitted.width / 16 * (fitted.height / 16)
 Budget(vram Number) Number
 	MossEstimate.Budget(24564 * H3Estimate.Mebibyte) is Unknown
@@ -36,7 +36,7 @@ Decoder Text
 	MossEstimate(MossOptions.Parsed(("--quality", "fastest", "--vae", "flux2-vae.safetensors"))).Decoder is "flux2-vae"
 	MossEstimate(MossOptions.Parsed(("--vae", "taef2.safetensors"))).Decoder is "taef2"
 	SmallVae.Decoder is "flux2-small-vae"
-	let vae = options.files.vae.Lower
+	vae = options.files.vae.Lower
 	if vae.StartsWith("taef2") or vae is "" and options.quality is in (MossQuality.Fastest, MossQuality.Fastest2Steps)
 		return "taef2"
 	vae.StartsWith("flux2-small") or vae.StartsWith("full_encoder_small") then "flux2-small-vae" else "flux2-vae"
@@ -50,8 +50,8 @@ StepSeconds(tokens Number, budget Number) Number
 	Default.StepSeconds(BaseTokens, 7040) is BaseSeconds
 	Default.StepSeconds(10000, 18000).Round(2) is 0.55
 	Large.StepSeconds(16384, 18000).Round(1) is 1.3
-	let knee = budget * 3 / 4
-	let crowd = tokens > knee then ((tokens / knee) ^ Growth).Clamp(1, MaxCrowd) else 1
+	knee = budget * 3 / 4
+	crowd = tokens > knee then ((tokens / knee) ^ Growth).Clamp(1, MaxCrowd) else 1
 	BaseSeconds * (tokens / BaseTokens) ^ Growth * crowd
 Lasting(seconds Number) Text
 	Default.Lasting(0.97) is "1 s"
@@ -61,12 +61,12 @@ Lasting(seconds Number) Text
 Estimate(budget Number) Text
 	Fast.Estimate(Unknown) is "Sampling roughly 5 x 0.15 s + 0.22 s flux2-vae = 1 s, 3.5k of 36k image tokens"
 	Large.Estimate(18000).EndsWith("16.4k of 18k image tokens, might run much slower")
-	let tokens = Tokens
-	let factor = Factors(options.quality) * options.Evaluated / MossSampling.Presets(options.quality).First
-	let step = StepSeconds(tokens, budget)
-	let decode = DecodeSeconds(tokens)
-	let head = "Sampling roughly " + factor.Round(1) + " x " + step.Round(2) + " s + " + decode.Round(2) + " s " + Decoder
-	let used = (tokens / 1000).Round(1) + "k of " + (budget / 1000).Round + "k image tokens"
+	tokens = Tokens
+	factor = Factors(options.quality) * options.Evaluated / MossSampling.Presets(options.quality).First
+	step = StepSeconds(tokens, budget)
+	decode = DecodeSeconds(tokens)
+	head = "Sampling roughly " + factor.Round(1) + " x " + step.Round(2) + " s + " + decode.Round(2) + " s " + Decoder
+	used = (tokens / 1000).Round(1) + "k of " + (budget / 1000).Round + "k image tokens"
 	head + " = " + Lasting(factor * step + decode) + ", " + used + Caution(tokens, budget)
 Caution(tokens Number, budget Number) Text
 	Default.Caution(40, 36) is ", more than this GPU handles, Moss might be very slow"
@@ -83,8 +83,8 @@ Caution(tokens Number, budget Number) Text
 Told(raw Text) Text
 	MossEstimate.Told(ImageRequest) is "Sampling roughly 5 x 0.15 s + 0.22 s flux2-vae = 1 s, 3.5k of 15k image tokens"
 	MossEstimate.Told(FastRequest).StartsWith("Sampling roughly 6 x 0.05 s + 0.04 s flux2-small-vae = 0.4 s, 1.6k of 36k")
-	let sized = ("--width", H3Estimate.Asked(raw, "width"), "--height", H3Estimate.Asked(raw, "height"))
-	let chosen = sized + H3Estimate.Optional(raw, "quality") + H3Estimate.Optional(raw, "steps")
-	let vram = H3Estimate.Asked(raw, "vram") to Number
-	let budget = Budget(vram is Error then 0 else vram * H3Estimate.Mebibyte)
+	sized = ("--width", H3Estimate.Asked(raw, "width"), "--height", H3Estimate.Asked(raw, "height"))
+	chosen = sized + H3Estimate.Optional(raw, "quality") + H3Estimate.Optional(raw, "steps")
+	vram = H3Estimate.Asked(raw, "vram") to Number
+	budget = Budget(vram is Error then 0 else vram * H3Estimate.Mebibyte)
 	MossEstimate(MossOptions.Parsed(chosen + H3Estimate.Optional(raw, "vae"))).Estimate(budget)

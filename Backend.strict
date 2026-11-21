@@ -27,7 +27,7 @@ IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text) + "stop")
 	Backend.IsServing(List(Text) + "-") is false
 	Backend.IsServing(("encode", "a")) is false
-	let isCommand = arguments is (Serving) or arguments is (Resident.Stopping)
+	isCommand = arguments is (Serving) or arguments is (Resident.Stopping)
 	isCommand or arguments.Length is 0 or arguments(0).StartsWith("-") and arguments(0) is not "-"
 Dispatched(arguments Texts) Number slow
 	Sample.Dispatched(List(Text) + Local) is -1
@@ -43,21 +43,21 @@ Dispatched(arguments Texts) Number slow
 		code = Attempted(arguments)
 	code is -1 and Port is not 0 then Cleared else code
 Attempted(arguments Texts) Number slow
-	let isRunning = File(resident.root + Resident.Stamp).Exists
+	isRunning = File(resident.root + Resident.Stamp).Exists
 	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return Unserved
-	let forwarding = Forwarding(resident.root)
+	forwarding = Forwarding(resident.root)
 	if isRunning is false and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
 		if forwarding.Started("") is Error
 			return Unserved
-	let port = Waited(StartSeconds)
-	let answered = port > 0 then forwarding.Answered(resident, port, arguments) else Forwarding.Unserved
-	let failed = port is Gone then Crashed else Unserved
+	port = Waited(StartSeconds)
+	answered = port > 0 then forwarding.Answered(resident, port, arguments) else Forwarding.Unserved
+	failed = port is Gone then Crashed else Unserved
 	answered is Forwarding.Unserved then failed else (answered is Forwarding.Ended then Crashed else answered)
 Waited(seconds Number) Number slow
 	Sample.Waited(0) is 0
-	let started = Process.Elapsed
+	started = Process.Elapsed
 	mutable isBusy = false
 	mutable polled = (0, started - CheckSeconds)
 	for as long as polled(0) is 0 and (isBusy or Process.Elapsed - started < seconds)
@@ -69,22 +69,22 @@ Waited(seconds Number) Number slow
 	polled(0)
 Polled(checked Number) Numbers slow
 	Sample.Polled(0) is (0, 0)
-	let port = Port
-	let isDue = port < 0 and Process.Elapsed - checked >= CheckSeconds
-	let nextCheck = isDue then Process.Elapsed else checked
+	port = Port
+	isDue = port < 0 and Process.Elapsed - checked >= CheckSeconds
+	nextCheck = isDue then Process.Elapsed else checked
 	((isDue and IsGone then Cleared else port), nextCheck)
 IsGone Boolean slow
 	Sample.IsGone is false
-	let stamp = File(resident.root + Resident.Stamp)
+	stamp = File(resident.root + Resident.Stamp)
 	stamp.Exists and Forwarding(resident.root).IsDead(stamp.ReadLines.First to Number)
 Cleared Number slow
-	let objects = resident.root + "/obj"
-	let forwarding = Forwarding(resident.root)
-	let killed = forwarding.Killed
+	objects = resident.root + "/obj"
+	forwarding = Forwarding(resident.root)
+	killed = forwarding.Killed
 	forwarding.Kept(objects, Forwarding.Output)
 	forwarding.Kept(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
-	let kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
+	kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
 	if kept is 0 and Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors) is 0
 		logger.Log("(nothing in " + objects + "/server.log)")
 	killed + Gone
@@ -92,13 +92,13 @@ Printed(path Text) Number slow
 	Sample.Printed("missing.log") is 0
 	if File(path).Exists is false
 		return 0
-	let lines = File(path).ReadLines - ""
+	lines = File(path).ReadLines - ""
 	for lines
 		logger.Log(value)
 	lines.Length
 Port Number slow
 	Sample.Port is 0
-	let stamp = File(resident.root + Resident.Stamp)
+	stamp = File(resident.root + Resident.Stamp)
 	if stamp.Exists is false
 		return 0
 	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else -1
@@ -109,8 +109,8 @@ Opened Number slow
 	Rooted then resident.Opened else Error("NotRooted")
 Rooted Boolean slow
 	Sample.Rooted
-	let parent = Path(resident.root).PathOnly.text
-	let objects = resident.root + "/obj"
+	parent = Path(resident.root).PathOnly.text
+	objects = resident.root + "/obj"
 	if Directory.Exists(parent) is false
 		Directory.Create(parent)
 	if Directory.Exists(resident.root) is false
@@ -122,7 +122,7 @@ IsWanted(idle Number, built Number) Boolean slow
 	Sample.IsWanted(0, File(Process.Current.executable).Modified)
 	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
 	Sample.IsWanted(0, 0) is false
-	let hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
+	hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
 	File(Process.Current.executable).Modified is built and idle < IdleSeconds and hasRoom
 IsCrowded(needed Number, available Number, total Number) Boolean
 	Sample.IsCrowded(0, 10 * Gigabyte, 128 * Gigabyte)
@@ -147,10 +147,10 @@ Restored(isMoved Boolean, home Text) slow
 		Directory.Change(home)
 Unpressed(isBusy = false) Boolean slow
 	Sample.Unpressed and Sample.Unpressed(true)
-	let available = GpuMemory.Available
+	available = GpuMemory.Available
 	if isBusy is false and available > 0 and available < LowDevice
 		GpuMemory.Yielded
-	let reply = Coordinator(coordinator).Sent("holding\t0\t" + GpuMemory.Held)
+	reply = Coordinator(coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
 		GpuMemory.Yielded
 	reply is not "exit"

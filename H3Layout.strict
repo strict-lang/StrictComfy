@@ -39,24 +39,24 @@ Position(token Number, axis Number) Number
 	H3Layout(Tiny, keyframes = List(Number) + 0).Position(17, 0).IsNearlyEqual(4.666667)
 	if token < Words
 		return axis is 0 then token else 0
-	let row = token - Words
+	row = token - Words
 	if row < Conditions
 		return Seen(row % Patches, axis, Words + keyframes((row / Patches).Floor) * 5 / 3)
-	let heard = row - Conditions
-	let seen = heard - 2 * audio
+	heard = row - Conditions
+	seen = heard - 2 * audio
 	heard < 2 * audio then Heard(heard, axis) else Seen(seen % Patches, axis, Words + FrameTime((seen / Patches).Floor))
 Heard(row Number, axis Number) Number
 	Tiny.Heard(3, 0) is 3 and Tiny.Heard(3, 1) is 0
 	Tiny.Heard(3, 2) is 16
 	H3Layout((1, 1, 1), List(Number), 3, 2, Size(104, 60)).Heard(0, 2).IsNearlyEqual(-5.064979)
-	let side = row < audio then 0 else Width / 2 - 1
+	side = row < audio then 0 else Width / 2 - 1
 	axis is 0 then Words + row % audio else (axis is 1 then 0 else Axis(Width, Height, side))
 Seen(patch Number, axis Number, time Number) Number
 	Tiny.Seen(0, 0, 4.5) is 4.5
 	Tiny.Seen(3, 1, 0) is 16
 	Tiny.Seen(1, 2, 0) is 16
 	Tiny.Seen(2, 1, 0) is 16
-	let across = Width / 2
+	across = Width / 2
 	if axis is 0
 		return time
 	axis is 1 then Axis(Height, Width, (patch / across).Floor) else Axis(Width, Height, patch % across)
@@ -65,7 +65,7 @@ Axis(size Number, other Number, at Number) Number
 	Tiny.Axis(104, 60, 0).IsNearlyEqual(-5.064979)
 	Tiny.Axis(60, 104, 0).IsNearlyEqual(3.847128)
 	Tiny.Axis(104, 60, 51).IsNearlyEqual(36.254787)
-	let ratio = size / (size * other).SquareRoot
+	ratio = size / (size * other).SquareRoot
 	(at * ratio * 2 / size + (1 - ratio) / 2) * 32
 FrameTime(frame Number) Number
 	Tiny.FrameTime(0) is 0
@@ -78,12 +78,12 @@ Rows(sigma Number) Numbers
 	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, Size(4, 4)).Rows(0.75)(1) is 0
 	H3Layout((1, 0, 1), List(Number) + 0, 3, 2, Size(4, 4)).Rows(0.75)(3) is 36
 	H3Layout(Keyframed, shift = 1).Rows(0.75) is Pinning and H3Layout(Keyframed, shift = 1).Rows(0.0005)(3) is 18
-	let times = Times(sigma)
-	let seen = times.Index(1 - sigma) * 3
-	let heard = (times.Index(1 - AudioSigma(sigma)) * 3 + 2) * 6
-	let pinned = times.Index(1 - sigma > Pinned then 1 - sigma else Pinned) * 3 * 6
+	times = Times(sigma)
+	seen = times.Index(1 - sigma) * 3
+	heard = (times.Index(1 - AudioSigma(sigma)) * 3 + 2) * 6
+	pinned = times.Index(1 - sigma > Pinned then 1 - sigma else Pinned) * 3 * 6
 	for Tokens
-		let row = index - Words - Conditions
+		row = index - Words - Conditions
 		index < Words then (seen + tags(index)) * 6 else (row < 0 then pinned else (row < 2 * audio then heard else seen * 6))
 Finals(sigma Number) Numbers
 	Tiny.Finals(0.75)(3) is 2
@@ -91,11 +91,11 @@ Finals(sigma Number) Numbers
 	Tiny.Finals(1)(3) is 0
 	H3Layout(Tiny, shift = 1).Finals(0.75)(16) is 2
 	Keyframed.Finals(0.75) is (0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
-	let times = Times(sigma)
-	let heard = times.Index(1 - AudioSigma(sigma)) * 2
-	let seen = times.Index(1 - sigma) * 2
+	times = Times(sigma)
+	heard = times.Index(1 - AudioSigma(sigma)) * 2
+	seen = times.Index(1 - sigma) * 2
 	for Tokens
-		let row = index - Words - Conditions
+		row = index - Words - Conditions
 		row >= 0 and row < 2 * audio then heard else seen
 Times(sigma Number) Numbers
 	Tiny.Times(0.75)(1).IsNearlyEqual(0.5714286)
@@ -103,13 +103,13 @@ Times(sigma Number) Numbers
 	H3Layout(Tiny, keyframes = List(Number) + 0).Times(0.75)(2) is Pinned
 	H3Layout(Tiny, keyframes = List(Number) + 0).Times(1).Length is 2
 	Keyframed.Times(0.0005) is (0.9995, 0.999875)
-	let streams = List(Number) + (1 - sigma) + (1 - AudioSigma(sigma))
+	streams = List(Number) + (1 - sigma) + (1 - AudioSigma(sigma))
 	(keyframes.Length is 0 then streams else streams + (1 - sigma > Pinned then 1 - sigma else Pinned)).Unique.Sorted
 AudioSigma(sigma Number) Number
 	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
 	Tiny.AudioSigma(1) is 1
 	H3Layout(Tiny, shift = 8).AudioSigma(0.75).IsNearlyEqual(9 / 17)
-	let base = Unshifted(sigma)
+	base = Unshifted(sigma)
 	AudioShift * base / (1 + (AudioShift - 1) * base)
 AudioSigmas(sigmas Numbers) Numbers
 	Tiny.AudioSigmas((1, 0.75, 0)) is (1, Tiny.AudioSigma(0.75), 0)

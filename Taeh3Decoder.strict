@@ -23,8 +23,8 @@ constant Started = Tiny.Entered(Latent, 3)
 Loaded(path Text) Taeh3Decoder slow
 	Tiny.blocks.Length is 9 and Tiny.grows.Length is 3 and Tiny.narrows.Length is 3
 	Tiny.grows(1).biases.Length is 16
-	let model = Safetensors(path, 32, "decoder.")
-	let entered = FluxResnet.Convolved(model, "1")
+	model = Safetensors(path, 32, "decoder.")
+	entered = FluxResnet.Convolved(model, "1")
 	Taeh3Decoder(entered, Blocks(model), Grows(model), Narrows(model), FluxResnet.Convolved(model, "22"))
 Is(path Text) Boolean
 	Taeh3Decoder.Is(Path)
@@ -41,7 +41,7 @@ Grows(model Safetensors) List(Convolution) slow
 Narrows(model Safetensors) List(Convolution) slow
 	Tiny.Narrows(Model).Last.biases is Layer.Zeros(4)
 	for NarrowLayers
-		let narrow = FluxResnet.Convolved(model, value to Text)
+		narrow = FluxResnet.Convolved(model, value to Text)
 		Convolution(narrow.Folds, narrow.biases)
 Decoded(latent Numbers, width Number) Numbers slow
 	Pixels.Length is 4608
@@ -50,27 +50,27 @@ Decoded(latent Numbers, width Number) Numbers slow
 	Shuffled(Patched(latent, width), 8 * width)
 Patched(latent Numbers, width Number) Numbers native
 	Tiny.Patched(Latent, 3).Length is 4608
-	let first = Passed(List(FeatureMap) + Entered(latent, width), 0).First
-	let second = Passed(List(FeatureMap) + narrows(0).Doubled(Grown(first, 0, 0)), 1).First
-	let pair = List(FeatureMap) + narrows(1).Doubled(Grown(second, 1, 0)) + narrows(1).Doubled(Grown(second, 1, 1))
-	let final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
+	first = Passed(List(FeatureMap) + Entered(latent, width), 0).First
+	second = Passed(List(FeatureMap) + narrows(0).Doubled(Grown(first, 0, 0)), 1).First
+	pair = List(FeatureMap) + narrows(1).Doubled(Grown(second, 1, 0)) + narrows(1).Doubled(Grown(second, 1, 1))
+	final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
 	exit.Applied(final, final.Identity, Activation.Relu).Completed
 Frames(latent Numbers, shape Numbers) Numbers slow
 	Video.Length is 5 * Pixels.Length and Video.Sum.IsNearlyEqual(1035.427, 0.5)
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)
 	Video(15928).IsNearlyEqual(0.2726, 0.002) and Video(18694).IsNearlyEqual(0.2345, 0.002)
-	let third = Passed(Expanded(Passed(Expanded(Passed(Inputs(latent, shape), 0), 0), 1), 1), 2)
-	let completion = Completion("Decoding video", third.Length * 2, Process.Elapsed)
+	third = Passed(Expanded(Passed(Expanded(Passed(Inputs(latent, shape), 0), 0), 1), 1), 2)
+	completion = Completion("Decoding video", third.Length * 2, Process.Elapsed)
 	mutable frames = List(Number)
 	for completion.total
 		if index % ChunkFrames >= TrimmedFrames
-			let final = narrows(2).Doubled(Grown(third((index / 2).Floor), 2, index % 2))
+			final = narrows(2).Doubled(Grown(third((index / 2).Floor), 2, index % 2))
 			frames = frames + Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width, false)
 		completion.Report(index + 1)
 	frames
 Inputs(latent Numbers, shape Numbers) List(FeatureMap) slow
 	Tiny.Inputs(Latent, (1, 2, 3)).First.values is Started.values
-	let plane = shape(1) * shape(2)
+	plane = shape(1) * shape(2)
 	for shape(0)
 		Entered(Slice(latent, shape(0), index, plane), shape(2))
 Slice(latent Numbers, total Number, time Number, plane Number) Numbers
@@ -79,14 +79,14 @@ Slice(latent Numbers, total Number, time Number, plane Number) Numbers
 		latent(((index / plane).Floor * total + time) * plane + index % plane)
 Entered(latent Numbers, width Number) FeatureMap slow
 	Started.channels is 8
-	let clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
-	let map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
+	clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
+	map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
 	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
 Passed(maps List(FeatureMap), group Number) List(FeatureMap) native
 	Tiny.Passed(List(FeatureMap) + Started, 0).First.channels is 8
 	Tiny.Passed(List(FeatureMap) + Narrow + Narrow, 2).Last.values.Length is 16
 	mutable state = maps
-	let first = group * 3
+	first = group * 3
 	for 3
 		state = Step(state, blocks(first + index))
 	state
@@ -96,7 +96,7 @@ Step(maps List(FeatureMap), block Taef2Block) List(FeatureMap) slow
 		block.Remembered(value, (index is 0 then Empty(value) else maps(index - 1)))
 Expanded(maps List(FeatureMap), which Number) List(FeatureMap) slow
 	Tiny.Expanded(List(FeatureMap) + Started, 1).Length is 2
-	let stride = which is 0 then 1 else 2
+	stride = which is 0 then 1 else 2
 	for maps.Length * stride
 		narrows(which).Doubled(Grown(maps((index / stride).Floor), which, index % stride))
 Empty(map FeatureMap) FeatureMap
@@ -104,9 +104,9 @@ Empty(map FeatureMap) FeatureMap
 	FeatureMap(Layer.Zeros(map.values.Length), map.width, map.channels, Layer.Zeros(map.channels))
 Grown(map FeatureMap, which Number, frame Number) FeatureMap slow
 	Tiny.Grown(Started, 1, 1).channels is 8
-	let grown = grows(which).Projected(map).Completed
-	let channels = map.channels
-	let total = grows(which).biases.Length
+	grown = grows(which).Projected(map).Completed
+	channels = map.channels
+	total = grows(which).biases.Length
 	FeatureMap(Picked(grown, total, frame * channels, channels), map.width, channels, Layer.Zeros(channels))
 Picked(values Numbers, total Number, start Number, count Number) Numbers
 	Tiny.Picked((1, 2, 3, 4, 5, 6), 3, 1, 2) is (2, 3, 5, 6)
@@ -114,11 +114,11 @@ Picked(values Numbers, total Number, start Number, count Number) Numbers
 		values((index / count).Floor * total + start + index % count)
 Shuffled(pixels Numbers, width Number, isPlanar = true) Numbers
 	Tiny.Shuffled(Corners, 1) is Corners
-	let plane = 4 * pixels.Length / Patches
-	let wide = 2 * width
+	plane = 4 * pixels.Length / Patches
+	wide = 2 * width
 	for 3 * plane
-		let pixel = isPlanar then index % plane else (index / 3).Floor
-		let channel = isPlanar then (index / plane).Floor else index % 3
-		let y = (pixel / wide).Floor
-		let x = pixel % wide
+		pixel = isPlanar then index % plane else (index / 3).Floor
+		channel = isPlanar then (index / plane).Floor else index % 3
+		y = (pixel / wide).Floor
+		x = pixel % wide
 		pixels(((y / 2).Floor * width + (x / 2).Floor) * Patches + channel * 4 + y % 2 * 2 + x % 2).Clamp(0, 1)

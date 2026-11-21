@@ -19,7 +19,7 @@ Templates(paths Texts, prompt Text) Texts slow
 Prompts(templates Texts, seeds Numbers) Texts
 	Sample.Prompts(List(Text) + "a", (1, 2)) is ("a", "a")
 	for seeds
-		let prompt = Expanded(templates(index % templates.Length), value)
+		prompt = Expanded(templates(index % templates.Length), value)
 		logger.Log(Prompting(index, seeds.Length, value, prompt))
 		prompt
 Prompting(index Number, count Number, seed Number, prompt Text) Text
@@ -30,7 +30,7 @@ Expanded(template Text, seed Number) Text
 	Sample.Expanded("{x|x}{y|y|y} {z}", 5) is "xy z"
 	Sample.Expanded("a {big|small} {red|{dark|light} blue} cat", 3).EndsWith(" cat")
 	Sample.Expanded("a {b", 1) is Error("UnclosedBrace")
-	let draws = MersenneTwister.Seeded(seed).Uints(template.Count("}") + 1)
+	draws = MersenneTwister.Seeded(seed).Uints(template.Count("}") + 1)
 	mutable expanded = template
 	for draws.Length - 1
 		expanded = Chosen(expanded, draws(index))
@@ -40,7 +40,7 @@ Simplified(template Text) Text
 	Sample.Simplified("a cat") is "a cat" and Sample.Simplified("a } b") is "a } b"
 	mutable text = template
 	for template.Count("}")
-		let next = text.IndexOf("}") < 0 then text else Chosen(text, 0)
+		next = text.IndexOf("}") < 0 then text else Chosen(text, 0)
 		text = next is Error then text else next
 	text
 Shown(template Text) Text
@@ -51,11 +51,11 @@ Chosen(text Text, draw Number) Text
 	Sample.Chosen("a {b|c} d", 1) is "a c d"
 	Sample.Chosen("{x|y}", 4) is "x"
 	Sample.Chosen("a } b", 0) is Error("UnmatchedBrace")
-	let close = text.IndexOf("}")
-	let open = text.Substring(0, close).LastIndexOf("{")
+	close = text.IndexOf("}")
+	open = text.Substring(0, close).LastIndexOf("{")
 	if open < 0
 		return Error("UnmatchedBrace")
-	let choices = text.Substring(open + 1, close - open - 1).Split("|")
+	choices = text.Substring(open + 1, close - open - 1).Split("|")
 	text.Substring(0, open) + choices(draw % choices.Length) + text.Substring(close + 1, text.Length - close - 1)
 Reserved(base Text) Text slow
 	Sample.Reserved("PromptBatchTest.jpg") is "PromptBatchTest0001.jpg"
@@ -81,7 +81,7 @@ Free(base Text, first Number) Number slow
 	number
 Named(base Text, number Number) Text
 	Sample.Named("a.jpg", 7) is "a0007.jpg"
-	let dot = base.LastIndexOf(".")
+	dot = base.LastIndexOf(".")
 	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
 IsTaken(path Text) Boolean slow
 	Sample.IsTaken("PromptBatch.strict")
@@ -90,5 +90,5 @@ IsTaken(path Text) Boolean slow
 Numbered(stem Text, number Number) Text
 	Sample.Numbered("a", 7) is "a0007"
 	Sample.Numbered("a", 12345) is "a12345"
-	let digits = number to Text
+	digits = number to Text
 	stem + "0000".Substring(0, (4 - digits.Length).Clamp(0, 4)) + digits

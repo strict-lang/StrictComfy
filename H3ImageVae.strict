@@ -18,9 +18,9 @@ Decoding(path Text) H3ImageVae slow
 	Decoder.decoders.Length is 1 and Decoder.tinies.Length is 0
 	Tiny.tinies.Length is 1 and Tiny.decoders.Length is 0
 	if Taeh3Decoder.Is(path)
-		let tiny = List(Taeh3Decoder) + Taeh3Decoder.Loaded(path)
+		tiny = List(Taeh3Decoder) + Taeh3Decoder.Loaded(path)
 		return H3ImageVae(value, decoderFile = path, decoders = List(H3Vae), tinies = tiny)
-	let vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
+	vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)
 	H3ImageVae(value, decoderFile = path, decoders = List(H3Vae) + vae, tinies = List(Taeh3Decoder))
 IsPicturing(path Text) Boolean
 	Pictured.IsPicturing(H3VaeEncoder.Model.path)
@@ -29,7 +29,7 @@ IsPicturing(path Text) Boolean
 Picturing(path Text) H3ImageVae native
 	Pictured.pictures.Length is 1
 	Decoder.Picturing(H3VaeEncoder.Model.path).decoders.Length is 1
-	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
+	picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
 	H3ImageVae(value, pictureFile = path, pictures = List(H3Picture) + picture)
 Pixels(latent Numbers, height Number, width Number) Numbers native
 	MossImage.RelativeError(Tiny.Pixels(Taeh3Decoder.Latent, 2, 3), Taeh3Decoder.Reference) < 0.005

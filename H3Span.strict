@@ -12,13 +12,13 @@ Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layo
 	Skipped.skipped and MossImage.RelativeError(Skipped.output, Cached.output) < 0.00001
 	if first is last
 		return H3Span(value, output = h3.Output(latent, sound, sigma, text, layout, conditions, rotation))
-	let curves = h3.Curves(layout.Times(sigma))
-	let starts = layout.Rows(sigma)
-	let before = h3.Ran(h3.Hidden(latent, sound, text, layout, conditions), curves, starts, rotation, layout, 0, first)
-	let skipping = allowed and residual.Length > 0 and skipped is false
-	let middle = Middle(h3, before, curves, starts, rotation, layout, skipping)
-	let after = h3.Ran(middle, curves, starts, rotation, layout, last, h3.blocks.Length)
-	let finished = h3.final.Output(after, curves, layout, sigma)
+	curves = h3.Curves(layout.Times(sigma))
+	starts = layout.Rows(sigma)
+	before = h3.Ran(h3.Hidden(latent, sound, text, layout, conditions), curves, starts, rotation, layout, 0, first)
+	skipping = allowed and residual.Length > 0 and skipped is false
+	middle = Middle(h3, before, curves, starts, rotation, layout, skipping)
+	after = h3.Ran(middle, curves, starts, rotation, layout, last, h3.blocks.Length)
+	finished = h3.final.Output(after, curves, layout, sigma)
 	H3Span(value, residual = Kept(skipping, middle, before), skipped = skipping, output = finished)
 Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Numbers slow
 	H3Span(Tiny, residual = (5, 6)).Middle(H3.Tiny, (1, 1), (1, 1), (1, 1), (1, 1), H3Layout.Tiny, true) is (6, 7)

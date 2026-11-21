@@ -1,33 +1,33 @@
 has batch MossBatch
 Completed(kept MossResident) MossResident slow
-	let options = batch.options
-	let problem = options.Problem is "" then options.Located else options.Problem
+	options = batch.options
+	problem = options.Problem is "" then options.Located else options.Problem
 	if problem is not ""
 		logger.Log(problem)
 		return MossResident(kept, code = 2)
 	if options.files.Warm
 		return Warmed(kept)
-	let started = Process.Elapsed
-	let seeds = PromptBatch("Image").Seeds(options.seed, options.count)
-	let template = batch.prompted is "" then batch.Templated else batch.prompted
+	started = Process.Elapsed
+	seeds = PromptBatch("Image").Seeds(options.seed, options.count)
+	template = batch.prompted is "" then batch.Templated else batch.prompted
 	logger.Log(MossEstimate(options).Estimate(MossEstimate.Local))
 	Prompted(kept, seeds, PromptBatch("Image").Prompts(List(Text) + template, seeds), started)
 Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossResident slow
-	let encoded = kept.Encoded(batch, prompts.Unique)
-	let c = encoded.Contexts(prompts.Unique)
+	encoded = kept.Encoded(batch, prompts.Unique)
+	c = encoded.Contexts(prompts.Unique)
 	if batch.options.output.EndsWith(".safetensors")
 		Safetensors(batch.options.output).Written("context", c.First)
 		return MossResident(encoded, code = 0)
 	batch.options.files.Eased
-	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
-	let made = batch.Images(decoding, seeds, prompts, c)
+	decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
+	made = batch.Images(decoding, seeds, prompts, c)
 	batch.options.files.Eased
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)
 Warmed(kept MossResident) MossResident slow
-	let started = Process.Elapsed
-	let encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))
+	started = Process.Elapsed
+	encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))
 	batch.options.files.Eased
-	let decoding = encoding.Sampling(batch).Decoders(batch.options.Decoder)
+	decoding = encoding.Sampling(batch).Decoders(batch.options.Decoder)
 	logger.Log("Moss is ready after " + (Process.Elapsed - started).Round(1) + " s, the next image starts at once")
 	MossResident(decoding, code = 0)

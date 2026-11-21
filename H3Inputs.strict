@@ -16,26 +16,26 @@ Problem Text slow
 		return "--image " + options.files.image + " has no png or jpg files"
 	if Prompts.Length is 0
 		return "--prompt " + options.prompt + " has no txt files"
-	let problem = options.Problem
+	problem = options.Problem
 	problem is "" then Limits else problem
 Limits Text slow
 	Sample.Limits is ""
-	let oversized = Oversized(H3Estimate.Local)
+	oversized = Oversized(H3Estimate.Local)
 	oversized is "" then options.files.Mixed else oversized
 Tokens Number
 	Long.Tokens is 102960
 	Twelve.Tokens is 72160
-	let shapes = options.Shapes
-	let guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
+	shapes = options.Shapes
+	guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
 	(shapes(0) + guides) * shapes(1) * shapes(2) / 4
 Oversized(budget Number) Text
 	Long.Oversized(90000).StartsWith("704x1280 with 396 frames is 102960 video tokens, more than the 90000")
 	Twelve.Oversized(90000) is ""
 	Twelve.Oversized(45000).EndsWith("much slower")
-	let tokens = Tokens
+	tokens = Tokens
 	if tokens <= budget
 		return ""
-	let size = options.Fitted.width + "x" + options.Fitted.height + " with " + options.Clip + " frames is " + tokens
+	size = options.Fitted.width + "x" + options.Fitted.height + " with " + options.Clip + " frames is " + tokens
 	size + " video tokens, more than the " + budget + TooMany + Slowdown
 Images Texts slow
 	Sample.Images is List(Text) + ""
@@ -59,14 +59,14 @@ Count Number slow
 Paired List(Texts) slow
 	Sample.Paired is List(Texts) + ("", "prompt.txt")
 	Folder.Paired.Last.First.EndsWith("tinyframe.png")
-	let images = Images
-	let prompts = Prompts
+	images = Images
+	prompts = Prompts
 	for IsFolder(options.files.image) then images.Length else prompts.Length
 		Matched(images(index % images.Length), prompts, index)
 Matched(image Text, prompts Texts, position Number) Texts
 	Sample.Matched("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
 	Sample.Matched("a/x.png", ("b/frame1.txt", "b/frame12.txt"), 3) is ("a/x.png", "b/frame12.txt")
-	let stem = Path(image).FileName.RemoveExtension
+	stem = Path(image).FileName.RemoveExtension
 	for prompts
 		if Path(value).FileName.RemoveExtension is stem
 			return (image, value)
@@ -74,7 +74,7 @@ Matched(image Text, prompts Texts, position Number) Texts
 Chosen(pairs List(Texts), seeds Numbers) List(Texts)
 	Sample.Chosen(Pairs, (7, 8, 9, 10, 11)).Last is ("a", "1")
 	Folder.Chosen(Pairs, (1, 5)) is (("c", "3"), ("b", "2"))
-	let order = options.count > 0 then pairs.Shuffled(PseudoRandom(seeds.First)) else pairs
+	order = options.count > 0 then pairs.Shuffled(PseudoRandom(seeds.First)) else pairs
 	for seeds
 		order(index % order.Length)
 Column(pairs List(Texts), position Number) Texts
@@ -93,18 +93,18 @@ Firsts(images Texts) Texts
 Keyframes(pictured List(Numbers), image Text, images Texts) List(Numbers)
 	Sample.Keyframes(List(Numbers), "", List(Text) + "").Length is 0
 	Both.Keyframes(((1, 1), (2, 2), (3, 3)), "b.png", ("a.png", "b.png")) is ((2, 2), (3, 3))
-	let first = image is "" then List(Numbers) else List(Numbers) + pictured(Firsts(images).Index(image))
+	first = image is "" then List(Numbers) else List(Numbers) + pictured(Firsts(images).Index(image))
 	options.files.lastImage is "" then first else first + pictured.Last
 Indices Numbers
 	Sample.Indices.Length is 0
 	H3Inputs(H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
-	let last = (options.Shapes(0) - 2) / 5 * H3Format.FrameGroup + 4
-	let first = options.files.image is "" then List(Number) else List(Number) + 0
+	last = (options.Shapes(0) - 2) / 5 * H3Format.FrameGroup + 4
+	first = options.files.image is "" then List(Number) else List(Number) + 0
 	options.files.lastImage is "" then first else first + last
 Output(image Text) Text slow
 	Sample.Output("") is "H3Video.mp4"
 	Folder.Output("./frame12.png") is "H3Video-frame12-.mp4"
-	let named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
+	named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
 	IsFolder(options.files.image) then named else options.output
 IsFolder(path Text) Boolean slow
 	Sample.IsFolder(".")

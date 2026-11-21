@@ -16,23 +16,23 @@ constant Word = Prompt.Slice(0, 256)
 Loaded(path Text, loras = "") H3 native
 	Tiny.blocks.Length is 2
 	MossImage.RelativeError(H3Lora.Forward, H3Lora.Outputs) < 0.03
-	let model = Weights(path, 32)
-	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
-	let heard = H3Lora(loras).Optional(model, "audio_patch_proj")
-	let table = model.Values("adaln_t_table")
-	let loaded = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
+	model = Weights(path, 32)
+	patches = H3Lora(loras).Dense(model, "video_patch_proj")
+	heard = H3Lora(loras).Optional(model, "audio_patch_proj")
+	table = model.Values("adaln_t_table")
+	loaded = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
 	H3(patches, heard, table, model.Values("rope.inv_freq"), loaded, H3Final.Loaded(model, loras))
 Weights(path Text, bits Number) Safetensors
 	H3.Weights("tinyh3.safetensors", 16).prefix is ""
 	H3.Weights("tinyh3prefixed.safetensors", 16).prefix is "model.diffusion_model."
-	let prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
+	prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
 	Safetensors(path, bits, prefix)
 Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slow
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
-	let count = Named(TensorFile.Header(model.path), model.prefix + prefix).Length
-	let completion = Completion(label, count, Process.Elapsed)
+	count = Named(TensorFile.Header(model.path), model.prefix + prefix).Length
+	completion = Completion(label, count, Process.Elapsed)
 	for count
-		let block = H3Block.Loaded(model, prefix + index + ".", loras)
+		block = H3Block.Loaded(model, prefix + index + ".", loras)
 		completion.Report(index + 1)
 		block
 Named(header Text, prefix Text) Texts slow
@@ -44,32 +44,32 @@ Named(header Text, prefix Text) Texts slow
 Curves(times Numbers) Numbers slow
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(2).IsNearlyEqual(0.818626, 0.001)
 	Tiny.Curves(H3Layout.Tiny.Times(0.75))(15).IsNearlyEqual(0.118705, 0.001)
-	let width = final.modulation.weights.First.Length
-	let grid = curve.Length / width
+	width = final.modulation.weights.First.Length
+	grid = curve.Length / width
 	for times.Length * width
-		let place = times((index / width).Floor).Clamp * (grid - 1)
-		let low = place.Floor.Clamp(0, grid - 2)
+		place = times((index / width).Floor).Clamp * (grid - 1)
+		low = place.Floor.Clamp(0, grid - 2)
 		curve(low * width + index % width).Lerp(curve((low + 1) * width + index % width), place - low)
 Patched(latent Numbers, layout H3Layout) Numbers slow
 	Tiny.Patched((1, 2, 5, 6, 3, 4, 7, 8), H3Final.Flat) is (1, 2, 3, 4, 5, 6, 7, 8)
 	Tiny.videoPatches.Sums(Tiny.Patched(Model.Values("video"), H3Layout.Tiny))(1000).IsNearlyEqual(-0.514158, 0.01)
 	Tiny.Patched(Model.Values("video"), H3Layout.Tiny)(388) is Model.Values("video")(48)
-	let patches = layout.Patches
-	let across = layout.Width / 2
-	let size = latent.Length / (layout.frames * patches)
+	patches = layout.Patches
+	across = layout.Width / 2
+	size = latent.Length / (layout.frames * patches)
 	for latent.Length
-		let column = index % size
-		let row = (index / size).Floor
-		let y = (row % patches / across).Floor * 2 + (column % 4 / 2).Floor
-		let plane = (column / 4).Floor * layout.frames + (row / patches).Floor
+		column = index % size
+		row = (index / size).Floor
+		y = (row % patches / across).Floor * 2 + (column % 4 / 2).Floor
+		plane = (column / 4).Floor * layout.frames + (row / patches).Floor
 		latent((plane * 2 * patches + y * across) * 2 + row % patches % across * 2 + column % 2)
 Packed(sound Numbers, layout H3Layout) Numbers slow
 	Tiny.Packed((1, 3, 2, 4), H3Layout(List(Number), List(Number), 1, 0, Size(2, 2))) is (1, 2, 3, 4)
 	Tiny.audioPatches.Sums(Tiny.Packed(Model.Values("audio"), H3Layout.Tiny))(700).IsNearlyEqual(-0.413504, 0.01)
-	let audio = layout.audio
-	let channels = sound.Length / (2 * audio)
+	audio = layout.audio
+	channels = sound.Length / (2 * audio)
 	for sound.Length
-		let row = (index / channels).Floor
+		row = (index / channels).Floor
 		sound((index % channels * 2 + (row / audio).Floor) * audio + row % audio)
 Leading(layout H3Layout) Number slow
 	Tiny.Leading(H3Layout.Tiny) is 9
@@ -84,14 +84,14 @@ Rotation(layout H3Layout) Numbers slow
 	Rope.Video.Table(layout.Positions, inverse, 1)
 Hidden(latent Numbers, sound Numbers, text Numbers, layout H3Layout, conditions Numbers) Numbers native
 	Tiny.Hidden(Model.Values("video"), Model.Values("audio"), Prompt, H3Layout.Tiny, List(Number)).Length is 4352
-	let kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
+	kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
 	kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
 Ran(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Numbers native
 	Tiny.Ran(Prompt, Prompt, Prompt, Turned, H3Layout.Tiny, 1, 1) is Prompt
 	Fenced.Ran(Word, Word.Slice(0, 8), List(Number) + 0, Turned.Slice(0, 256), H3Layout.Tiny, 0, 2).Length is 256
 	mutable state = hidden
 	for last - first
-		let at = first + index
+		at = first + index
 		state = blocks(at).Output(state, curves, starts, rotation, Routed(layout.routing, at), Leading(layout))
 	state
 Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers) Numbers slow
@@ -99,6 +99,6 @@ Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layou
 	Forward(818).IsNearlyEqual(0.773438, 0.05)
 	Keyed(100).IsNearlyEqual(-3.046875, 0.05)
 	Keyed(818).IsNearlyEqual(0.808594, 0.02)
-	let curves = Curves(layout.Times(sigma))
-	let hidden = Hidden(latent, sound, text, layout, conditions)
+	curves = Curves(layout.Times(sigma))
+	hidden = Hidden(latent, sound, text, layout, conditions)
 	final.Output(Ran(hidden, curves, layout.Rows(sigma), rotation, layout, 0, blocks.Length), curves, layout, sigma)

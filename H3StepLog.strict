@@ -14,8 +14,8 @@ Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) H3StepLog sl
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).logged is 1
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).notes is (", forecasts 0")
 	job.previewer.Written(video.denoised, job.shape)
-	let note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)
-	let next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
+	note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)
+	next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
 	H3StepLog(next, logged = next.Logged(step + 1 >= state.steps))
 Logged(waiting Boolean) Number slow
 	Timed.Logged(true) is 2
@@ -49,7 +49,7 @@ Waited(step Number) Number slow
 Line(step Number, took Number) Text
 	Timed.Line(1, -1) is "step 1 750 ms, forecasts 1"
 	Timed.Line(0, 42.4) is "step 0 42 ms, forecasts 0"
-	let host = (times(step + 1) - times(step)) * 1000
+	host = (times(step + 1) - times(step)) * 1000
 	"step " + step + " " + (took < 0 then host else took).Round + " ms" + notes(step)
 Errors(step Number, count Number, video Numbers, audio Numbers) Text slow
 	Tiny.Errors(1, 1, (1, 2), (3, 4)) is ""
@@ -60,5 +60,5 @@ Errors(step Number, count Number, video Numbers, audio Numbers) Text slow
 		return ""
 	if job.file.Entry("video." + step) is "" or job.Count is not count
 		return ""
-	let seen = MossImage.RelativeError(video, job.file.Values("video." + step))
+	seen = MossImage.RelativeError(video, job.file.Values("video." + step))
 	", video error " + seen + ", audio error " + MossImage.RelativeError(audio, job.file.Values("audio." + step))

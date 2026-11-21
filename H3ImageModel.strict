@@ -11,22 +11,22 @@ constant Created = Tiny.Output(Model.Values("latent"), 1, Tiny.grid(1), Prompt, 
 Loaded(path Text, loras = "") H3ImageModel slow
 	Tiny.heads.Length is 6
 	Tiny.heads(5).biases.Length is 96
-	let loaded = H3.Loaded(path, loras)
+	loaded = H3.Loaded(path, loras)
 	H3ImageModel(loaded, Heads(loaded.final.video), Grid(TensorFile.Header(path)))
 Heads(video Batch) List(Batch) slow
 	Tiny.Heads(Tiny.h3.final.video)(1).weights(0) is Tiny.h3.final.video.weights(96)
-	let size = H3Format.Channels * 4
+	size = H3Format.Channels * 4
 	for video.weights.Length / size
 		Batch(video.weights.Slice(index * size, size), video.biases.Slice(index * size, size))
 Grid(header Text) Numbers
 	Tiny.grid.Length is 7
 	Tiny.grid(2).IsNearlyEqual(0.8875485)
 	Tiny.Grid("{}") is Error("MissingPddSigmas")
-	let start = header.IndexOf("pdd_sigmas")
+	start = header.IndexOf("pdd_sigmas")
 	if start < 0
 		return Error("MissingPddSigmas")
-	let rest = header.Substring(start, header.Length - start)
-	let open = rest.IndexOf("[") + 1
+	rest = header.Substring(start, header.Length - start)
+	open = rest.IndexOf("[") + 1
 	for rest.Substring(open, rest.IndexOf("]") - open).Split(", ")
 		value to Number
 Nearest(sigma Number) Number
@@ -41,9 +41,9 @@ Weights(sigma Number, next Number) Numbers
 	Tiny.Weights(Tiny.grid(2), Tiny.grid(3)) is (1, 0, 1, 0, 0, 0)
 	Tiny.Weights(Tiny.grid(1), Tiny.grid(3))(2).IsNearlyEqual(0.632341)
 	Tiny.Weights(Tiny.grid(5), 0) is (1, 0, 0, 0, 0, 1)
-	let start = Nearest(sigma).Clamp(0, heads.Length - 1)
-	let stop = (Nearest(next), start + 1).Maximum
-	let total = grid(start) - grid(stop)
+	start = Nearest(sigma).Clamp(0, heads.Length - 1)
+	stop = (Nearest(next), start + 1).Maximum
+	total = grid(start) - grid(stop)
 	for heads.Length
 		index is 0 then 1 else (index >= start and index < stop then (grid(index) - grid(index + 1)) / total else 0)
 Conditioned(latents List(Numbers), layout H3ImageLayout, seed Number) Numbers slow
@@ -51,7 +51,7 @@ Conditioned(latents List(Numbers), layout H3ImageLayout, seed Number) Numbers sl
 	Rows(191).IsNearlyEqual(Model.Values("edit.rows")(191), 0.0001)
 	mutable rows = List(Number)
 	for latents
-		let size = (H3Format.Channels, 1, layout.references(2 * index), layout.references(2 * index + 1))
+		size = (H3Format.Channels, 1, layout.references(2 * index), layout.references(2 * index + 1))
 		rows = rows + H3Job.Patched(value, size, MersenneTwister.Seeded(seed).Normals(value.Length))
 	rows
 Rotation(layout H3ImageLayout) Numbers slow
@@ -59,26 +59,26 @@ Rotation(layout H3ImageLayout) Numbers slow
 	Rope.Video.Table(layout.Positions, h3.inverse, 1)
 Hidden(latent Numbers, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Tiny.Hidden(Model.Values("latent"), Prompt, H3ImageLayout.Tiny, Rows).Length is 2304
-	let kept = layout.Conditions is 0 then text else text + h3.videoPatches.Sums(conditions)
+	kept = layout.Conditions is 0 then text else text + h3.videoPatches.Sums(conditions)
 	kept + h3.videoPatches.Sums(h3.Patched(latent, layout.Grid(layout.Size)))
 Output(latent Numbers, sigma Number, next Number, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Edited(0).IsNearlyEqual(Model.Values("edit.output")(0), 0.05)
 	Edited(383).IsNearlyEqual(Model.Values("edit.output")(383), 0.05)
 	MossImage.RelativeError(Edited, Model.Values("edit.output")) < 0.03
 	MossImage.RelativeError(Created, Model.Values("plain.output")) < 0.03
-	let curves = h3.Curves(layout.Times(sigma))
-	let starts = layout.Rows(sigma)
-	let rotation = Rotation(layout)
+	curves = h3.Curves(layout.Times(sigma))
+	starts = layout.Rows(sigma)
+	rotation = Rotation(layout)
 	mutable state = Hidden(latent, text, layout, conditions)
 	for h3.blocks
 		state = value.Output(state, curves, starts, rotation)
 	Final(state, curves, layout, Weights(sigma, next))
 Final(hidden Numbers, curves Numbers, layout H3ImageLayout, weights Numbers) Numbers slow
 	Tiny.Final(Layer.Zeros(2304), Model.Values("edit.t_emb"), H3ImageLayout.Tiny, (1, 0, 0, 0, 0, 0)).Length is 384
-	let width = h3.final.norm.Length
-	let first = (layout.Words + layout.Conditions) * width
-	let target = Safetensors.Part(hidden, first, hidden.Length - first, 1)
-	let normed = H3Block.Modulated(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
+	width = h3.final.norm.Length
+	first = (layout.Words + layout.Conditions) * width
+	target = Safetensors.Part(hidden, first, hidden.Length - first, 1)
+	normed = H3Block.Modulated(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
 	for h3.final.Unpatched(Headed(normed, weights), layout.Grid(layout.Size))
 		-value
 Headed(normed Numbers, weights Numbers) Numbers slow
@@ -92,12 +92,12 @@ Sigmas(steps Number) Numbers
 	Tiny.Sigmas(6)(1).IsNearlyEqual(0.9676536, 0.000001) and Tiny.Sigmas(6)(5).IsNearlyEqual(0.2326104, 0.000001)
 	Tiny.Sigmas(6)(3) is 0.75 and Tiny.Sigmas(4).Length is 5 and Tiny.Sigmas(4).Last is 0
 	Tiny.Sigmas(4)(3).IsNearlyEqual(0.3823914, 0.000001) and Tiny.Sigmas(8)(7).IsNearlyEqual(0.1740067, 0.000001)
-	let spacing = 1000 / steps
+	spacing = 1000 / steps
 	for steps + 1
 		index is steps then 0 else Sigma((1000 - (index * spacing).Floor) / 1000)
 Sigma(time Number) Number
 	Tiny.Sigma(1) is 1 and Tiny.Sigma(0.5) is 0.75 and Tiny.Sigma(0) is 0
-	let last = grid.Length - 1
-	let place = time.Clamp(0, 1) * last
-	let low = place.Floor.Clamp(0, last - 1)
+	last = grid.Length - 1
+	place = time.Clamp(0, 1) * last
+	low = place.Floor.Clamp(0, last - 1)
 	grid(last - low).Lerp(grid(last - low - 1), place - low)

@@ -26,8 +26,8 @@ Contexts(unique Texts) List(Numbers)
 	for unique
 		contexts(prompts.Index(value))
 Encoded(batch MossBatch, unique Texts) MossResident slow
-	let known = Switched(batch.options.files.Encoder)
-	let missing = known.Missing(unique)
+	known = Switched(batch.options.files.Encoder)
+	missing = known.Missing(unique)
 	if missing.Length is 0
 		logger.Log("Using the cached prompt conditioning, the text encoder is not needed")
 		return known
@@ -38,21 +38,21 @@ Switched(file Text) MossResident
 	Cached.Switched("a.safetensors").prompts.Length is 0
 	if file is encoderFile
 		return value
-	let emptied = MossResident(value, encoders = List(Qwen3), encoderFile = file, tokenizers = List(Gpt2Tokens))
+	emptied = MossResident(value, encoders = List(Qwen3), encoderFile = file, tokenizers = List(Gpt2Tokens))
 	MossResident(emptied, prompts = List(Text), contexts = List(Numbers))
 Extended(batch MossBatch, missing Texts) MossResident slow
-	let tokenizing = Tokenizing(batch)
-	let ids = batch.Tokenized(tokenizing.tokenizers.First, missing)
-	let encoding = tokenizing.Encoding(batch, ids)
-	let encoded = batch.Encoded(encoding.encoders.First, ids, missing)
-	let isFull = prompts.Length + missing.Length > MostPrompts
-	let kept = isFull then List(Text) else prompts
-	let keptContexts = isFull then List(Numbers) else contexts
-	let staying = isKept and encoding.IsCrowded(batch) is false then encoding.encoders else List(Qwen3)
+	tokenizing = Tokenizing(batch)
+	ids = batch.Tokenized(tokenizing.tokenizers.First, missing)
+	encoding = tokenizing.Encoding(batch, ids)
+	encoded = batch.Encoded(encoding.encoders.First, ids, missing)
+	isFull = prompts.Length + missing.Length > MostPrompts
+	kept = isFull then List(Text) else prompts
+	keptContexts = isFull then List(Numbers) else contexts
+	staying = isKept and encoding.IsCrowded(batch) is false then encoding.encoders else List(Qwen3)
 	MossResident(encoding, encoders = staying, prompts = kept + missing, contexts = keptContexts + encoded)
 IsCrowded(batch MossBatch) Boolean slow
 	Spelled.IsCrowded(MossBatch.Sample) is false
-	let needed = mosses.Length is 1 then 0 else File(batch.options.files.Checkpoint).Length
+	needed = mosses.Length is 1 then 0 else File(batch.options.files.Checkpoint).Length
 	Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 Tokenizing(batch MossBatch) MossResident slow
 	Spelled.Tokenizing(MossBatch.Sample).tokenizers.Length is 1
@@ -60,32 +60,32 @@ Tokenizing(batch MossBatch) MossResident slow
 Encoding(batch MossBatch, ids List(Numbers)) MossResident slow
 	if encoders.Length is 1
 		return value
-	let before = Process.Elapsed
-	let encoder = batch.Encoder(isKept then List(Number) else batch.Picked(ids))
-	let staying = isKept then ", it stays loaded for the next runs" else ""
+	before = Process.Elapsed
+	encoder = batch.Encoder(isKept then List(Number) else batch.Picked(ids))
+	staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, encoders = List(Qwen3) + encoder)
 Sampling(batch MossBatch) MossResident slow
-	let options = batch.options
-	let loras = options.Loras
-	let key = options.files.Checkpoint + "|" + loras
+	options = batch.options
+	loras = options.Loras
+	key = options.files.Checkpoint + "|" + loras
 	if key is model and mosses.Length is 1
 		logger.Log("Using the loaded Moss " + options.files.Checkpoint)
 		return value
-	let before = Process.Elapsed
+	before = Process.Elapsed
 	logger.Log(batch.Loading(loras))
-	let moss = Moss.Loaded(options.files.Checkpoint, loras)
-	let staying = isKept then ", it stays loaded for the next runs" else ""
+	moss = Moss.Loaded(options.files.Checkpoint, loras)
+	staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, mosses = List(Moss) + moss, model = key)
 Previewing(batch MossBatch) MossResident slow
 	MossResident.Previewing(MossBatch.Sample).previewers.Length is 0
 	if batch.options.preview is "" or previewers.Length is 1
 		return value
-	let files = ModelFiles(batch.options.files.models)
+	files = ModelFiles(batch.options.files.models)
 	if files.Has("taef2.safetensors", "vae_approx") is false
 		return value
-	let path = files.Located("taef2.safetensors", "vae_approx")
+	path = files.Located("taef2.safetensors", "vae_approx")
 	MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 Decoders(path Text) MossResident native
 	MossResident.Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
@@ -94,7 +94,7 @@ Decoders(path Text) MossResident native
 	Unloaded.Decoders("tinyvae.safetensors").taefs.Length is 0
 	if path is decoderFile
 		return value
-	let emptied = MossResident(value, taefs = List(Taef2Decoder), fluxes = List(FluxDecoder), decoderFile = path)
+	emptied = MossResident(value, taefs = List(Taef2Decoder), fluxes = List(FluxDecoder), decoderFile = path)
 	if Taef2Decoder.Is(path)
 		return MossResident(emptied, taefs = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 	MossResident(emptied, fluxes = List(FluxDecoder) + FluxDecoder.Loaded(path, 32))

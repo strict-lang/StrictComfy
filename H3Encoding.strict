@@ -1,7 +1,7 @@
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
 Started(prompts Texts, images Texts, paths Texts) Number slow
-	let noun = prompts.Length is 1 then " prompt" else " prompts"
+	noun = prompts.Length is 1 then " prompt" else " prompts"
 	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
 	Written(prompts, images, paths)
 	GpuMemory.Evicted
@@ -23,14 +23,14 @@ Jobs(paths Texts) List(Texts) slow
 	for paths
 		if File(value + ".txt").Exists is false
 			return Error("FileNotFound:" + value + ".txt")
-		let lines = File(value + ".txt").ReadLines
+		lines = File(value + ".txt").ReadLines
 		(lines.First, Text.Combine(lines.Slice(1, lines.Length - 1), "\n"))
 Encoded Number slow
-	let rest = arguments.Slice(2, arguments.Length - 2)
-	let options = H3Batch(H3Options.Parsed(rest)).Expanded(rest).options
-	let paths = arguments(1).Split(";")
-	let jobs = Jobs(paths)
-	let inputs = H3Inputs(options)
-	let model = List(Text) + options.Checkpoint + H3Batch(options).LoraFiles
-	let encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), model)
+	rest = arguments.Slice(2, arguments.Length - 2)
+	options = H3Batch(H3Options.Parsed(rest)).Expanded(rest).options
+	paths = arguments(1).Split(";")
+	jobs = Jobs(paths)
+	inputs = H3Inputs(options)
+	model = List(Text) + options.Checkpoint + H3Batch(options).LoraFiles
+	encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), model)
 	encoder.Encoded(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths) is paths.Length then 0 else 1

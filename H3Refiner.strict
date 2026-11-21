@@ -7,16 +7,16 @@ constant Tuned = H3Refiner.Loaded("tinyh3.safetensors", H3Lora.Half.loras)
 Loaded(path Text, loras = "") H3Refiner slow
 	Tiny.refiner.Length is 2
 	Tiny.quantized is false
-	let halves = H3.Weights(path, 16)
-	let refiners = H3.Blocks(H3.Weights(path, 32), "token_refiner.blocks.", loras)
-	let norm = halves.Values("token_refiner.final_norm.weight")
-	let marker = halves.Entry("token_refiner.blocks.0.attn.qkv_proj.comfy_quant")
+	halves = H3.Weights(path, 16)
+	refiners = H3.Blocks(H3.Weights(path, 32), "token_refiner.blocks.", loras)
+	norm = halves.Values("token_refiner.final_norm.weight")
+	marker = halves.Entry("token_refiner.blocks.0.attn.qkv_proj.comfy_quant")
 	H3Refiner(H3Lora(loras).Dense(halves, "condition_proj"), refiners, norm, marker is not "")
 Refined(context Numbers) Numbers native
 	Tiny.Refined(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
 	Tiny.Refined(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
 	MossImage.RelativeError(Tuned.Refined(H3.Model.Values("context")), H3Lora.Refined) < 0.02
-	let unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
+	unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
 	mutable hidden = condition.Sums(context)
 	for refiner
 		hidden = value.Refined(hidden, unturned, quantized)

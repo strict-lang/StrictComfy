@@ -16,11 +16,11 @@ constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
 Loaded(model Safetensors, prefix Text, loras Text) MossBlock native
 	Tiny.expansion.Length is 512
 	MossBlock.Loaded(Model, "layers.0.", "tinylora.safetensors").attention is not Tiny.attention
-	let tuning = MossTuning(Safetensors(model.path, 32, prefix + "proj."), loras)
-	let tuned = tuning.Deltas
-	let projected = tuning.Merged("o", tuned)
-	let expanded = tuning.Merged("ffn_up_gate", tuned)
-	let reduced = tuning.Merged("ffn_down", tuned)
+	tuning = MossTuning(Safetensors(model.path, 32, prefix + "proj."), loras)
+	tuned = tuning.Deltas
+	projected = tuning.Merged("o", tuned)
+	expanded = tuning.Merged("ffn_up_gate", tuned)
+	reduced = tuning.Merged("ffn_down", tuned)
 	MossBlock(Norms(Safetensors(model.path, 32, prefix)), tuning.Qkv(tuned), projected, expanded, reduced, deltas = tuned)
 Norms(file Safetensors) List(Numbers) slow
 	Tiny.Norms(Safetensors(Model.path, 32, "layers.0.")).Length is 4
@@ -32,58 +32,58 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers native
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
 	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
 	MossImage.RelativeError(Moss.Tiny.Ran(Input, Modulation, Rotation, Moss.Context, 0, 1), Layered) < 0.02
-	let width = norms(0).Length
-	let attended = Gated(input, Attended(Modulated(input, norms(0), modulation, 0), rotation), modulation, width, 2)
+	width = norms(0).Length
+	attended = Gated(input, Attended(Modulated(input, norms(0), modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, width, 5)
 Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers native
 	MossImage.RelativeError(Tiny.Cropped(Input, Modulation, Rotation, 4096), Layered.Slice(0, 4096)) < 0.02
-	let normed = Modulated(input, norms(0), modulation, 0)
-	let attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, norms(0).Length, 2)
+	normed = Modulated(input, norms(0), modulation, 0)
+	attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, norms(0).Length, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, norms(0).Length, 5)
 ImageAttended(normed Numbers, rotation Numbers, kept Number) Numbers native
 	Tiny.ImageAttended(Input, Rotation, 4096) is Safetensors.Part(Tiny.Attended(Input, Rotation), 0, 4096, 1)
-	let width = norms(0).Length
-	let combined = Linear(attention, 0, normed)
-	let queries = Safetensors.Part(Rotated(combined, 0, width, norms(2), rotation), 0, kept, 1)
-	let keys = Rotated(combined, width, width, norms(3), rotation)
-	let size = norms(2).Length
-	let heads = width / size
-	let merged = Attention(queries, keys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
+	width = norms(0).Length
+	combined = Linear(attention, 0, normed)
+	queries = Safetensors.Part(Rotated(combined, 0, width, norms(2), rotation), 0, kept, 1)
+	keys = Rotated(combined, width, width, norms(3), rotation)
+	size = norms(2).Length
+	heads = width / size
+	merged = Attention(queries, keys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
 	Linear(output, 1, merged)
 Attended(normed Numbers, rotation Numbers) Numbers native
 	Tiny.Attended(Input, Rotation).Length is 4864
 	Linear(output, 1, Merged(Linear(attention, 0, normed), rotation, norms(2), norms(3)))
 Linear(rows List(Numbers), linear Number, input Numbers) Numbers native
 	Tiny.Linear(Tiny.output, 1, Input).Length is 4864
-	let summed = Batch(rows, Layer.Unbiased).Sums(rotated then Convrot(input).Rotated else input)
+	summed = Batch(rows, Layer.Unbiased).Sums(rotated then Convrot(input).Rotated else input)
 	MossLora.Applied(deltas, linear, summed, input)
 Merged(combined Numbers, rotation Numbers, queries Numbers, keys Numbers) Numbers slow
 	MossBlock.Merged((1, 0, 1, 0, 3, 4), (1, 1, 0, 0), (1, 1), (1, 1)) is (3, 4)
 	Tiny.Rotated((3, 4, 0, 1, 0, 0), 0, 2, (1, 2), (1, 1, -1, 1)).First.IsNearlyEqual(-1.414214)
-	let size = queries.Length
-	let width = combined.Length / (rotation.Length / 2 / size) / 3
-	let heads = width / size
-	let rotatedQueries = Rotated(combined, 0, width, queries, rotation)
-	let rotatedKeys = Rotated(combined, width, width, keys, rotation)
+	size = queries.Length
+	width = combined.Length / (rotation.Length / 2 / size) / 3
+	heads = width / size
+	rotatedQueries = Rotated(combined, 0, width, queries, rotation)
+	rotatedKeys = Rotated(combined, width, width, keys, rotation)
 	Attention(rotatedQueries, rotatedKeys, combined, heads, heads, size, 1, false, 2 * width, 3 * width, true).Merged
 FedForward(normed Numbers) Numbers native
 	Tiny.FedForward(Input).Length is 4864
-	let expanded = Linear(expansion, 2, normed)
-	let width = reduction.First.Length
+	expanded = Linear(expansion, 2, normed)
+	width = reduction.First.Length
 	if rotated and deltas.Length is 0
 		return Batch(reduction, Layer.Unbiased).Sums(SituRotated(expanded, width).Rotated)
 	Linear(reduction, 3, Activated(expanded, width))
 Activated(expanded Numbers, width Number) BFloat16s slow
 	Tiny.Activated((2, 1, 3, 0), 1) is (MossBlock.Situ(2, 1), 0)
 	for expanded.Length / 2
-		let first = (index / width).Floor * 2 * width + index % width
+		first = (index / width).Floor * 2 * width + index % width
 		Situ(expanded(first), expanded(first + width))
 Modulated(input Numbers, weights Numbers, modulation Numbers, part Number) BFloat16s slow
 	Tiny.Modulated((3, 4), (1, 2), (0.5, 0, 1, 1, 0, 0), 0)(1).IsNearlyEqual(4.525483)
 	TokenModulated(input, weights, modulation, part, Qwen3Block.Epsilon).Modulated
 Gated(input Numbers, update Numbers, modulation Numbers, width Number, part Number) BFloat16s slow
 	Tiny.Gated((1, 2, 9), (3, 4), (0, 0, 2, 3), 2, 1) is (7, 14)
-	let start = part * width
+	start = part * width
 	for update.Length
 		input(index) + update(index) * modulation(start + index % width)
 Rotations(height Number, width Number, text Number, size Number) Float32s slow
@@ -94,28 +94,28 @@ Rotations(height Number, width Number, text Number, size Number) Float32s slow
 	MossBlock.Rotations(4, 4, 3, 128)(17).IsNearlyEqual(-0.1159661)
 	MossBlock.Rotations(4, 4, 3, 128)(17 * 256 + 16).IsNearlyEqual(0.5403023)
 	for (height * width + text) * 2 * size
-		let at = index % (2 * size)
-		let pair = at % (size / 2)
-		let position = Position((index / (2 * size)).Floor, (pair / (size / 8)).Floor, height, width, text)
-		let angle = Degrees(Radians(position * 10000 ^ (-(pair % (size / 8)) / (size / 8))) to Degrees)
+		at = index % (2 * size)
+		pair = at % (size / 2)
+		position = Position((index / (2 * size)).Floor, (pair / (size / 8)).Floor, height, width, text)
+		angle = Degrees(Radians(position * 10000 ^ (-(pair % (size / 8)) / (size / 8))) to Degrees)
 		at < size then angle.Cos else (at < size * 3 / 2 then -angle.Sin else angle.Sin)
 Position(token Number, axis Number, height Number, width Number, text Number) Number
 	MossBlock.Position(0, 2, 4, 4, 3) is -1.5
 	MossBlock.Position(17, 1, 4, 4, 3) is 1
 	MossBlock.Position(17, 3, 4, 4, 3) is 0
 	MossBlock.Position(6, 3, 4, 4, 3) is 0.5
-	let image = token < height * width
-	let wide = width > 0 then width else 1
-	let centered = axis is 2 then (token / wide).Floor - (height - 1) / 2 else token % wide - (width - 1) / 2
+	image = token < height * width
+	wide = width > 0 then width else 1
+	centered = axis is 2 then (token / wide).Floor - (height - 1) / 2 else token % wide - (width - 1) / 2
 	axis is 1 then (image then text else token - height * width) else (axis is 0 or image is false then 0 else centered)
 Situ(hidden Number, gate Number) Number
 	MossBlock.Situ(0, 1) is 0
 	MossBlock.Situ(1, 0) is 0
 	MossBlock.Situ(2, 3).IsNearlyEqual(4.8299123)
 	MossBlock.Situ(100, -100).IsNearlyEqual(0)
-	let half = (-gate / 2).Exponential
-	let squashed = 4 * (1 - half) / ((1 + half) * (1 + half * half))
-	let bounded = (-hidden * 2 / Cap).Exponential
+	half = (-gate / 2).Exponential
+	squashed = 4 * (1 - half) / ((1 + half) * (1 + half * half))
+	bounded = (-hidden * 2 / Cap).Exponential
 	squashed * Cap * (1 - bounded) / (1 + bounded)
 Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s
 	HeadRotated(combined, start, width, weights, rotation, Qwen3Block.Epsilon).Rotated

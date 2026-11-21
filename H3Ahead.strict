@@ -7,9 +7,9 @@ Prepared(rows Safetensors, name Text, prefix Text, filled List(Numbers)) List(Nu
 	H3Ahead("").Prepared(Rows, "o", "", List(Numbers)) is MossBlock.Tiny.output
 	if filled.Length is 0
 		return H3Lora(loras).Merged(rows, name, prefix)
-	let lora = H3Lora(loras).Stacked(prefix + name + ".")
-	let ahead = RowsAhead(rows)
+	lora = H3Lora(loras).Stacked(prefix + name + ".")
+	ahead = RowsAhead(rows)
 	if lora.rank is 0
 		return ahead.Finished(filled)
-	let tuned = ahead.Retuned(filled, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
+	tuned = ahead.Retuned(filled, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
 	tuned.Length > 0 then tuned else H3Lora(loras).Merged(rows, name, prefix)

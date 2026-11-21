@@ -12,7 +12,7 @@ Loaded(file Text, models Text) H3Previewer slow
 	H3Previewer.Loaded("a.jpg", ".").decoders.Length is 0
 	if file is ""
 		return None
-	let tiny = ModelFiles(models).Located("taeh3.safetensors", "vae_approx")
+	tiny = ModelFiles(models).Located("taeh3.safetensors", "vae_approx")
 	if tiny is Error or Taeh3Decoder.Is(tiny) is false
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
@@ -21,12 +21,12 @@ Written(latent Numbers, shape Numbers) None native
 	File(Tiny.path).Exists
 	if decoders.Length is 0 or latent.Length is 0
 		return
-	let picked = Picked(shape(1))
-	let wide = picked.Length * shape(3)
-	let patches = decoders.First.Patched(Tiled(Leveled(latent, shape), shape, picked), wide)
+	picked = Picked(shape(1))
+	wide = picked.Length * shape(3)
+	patches = decoders.First.Patched(Tiled(Leveled(latent, shape), shape, picked), wide)
 	Saved(Shrunk(patches, shape(2) * 8 * wide * 8), wide * 8)
 Saved(pixels Numbers, width Number) slow
-	let part = path + ".part"
+	part = path + ".part"
 	ImageCodec.SaveJpeg(part, pixels, width, JpegQuality)
 	if File(path).Exists
 		File(path).Delete
@@ -34,39 +34,39 @@ Saved(pixels Numbers, width Number) slow
 Picked(count Number) Numbers
 	Tiny.Picked(2) is (0, 1)
 	Tiny.Picked(64).Length is Frames and Tiny.Picked(31).Last is 30
-	let used = count.Clamp(1, Frames)
+	used = count.Clamp(1, Frames)
 	for used
 		(index * count / used).Floor
 Tiled(latent Numbers, shape Numbers, picked Numbers) Numbers
 	Tiny.Tiled((1, 2, 3, 4), (2, 2, 1, 1), (0, 1)) is (1, 2, 3, 4)
 	Tiny.Tiled((1, 3, 5, 7), (1, 2, 2, 1), List(Number) + 1) is (5, 7)
-	let wide = picked.Length * shape(3)
-	let plane = shape(2) * shape(3)
-	let cells = shape(2) * wide
+	wide = picked.Length * shape(3)
+	plane = shape(2) * shape(3)
+	cells = shape(2) * wide
 	for shape(0) * cells
-		let frame = picked((index % wide / shape(3)).Floor)
-		let start = ((index / cells).Floor * shape(1) + frame) * plane
+		frame = picked((index % wide / shape(3)).Floor)
+		start = ((index / cells).Floor * shape(1) + frame) * plane
 		latent(start + (index / wide).Floor % shape(2) * shape(3) + index % wide % shape(3))
 Leveled(latent Numbers, shape Numbers) Numbers
 	Tiny.Leveled((1, 3, 5, 7), (1, 2, 2, 1)) is (3, 5, 3, 5)
-	let means = Means(latent, shape)
-	let gains = Gains(Spreads(latent, shape, means), shape(1))
-	let offsets = Offsets(means, gains, shape(1))
-	let plane = shape(2) * shape(3)
+	means = Means(latent, shape)
+	gains = Gains(Spreads(latent, shape, means), shape(1))
+	offsets = Offsets(means, gains, shape(1))
+	plane = shape(2) * shape(3)
 	for latent
 		value * gains((index / plane).Floor) + offsets((index / plane).Floor)
 Means(latent Numbers, shape Numbers) Numbers
 	Tiny.Means((1, 3, 5, 7), (1, 2, 2, 1)) is (2, 6)
-	let plane = shape(2) * shape(3)
+	plane = shape(2) * shape(3)
 	for shape(0) * shape(1)
 		latent.Slice(index * plane, plane).Sum / plane
 Spreads(latent Numbers, shape Numbers, means Numbers) Numbers
 	Tiny.Spreads((1, 3, 5, 7), (1, 2, 2, 1), (2, 6)) is (1, 1)
 	Tiny.Spreads((2, 2), (1, 1, 2, 1), List(Number) + 2) is List(Number) + Flat
-	let plane = shape(2) * shape(3)
+	plane = shape(2) * shape(3)
 	for means
-		let squares = Squared(latent.Slice(index * plane, plane)).Sum / plane
-		let spread = (squares - value * value).Clamp(0, squares + 1).SquareRoot
+		squares = Squared(latent.Slice(index * plane, plane)).Sum / plane
+		spread = (squares - value * value).Clamp(0, squares + 1).SquareRoot
 		spread < Flat then Flat else spread
 Gains(spreads Numbers, frames Number) Numbers
 	Tiny.Gains((1, 3, 10, 30), 2) is (2, 2 / 3, 2, 2 / 3)
@@ -87,5 +87,5 @@ Typical(values Numbers, every Number, wanted Number) Number
 Shrunk(patches Numbers, cells Number) Numbers
 	Tiny.Shrunk((0, 0.2, 0.4, 0.6, 1, 1, 1, 1, 0, 0, 0, 2), 1) is (0.3, 1, 0.5)
 	for 3 * cells
-		let at = (index / 3).Floor * Taeh3Decoder.Patches + index % 3 * 4
+		at = (index / 3).Floor * Taeh3Decoder.Patches + index % 3 * 4
 		((patches(at) + patches(at + 1) + patches(at + 2) + patches(at + 3)) / 4).Clamp(0, 1)

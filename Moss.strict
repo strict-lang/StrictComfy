@@ -21,20 +21,20 @@ Loaded(path Text, lora Text) Moss native
 	Moss.Loaded("tinymossqkv.safetensors", "tinylora.safetensors").layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
-	let model = Safetensors(path, BFloat16.SafetensorsBits)
-	let dense = Dense(model)
-	let normed = model.Values("final_norm_video.weight")
+	model = Safetensors(path, BFloat16.SafetensorsBits)
+	dense = Dense(model)
+	normed = model.Values("final_norm_video.weight")
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
 Layers(model Safetensors, lora Text) List(MossBlock) slow
 	Tiny.Layers(Model, "").Length is 2
 	Tiny.Layers(Safetensors("tinyvae.safetensors"), "") is Error("NoMossLayersFound:tinyvae.safetensors")
-	let count = TensorFile.Header(model.path).Split(".proj.o.weight\"").Length - 1
+	count = TensorFile.Header(model.path).Split(".proj.o.weight\"").Length - 1
 	if count is 0
 		return Error("NoMossLayersFound:" + Path(model.path).FileName.text)
-	let label = lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs"
-	let completion = Completion(label, count, Process.Elapsed)
+	label = lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs"
+	completion = Completion(label, count, Process.Elapsed)
 	for count
-		let block = MossBlock.Loaded(model, "layers." + index + ".", lora)
+		block = MossBlock.Loaded(model, "layers." + index + ".", lora)
 		completion.Report(index + 1)
 		block
 Texts(model Safetensors) List(MossText) slow
@@ -53,9 +53,9 @@ TimeEmbedded(sigma Number) Numbers native
 Sinusoid(time Number, count Number) Numbers
 	Moss.Sinusoid(0, 4) is (1, 1, 0, 0)
 	Moss.Sinusoid(1, 4)(3).IsNearlyEqual(0.0099998)
-	let half = count / 2
+	half = count / 2
 	for count
-		let angle = Degrees(Radians(time * (-(index % half) * 10000.Logarithm / half).Exponential) to Degrees)
+		angle = Degrees(Radians(time * (-(index % half) * 10000.Logarithm / half).Exponential) to Degrees)
 		index < half then angle.Cos else angle.Sin
 Silu(values Numbers) Numbers
 	Moss.Silu((0, 1)) is (0, 0.7310585786300049)
@@ -71,7 +71,7 @@ Output(latent Numbers, sigma Number, text Numbers, rotation Numbers) Numbers nat
 	Forward(0).IsNearlyEqual(-1.9609, 0.05)
 	Forward(5).IsNearlyEqual(-0.5156, 0.05)
 	Forward(255).IsNearlyEqual(-0.1289, 0.05)
-	let vector = TimeEmbedded(sigma)
+	vector = TimeEmbedded(sigma)
 	Head(Features(latent, text, rotation, vector), vector)
 Rotation(latent Numbers, text Numbers, width Number) Float32s native
 	Tiny.Rotation(Model.Values("reference.x"), Tiny.TextEmbedded(Context, 3), 4) is MossBlock.Rotation
@@ -81,12 +81,12 @@ Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
 Embedded(latent Numbers, text Numbers) Numbers
 	video.Sums(Transposed(latent, video.weights.First.Length)) + text
 Head(image Numbers, vector Numbers) Numbers
-	let count = image.Length / finalNorm.Length
+	count = image.Length / finalNorm.Length
 	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
 TextEmbedded(context Numbers, text Number) Numbers native
 	Tiny.TextEmbedded(Context, 3)(0).IsNearlyEqual(0.0557, 0.02)
 	Tiny.TextEmbedded(Context, 3)(767).IsNearlyEqual(0.7422, 0.02)
-	let rotation = MossBlock.Rotations(0, 0, text, 128)
+	rotation = MossBlock.Rotations(0, 0, text, 128)
 	mutable hidden = textProjection.Sums(context)
 	for texts
 		hidden = value.Output(hidden, rotation)
@@ -94,15 +94,15 @@ TextEmbedded(context Numbers, text Number) Numbers native
 Ran(hidden Numbers, modulation Numbers, rotation Numbers, latent Numbers, first Number, last Number) Numbers slow
 	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
 	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 1, 1) is MossBlock.Input
-	let kept = latent.Length / video.weights.First.Length * finalNorm.Length
+	kept = latent.Length / video.weights.First.Length * finalNorm.Length
 	mutable state = hidden
 	for last - first
-		let layer = layers(first + index)
-		let cropping = first + index is layers.Length - 1
+		layer = layers(first + index)
+		cropping = first + index is layers.Length - 1
 		state = cropping then layer.Cropped(state, modulation, rotation, kept) else layer.Output(state, modulation, rotation)
 	state
 Transposed(values Numbers, rows Number) Numbers
 	Moss.Transposed((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)
-	let columns = values.Length / rows
+	columns = values.Length / rows
 	for values.Length
 		values((index % rows) * columns + (index / rows).Floor)

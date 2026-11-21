@@ -28,10 +28,10 @@ Encoding(files H3Files) H3Resident slow
 	H3Resident(value, encoders = List(Qwen3) + Encoder(files), encoderFile = files.Encoder)
 Encoder(files H3Files) Qwen3 slow
 	None.Encoder(Files).blocks.Length is 2
-	let before = Process.Elapsed
+	before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
-	let encoder = H3Encoder(files).Loaded
-	let staying = isCrowded then "" else ", it stays loaded for the next runs"
+	encoder = H3Encoder(files).Loaded
+	staying = isCrowded then "" else ", it stays loaded for the next runs"
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	encoder
 Tokenizing(files H3Files) H3Resident slow
@@ -46,8 +46,8 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
 	GpuMemory.Released
-	let h3 = H3Video.Loaded(checkpoint, loras)
-	let refiner = H3Refiner.Loaded(checkpoint, loras)
+	h3 = H3Video.Loaded(checkpoint, loras)
+	refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
 Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	Sampled.Trimmed("tinyh3.safetensors", "", false).samplers.Length is 1
@@ -57,27 +57,27 @@ Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
 	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
 	if samplers.Length is 1 and IsSampling(checkpoint, loras) is false
 		return Unsampled("Freeing the loaded H3 first, this run needs another model or LoRAs")
-	let isDropped = isTight and encoders.Length is 1
+	isDropped = isTight and encoders.Length is 1
 	if isDropped
 		logger.Log("Freeing the text encoder, little memory is left (it loads again for a new prompt)")
 	isDropped then H3Resident(value, encoders = List(Qwen3), encoderFile = "") else value
 Missing(files H3Files) Number slow
 	None.Missing(Whole.options.files) > Encoded.Missing(Whole.options.files)
-	let encoder = encoders.Length is 1 then 0 else EncoderRoom(files)
-	let sampler = samplers.Length is 1 then 0 else File(files.Checkpoint).Length
+	encoder = encoders.Length is 1 then 0 else EncoderRoom(files)
+	sampler = samplers.Length is 1 then 0 else File(files.Checkpoint).Length
 	encoder + sampler + (decodings.Length is 1 then 0 else File(files.Decoder).Length + File(files.Sound).Length)
 EncoderRoom(files H3Files) Number slow
 	None.EncoderRoom(Whole.options.files) is File(Whole.options.files.Encoder).Length * EncoderGrowth
 	File(files.Encoder).Length * EncoderGrowth
 Crowded(batch H3Batch) H3Resident slow
 	Sampled.Crowded(Whole).isCrowded is false
-	let options = batch.options
-	let needed = H3Inputs(options).Problem is "" then Missing(options.files) else 0
+	options = batch.options
+	needed = H3Inputs(options).Problem is "" then Missing(options.files) else 0
 	if Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
 		return H3Resident(value, plans = List(H3Plan), isCrowded = false)
-	let plan = batch.Planned
-	let isNew = H3Artifacts(options).Missing(plan.paths).Length > 0
-	let kept = isNew then Unsampled("Freeing the loaded H3, the text encoder does not fit next to it") else value
+	plan = batch.Planned
+	isNew = H3Artifacts(options).Missing(plan.paths).Length > 0
+	kept = isNew then Unsampled("Freeing the loaded H3, the text encoder does not fit next to it") else value
 	H3Resident(kept, encoders = List(Qwen3), encoderFile = "", plans = List(H3Plan) + plan, isCrowded = true)
 Unsampled(reason Text) H3Resident
 	Sampled.Unsampled("a").samplers.Length is 0
