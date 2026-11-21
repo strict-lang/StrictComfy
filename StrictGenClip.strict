@@ -1,5 +1,4 @@
-has logger
-constant Sample = StrictGenClip(Logger)
+constant Sample = StrictGenClip
 constant Zoomed = "input/zoomed"
 constant ProbeArguments = "-v error -select_streams v:0 -show_entries stream=width,height:format_tags=comment -of csv=p=0 \""
 constant SignedShortLimit = 32768
@@ -8,7 +7,7 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed: missing-clip.mp4")
 	let rgb = path + ".tail.rgb"
 	let seconds = context / H3Format.FramesPerSecond + 1
-	if Process.RunTool("ffmpeg", StrictGenJoin(logger).Extract(path, rgb, (height, width), seconds)).Failed
+	if Process.RunTool("ffmpeg", StrictGenJoin.Extract(path, rgb, (height, width), seconds)).Failed
 		return Error("FfmpegFailed: " + path)
 	let frame = width * height * 3
 	let raw = Scaled(File(rgb).ReadBytes)
@@ -19,7 +18,7 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 TailPcm(path Text, seconds Number) Numbers slow
 	Sample.TailPcm("missing-clip.mp4", 2).Length is 128000
 	let pcm = path + ".tail.pcm"
-	if Process.RunTool("ffmpeg", StrictGenJoin(logger).ExtractAudio(path, pcm, seconds)).Failed
+	if Process.RunTool("ffmpeg", StrictGenJoin.ExtractAudio(path, pcm, seconds)).Failed
 		return Layer.Zeros(2 * (seconds * H3Frames.SampleRate).Round)
 	let waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
@@ -36,10 +35,10 @@ Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Num
 	Merged(source, Trimmed(video, kept, frame), Cut(waveform, drop), size, output)
 Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
 	let tail = output + ".tail.mp4"
-	let saved = H3Frames(logger).Saved(video, audio, size, tail)
+	let saved = H3Frames.Saved(video, audio, size, tail)
 	if saved is Error
 		return saved
-	let join = StrictGenJoin(logger)
+	let join = StrictGenJoin
 	let merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
 	File(tail).Delete
 	if merged.Failed

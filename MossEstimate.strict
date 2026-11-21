@@ -29,7 +29,7 @@ Budget(vram Number) Number
 	vram is 0 then Unknown else (vram / H3Estimate.Gibibyte * TokensPerGibibyte / 1000).Round * 1000
 Local Number slow
 	MossEstimate.Local > 0
-	Budget(MachineUse(Logger, "MossImage", 0, 0).Device(0))
+	Budget(MachineUse("MossImage", 0, 0).Device(0))
 Decoder Text
 	Default.Decoder is "flux2-vae"
 	Fastest.Decoder is "taef2"

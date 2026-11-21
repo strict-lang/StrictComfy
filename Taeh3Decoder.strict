@@ -46,7 +46,7 @@ Narrows(model Safetensors) List(Convolution) slow
 Decoded(latent Numbers, width Number) Numbers slow
 	Pixels.Length is 4608
 	Pixels(1537).IsNearlyEqual(Reference(1537), 0.002) and Pixels(3071).IsNearlyEqual(Reference(3071), 0.002)
-	MossImage(Logger).RelativeError(Pixels, Reference) < 0.005
+	MossImage.RelativeError(Pixels, Reference) < 0.005
 	Shuffled(Patched(latent, width), 8 * width)
 Patched(latent Numbers, width Number) Numbers native
 	Tiny.Patched(Latent, 3).Length is 4608
@@ -60,7 +60,7 @@ Frames(latent Numbers, shape Numbers) Numbers slow
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)
 	Video(15928).IsNearlyEqual(0.2726, 0.002) and Video(18694).IsNearlyEqual(0.2345, 0.002)
 	let third = Passed(Expanded(Passed(Expanded(Passed(Inputs(latent, shape), 0), 0), 1), 1), 2)
-	let completion = Completion(Logger, "Decoding video", third.Length * 2, Process.Elapsed)
+	let completion = Completion("Decoding video", third.Length * 2, Process.Elapsed)
 	mutable frames = List(Number)
 	for completion.total
 		if index % ChunkFrames >= TrimmedFrames

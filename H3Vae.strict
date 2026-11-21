@@ -27,7 +27,7 @@ Decoded(latent Numbers, shape Numbers) Numbers native
 	let latents = decoder.Denormalized(latent)
 	mutable frames = List(Number)
 	mutable shared = List(Number)
-	let completion = Completion(Logger, "Decoding video", (shape(0) + Dropped) / Tokens - 1, Process.Elapsed)
+	let completion = Completion("Decoding video", (shape(0) + Dropped) / Tokens - 1, Process.Elapsed)
 	for completion.total
 		let window = decoder.Cut(latents, shape, (index * Tokens, Tokens + Shared, 0, shape(1), 0, shape(2)))
 		let canvas = Canvas(window, shape(1), shape(2))
@@ -43,7 +43,7 @@ Statistics(model Safetensors) List(Numbers)
 	(model.Values("latents_mean"), model.Values("latents_std"))
 Still(latent Numbers, height Number, width Number) Numbers native
 	StillPixels(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
-	MossImage(Logger).RelativeError(StillPixels, Image.Values("reference.pixels")) < 0.01
+	MossImage.RelativeError(StillPixels, Image.Values("reference.pixels")) < 0.01
 	let canvas = Canvas(decoder.Denormalized(latent), height, width, 1)
 	let plane = canvas.Length / 3
 	for canvas

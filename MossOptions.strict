@@ -27,9 +27,9 @@ constant MissingModel = "Error: FileNotFound:a.safetensors\nnext"
 constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp + PreviewHelp
 Sampling(logger Logger) MossSampling
 	MossOptions.Parsed(("--preview", "step.jpg")).preview is "step.jpg"
-	MossOptions.Parsed(List(Text)).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "off", 5, 2)
+	MossOptions.Parsed(List(Text)).Sampling(Logger) is MossSampling(44, 8, 1, "off", 5, 2)
 	MossOptions.Parsed(("--quality", "fastest", "--width", "480")).Sampling(Logger).width is 30
-	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger) is MossSampling(Logger, 44, 8, 1, "on", 3, 3)
+	MossOptions.Parsed(("--quality", "fast")).Sampling(Logger) is MossSampling(44, 8, 1, "on", 3, 3)
 	MossOptions.Parsed(("--steps", "6", "--guidance", "3")).Sampling(Logger).guidance is 3
 	MossOptions.Parsed(("--spectrum", "spectrum8_w3p4")).Sampling(Logger).period is 4
 	MossOptions.Parsed(("--quality", "fastest2steps")).Sampling(Logger).period is 2
@@ -37,7 +37,7 @@ Sampling(logger Logger) MossSampling
 	let spectral = Spectral(preset)
 	let mode = spectral(0) > 0 then "on" else "off"
 	let used = guidance > 0 then guidance else preset(1)
-	MossSampling(logger, width / 16, Evaluated, used, mode, (spectral(0) > 0 then spectral(0) else 5), spectral(1), Span)
+	MossSampling(width / 16, Evaluated, used, mode, spectral(0) > 0 then spectral(0) else 5, spectral(1), Span)
 Evaluated Number
 	MossOptions.Parsed(("--quality", "best25steps")).Evaluated is 25
 	MossOptions.Parsed(("--steps", "12")).Evaluated is 12

@@ -15,7 +15,7 @@ constant Fenced = H3(Tiny, blocks = Tiny.blocks + H3Block(Tiny.blocks(0), attent
 constant Word = Prompt.Slice(0, 256)
 Loaded(path Text, loras = "") H3 native
 	Tiny.blocks.Length is 2
-	MossImage(Logger).RelativeError(H3Lora.Forward, H3Lora.Outputs) < 0.03
+	MossImage.RelativeError(H3Lora.Forward, H3Lora.Outputs) < 0.03
 	let model = Weights(path, 32)
 	let patches = H3Lora(loras).Dense(model, "video_patch_proj")
 	let heard = H3Lora(loras).Optional(model, "audio_patch_proj")
@@ -30,7 +30,7 @@ Weights(path Text, bits Number) Safetensors
 Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slow
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
 	let count = Named(TensorFile.Header(model.path), model.prefix + prefix).Length
-	let completion = Completion(Logger, label, count, Process.Elapsed)
+	let completion = Completion(label, count, Process.Elapsed)
 	for count
 		let block = H3Block.Loaded(model, prefix + index + ".", loras)
 		completion.Report(index + 1)

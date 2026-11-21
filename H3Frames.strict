@@ -1,4 +1,3 @@
-has logger
 constant Riff = (82, 73, 70, 70)
 constant WaveFormat = (87, 65, 86, 69, 102, 109, 116, 32)
 constant DataChunk = (100, 97, 116, 97)
@@ -30,7 +29,7 @@ Saved(frames Numbers, waveform Numbers, size Numbers, output Text) slow
 Pictures(vae H3Vae, latent Numbers, shape Numbers, expected Numbers) Numbers
 	let before = Process.Elapsed
 	let frames = vae.Decoded(latent, shape)
-	let psnr = FluxImage(logger).Psnr(frames, Scaled(expected))
+	let psnr = FluxImage.Psnr(frames, Scaled(expected))
 	logger.Log("video decoded in " + (Process.Elapsed - before).Round(1) + " s, PSNR " + psnr.Round(2) + " dB")
 	frames
 Heard(sound H3Audio, latent Numbers) Numbers
@@ -39,38 +38,38 @@ Heard(sound H3Audio, latent Numbers) Numbers
 	logger.Log("audio decoded in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 	waveform
 Scaled(bytes Numbers) Numbers
-	H3Frames(Logger).Scaled((0, 255)) is (0, 1)
+	H3Frames.Scaled((0, 255)) is (0, 1)
 	for bytes
 		value / Byte.Max
 Bytes(frames Numbers) Bytes
-	H3Frames(Logger).Bytes((0, 0.5, 1))(1) is Byte(128)
+	H3Frames.Bytes((0, 0.5, 1))(1) is Byte(128)
 	for frames
 		(value * Byte.Max + 0.5).Floor
 Arguments(size Numbers, output Text) Text
-	H3Frames(Logger).Arguments((4, 6), "a b.mp4").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
-	H3Frames(Logger).Arguments((4, 6), "a b.mp4").EndsWith(" -i \"a b.mp4.wav\"" + Encoding + "\"a b.mp4\"")
-	H3Frames(Logger).Arguments((4, 6), "a b.mp4") is Command + Encoding + "\"a b.mp4\""
+	H3Frames.Arguments((4, 6), "a b.mp4").StartsWith("-y -loglevel error -f rawvideo -pix_fmt rgb24 -s 6x4")
+	H3Frames.Arguments((4, 6), "a b.mp4").EndsWith(" -i \"a b.mp4.wav\"" + Encoding + "\"a b.mp4\"")
+	H3Frames.Arguments((4, 6), "a b.mp4") is Command + Encoding + "\"a b.mp4\""
 	let path = "\"" + output
 	let input = " -s " + size(1) + "x" + size(0) + " -r 24 -i " + path + ".rgb\" -i " + path + ".wav\""
 	"-y -loglevel error -f rawvideo -pix_fmt rgb24" + input + Encoding + path + "\""
 Wave(waveform Numbers) Bytes
-	H3Frames(Logger).Wave((0, 0)).Length is 48
+	H3Frames.Wave((0, 0)).Length is 48
 	for Header(waveform.Length) + Samples(waveform)
 		Byte(value)
 Header(count Number) Numbers
-	H3Frames(Logger).Header(2).Length is 44
-	H3Frames(Logger).Header(2)(4) is 40
-	H3Frames(Logger).Header(300).Slice(40, 4) is (88, 2, 0, 0)
+	H3Frames.Header(2).Length is 44
+	H3Frames.Header(2)(4) is 40
+	H3Frames.Header(300).Slice(40, 4) is (88, 2, 0, 0)
 	let format = WaveFormat + (16, 0, 0, 0, 1, 0, 2, 0) + Little(SampleRate, 4) + Little(SampleRate * 4, 4)
 	Riff + Little(HeaderBytes + 2 * count, 4) + format + (4, 0, 16, 0) + DataChunk + Little(2 * count, 4)
 Little(number Number, count Number) Numbers
-	H3Frames(Logger).Little(258, 2) is (2, 1)
+	H3Frames.Little(258, 2) is (2, 1)
 	for count
 		(number / 256 ^ index).Floor % 256
 Samples(waveform Numbers) Numbers
-	H3Frames(Logger).Samples((1, -1)) is (255, 127, 1, 128)
-	H3Frames(Logger).Samples((0, 0.5, 0, 0))(5) is 64
-	H3Frames(Logger).Samples((0, 0.5, 0.25, -0.25)) is (0, 0, 0, 32, 0, 64, 0, 224)
+	H3Frames.Samples((1, -1)) is (255, 127, 1, 128)
+	H3Frames.Samples((0, 0.5, 0, 0))(5) is 64
+	H3Frames.Samples((0, 0.5, 0.25, -0.25)) is (0, 0, 0, 32, 0, 64, 0, 224)
 	let length = waveform.Length / 2
 	for 2 * waveform.Length
 		let sample = (index / 2).Floor

@@ -3,15 +3,15 @@ Completed(kept MossResident) MossResident slow
 	let options = batch.options
 	let problem = options.Problem is "" then options.Located else options.Problem
 	if problem is not ""
-		batch.logger.Log(problem)
+		logger.Log(problem)
 		return MossResident(kept, code = 2)
 	if options.files.Warm
 		return Warmed(kept)
 	let started = Process.Elapsed
-	let seeds = PromptBatch(batch.logger, "Image").Seeds(options.seed, options.count)
+	let seeds = PromptBatch("Image").Seeds(options.seed, options.count)
 	let template = batch.prompted is "" then batch.Templated else batch.prompted
-	batch.logger.Log(MossEstimate(options).Estimate(MossEstimate.Local))
-	Prompted(kept, seeds, PromptBatch(batch.logger, "Image").Prompts(List(Text) + template, seeds), started)
+	logger.Log(MossEstimate(options).Estimate(MossEstimate.Local))
+	Prompted(kept, seeds, PromptBatch("Image").Prompts(List(Text) + template, seeds), started)
 Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossResident slow
 	let encoded = kept.Encoded(batch, prompts.Unique)
 	let c = encoded.Contexts(prompts.Unique)
@@ -22,12 +22,12 @@ Prompted(kept MossResident, seeds Numbers, prompts Texts, started Number) MossRe
 	let decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
 	let made = batch.Images(decoding, seeds, prompts, c)
 	batch.options.files.Eased
-	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)
 Warmed(kept MossResident) MossResident slow
 	let started = Process.Elapsed
 	let encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))
 	batch.options.files.Eased
 	let decoding = encoding.Sampling(batch).Decoders(batch.options.Decoder)
-	batch.logger.Log("Moss is ready after " + (Process.Elapsed - started).Round(1) + " s, the next image starts at once")
+	logger.Log("Moss is ready after " + (Process.Elapsed - started).Round(1) + " s, the next image starts at once")
 	MossResident(decoding, code = 0)

@@ -1,7 +1,6 @@
-has logger
 has file Text
 has arguments Texts
-constant Sample = H3Commands(Logger, "tinyh3commands.txt", ("--models", "."))
+constant Sample = H3Commands("tinyh3commands.txt", ("--models", "."))
 constant Sized = "--length 5 --width 32 --height 32"
 Completed Boolean slow
 	let lines = Lines
@@ -29,7 +28,7 @@ Generated(batches List(H3Batch), count Number) Boolean slow
 	true
 Lines Texts slow
 	Sample.Lines is (Sized + " --seed 7", Sized + " --prompt \"a b.txt\"")
-	H3Commands(Logger, "missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")
+	H3Commands("missing.txt", List(Text)).Lines is Error("FileNotFound:missing.txt")
 	if File(file).Exists is false
 		return Error("FileNotFound:" + file)
 	for File(file).ReadLines
@@ -40,7 +39,7 @@ Batches(lines Texts) List(H3Batch) slow
 	Sample.Batches(Sample.Lines).First.options.seed is 7
 	for lines
 		let words = arguments + CommandWords.Words(value)
-		H3Batch(logger, H3Options.Parsed(words)).Expanded(words)
+		H3Batch(H3Options.Parsed(words)).Expanded(words)
 Problem(batches List(H3Batch)) Text slow
 	Sample.Problem(Sample.Batches(Sample.Lines)) is ""
 	Sample.Problem(Sample.Batches(List(Text) + "--length 4")) is "Command 1: " + H3Options.Miscounted
@@ -104,7 +103,7 @@ Sampled(plans List(H3Plan)) Number slow
 	videos
 SampledWith(plans List(H3Plan), model Text) Number slow
 	let options = First(plans, model, false).batch.options
-	let h3 = H3Video(logger).Loaded(options.Checkpoint, options.Loras)
+	let h3 = H3Video.Loaded(options.Checkpoint, options.Loras)
 	let refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	mutable videos = 0
 	for plans
@@ -117,13 +116,12 @@ SampledWith(plans List(H3Plan), model Text) Number slow
 	videos
 Decoded(plans List(H3Plan)) None slow
 	mutable decodings = List(H3Decoding)
-	mutable vaes = ""
+	mutable vaes = List(Text)
 	for plans
 		let options = value.batch.options
-		let wanted = options.files.Decoder + ";" + options.files.Sound
-		if wanted is not vaes
-			decodings = H3Video(logger).Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound))
-			vaes = wanted
+		let wanted = (options.files.Decoder, options.files.Sound)
+		decodings = wanted is vaes then decodings else H3Video.Decoding(List(H3Decoding), wanted)
+		vaes = wanted
 		logger.Log("Command " + (index + 1) + "/" + plans.Length)
 		let latents = H3Artifacts(options).Latents(value.seeds.Length, Prefix(index))
 		value.batch.DecodedWith(decodings.First, latents, value.images)

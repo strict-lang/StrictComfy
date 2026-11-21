@@ -1,4 +1,3 @@
-has logger
 has resident Resident
 has name Text
 has coordinator = ""
@@ -20,7 +19,7 @@ constant Local = "--local"
 constant Serving = "serve"
 constant KeepsModels = " backend, it keeps the models loaded for the next runs (--local runs without it)"
 constant Nowhere = "artifacts/h3test/obj/MissingCoordinator"
-constant Sample = Backend(Logger, Resident("artifacts/h3test"), "H3Video", Nowhere)
+constant Sample = Backend(Resident("artifacts/h3test"), "H3Video", Nowhere)
 IsServing(arguments Texts) Boolean
 	Backend.IsServing(List(Text))
 	Backend.IsServing(("--prompt", "a.txt"))
@@ -34,9 +33,9 @@ Dispatched(arguments Texts) Number slow
 	Sample.Dispatched(List(Text) + Local) is -1
 	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
-		return Forwarding(logger, resident.root, coordinator).Forwarded(List(Text) + Resident.Stopping)
+		return Forwarding(resident.root, coordinator).Forwarded(List(Text) + Resident.Stopping)
 	if Local is in arguments
-		return -1
+		return Unserved
 	mutable code = Attempted(arguments)
 	mutable tries = 0
 	for as long as code is -1 and (tries is 0 or Port is not 0) and tries < StartSeconds
@@ -47,7 +46,7 @@ Attempted(arguments Texts) Number slow
 	let isRunning = File(resident.root + Resident.Stamp).Exists
 	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return Unserved
-	let forwarding = Forwarding(logger, resident.root)
+	let forwarding = Forwarding(resident.root)
 	if isRunning is false and Rooted
 		logger.Log("Starting the " + name + KeepsModels)
 		if forwarding.Started("") is Error
@@ -77,10 +76,10 @@ Polled(checked Number) Numbers slow
 IsGone Boolean slow
 	Sample.IsGone is false
 	let stamp = File(resident.root + Resident.Stamp)
-	stamp.Exists and Forwarding(logger, resident.root).IsDead(stamp.ReadLines.First to Number)
+	stamp.Exists and Forwarding(resident.root).IsDead(stamp.ReadLines.First to Number)
 Cleared Number slow
 	let objects = resident.root + "/obj"
-	let forwarding = Forwarding(logger, resident.root)
+	let forwarding = Forwarding(resident.root)
 	let killed = forwarding.Killed
 	forwarding.Kept(objects, Forwarding.Output)
 	forwarding.Kept(objects, Forwarding.Errors)
@@ -151,7 +150,7 @@ Unpressed(isBusy = false) Boolean slow
 	let available = GpuMemory.Available
 	if isBusy is false and available > 0 and available < LowDevice
 		GpuMemory.Yielded
-	let reply = Coordinator(logger, coordinator).Sent("holding\t0\t" + GpuMemory.Held)
+	let reply = Coordinator(coordinator).Sent("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
 		GpuMemory.Yielded
 	reply is not "exit"
@@ -161,4 +160,4 @@ Freed(request Text, isGone = true) Boolean slow
 	if isGone
 		GpuMemory.Yielded
 	resident.Released(request)
-	Coordinator(logger, coordinator).Sent("done") is "exit" or isGone
+	Coordinator(coordinator).Sent("done") is "exit" or isGone

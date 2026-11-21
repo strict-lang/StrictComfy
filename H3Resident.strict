@@ -1,4 +1,3 @@
-has logger
 has encoders List(Qwen3) = List(Qwen3)
 has encoderFile = ""
 has tokenizers List(Gpt2Tokens) = List(Gpt2Tokens)
@@ -11,11 +10,11 @@ has code = 0
 has plans List(H3Plan) = List(H3Plan)
 has isCrowded = false
 constant EncoderGrowth = 1.6
-constant None = H3Resident(Logger)
+constant None = H3Resident
 constant Files = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
 constant Encoded = H3Resident.None.Encoding(H3Resident.Files)
 constant Sized = H3Options.Parsed(("--model", "tinyh3.safetensors", "--vae", "tinyh3vae.safetensors", "--audio_vae", "tinyh3audio.safetensors"))
-constant Whole = H3Batch(Logger, H3Options(Sized, files = H3Files(Sized.files, textEncoder = Files.textEncoder)))
+constant Whole = H3Batch(H3Options(Sized, files = H3Files(Sized.files, textEncoder = Files.textEncoder)))
 constant Sampled = H3Resident.None.Sampling("tinyh3.safetensors", "")
 constant Decoders = ("tinyh3vae.safetensors", "tinyh3audio.safetensors")
 Encoding(files H3Files) H3Resident slow
@@ -31,15 +30,15 @@ Encoder(files H3Files) Qwen3 slow
 	None.Encoder(Files).blocks.Length is 2
 	let before = Process.Elapsed
 	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
-	let encoder = H3Encoder(logger, files).Loaded
+	let encoder = H3Encoder(files).Loaded
 	let staying = isCrowded then "" else ", it stays loaded for the next runs"
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	encoder
 Tokenizing(files H3Files) H3Resident slow
-	H3Resident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled).Tokenizing(Files).tokenizers.Length is 1
+	H3Resident(tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled).Tokenizing(Files).tokenizers.Length is 1
 	if tokenizers.Length is 1
 		return value
-	H3Resident(value, tokenizers = List(Gpt2Tokens) + H3Encoder(logger, files).Tokenizer)
+	H3Resident(value, tokenizers = List(Gpt2Tokens) + H3Encoder(files).Tokenizer)
 Sampling(checkpoint Text, loras Text) H3Resident slow
 	Sampled.samplers.First.blocks.Length is 2
 	Sampled.refiners.Length is 1
@@ -47,7 +46,7 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
 	GpuMemory.Released
-	let h3 = H3Video(logger).Loaded(checkpoint, loras)
+	let h3 = H3Video.Loaded(checkpoint, loras)
 	let refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
 Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
@@ -99,4 +98,4 @@ Decoding(files Texts) H3Resident native
 	Sampled.Decoding(Decoders).Decoding(Decoders).vaes is Text.Combine(Decoders, "|")
 	if Text.Combine(files, "|") is vaes and decodings.Length is 1
 		return value
-	H3Resident(value, decodings = H3Video(logger).Decoding(List(H3Decoding), files), vaes = Text.Combine(files, "|"))
+	H3Resident(value, decodings = H3Video.Decoding(List(H3Decoding), files), vaes = Text.Combine(files, "|"))

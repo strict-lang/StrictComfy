@@ -1,4 +1,3 @@
-has logger
 constant FourSteps = "moss_image_sft_4step_int4_convrot.safetensors"
 constant Encoder = ("--models", ".", "--text_encoder", "qwen3.5_9b_int4_convrot.safetensors")
 constant Sample = "7 480 848 fastest taef2 7\ta {red|red} fox"
@@ -23,62 +22,62 @@ Images(previewer Taef2Decoder, first Text, encoders List(Qwen3)) Text slow
 		line = Generated(moss, previewer, decoders, context, line) is "" then "" else Process.InputLine
 	line
 Settings(line Text) Texts
-	MossWeb(Logger).Settings(Sample) is ("7", "480", "848", "fastest", "taef2", "7")
+	MossWeb.Settings(Sample) is ("7", "480", "848", "fastest", "taef2", "7")
 	line.Split("\t").First.Split(" ")
 Prompt(line Text) Text slow
-	MossWeb(Logger).Prompt(Sample) is "a red fox"
-	MossWeb(Logger).Prompt(Sample + "\tloras/a.safetensors=0.5") is "a red fox"
-	MossWeb(Logger).Prompt("9 480 848 fastest taef2 1\t{a|b|c|d}") is PromptBatch(Logger, "Image").Expanded("{a|b|c|d}", 1)
+	MossWeb.Prompt(Sample) is "a red fox"
+	MossWeb.Prompt(Sample + "\tloras/a.safetensors=0.5") is "a red fox"
+	MossWeb.Prompt("9 480 848 fastest taef2 1\t{a|b|c|d}") is PromptBatch("Image").Expanded("{a|b|c|d}", 1)
 	PromptBatch.Sample.Expanded(line.Split("\t")(1), Settings(line)(5) to Number)
 Loras(line Text) Text
-	MossWeb(Logger).Loras(Sample) is ""
-	MossWeb(Logger).Loras(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5"
+	MossWeb.Loras(Sample) is ""
+	MossWeb.Loras(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5"
 	let parts = line.Split("\t")
 	parts.Length > 2 then parts(2) else ""
 Setup(line Text) Text
-	MossWeb(Logger).Setup(Sample) is "\ttaef2"
-	MossWeb(Logger).Setup("7 480 848 best taef2 7\tan owl") is MossWeb(Logger).Setup(Sample)
-	MossWeb(Logger).Setup("7 480 848 fastest flux2-vae\tan owl") is "\tflux2-vae"
-	MossWeb(Logger).Setup(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5\ttaef2"
-	MossWeb(Logger).Setup("workflow a.json") is "workflow a.json"
+	MossWeb.Setup(Sample) is "\ttaef2"
+	MossWeb.Setup("7 480 848 best taef2 7\tan owl") is MossWeb.Setup(Sample)
+	MossWeb.Setup("7 480 848 fastest flux2-vae\tan owl") is "\tflux2-vae"
+	MossWeb.Setup(Sample + "\tloras/a.safetensors=0.5") is "loras/a.safetensors=0.5\ttaef2"
+	MossWeb.Setup("workflow a.json") is "workflow a.json"
 	line.StartsWith("workflow ") then line else Loras(line) + "\t" + Settings(line)(4)
 Workflow(line Text) Text slow
 	let path = line.Split(" ").Last
-	let batch = MossBatch(logger, MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
+	let batch = MossBatch(MossOptions.Parsed(("--models", ".", "--workflow", path))).Expanded(("--models", "."))
 	let options = batch.options
 	let settings = options.seed + " " + options.width + " " + options.height + " " + Quality(options)
 	logger.Log("Workflow: " + settings + "\t" + batch.prompted)
 	Process.InputLine
 Quality(options MossOptions) Text
-	MossWeb(Logger).Quality(MossOptions.Parsed(("--quality", "faster"))) is "faster"
-	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "2"))) is "fastest2steps"
-	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "3"))) is "fastest"
-	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "4"))) is "fastest"
-	MossWeb(Logger).Quality(MossOptions.Parsed(("--steps", "6"))) is "best"
+	MossWeb.Quality(MossOptions.Parsed(("--quality", "faster"))) is "faster"
+	MossWeb.Quality(MossOptions.Parsed(("--steps", "2"))) is "fastest2steps"
+	MossWeb.Quality(MossOptions.Parsed(("--steps", "3"))) is "fastest"
+	MossWeb.Quality(MossOptions.Parsed(("--steps", "4"))) is "fastest"
+	MossWeb.Quality(MossOptions.Parsed(("--steps", "6"))) is "best"
 	if options.steps is 0
 		return Qualities(options.quality)
 	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
 HasRoom(line Text) Boolean
-	MossWeb(Logger).HasRoom(Sample) is false
-	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 0\ta fox") is false
-	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 1\ta fox")
-	MossWeb(Logger).HasRoom("7 480 848 fastest taef2 7 2\ta fox")
+	MossWeb.HasRoom(Sample) is false
+	MossWeb.HasRoom("7 480 848 fastest taef2 7 0\ta fox") is false
+	MossWeb.HasRoom("7 480 848 fastest taef2 7 1\ta fox")
+	MossWeb.HasRoom("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
 	words.Length > 6 and words(6) is not "0"
 KeepsEncoder(line Text) Boolean
-	MossWeb(Logger).KeepsEncoder(Sample) is false
-	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 1\ta fox") is false
-	MossWeb(Logger).KeepsEncoder("7 480 848 fastest taef2 7 2\ta fox")
+	MossWeb.KeepsEncoder(Sample) is false
+	MossWeb.KeepsEncoder("7 480 848 fastest taef2 7 1\ta fox") is false
+	MossWeb.KeepsEncoder("7 480 848 fastest taef2 7 2\ta fox")
 	let words = Settings(line)
 	words.Length > 6 and words(6) is "2"
 Encoders(line Text, prompt Text) List(Qwen3) slow
 	if KeepsEncoder(line) is false
 		return List(Qwen3)
-	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
+	let batch = MossBatch(MossOptions.Parsed(Encoder))
 	let ids = batch.Tokenized(batch.Tokenizer, List(Text) + prompt)
 	List(Qwen3) + Qwen3(batch.Encoder(batch.Picked(ids)), tokens = List(Numbers))
 Context(prompt Text, encoders List(Qwen3)) Numbers slow
-	let batch = MossBatch(logger, MossOptions.Parsed(Encoder))
+	let batch = MossBatch(MossOptions.Parsed(Encoder))
 	if encoders.Length is 0
 		return batch.Contexts(List(Text) + prompt).First
 	let prompts = List(Text) + prompt
@@ -107,7 +106,7 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	let words = Settings(line)
 	let sized = ("--width", words(1), "--height", words(2), "--output", "MossWeb.jpg")
 	let options = MossOptions.Parsed(("--quality", words(3)) + sized)
-	let batch = MossBatch(logger, options)
+	let batch = MossBatch(options)
 	let sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep.jpg", previewer = previewer)
 	let latent = batch.Sampled(moss, sampling, words(0) to Number, context, "Image")
 	let decoded = Process.Elapsed
@@ -115,6 +114,6 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	let image = decoders.Length is 0 then previewer.Decoded(latent, width) else decoders.First.Decoded(latent, width)
 	batch.Saved(image, decoded, words(0) to Number, "", "MossWeb.jpg")
 Decoders(decoder Text) List(FluxDecoder) native
-	MossWeb(Logger).Decoders("taef2").Length is 0
-	MossWeb(Logger).Decoders("tinyvae").Length is 1
+	MossWeb.Decoders("taef2").Length is 0
+	MossWeb.Decoders("tinyvae").Length is 1
 	decoder is "taef2" then List(FluxDecoder) else List(FluxDecoder) + FluxDecoder.Loaded(decoder + ".safetensors", 32)

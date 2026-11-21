@@ -1,4 +1,3 @@
-has logger
 has isKept = false
 has encoders List(Qwen3) = List(Qwen3)
 has encoderFile = ""
@@ -13,12 +12,12 @@ has decoderFile = ""
 has code = 0
 has previewers List(Taef2Decoder) = List(Taef2Decoder)
 constant MostPrompts = 100
-constant Spelled = MossResident(Logger, tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
-constant Unloaded = MossResident(Logger, taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinytaef2.safetensors")
-constant Cached = MossResident(Logger, true, prompts = ("a", "b"), contexts = ((1, 2), (3, 4)))
+constant Spelled = MossResident(tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
+constant Unloaded = MossResident(taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinytaef2.safetensors")
+constant Cached = MossResident(true, prompts = ("a", "b"), contexts = ((1, 2), (3, 4)))
 Missing(unique Texts) Texts
 	Cached.Missing(("b", "c", "a")) is ("c")
-	MossResident(Logger).Missing(("a", "b")) is ("a", "b")
+	MossResident.Missing(("a", "b")) is ("a", "b")
 	for unique
 		if value is in prompts is false
 			value
@@ -80,13 +79,16 @@ Sampling(batch MossBatch) MossResident slow
 	logger.Log("Moss loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, mosses = List(Moss) + moss, model = key)
 Previewing(batch MossBatch) MossResident slow
-	MossResident(Logger).Previewing(MossBatch.Sample).previewers.Length is 0
+	MossResident.Previewing(MossBatch.Sample).previewers.Length is 0
 	if batch.options.preview is "" or previewers.Length is 1
 		return value
-	let path = ModelFiles(batch.options.files.models).Located("taef2.safetensors", "vae_approx")
-	path is Error then value else MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
+	let files = ModelFiles(batch.options.files.models)
+	if files.Has("taef2.safetensors", "vae_approx") is false
+		return value
+	let path = files.Located("taef2.safetensors", "vae_approx")
+	MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 Decoders(path Text) MossResident native
-	MossResident(Logger).Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
+	MossResident.Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
 	Unloaded.Decoders("tinytaef2.safetensors").taefs.First is Taef2Decoder.None
 	Unloaded.Decoders("tinyvae.safetensors").fluxes.Length is 1
 	Unloaded.Decoders("tinyvae.safetensors").taefs.Length is 0

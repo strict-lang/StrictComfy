@@ -2,15 +2,15 @@ has batch H3Batch
 Completed(kept H3Resident) H3Resident slow
 	let problem = H3Inputs(batch.options).Problem
 	if problem is not ""
-		batch.logger.Log(problem)
+		logger.Log(problem)
 		return H3Resident(kept, code = 2)
 	let started = Process.Elapsed
 	let plan = Armed(kept.plans.Length is 1 then kept.plans.First else batch.Planned)
 	if plan.batch.motion.problem is not ""
-		batch.logger.Log(plan.batch.motion.problem)
+		logger.Log(plan.batch.motion.problem)
 		return H3Resident(kept, code = 2)
 	let made = Videos(Contexted(kept, plan).Sampling(batch.options.Checkpoint, batch.options.Loras), plan)
-	batch.logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
 	H3Resident(made, plans = List(H3Plan))
 Videos(sampling H3Resident, plan H3Plan) H3Resident slow
 	let options = batch.options
@@ -29,12 +29,12 @@ Armed(plan H3Plan) H3Plan slow
 Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 	let missing = H3Artifacts(batch.options).Missing(plan.paths)
 	if missing.Length is 0
-		batch.logger.Log("Using cached prompt conditioning")
+		logger.Log("Using cached prompt conditioning")
 		return kept
 	Reading(kept)
 	let encoding = kept.Encoding(batch.options.files).Tokenizing(batch.options.files)
 	if Encoded(encoding, plan, missing) is not missing.Length
-		batch.logger.Log("The text encoder made fewer contexts than the " + missing.Length + " prompts it was given")
+		logger.Log("The text encoder made fewer contexts than the " + missing.Length + " prompts it was given")
 	if kept.isCrowded or batch.options.IsLarge
 		GpuMemory.Evicted
 	GpuMemory.Released
@@ -47,7 +47,7 @@ Encoded(encoding H3Resident, plan H3Plan, missing Numbers) Number slow
 	Directory.Create(H3Artifacts(options).Root + "/artifacts")
 	Directory.Create(H3Artifacts(options).Folder)
 	let inputs = H3Inputs(options)
-	let encoder = H3Encoder(batch.logger, options.files, (options.height, options.width), List(QwenVision), List(Text))
+	let encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), List(Text))
 	let prompts = inputs.Picked(plan.prompts, missing)
 	let images = inputs.Picked(plan.images, missing)
 	let paths = inputs.Picked(plan.paths, missing)

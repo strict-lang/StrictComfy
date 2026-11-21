@@ -1,5 +1,4 @@
-has logger
-constant Sample = StrictGenStats(Logger)
+constant Sample = StrictGenStats
 constant WindowsLoad = "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average, "
 constant WindowsHost = "(Get-PSDrive (Get-Location).Drive.Name).Free, [System.Net.Dns]::GetHostName(), "
 constant WindowsHeat = "(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits) | Set-Content StrictGenCpu.txt"
@@ -14,7 +13,7 @@ Text Text slow
 	Sample.Text.IndexOf("\"cpu\"") >= 0
 	let total = GpuMemory.HostTotal
 	let free = GpuMemory.HostAvailable
-	let device = MachineUse(logger, "StrictGen", 0, 0).Device
+	let device = MachineUse("StrictGen", 0, 0).Device
 	let vram = device(0) > device(1) then device(0) - device(1) else 0
 	let ram = total > free then total - free else 0
 	let memory = "{\"ram\":" + ram + ",\"ramTotal\":" + total + ",\"vram\":" + vram + ",\"vramTotal\":" + device(0)
@@ -35,7 +34,7 @@ Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	let position = ",\"position\":" + Position(queue).Code + ",\"step\":" + Step(queue.job.Logged).Code
 	let busy = ",\"busy\":" + (queue.IsBusy then "true" else "false") + ",\"preview\":" + preview.Code
 	let head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
-	let upscaler = RtxVideo(logger, H3Options.Parsed(List(Text))).IsAvailable then "true" else "false"
+	let upscaler = RtxVideo(H3Options.Parsed(List(Text))).IsAvailable then "true" else "false"
 	let machine = ",\"name\":" + StrictGenHost.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"upscaler\":" + upscaler
 	head + machine + ",\"gpuTemp\":" + StrictGenHost.Number(3) + Made(queue) + ",\"peers\":" + Peers(net) + "}"
 Made(queue StrictGenQueue) Text slow
@@ -124,5 +123,5 @@ Codes(lines Texts) Text slow
 	"[" + outer.Text.Combine(quoted, ",") + "]"
 Probed(path Text) Text slow
 	Sample.Probed("missing-clip.mp4") is ""
-	let probed = File(path).Exists then StrictGenClip(logger).Probe(path) else ""
-	RtxVideo(logger, H3Options.Parsed(List(Text))).Sized(probed)
+	let probed = File(path).Exists then StrictGenClip.Probe(path) else ""
+	RtxVideo(H3Options.Parsed(List(Text))).Sized(probed)

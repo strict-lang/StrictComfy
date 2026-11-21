@@ -1,4 +1,3 @@
-has logger
 has options H3ImageOptions = Defaults
 has measured Numbers = List(Number)
 constant Defaults = H3ImageOptions.Parsed(List(Text))
@@ -6,26 +5,26 @@ constant Folder = "/artifacts/h3image"
 constant Label = "Picture #: "
 constant Reference = 42
 constant OptionsOnly = "H3Image.exe takes --options only (a prompt goes into --prompt), see H3Image.exe --help"
-constant Tiny = H3Image(Logger, H3ImageOptions.Parsed(("--models", ".", "--width", "64", "--height", "64", "--steps", "2")))
-constant Edit = H3Image(Logger, H3ImageOptions.Parsed(("--image", "tinyframe.png")))
+constant Tiny = H3Image(H3ImageOptions.Parsed(("--models", ".", "--width", "64", "--height", "64", "--steps", "2")))
+constant Edit = H3Image(H3ImageOptions.Parsed(("--image", "tinyframe.png")))
 Run(arguments Texts) Number
-	H3Image(Logger).Run(List(Text) + "--help") is 0
-	H3Image(Logger).Run(("--colour", "--local")) is 1 and H3Image(Logger).Run(("a", "fox")) is 1
+	H3Image.Run(List(Text) + "--help") is 0
+	H3Image.Run(("--colour", "--local")) is 1 and H3Image.Run(("a", "fox")) is 1
 	if "--help" is in arguments
 		Help
 		return 0
 	if "coordinator" is in arguments
-		return Coordinator(logger).Served is Error then 1 else 0
+		return Coordinator.Served is Error then Backend.Failed else 0
 	let given = arguments - MachineUse.Force
 	if given.Length > 1 and given(0) is "encode"
-		return H3Image(logger, H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
-	Backend.IsServing(arguments) then H3ImageServer(logger, H3ImageServer.Backended(logger)).Ran(arguments) else Unknown
+		return H3Image(H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
+	Backend.IsServing(arguments) then H3ImageServer(H3ImageServer.Backended(logger)).Ran(arguments) else Unknown
 Help
-	H3Image(Logger).Help is not Error
+	H3Image.Help is not Error
 	logger.Log("H3Image.exe [options] makes images with H3 Image, --image edits one\n" + H3ImageOptions.Usage)
 	logger.Log("A backend keeps the models loaded for the next runs, --local runs without it, 'H3Image stop' ends it")
 Unknown Number
-	H3Image(Logger).Unknown is 1
+	H3Image.Unknown is 1
 	H3ImageServer.Sample.Refused(OptionsOnly) then 1 else 0
 Missing Text slow
 	Tiny.Missing.EndsWith("FileNotFound:" + H3ImageOptions.Base)
@@ -39,14 +38,14 @@ Missing Text slow
 	encoder is Error then (encoder to Text).Lines.First.Replace("Error: ", "") else ""
 Encoded(arguments Texts) Number slow
 	let paths = arguments(1).Split(";")
-	let jobs = H3Encoding(logger, List(Text)).Jobs(paths)
+	let jobs = H3Encoding(List(Text)).Jobs(paths)
 	let encoder = Encoder(List(Text) + options.Checkpoint, List(QwenVision))
 	encoder.Encoded(H3Inputs.Sample.Column(jobs, 1), H3Inputs.Sample.Column(jobs, 0), paths) > 0 then 0 else 1
 Encoder(prefetched Texts, visions List(QwenVision)) H3Encoder slow
 	Tiny.Encoder(List(Text), List(QwenVision)).label is Label
 	Edit.Encoder(List(Text), List(QwenVision)).frame is (1024, 2048)
 	let seen = options.image is "" then (32, 32) else options.Vision(Original)
-	H3Encoder(logger, options.Files, seen, visions, prefetched, Label)
+	H3Encoder(options.Files, seen, visions, prefetched, Label)
 Cached(prompts Texts) Texts slow
 	Tiny.Cached(("a", "b")).First is not Tiny.Cached(("a", "b")).Last
 	Tiny.Cached(List(Text) + "a").First is not Edit.Cached(List(Text) + "a").First
@@ -68,7 +67,7 @@ Contexts(prompts Texts, paths Texts, arguments Texts) List(Safetensors) slow
 	Directory.Create(artifacts.Root + Folder)
 	let inputs = H3Inputs.Sample
 	let images = inputs.Picked(List(Text) + options.image, Layer.Zeros(missing.Length))
-	let encoding = H3Encoding(logger, arguments)
+	let encoding = H3Encoding(arguments)
 	let code = encoding.Started(inputs.Picked(prompts, missing), images, inputs.Picked(paths, missing))
 	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
 Pictured Numbers slow
@@ -79,7 +78,7 @@ Pictured Numbers slow
 	for options.Scaled(Original, 1024, 2 * 1024)
 		value / 16
 Original Numbers slow
-	H3Image(Logger, Edit.options, (4, 8)).Original is (4, 8)
+	H3Image(Edit.options, (4, 8)).Original is (4, 8)
 	Edit.Original is (2, 4)
 	measured.Length is 2 then measured else options.Original
 Referenced(picture H3Picture) List(Numbers) slow
@@ -109,7 +108,7 @@ Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, reference
 	let layout = H3ImageLayout(tags, Pictured, Size(size(1) / 16, size(0) / 16))
 	let conditions = model.Conditioned(references, layout, seed)
 	let sigmas = model.Sigmas(options.steps)
-	let completion = Completion(logger, "Sampling", options.steps, Process.Elapsed)
+	let completion = Completion("Sampling", options.steps, Process.Elapsed)
 	mutable solver = Solver(0, sigmas, MersenneTwister.Seeded(seed).Normals(H3Format.Channels * layout.Patches * 4))
 	for options.steps
 		completion.Report(index)
@@ -122,7 +121,7 @@ Saved(vae H3ImageVae, latents List(Numbers), outputs Texts) Texts slow
 	let size = Target
 	for latents
 		let started = Process.Elapsed
-		let path = PromptBatch(logger, "Image").Saving(outputs(index), options.output)
+		let path = PromptBatch("Image").Saving(outputs(index), options.output)
 		Written(path, vae.Pixels(value, size(0) / 16, size(1) / 16), size)
 		logger.Log("Saved " + path + " in " + (Process.Elapsed - started).Round(2) + " s")
 		path

@@ -21,7 +21,7 @@ Budget(vram Number) Number
 	vram is 0 then Unknown else (vram / Gibibyte * TokensPerGibibyte / 1000).Round * 1000
 Local Number slow
 	H3Estimate.Local > 0
-	Budget(MachineUse(Logger, "H3Video", 0, 0).Device(0))
+	Budget(MachineUse("H3Video", 0, 0).Device(0))
 Estimate(budget Number) Text
 	Small.Estimate(90000) is "Sampling roughly 6 x 2.1 s = 13 s, 14k of 90k video tokens"
 	Twelve.Estimate(90000).EndsWith("72k of 90k video tokens, might run much slower")

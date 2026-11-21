@@ -1,8 +1,7 @@
-has logger
-constant Tiny = MossSpectrum(Logger, 4, 1, 1)
-constant Image = MossSpectrumImage(Logger)
+constant Tiny = MossSpectrum(4, 1, 1)
+constant Image = MossSpectrumImage
 Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Numbers native
-	MossSpectrumImage(Logger).Sampled(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
+	MossSpectrumImage.Sampled(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
 	let text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
 	let sigmas = euler.Sigmas
 	mutable current = spectrum
@@ -12,13 +11,13 @@ Sampled(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context
 		let before = Process.Elapsed
 		current = current.Advanced(moss, latent, sigmas(index), text, rotation, index)
 		latent = euler.Stepped(latent, current.output, sigmas, index)
-		MossTiming(logger).Measured(index, before, latent, data, ", forecasts " + current.forecasts)
+		MossTiming.Measured(index, before, latent, data, ", forecasts " + current.forecasts)
 	latent
 Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup Number, period Number, degree Number)
 	let data = Safetensors(dumps + "/steps.safetensors", 64)
 	let latent = Generated(dumps, model, lora, mode, steps, warmup, period, degree)
-	logger.Log("latent error " + MossImage(logger).RelativeError(latent, data.Values("latent")))
-	let sized = MossImage(logger, data.Shape("noise").Last)
+	logger.Log("latent error " + MossImage.RelativeError(latent, data.Values("latent")))
+	let sized = MossImage(data.Shape("noise").Last)
 	let path = dumps + "/moss-spectrum-" + mode + ".png"
 	if MossFiles.FailedNumber(sized.Saved(latent, data, FluxDecoder.Loaded(vae, 32), path))
 		logger.Log("Saving the Moss spectrum image failed")
@@ -29,7 +28,7 @@ Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Num
 	let spectrum = Configured(width, mode, steps, warmup, period, degree)
 	let before = Process.Elapsed
 	let moss = Moss.Loaded(model, lora)
-	let compared = MossImage(logger, width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
+	let compared = MossImage(width).Compared(moss, Safetensors(dumps + "/step0.safetensors", 64))
 	logger.Log("loaded in " + (Process.Elapsed - before).Round(1) + " s, compared " + compared)
 	Sampled(moss, spectrum, data, Euler(steps, 5), context)
 Configured(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
@@ -44,7 +43,7 @@ Configured(width Number, mode Text, steps Number, warmup Number, period Number, 
 		return Error("Invalid Spectrum schedule")
 	if IsCount(warmup, 0) is false
 		return Error("Invalid Spectrum warmup")
-	MossSpectrum(logger, width, steps, warmup, period, mode, SpectralHistory(fit = fit, maximum = degree + 2))
+	MossSpectrum(width, steps, warmup, period, mode, SpectralHistory(fit = fit, maximum = degree + 2))
 IsCount(number Number, minimum Number) Boolean
 	Image.IsCount(2, 2) and Image.IsCount(0, 0)
 	Image.IsCount(1, 2) is false

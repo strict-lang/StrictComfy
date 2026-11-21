@@ -1,18 +1,17 @@
-has logger
 has files H3Files
 has frame Numbers = (832, 480)
 has visions List(QwenVision) = List(QwenVision)
 has prefetched Texts = List(Text)
 has label = "<Picture #>: "
-constant Tiny = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
+constant Tiny = H3Encoder(H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors")))
 constant Written = "artifacts/h3encoder.tmp"
 constant TinyVision = QwenVision.Loaded(Safetensors("../Strict/NeuralNetworks/tinyqwenvision.safetensors", 32, "visual."), 2, (0, 1, 2))
-constant Imaged = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors", "--vision", "off")), (32, 48), List(QwenVision) + TinyVision)
-constant Both = H3Encoder(Logger, H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
-constant Seeing = H3Encoder(Logger, H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwenvision.safetensors", "--image", "tinyframe.png")))
-constant Framed = H3Encoder(Logger, H3Files.Parsed(("--last_image", "tinyframe.png", "--vision", "off")), (3, 3))
-constant Video = H3Encoder(Logger, H3Files.Parsed(("--vision", "768")), (832, 480))
-constant Plain = H3Encoder(Logger, H3Files.Parsed(("--vision", "off")), (832, 480))
+constant Imaged = H3Encoder(H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors", "--vision", "off")), (32, 48), List(QwenVision) + TinyVision)
+constant Both = H3Encoder(H3Files.Parsed(("--image", "a.png", "--last_image", "b.png")))
+constant Seeing = H3Encoder(H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwenvision.safetensors", "--image", "tinyframe.png")))
+constant Framed = H3Encoder(H3Files.Parsed(("--last_image", "tinyframe.png", "--vision", "off")), (3, 3))
+constant Video = H3Encoder(H3Files.Parsed(("--vision", "768")), (832, 480))
+constant Plain = H3Encoder(H3Files.Parsed(("--vision", "off")), (832, 480))
 constant Spelled = Gpt2Tokens.Parsed("{\"<\": 0, \"P\": 1, \"i\": 2, \"c\": 3, \"t\": 4, \"u\": 5, \"r\": 6, \"e\": 7, \"\\u0120\": 8, \"1\": 9, \"2\": 10, \">\": 11, \":\": 12}", List(Text))
 Encoded(prompts Texts, images Texts, paths Texts) Number slow
 	let before = Process.Elapsed

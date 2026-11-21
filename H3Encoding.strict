@@ -1,4 +1,3 @@
-has logger
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
 Started(prompts Texts, images Texts, paths Texts) Number slow
@@ -8,19 +7,19 @@ Started(prompts Texts, images Texts, paths Texts) Number slow
 	GpuMemory.Evicted
 	Process.Current.Started(Command(paths))
 Command(paths Texts) Text
-	H3Encoding(Logger, ("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
+	H3Encoding(("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
 	mutable command = "encode \"" + Text.Combine(paths, ";") + "\""
 	for arguments
 		command = command + " \"" + value + "\""
 	command
 Written(prompts Texts, images Texts, paths Texts) slow
-	H3Encoding(Logger, List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
-	H3Encoding(Logger, List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
+	H3Encoding(List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
+	H3Encoding(List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
 	for paths
 		File(value + ".txt").Write(List(Text) + images(index) + prompts(index))
 Jobs(paths Texts) List(Texts) slow
-	H3Encoding(Logger, List(Text)).Jobs(List(Text)).Length is 0
-	H3Encoding(Logger, List(Text)).Jobs(List(Text) + "missing.txt") is Error("FileNotFound:missing.txt.txt")
+	H3Encoding(List(Text)).Jobs(List(Text)).Length is 0
+	H3Encoding(List(Text)).Jobs(List(Text) + "missing.txt") is Error("FileNotFound:missing.txt.txt")
 	for paths
 		if File(value + ".txt").Exists is false
 			return Error("FileNotFound:" + value + ".txt")
@@ -28,10 +27,10 @@ Jobs(paths Texts) List(Texts) slow
 		(lines.First, Text.Combine(lines.Slice(1, lines.Length - 1), "\n"))
 Encoded Number slow
 	let rest = arguments.Slice(2, arguments.Length - 2)
-	let options = H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).options
+	let options = H3Batch(H3Options.Parsed(rest)).Expanded(rest).options
 	let paths = arguments(1).Split(";")
 	let jobs = Jobs(paths)
 	let inputs = H3Inputs(options)
-	let model = List(Text) + options.Checkpoint + H3Batch(logger, options).LoraFiles
-	let encoder = H3Encoder(logger, options.files, (options.height, options.width), List(QwenVision), model)
+	let model = List(Text) + options.Checkpoint + H3Batch(options).LoraFiles
+	let encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), model)
 	encoder.Encoded(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths) is paths.Length then 0 else 1

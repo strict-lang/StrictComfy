@@ -1,4 +1,3 @@
-has logger
 has width Number = 45
 has steps Number = 8
 has guidance Number = 1
@@ -13,10 +12,10 @@ constant Presets = ((8, 1, 0, 2), (25, 2, 0, 2), (50, 2, 0, 2), (8, 1, 3, 3), (8
 constant Spanned = MossSpectrum(MossSpectrum.Tiny, span = MossSpan(MossSpan(6, 36), reused = 2))
 constant Forecasting = MossSpectrum(MossSpectrum.Tiny, forecasts = 3)
 constant Shown = 1
-constant Forecaster = MossSampling(Logger, mode = "on")
+constant Forecaster = MossSampling(mode = "on")
 Guided(positive Numbers, negative Numbers) Numbers
-	MossSampling(Logger, guidance = 3).Guided((2, 4), (1, 2)) is (4, 8)
-	MossSampling(Logger).Guided((2, 4), List(Number)) is (2, 4)
+	MossSampling(guidance = 3).Guided((2, 4), (1, 2)) is (4, 8)
+	MossSampling.Guided((2, 4), List(Number)) is (2, 4)
 	if guidance is 1
 		return positive
 	for positive.Length
@@ -36,16 +35,18 @@ Looped(moss Moss, noise Numbers, text Numbers, negative Numbers, rotation Number
 		unconditional = Unconditioned(unconditional, moss, latent, sigmas(index), negative, rotation, index)
 		latent = Euler(steps, 5).Stepped(latent, Guided(positive.output, unconditional.output), sigmas, index)
 		seen = Noted(seen, index, latent, positive.output, sigmas(index + 1))
+	Ended(label, seen, positive, latent)
+Ended(label Text, seen StepTimes, positive MossSpectrum, latent Numbers) Numbers slow
 	logger.Log(Summary(label, (preview is "" then Process.Elapsed else seen.times.Last) - seen.times.First, positive))
 	latent
 Noted(seen StepTimes, step Number, latent Numbers, output Numbers, sigma Number) StepTimes slow
-	MossSampling(Logger).Noted(StepTimes.Timed, 0, (1, 2), (1, 2), 0).logged >= 2
+	MossSampling.Noted(StepTimes.Timed, 0, (1, 2), (1, 2), 0).logged >= 2
 	if preview is ""
 		let next = seen.Stepped
 		return StepTimes(next, logged = Logged(next, step + 1 >= steps))
 	StepTimes(seen, times = seen.times + Progressed(step, seen.times.First, seen.times.Last, latent, output, sigma))
 Logged(seen StepTimes, waiting Boolean) Number slow
-	MossSampling(Logger).Logged(StepTimes.Timed, true) is 2
+	MossSampling.Logged(StepTimes.Timed, true) is 2
 	mutable count = seen.logged
 	for as long as count < seen.times.Length - 1 and (waiting or seen.IsDone(count))
 		if seen.IsDone(count)
@@ -68,34 +69,34 @@ Progressed(step Number, started Number, previous Number, latent Numbers, output 
 	File(part).Rename(preview)
 	Process.Elapsed
 Previewing(step Number, took = Shown) Boolean
-	MossSampling(Logger).Previewing(0, 0.1) and MossSampling(Logger).Previewing(4, 0.1)
-	MossSampling(Logger).Previewing(1, 0.1) is false and MossSampling(Logger).Previewing(5, 0.1) is false
-	MossSampling(Logger).Previewing(6, 0.1) and MossSampling(Logger, finale = true).Previewing(7, 0.1)
-	MossSampling(Logger).Previewing(1) and MossSampling(Logger).Previewing(6, 2)
-	MossSampling(Logger).Previewing(7) is false and MossSampling(Logger).Previewing(7, 0.1) is false
-	MossSampling(Logger, steps = 4).Previewing(2, 0.1) and MossSampling(Logger, steps = 4).Previewing(3, 0.1) is false
-	MossSampling(Logger, steps = 2).Previewing(0, 0.1) and MossSampling(Logger, steps = 2).Previewing(1, 0.1) is false
+	MossSampling.Previewing(0, 0.1) and MossSampling.Previewing(4, 0.1)
+	MossSampling.Previewing(1, 0.1) is false and MossSampling.Previewing(5, 0.1) is false
+	MossSampling.Previewing(6, 0.1) and MossSampling(finale = true).Previewing(7, 0.1)
+	MossSampling.Previewing(1) and MossSampling.Previewing(6, 2)
+	MossSampling.Previewing(7) is false and MossSampling.Previewing(7, 0.1) is false
+	MossSampling(steps = 4).Previewing(2, 0.1) and MossSampling(steps = 4).Previewing(3, 0.1) is false
+	MossSampling(steps = 2).Previewing(0, 0.1) and MossSampling(steps = 2).Previewing(1, 0.1) is false
 	let early = took >= Shown or step is 0 or step is (steps / 2).Floor or step is steps - 2
 	step >= steps - 1 then finale else early
 Progress(step Number, last Number, average Number) Text
-	MossSampling(Logger).Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
+	MossSampling.Progress(2, 0.1514, 0.1496) is "Step 3/8 in 151 ms, average 150 ms"
 	"Step " + (step + 1) + "/" + steps + " in " + (last * 1000).Round + " ms, average " + (average * 1000).Round + " ms"
 Summary(label Text, seconds Number, state MossSpectrum) Text
-	MossSampling(Logger).Summary("Image 1/3 M1.jpg", 2.9774, MossSpectrum.Tiny) is "Image 1/3 M1.jpg sampled in 2977 ms"
-	MossSampling(Logger).Summary("A", 1, Forecasting) is "A sampled in 1000 ms, 3 of 8 steps forecast"
-	MossSampling(Logger).Summary("A", 1, Spanned) is "A sampled in 1000 ms, layers 6-36 reused in 2 steps"
+	MossSampling.Summary("Image 1/3 M1.jpg", 2.9774, MossSpectrum.Tiny) is "Image 1/3 M1.jpg sampled in 2977 ms"
+	MossSampling.Summary("A", 1, Forecasting) is "A sampled in 1000 ms, 3 of 8 steps forecast"
+	MossSampling.Summary("A", 1, Spanned) is "A sampled in 1000 ms, layers 6-36 reused in 2 steps"
 	let forecast = state.forecasts > 0 then ", " + state.forecasts + " of " + steps + " steps forecast" else ""
 	let layers = ", layers " + state.span.first + "-" + state.span.last + " reused in " + state.span.reused + " steps"
 	label + " sampled in " + (seconds * 1000).Round + " ms" + forecast + (state.span.reused > 0 then layers else "")
 Unconditioned(state MossSpectrum, moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum
 	guidance is 1 then state else state.Advanced(moss, latent, sigma, text, rotation, step)
 State MossSpectrum
-	MossSampling(Logger, warmup = 3).State.history.fit.degree is 2
-	MossSampling(Logger, warmup = 2).State.history.fit.degree is 1
-	MossSampling(Logger, warmup = 8).State.history.fit.degree is 4
-	let configured = MossSpectrumImage(logger).Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
+	MossSampling(warmup = 3).State.history.fit.degree is 2
+	MossSampling(warmup = 2).State.history.fit.degree is 1
+	MossSampling(warmup = 8).State.history.fit.degree is 4
+	let configured = MossSpectrumImage.Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
 	MossSpectrum(configured, span = span)
 Denoised(latent Numbers, output Numbers, sigma Number) Float32s
-	MossSampling(Logger).Denoised((1, 2), (2, 2), 0.5) is (0, 1)
+	MossSampling.Denoised((1, 2), (2, 2), 0.5) is (0, 1)
 	for latent
 		value - sigma * output(index)

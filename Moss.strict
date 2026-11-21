@@ -32,7 +32,7 @@ Layers(model Safetensors, lora Text) List(MossBlock) slow
 	if count is 0
 		return Error("NoMossLayersFound:" + Path(model.path).FileName.text)
 	let label = lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs"
-	let completion = Completion(Logger, label, count, Process.Elapsed)
+	let completion = Completion(label, count, Process.Elapsed)
 	for count
 		let block = MossBlock.Loaded(model, "layers." + index + ".", lora)
 		completion.Report(index + 1)

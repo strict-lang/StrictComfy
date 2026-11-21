@@ -1,4 +1,3 @@
-has logger
 has modes Texts = List(Text)
 has commands Texts = List(Text)
 has lines Texts = List(Text)
@@ -13,7 +12,7 @@ has notice = ""
 has job = StrictGenJob
 has finished = 0
 has halted = false
-constant Empty = StrictGenQueue(Logger)
+constant Empty = StrictGenQueue
 constant Collecting = "GarbageCollectionExceedsLimit"
 constant Quitting = "StrictGen stop"
 constant NoOutput = "The run finished without an output file"
@@ -76,8 +75,8 @@ Polled StrictGenQueue slow
 	let paths = job.Existing(job.Found(rows))
 	job.Timed(rows).Kept(rows)
 	File(job.done).Delete
-	let reason = StrictGenConsole(logger).Failure(rows)
-	Finished(paths, (paths.Length is 0 then reason else lines(job.current)), job.Prompts(rows))
+	let reason = StrictGenConsole.Failure(rows)
+	Finished(paths, paths.Length is 0 then reason else lines(job.current), job.Prompts(rows))
 Remote StrictGenQueue slow
 	let answer = StrictGenRemote.Asked(job.remote, job.remoteId)
 	let kind = answer.Split("\t").First

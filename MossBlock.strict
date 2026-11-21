@@ -31,12 +31,12 @@ Output(input Numbers, modulation Numbers, rotation Numbers) Numbers native
 	Layered(4095).IsNearlyEqual(-0.9805, 0.03)
 	Layered(4863).IsNearlyEqual(0.7109, 0.03)
 	MossBlock.Loaded(Model, "layers.1.", "").Output(Layered, Modulation, Rotation)(4863).IsNearlyEqual(0.7969, 0.03)
-	MossImage(Logger).RelativeError(Moss.Tiny.Ran(Input, Modulation, Rotation, Moss.Context, 0, 1), Layered) < 0.02
+	MossImage.RelativeError(Moss.Tiny.Ran(Input, Modulation, Rotation, Moss.Context, 0, 1), Layered) < 0.02
 	let width = norms(0).Length
 	let attended = Gated(input, Attended(Modulated(input, norms(0), modulation, 0), rotation), modulation, width, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, width, 5)
 Cropped(input Numbers, modulation Numbers, rotation Numbers, kept Number) Numbers native
-	MossImage(Logger).RelativeError(Tiny.Cropped(Input, Modulation, Rotation, 4096), Layered.Slice(0, 4096)) < 0.02
+	MossImage.RelativeError(Tiny.Cropped(Input, Modulation, Rotation, 4096), Layered.Slice(0, 4096)) < 0.02
 	let normed = Modulated(input, norms(0), modulation, 0)
 	let attended = Gated(input, ImageAttended(normed, rotation, kept), modulation, norms(0).Length, 2)
 	Gated(attended, FedForward(Modulated(attended, norms(1), modulation, 3)), modulation, norms(0).Length, 5)

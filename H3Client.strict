@@ -1,15 +1,14 @@
-has logger
 has root Text
 has coordinator = ""
 constant MinimumRam = 68719476736
 constant MinimumVram = 10737418240
 constant QualityChoices = "--quality must be best, fast, faster, fastest4steps or fastest2steps"
-constant Sample = H3Client(Logger, "artifacts/h3test", Backend.Nowhere)
+constant Sample = H3Client("artifacts/h3test", Backend.Nowhere)
 Ran(given Texts) Number slow
 	if given is (Backend.Serving)
-		return H3Server(logger, Backended).Served
+		return H3Server(Backended).Served
 	let arguments = given - MachineUse.Force
-	let plain = Remote(logger).Without(arguments)
+	let plain = Remote.Without(arguments)
 	let rest = plain - Backend.Local
 	if Refused(Unparsed(rest))
 		return 1
@@ -17,10 +16,10 @@ Ran(given Texts) Number slow
 		if IsGranted(arguments, MachineUse.IsForced(given)) is false
 			return 1
 	let forwarded = Backended.Dispatched(plain)
-	forwarded >= 0 then forwarded else (H3Batch(logger, H3Options.Parsed(rest)).Expanded(rest).Completed then 0 else 2)
+	forwarded >= 0 then forwarded else (H3Batch(H3Options.Parsed(rest)).Expanded(rest).Completed then 0 else 2)
 Backended Backend
 	Sample.Backended.name is "H3Video"
-	Backend(logger, Resident(root), "H3Video", coordinator)
+	Backend(Resident(root), "H3Video", coordinator)
 Asked(arguments Texts, forced Boolean) Text slow
 	Sample.Asked(List(Text), false).StartsWith("need\tH3Video\t")
 	let use = Use(arguments, forced)
@@ -28,18 +27,18 @@ Asked(arguments Texts, forced Boolean) Text slow
 	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
 IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
-	let named = Remote(logger).Named(arguments)
+	let named = Remote.Named(arguments)
 	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	let line = Asked(arguments, forced)
 	if line is ""
 		return true
-	let reply = Coordinator(logger, coordinator).Sent(line)
-	let sent = Remote(logger).Sent(arguments, "", reply, line)
+	let reply = Coordinator(coordinator).Sent(line)
+	let sent = Remote.Sent(arguments, "", reply, line)
 	if sent is Error or sent >= 0
 		return sent is 0
-	let settled = reply.StartsWith("wait") then Coordinator(logger, coordinator).Resolved(line) else reply
+	let settled = reply.StartsWith("wait") then Coordinator(coordinator).Resolved(line) else reply
 	if settled.StartsWith("refused")
 		Use(arguments, forced).Explained(settled)
 	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).Checked)
@@ -75,4 +74,4 @@ Explained(problem Text) Text
 	problem.StartsWith("UnknownOption:") then option + " is not an option of H3Video, see H3Video --help" else problem
 Options(arguments Texts) H3Options
 	Sample.Options(("--local", "--remote", "AiServer", "--steps", "6")).steps is 6
-	H3Options.Parsed(Remote(logger).Without(arguments) - Backend.Local)
+	H3Options.Parsed(Remote.Without(arguments) - Backend.Local)

@@ -1,27 +1,28 @@
-has logger
 constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
 constant Shapes = Safetensors("tinyh3.safetensors", 32)
 constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
-constant Tiny = H3Video(Logger)
+constant Tiny = H3Video
 constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
 constant Base = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
 constant Turbo = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
 constant TurboV4 = "minimax_h3_turbo_v4_step600_ema.safetensors"
 constant TaoMate = "h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors"
-constant Decoders = H3Video(Logger).Decoding(List(H3Decoding), ("tinyh3vae.safetensors", "tinyh3audio.safetensors")).First
+constant Decoders = H3Video.Decoding(List(H3Decoding), ("tinyh3vae.safetensors", "tinyh3audio.safetensors")).First
 constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
 	if "--help" is in arguments
 		Help
 		return 0
 	if arguments.Length > 1 and arguments(0) is "encode"
-		return H3Encoding(logger, arguments).Encoded
+		return H3Encoding(arguments).Encoded
 	if arguments.Length > 1 and arguments(0) is "--commands"
-		return H3Commands(logger, arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed then 0 else 1
+		return H3Commands(arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed then 0 else 1
+	Routed(arguments)
+Routed(arguments Texts) Number slow
 	if Backend.IsServing(arguments)
-		return H3Client(logger, H3Server.Root).Ran(arguments)
+		return H3Client(H3Server.Root).Ran(arguments)
 	if "coordinator" is in arguments
-		return Coordinator(logger).Served is Error then 1 else 0
+		return Coordinator.Served is Error then Backend.Failed else 0
 	arguments.Length < 2 then 2 else (Diagnosed(arguments) then 0 else 1)
 Diagnosed(arguments Texts) Boolean slow
 	let loras = GenerationCommand.Option(arguments, 3, "")
@@ -61,19 +62,19 @@ Decoding(loaded List(H3Decoding), vaes Texts) List(H3Decoding) native
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	List(H3Decoding) + decoding
 Numbered(arguments Texts) Numbers
-	H3Video(Logger).Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
+	H3Video.Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
 	for (0, H3Format.Shift, 0, 1, 1, 0, 0, 0, 0, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Loaded(model Text, loras Text) H3 native
-	H3Video(Logger).Loaded("tinyh3.safetensors", "").blocks.Length is 2
+	H3Video.Loaded("tinyh3.safetensors", "").blocks.Length is 2
 	let started = Process.Elapsed
 	logger.Log(Loading(model, loras))
 	let h3 = H3.Loaded(model, loras)
 	logger.Log("H3 loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
 	h3
 Loading(model Text, loras Text) Text slow
-	H3Video(Logger).Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
-	H3Video(Logger).Loading("tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
+	H3Video.Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
+	H3Video.Loading("tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
 	let loading = "Loading H3 " + ModelFiles("").Described(model) + " from disk into memory"
 	if loras is ""
 		return loading
@@ -82,7 +83,7 @@ Loading(model Text, loras Text) Text slow
 		names = names + Path(value.Split("=").First).FileName.text
 	loading + " and applying the LoRAs " + Text.Combine(names, ", ") + " on the GPU"
 Conditions(dumps Text) List(Safetensors) slow
-	H3Video(Logger).Conditions(".").Length is 1
+	H3Video.Conditions(".").Length is 1
 	let data = Safetensors(dumps + "/generation.safetensors", 32)
 	if File(data.path).Exists is false
 		return List(Safetensors) + Safetensors(dumps + "/conditioning.safetensors", 64)
@@ -114,19 +115,19 @@ Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers
 	let sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
 	Sampled(h3, job, text, layout, rows, spectrum, Solver(numbers(8), sigmas, job.Video))
 Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout slow
-	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
-	H3Video(Logger).Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
+	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
+	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	let keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), Size(video(3), video(2)))
 Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number native
-	H3Video(Logger).Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
+	H3Video.Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
 	let curves = h3.Curves(layout.Times(sigma))
 	let named = first.Entry("text") is "" then "token_refiner" else "text"
-	logger.Log("refined text error " + MossImage(logger).RelativeError(text, first.Values(named)))
-	logger.Log("curve rows error " + MossImage(logger).RelativeError(curves, first.Values("t_emb")))
+	logger.Log("refined text error " + MossImage.RelativeError(text, first.Values(named)))
+	logger.Log("curve rows error " + MossImage.RelativeError(curves, first.Values("t_emb")))
 	Layered(h3, first, curves, layout, sigma)
 Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Number native
-	H3Video(Logger).Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
+	H3Video.Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
 	let rotation = h3.Rotation(layout)
 	let starts = layout.Rows(sigma)
 	mutable state = first.Values("blocks.0.input")
@@ -135,7 +136,7 @@ Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number)
 		state = value.Output(state, curves, starts, rotation, h3.Routed(layout.routing, index), h3.Leading(layout))
 		let name = "blocks." + index
 		if first.Entry(name) is not ""
-			error = MossImage(logger).RelativeError(state, first.Values(name))
+			error = MossImage.RelativeError(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
 Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Numbers native
@@ -144,7 +145,7 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	mutable seen = job.HeldVideo(solver, 0)
 	mutable heard = job.HeldAudio(Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = job.Audio), 0)
 	mutable state = spectrum
-	mutable steps = H3StepLog(logger, job).Started
+	mutable steps = H3StepLog(job).Started
 	for spectrum.steps
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
 		seen = job.HeldVideo(state.Stepped(seen, index, job), index + 1)
@@ -152,7 +153,7 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 		steps = steps.Stepped(index, state, seen, heard.latent)
 	seen.latent + heard.latent
 Help
-	H3Video(Logger).Help is not Error
+	H3Video.Help is not Error
 	logger.Log("H3Video.exe [options] makes H3 videos with sound, diagnostic arguments: " + Positional)
 	logger.Log(H3Options.Usage)
 	logger.Log("H3Video.exe --commands commands.txt [options] makes the videos of every line of commands.txt")

@@ -1,19 +1,18 @@
-has logger
 has options MossOptions
 has prompted = ""
 constant JpegQuality = 85
-constant Sample = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
-constant Workflowed = MossBatch(Logger, MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
+constant Sample = MossBatch(MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
+constant Workflowed = MossBatch(MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
 constant Prompted = ("--models", ".", "--prompt", "a cat")
 constant ExamplePerson = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} "
 constant ExampleStreet = "walking with friends on a busy street in {New York|Hollywood|Miami|Tokyo|Paris|London|Seoul} at {noon|dusk|night}, candid street photo"
 constant Example = ExamplePerson + ExampleStreet
 constant Template = "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n"
 Templated Text slow
-	MossBatch(Logger, MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
+	MossBatch(MossOptions(prompt = "missing.txt")).Templated is Error("FileNotFound:missing.txt")
 	if options.prompt is "prompt.txt" and File(options.prompt).Exists is false
 		return Example
-	PromptBatch(logger, "Image").Template(options.prompt)
+	PromptBatch("Image").Template(options.prompt)
 Contexts(prompts Texts) List(Numbers) slow
 	let before = Process.Elapsed
 	let ids = Tokenized(Tokenizer, prompts)
@@ -44,7 +43,7 @@ Reworded(encoder Qwen3, picked Numbers) Qwen3 slow
 	let file = Safetensors(options.files.Encoder, 32, "model.language_model.")
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
 Images(kept MossResident, seeds Numbers, prompts Texts, contexts List(Numbers)) Number slow
-	let outputs = PromptBatch(logger, "Image").Outputs(options.output, seeds.Length)
+	let outputs = PromptBatch("Image").Outputs(options.output, seeds.Length)
 	MossRun(value, kept, Previewed(options.Sampling(logger), kept.previewers), seeds, prompts, contexts, outputs).Images
 Loading(loras Text) Text slow
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
@@ -53,7 +52,7 @@ Loading(loras Text) Text slow
 	"Loading Moss from " + options.files.Checkpoint + merging
 Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Texts slow
 	logger.Log("Decoding with " + kept.decoderFile)
-	let batch = MossBatch(logger, options, prompted)
+	let batch = MossBatch(options, prompted)
 	if kept.taefs.Length is 1
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
@@ -66,7 +65,7 @@ Sampled(moss Moss, sampling MossSampling, seed Number, context Numbers, label Te
 	let noise = MersenneTwister.Seeded(seed).Normals(128 * options.height / 16 * options.width / 16)
 	sampling.Sampled(moss, noise, context, label)
 Saved(image Numbers, started Number, seed Number, prompt Text, planned Text, decoding = 0) Text slow
-	let path = PromptBatch(logger, "Image").Saving(planned, options.output)
+	let path = PromptBatch("Image").Saving(planned, options.output)
 	if path.EndsWith(".png")
 		ImageCodec.SavePng(path, Rgba(image), options.width)
 	else
@@ -92,16 +91,16 @@ Expanded(arguments Texts) MossBatch slow
 	Workflowed.Expanded(("--models", ".", "--count", "3")).options.count is 3
 	Workflowed.Expanded(("--models", ".")).prompted is "a {red|blue} fox"
 	if options.files.workflow is ""
-		return MossBatch(logger, Noted)
+		return MossBatch(Noted)
 	let graph = ComfyGraph.Read(options.files.Workflow, MossWorkflow.Known)
 	let workflow = MossWorkflow(graph, ModelFiles(options.files.models).ComfyUI)
 	let settings = workflow.Arguments
 	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
 	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(graph.Skipped, ", "))
 	let prompt = "--prompt" is in arguments then "" else workflow.Prompt
-	MossBatch(logger, MossBatch(logger, MossOptions.Parsed(settings + arguments)).Noted, prompt)
+	MossBatch(MossBatch(MossOptions.Parsed(settings + arguments)).Noted, prompt)
 Noted MossOptions
-	MossBatch(Logger, MossOptions.Parsed(("--width", "720"))).Noted.width is 704
+	MossBatch(MossOptions.Parsed(("--width", "720"))).Noted.width is 704
 	let fitted = options.Fitted
 	if fitted.width is options.width and fitted.height is options.height
 		return fitted

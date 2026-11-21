@@ -1,6 +1,5 @@
-has logger
 has noun Text
-constant Sample = PromptBatch(Logger, "Image")
+constant Sample = PromptBatch("Image")
 constant SeedRange = 4294967296
 Seeds(seed Number, count Number) Numbers
 	Sample.Seeds(7, 2) is (7, 7)

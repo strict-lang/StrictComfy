@@ -1,4 +1,3 @@
-has logger
 has width Number
 has steps Number = 8
 has warmup Number = 8
@@ -9,7 +8,7 @@ has output Numbers = List(Number)
 has forecasts Number = 0
 has cacheBytes Number = 536870912
 has span MossSpan = MossSpan.Off
-constant Tiny = MossSpectrum(Logger, 4, 8, 5)
+constant Tiny = MossSpectrum(4, 8, 5)
 constant Words = Moss.Tiny.TextEmbedded(Moss.Context, 3)
 constant Primed = MossSpectrum(Tiny, mode = "on", history = SpectralHistory.Pair)
 IsActual(step Number) Boolean
@@ -55,7 +54,7 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
 Shadowed(image Numbers, coord Number) None
 	if mode is "shadow" and history.Ready
-		let error = MossImage(logger).RelativeError(history.Predicted(coord), image)
+		let error = MossImage.RelativeError(history.Predicted(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum
 	MossSpectrum(value, output = moss.Head(history.Predicted(Coord(step)), vector), forecasts = forecasts + 1)

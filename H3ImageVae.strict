@@ -32,6 +32,6 @@ Picturing(path Text) H3ImageVae native
 	let picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(path, 32)), H3Tiles.Real)
 	H3ImageVae(value, pictureFile = path, pictures = List(H3Picture) + picture)
 Pixels(latent Numbers, height Number, width Number) Numbers native
-	MossImage(Logger).RelativeError(Tiny.Pixels(Taeh3Decoder.Latent, 2, 3), Taeh3Decoder.Reference) < 0.005
-	MossImage(Logger).RelativeError(Decoder.Pixels(Latent, 3, 4), Lean) < 0.001
+	MossImage.RelativeError(Tiny.Pixels(Taeh3Decoder.Latent, 2, 3), Taeh3Decoder.Reference) < 0.005
+	MossImage.RelativeError(Decoder.Pixels(Latent, 3, 4), Lean) < 0.001
 	tinies.Length is 1 then tinies.First.Decoded(latent, width) else decoders.First.Still(latent, height, width)

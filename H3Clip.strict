@@ -1,7 +1,6 @@
-has logger
 has network H3ClipEncoder
 has tiling H3Tiles
-constant Tiny = H3Clip(Logger, H3ClipEncoder.Tiny, H3Tiles.Tiny)
+constant Tiny = H3Clip(H3ClipEncoder.Tiny, H3Tiles.Tiny)
 constant ClipLength = 17
 constant Finished = 0.999
 constant Frame = H3VaeEncoder.Model.Values("reference.image")

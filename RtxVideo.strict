@@ -1,4 +1,3 @@
-has logger
 has options H3Options
 constant Named = "RtxVideo.py"
 constant Tag = " upscaled with RTX Video Super Resolution"
@@ -8,15 +7,16 @@ constant StartSeconds = 30
 constant LongestSeconds = 900
 constant Starting = "-NoProfile -Command Start-Process -FilePath '"
 constant Quote = "\\\""
-constant Tiny = RtxVideo(Logger, H3Options.Parsed(("--models", ".")))
+constant Tiny = RtxVideo(H3Options.Parsed(("--models", ".")))
 constant Pythons = ("/../python_embeded/python.exe", "/venv/Scripts/python.exe", "/.venv/Scripts/python.exe", "/venv/bin/python", "/.venv/bin/python")
 constant Packages = ("/../python_embeded/Lib/site-packages/nvvfx", "/venv/Lib/site-packages/nvvfx", "/.venv/Lib/site-packages/nvvfx", "/venv/lib", "/.venv/lib")
+constant Unfound = ""
 constant Missing = "RTX Video Super Resolution needs nvidia-vfx in ComfyUI's Python (ComfyUI_Nvidia_VFX_Nodes installs it), the video keeps its size"
 Python Text slow
 	Tiny.Python is ""
 	let folder = ModelFiles(options.files.models).Folder
 	if folder is Error
-		return ""
+		return Unfound
 	for Pythons
 		if File(folder + "/.." + value).Exists and Directory.Exists(folder + "/.." + Packages(index))
 			return folder + "/.." + value

@@ -1,4 +1,3 @@
-has logger
 has problem = ""
 has video Numbers = List(Number)
 has audio Numbers = List(Number)
@@ -7,8 +6,8 @@ has sound = 0
 has tall = 0
 has wide = 0
 constant Contexts = (22, 39, 90)
-constant None = StrictGenExtend(Logger)
-constant Sample = StrictGenExtend(Logger)
+constant None = StrictGenExtend
+constant Sample = StrictGenExtend
 constant SampleAudio = 40
 constant SampleAudioStart = 11
 constant SamplePixels = 44
@@ -67,7 +66,7 @@ FromLatent(path Text, context Number) StrictGenExtend
 	let latent = data.Values("latent")
 	let seen = Tail(latent.Slice(0, count), shape(1).Round, kept, shape(2).Round * shape(3).Round)
 	let listened = Tail(latent.Slice(count, latent.Length - count), shape(4).Round, heard, 1)
-	StrictGenExtend(logger, "", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
+	StrictGenExtend("", seen, listened, kept, heard, shape(2).Round, shape(3).Round)
 Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") StrictGenExtend slow
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
 	Sample.Head("strictgen-tail.mp4", 22, (16, 16), ("", "")).frames is 7
@@ -79,17 +78,17 @@ Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") Stri
 	let made = fits then read else FromMedia(path, context, size, vaes)
 	fits and saved is beside then made else made.Written(beside, context)
 FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend slow
-	let rgb = StrictGenClip(logger).TailRgb(path, context, size(1), size(0))
+	let rgb = StrictGenClip.TailRgb(path, context, size(1), size(0))
 	if rgb is Error
 		return StrictGenExtend(value, problem = path + " could not be read as a video")
 	logger.Log("Encoding the last " + context + " frames of " + path + " with the H3 video VAE")
 	let started = Process.Elapsed
-	let clip = H3Clip(logger, H3ClipEncoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
+	let clip = H3Clip(H3ClipEncoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
 	let pictured = clip.Encoded(clip.Frames(rgb, context, size(1), size(0)), size)
-	let waveform = StrictGenClip(logger).TailPcm(path, context / H3Format.FramesPerSecond + 1)
+	let waveform = StrictGenClip.TailPcm(path, context / H3Format.FramesPerSecond + 1)
 	let heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
 	logger.Log("Encoded the video context in " + (Process.Elapsed - started).Round(1) + " s")
-	StrictGenExtend(logger, "", pictured, heard, LatentCount(context), AudioCount(context), size(0) / 16, size(1) / 16)
+	StrictGenExtend("", pictured, heard, LatentCount(context), AudioCount(context), size(0) / 16, size(1) / 16)
 Starts Numbers
 	StrictGenExtend(Sample, frames = 7).Starts is (0, 1, 5, 9, 13, 17, 18)
 	None.Starts.Length is 0

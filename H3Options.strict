@@ -150,7 +150,7 @@ Clip Number
 	H3Options.Parsed(List(Text)).Clip is 124
 	H3Options.Parsed(("--video", "clip.mp4", "--length", "24", "--context", "22")).Clip is 39
 	H3Options.Parsed(("--length", "24")).Clip is 24
-	files.video is "" then length else StrictGenExtend(Logger).Total(files.context, length)
+	files.video is "" then length else StrictGenExtend.Total(files.context, length)
 Shapes Numbers
 	H3Options.Parsed(List(Text)).Shapes is (37, 72, 40, 207)
 	H3Options.Parsed(("--length", "5", "--width", "32", "--height", "32")).Shapes is (2, 2, 2, 8)

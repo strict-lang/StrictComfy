@@ -1,20 +1,18 @@
-has logger
 has backend Backend
 Root Text
 	H3Server.Root.EndsWith("/artifacts/h3")
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
 Served Number slow
 	let server = backend.Opened
-	server is Error then 1 else Listened(server)
+	server is Error then Backend.Failed else Listened(server)
 Listened(server Number) Number slow
 	let built = File(Process.Current.executable).Modified
-	mutable kept = H3Resident(logger)
+	mutable kept = H3Resident
 	mutable last = Process.Elapsed
 	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
 		let socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
 		let request = socket is not Error then backend.resident.Requested(socket) else ""
-		kept = socket is not Error then Trimmed(socket, request, kept) else kept
-		kept = socket is not Error then Replied(socket, request, kept) else kept
+		kept = socket is not Error then Replied(socket, request, Trimmed(socket, request, kept)) else kept
 		last = socket is not Error then Process.Elapsed else last
 		kept = backend.Unpressed(socket is not Error) then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Closed(server)
@@ -32,11 +30,11 @@ Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
 	backend.Restored(resident.Folder(request) is not home, home)
 	trimmed
 Failed(problem Text, kept H3Resident) H3Resident
-	H3Server(Logger, Backend.Sample).Failed("broken", H3Resident(Logger)).code is 0
+	H3Server(Backend.Sample).Failed("broken", H3Resident).code is 0
 	logger.Log(problem)
 	kept
 Prepared(arguments Texts, kept H3Resident) H3Resident slow
-	let batch = H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)
+	let batch = H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)
 	let full = backend.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, full).Crowded(batch)
 Replied(socket Number, request Text, kept H3Resident) H3Resident slow
@@ -46,10 +44,10 @@ Replied(socket Number, request Text, kept H3Resident) H3Resident slow
 	let skipped = H3Resident(kept, code = isStopping then Backend.Stopped else -1)
 	let served = isRunning then Ran(socket, request, kept) else skipped
 	let isFailed = served is Error
-	let closed = Ended(socket, (isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code)), request)
-	isFailed or closed then H3Resident(logger) else served
+	let closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	isFailed or closed then H3Resident else served
 Claimed Text slow
-	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Claimed.EndsWith("9\n\n")
+	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Claimed.EndsWith("9\n\n")
 	let root = backend.resident.root
 	if Directory.Exists(root) is false
 		Directory.Create(root)
@@ -61,10 +59,10 @@ Claimed Text slow
 	File(backend.resident.Freed + ".9").Write("9")
 	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
 Proved Boolean slow
-	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
+	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
 	Ended(0, 1, Claimed) and File(backend.resident.Freed).Exists
 Ended(socket Number, code Number, request Text) Boolean slow
-	H3Server(Logger, Backend(Logger, Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken")
+	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken")
 	if backend.resident.Finished(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.Freed(request)
@@ -76,7 +74,7 @@ Ran(socket Number, request Text, kept H3Resident) H3Resident slow
 	let isMoved = folder is not home
 	Socket.Output(socket)
 	let arguments = backend.resident.Arguments(request)
-	let served = H3Served(H3Batch(logger, H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
+	let served = H3Served(H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
 	let unpressed = backend.Unpressed(true)

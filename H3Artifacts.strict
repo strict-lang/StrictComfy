@@ -23,7 +23,7 @@ Mark(path Text) Text
 	let height = ImageCodec.Height(path)
 	if height is Error
 		return " " + options.files.vision + " " + options.width + "x" + options.height
-	let seen = H3Encoder(Logger, options.files, (options.height, options.width)).Viewed((height, ImageCodec.Width(path)))
+	let seen = H3Encoder(options.files, (options.height, options.width)).Viewed((height, ImageCodec.Width(path)))
 	" " + options.files.vision + " " + seen(1) + "x" + seen(0)
 Missing(paths Texts) Numbers slow
 	Sample.Missing(List(Text) + "H3Batch.strict").Length is 0

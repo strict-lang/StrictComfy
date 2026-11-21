@@ -1,6 +1,5 @@
-has logger
 constant Quiet = 100
-constant Sample = StrictGenConsole(Logger)
+constant Sample = StrictGenConsole
 constant Backends = ("MossImage", "moss", "H3Video", "h3", "H3Image", "h3image")
 constant Added = StrictGenQueue.Empty.Added("image", ("--width", "32"), "Moss Image fox")
 Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue slow
