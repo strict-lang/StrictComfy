@@ -6,6 +6,7 @@ constant WindowsCpu = WindowsLoad + WindowsHost + WindowsHeat
 constant LinuxCpu = "awk '/^cpu /{print ($2+$4)*100/($2+$4+$5)}' /proc/stat"
 constant Measured = "StrictGenCpu.txt"
 constant RunsShown = 6
+constant Idling = 0
 constant Queued = StrictGenQueue(StrictGenQueue.Empty.Added("image", ("--width", "32"), "fox"), notice = "Run started")
 constant Blank = "{\"ram\":0,\"ramTotal\":0,\"vram\":0,\"vramTotal\":0,\"gpu\":0,\"cpu\":0}"
 Text Text slow
@@ -23,9 +24,9 @@ Processor Number slow
 	windows = Process.OperatingSystem is "Windows"
 	last = windows and File(Measured).Exists then File(Measured).ReadLines else List(outer.Text)
 	later = "/c start \"\" /B powershell -NoProfile -Command \"" + WindowsCpu + "\" >nul 2>nul"
-	result = Process.RunTool((windows then "cmd" else "sh"), (windows then later else "-c \"" + LinuxCpu + "\""))
+	result = Process.RunTool(windows then "cmd" else "sh", windows then later else "-c \"" + LinuxCpu + "\"")
 	number = ((windows then last else result.Output.Lines) + "0").First.Trim to Number
-	result.Failed or number is Error then 0 else number.Clamp(0, 100)
+	result.HasFailed or number is Error then Idling else number.Clamp(0, 100)
 Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	Sample.Status(StrictGenQueue.Empty, StrictGenNet.Idle).IndexOf("\"position\":\"queue 0 done 0\"") >= 0
 	stats = net.meters is "" then Blank else net.meters
@@ -75,7 +76,7 @@ Position(queue StrictGenQueue) Text
 Waiting(queue StrictGenQueue) Texts
 	Sample.Waiting(StrictGenQueue.Empty).Length is 0
 	Sample.Waiting(StrictGenQueue.Empty.Added("image", ("--width", "32"), "Image fox")) is ("Image fox")
-	Lines(queue, (queue.job.current < 0 then queue.pending else List(Number) + queue.job.current + queue.pending))
+	Lines(queue, queue.job.current < 0 then queue.pending else List(Number) + queue.job.current + queue.pending)
 Recent(queue StrictGenQueue) Texts
 	Sample.Recent(StrictGenQueue.Empty).Length is 0
 	queue.results.Reverse

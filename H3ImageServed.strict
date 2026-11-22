@@ -19,8 +19,7 @@ Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) H3I
 	sampling = Encoded(kept, prompts, paths).Referencing(image).Sampling(options)
 	latents = image.Sampled(sampling, H3Artifacts.Sample.Read(paths), paths, seeds)
 	decoding = sampling.Decoding(options.Decoder)
-	outputs = PromptBatch("Image").Outputs(options.output, options.count)
-	saved = image.Saved(decoding.vae, latents, outputs)
+	saved = image.Saved(decoding.vae, latents, PromptBatch("Image").Outputs(options.output, options.count))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
 	H3ImageResident(decoding, code = 0)
 Encoded(kept H3ImageResident, prompts Texts, paths Texts) H3ImageResident slow

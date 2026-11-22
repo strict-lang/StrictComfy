@@ -36,7 +36,7 @@ Opened(port Number) StrictGenNet slow
 	StrictGenNet(value, httpPort = port, beacon = socket is Error then 0 else socket, id = started)
 Measured StrictGenNet slow
 	result = Process.RunTool("nvidia-smi", Query)
-	parts = result.Failed then List(Text) else result.Output.Split("\n").First.Split(",")
+	parts = result.HasFailed then List(Text) else result.Output.Split("\n").First.Split(",")
 	named = parts.Length < 3 then "" else parts(0).Trim
 	whole = parts.Length < 3 then 0 else parts(1).Trim to Number
 	available = parts.Length < 3 then 0 else parts(2).Trim to Number
@@ -125,7 +125,7 @@ Automatic(mode Text) Text
 	better = video then Best(total, H3Mb) else ""
 	if better is not ""
 		return better
-	fallback = Fits(mode, total) then "local" else Best(0, (video then H3Mb else MossMb))
+	fallback = Fits(mode, total) then "local" else Best(0, video then H3Mb else MossMb)
 	fallback is "" then "none" else fallback
 Best(floor Number, least Number) Text
 	mutable chosen = ""

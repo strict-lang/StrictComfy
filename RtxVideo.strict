@@ -41,7 +41,7 @@ Warmed slow
 		return
 	isWindows = Process.OperatingSystem is "Windows"
 	started = Process.RunTool(isWindows then "powershell" else "sh", Detached(Python, Script, isWindows))
-	if started.Failed
+	if started.HasFailed
 		logger.Log("Could not start " + Python + " for RTX Video Super Resolution: " + started.error.Trim)
 Detached(python Text, script Text, isWindows Boolean) Text
 	Tiny.Detached("p.exe", "r.py", true).EndsWith(" \\\"" + Tiny.Stamp + "\\\"' -WindowStyle Hidden")

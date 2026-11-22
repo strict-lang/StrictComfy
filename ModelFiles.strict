@@ -15,11 +15,15 @@ Located(name Text, folder Text) Text slow
 		return name
 	inside = Folder + "/" + folder + "/" + name
 	File(inside).Exists then inside else Error("FileNotFound:" + name.Replace(" ", "_"))
+Has(name Text, folder Text) Boolean slow
+	ModelFiles("").Has("tinymoss.safetensors", "diffusion_models")
+	ModelFiles(".").Has("x.y", "loras") is false
+	Located(name, folder) is not Error
 Decoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").Decoder("", "tinyh3vae.safetensors") is "tinyh3vae.safetensors"
 	ModelFiles(".").Decoder("missing.safetensors", "a") is Error("FileNotFound:missing.safetensors")
 	folder = File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
-	Located((vae is "" then fallback else vae), folder)
+	Located(vae is "" then fallback else vae, folder)
 VaeEncoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").VaeEncoder("tinyh3vae.safetensors", "a") is "tinyh3vae.safetensors"
 	ModelFiles(".").VaeEncoder("tinytaeh3.safetensors", "a") is Error("FileNotFound:a")
@@ -40,7 +44,7 @@ Spec(text Text) Text slow
 	strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	number = strength to Number
 	numeric = number is Error then false else number to Text is strength
-	Located((numeric then text.Substring(0, at) else text), "loras") + "=" + (numeric then strength else "1")
+	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
 Described(path Text) Text slow
 	ModelFiles("").Described("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
 	ModelFiles("").Described("C:/models/missing.safetensors") is "missing.safetensors"

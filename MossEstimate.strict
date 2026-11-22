@@ -86,5 +86,5 @@ Told(raw Text) Text
 	sized = ("--width", H3Estimate.Asked(raw, "width"), "--height", H3Estimate.Asked(raw, "height"))
 	chosen = sized + H3Estimate.Optional(raw, "quality") + H3Estimate.Optional(raw, "steps")
 	vram = H3Estimate.Asked(raw, "vram") to Number
-	budget = Budget(vram is Error then 0 else vram * H3Estimate.Mebibyte)
+	budget = Budget(vram is Error then H3Estimate.Unsized else vram * H3Estimate.Mebibyte)
 	MossEstimate(MossOptions.Parsed(chosen + H3Estimate.Optional(raw, "vae"))).Estimate(budget)

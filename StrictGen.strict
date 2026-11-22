@@ -58,8 +58,7 @@ Looped(socket Number, queue StrictGenQueue, net StrictGenNet) slow
 		Process.Wait(waiting then 0 else (state.IsBusy then BusyWait else IdleWait))
 Turned(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
 	StrictGen.Turned(0, false, StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
-	answered = waiting then Answered(Socket.Accept(socket), queue, net) else queue
-	StrictGenConsole.Told(queue, Steered(answered, net))
+	StrictGenConsole.Told(queue, Steered(waiting then Answered(Socket.Accept(socket), queue, net) else queue, net))
 Ended(reason Text) Number slow
 	StrictGenJob.StopAll
 	if reason is StrictGenQueue.Quitting

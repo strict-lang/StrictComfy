@@ -56,8 +56,7 @@ Remote(json Json) Texts
 More(json Json) Texts
 	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
 	guidance = json.get("guidance") to Text
-	guided = guidance is "" or guidance is "0" then "" else guidance
-	numbers = StrictGenImage.Numbered(json) + Pair("--guidance", guided)
+	numbers = StrictGenImage.Numbered(json) + Pair("--guidance", guidance is "" or guidance is "0" then "" else guidance)
 	sampling = Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text)
 	numbers + sampling + Pair("--scheduler", json.get("scheduler") to Text) + Files(json)
 Files(json Json) Texts
@@ -82,7 +81,7 @@ Vae(json Json) Texts
 	given = json.get("vae") to Text
 	name = given is "" then json.get("decoder") to Text else given
 	named = name is "" or name.EndsWith(".safetensors") then name else name + ".safetensors"
-	Pair("--vae", (named is "flux2-small-vae.safetensors" then "full_encoder_small_decoder.safetensors" else named))
+	Pair("--vae", named is "flux2-small-vae.safetensors" then "full_encoder_small_decoder.safetensors" else named)
 Pair(name Text, text Text) Texts
 	StrictGenForm.Pair("--seed", "").Length is 0
 	StrictGenForm.Pair("--seed", "7") is ("--seed", "7")
@@ -103,7 +102,7 @@ Imported(path Text) Text slow
 	h3 = text.IndexOf("StrictH3") >= 0 or text.IndexOf("MiniMax") >= 0 or isCustom
 	moss = MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
 	arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else moss
-	Described(Selected((h3 then "h3" else "moss"), arguments), arguments)
+	Described(Selected(h3 then "h3" else "moss", arguments), arguments)
 Described(mode Text, arguments Texts) Text
 	StrictGenForm.Described("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
 	width = Taken(arguments, "--width")
@@ -141,4 +140,4 @@ Stepped(path Text, step Number) Text slow
 		return ""
 	folder = Path(path).PathOnly.text
 	extension = path.Lower.Split(".").Last
-	Neighbor(Listed((folder is "" then "." else folder), List(Text) + extension), path, step)
+	Neighbor(Listed(folder is "" then "." else folder, List(Text) + extension), path, step)

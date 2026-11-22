@@ -1,4 +1,5 @@
 constant Measured = "StrictGenCpu.txt"
+constant Unread = 0
 Rows Texts slow
 	StrictGenHost.Rows.Length >= 0
 	File(Measured).Exists then File(Measured).ReadLines else List(Text)
@@ -12,8 +13,8 @@ Number(row Number) Number slow
 	StrictGenHost.Number(99) is 0
 	rows = Rows
 	found = rows.Length > row then rows(row).Trim to Number else 0
-	found is Error then 0 else found
+	found is Error then Unread else found
 Utf8Console Text slow
 	StrictGenHost.Utf8Console is ""
-	switched = Process.OperatingSystem is "Windows" then Process.RunTool("cmd", "/c chcp 65001").Succeeded else true
+	switched = Process.OperatingSystem is "Windows" then Process.RunTool("cmd", "/c chcp 65001").HasSucceeded else true
 	switched then "" else ", the console could not switch to UTF-8 and shows only ASCII letters correctly"

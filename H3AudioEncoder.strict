@@ -20,8 +20,8 @@ Encoded(waveform Numbers, frames Number) Numbers slow
 	right = Side(Fit(waveform.Slice(half, half), wanted))
 	Interleaved(Normalized(left, frames), Normalized(right, frames), frames)
 Snaked(signal Numbers, alpha Numbers) Numbers
-	H3AudioEncoder.Snaked((0), (1)) is (0)
-	H3AudioEncoder.Snaked((1), (2)).First.IsNearlyEqual(1.4134109, 0.0001)
+	H3AudioEncoder.Snaked(0, 1) is (0)
+	H3AudioEncoder.Snaked(1, 2).First.IsNearlyEqual(1.4134109, 0.0001)
 	channels = alpha.Length
 	for signal.Length
 		raw = alpha(index % channels)
@@ -29,9 +29,9 @@ Snaked(signal Numbers, alpha Numbers) Numbers
 		wave = (Radians(scale * signal(index)) to Degrees).Sin.number
 		signal(index) + wave * wave / scale
 Down(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Number) Numbers
-	H3AudioEncoder.Down((1, 2, 3, 4, 5, 6, 7, 8), (0, 0, 0, 0), (5), 2, 1) is (5, 5, 5, 5)
-	H3AudioEncoder.Down((1, 2, 3, 4), (0, 1), (0), 2, 1) is (1, 3, 0)
-	H3AudioEncoder.Down((1, 9, 2, 8, 3, 7, 4, 6), (1, 0), (0), 2, 2) is (0, 2, 4)
+	H3AudioEncoder.Down((1, 2, 3, 4, 5, 6, 7, 8), (0, 0, 0, 0), 5, 2, 1) is (5, 5, 5, 5)
+	H3AudioEncoder.Down((1, 2, 3, 4), (0, 1), 0, 2, 1) is (1, 3, 0)
+	H3AudioEncoder.Down((1, 9, 2, 8, 3, 7, 4, 6), (1, 0), 0, 2, 2) is (0, 2, 4)
 	outputs = biases.Length
 	kernel = weights.Length / outputs / channels
 	time = signal.Length / channels
@@ -39,9 +39,9 @@ Down(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Nu
 	for (((time + 2 * pad - kernel) / stride).Floor + 1) * outputs
 		Dot(signal, weights, biases, stride, channels, kernel, pad, time, (index / outputs).Floor, index % outputs)
 Dot(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Number, kernel Number, pad Number, time Number, at Number, output Number) Number
-	H3AudioEncoder.Dot((1, 2), (0, 0), (4), 2, 1, 2, 1, 2, 0, 0) is 4
-	H3AudioEncoder.Dot((3, 4), (0, 5), (1), 2, 1, 2, 1, 2, 0, 0) is 16
-	H3AudioEncoder.Dot((1, 2, 3, 4), (3, 4), (1), 1, 2, 1, 0, 2, 0, 0) is 12
+	H3AudioEncoder.Dot((1, 2), (0, 0), 4, 2, 1, 2, 1, 2, 0, 0) is 4
+	H3AudioEncoder.Dot((3, 4), (0, 5), 1, 2, 1, 2, 1, 2, 0, 0) is 16
+	H3AudioEncoder.Dot((1, 2, 3, 4), (3, 4), 1, 1, 2, 1, 0, 2, 0, 0) is 12
 	mutable sum = biases(output)
 	for kernel * channels
 		tap = (index / channels).Floor
@@ -54,7 +54,7 @@ Dot(signal Numbers, weights Numbers, biases Numbers, stride Number, channels Num
 Fit(samples Numbers, count Number) Numbers
 	H3AudioEncoder.Fit((1, 2, 3), 2) is (2, 3)
 	H3AudioEncoder.Fit((9, 8, 7), 1) is (7)
-	H3AudioEncoder.Fit((1), 3) is (0, 0, 1)
+	H3AudioEncoder.Fit(1, 3) is (0, 0, 1)
 	drop = samples.Length - count
 	drop >= 0 then samples.Slice(drop, count) else Layer.Zeros(-drop) + samples
 Side(samples Numbers) Numbers slow
@@ -94,8 +94,7 @@ Shift(signal Numbers with value.Bits is 32, start Number, channels Number) Numbe
 		square = square + (signal(start + index) - mean) * (signal(start + index) - mean)
 	(mean, (square / channels + 0.00001).SquareRoot)
 Attend(signal Numbers) Numbers slow
-	qkv = H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(TripleChannels), 1, 1).Output(signal)
-	biased = Biased(qkv)
+	biased = Biased(H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(TripleChannels), 1, 1).Output(signal))
 	time = signal.Length / 2048
 	for signal.Length
 		Weighted(biased, time, (index / 2048).Floor, index % 2048)

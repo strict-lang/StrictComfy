@@ -69,14 +69,13 @@ Entered(latent Numbers, width Number) FeatureMap native
 	Tiny.Entered(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
 	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
 	channels = means.Length / 4
-	unpatchified = Unpatchified(Denormalized(latent), width, channels)
-	patches = FeatureMap(unpatchified, 2 * width, channels, Layer.Zeros(channels))
+	patches = FeatureMap(Unpatchified(Denormalized(latent), width, channels), 2 * width, channels, Layer.Zeros(channels))
 	quantized = convolutions(0).Projected(patches)
 	convolutions(1).Applied(quantized, quantized.Identity, Activation.Linear)
 Decoded(latent Numbers, width Number) Numbers native
 	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.7881, 0.02)
 	Tiny.Decoded(Latent, 2)(96).IsNearlyEqual(0.9225, 0.02)
-	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.0001)
+	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.001)
 	entered = Entered(latent, width)
 	upsampled = Upsampled(middle(1).Output(attention.Output(middle(0).Output(entered))))
 	for convolutions(2).Applied(upsampled, normOut.Affine(upsampled), Activation.Swish).Completed

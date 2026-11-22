@@ -104,8 +104,7 @@ Generated(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes Lis
 	keyed = H3Job(job, rows = rows, keyframes = indices, motion = guided, previewer = previewer)
 	H3Video.Generated(h3, condition, keyed, text, options.Numbers, "")
 Decoded(latents Texts, images Texts) slow
-	decoding = H3Video.Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First
-	DecodedWith(decoding, latents, images)
+	DecodedWith(H3Video.Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First, latents, images)
 DecodedWith(decoding H3Decoding, latents Texts, images Texts) slow
 	if options.files.Upscale
 		RtxVideo(options).Warmed

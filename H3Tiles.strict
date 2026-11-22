@@ -19,7 +19,7 @@ Starts(size Number) Numbers
 Length(size Number) Number
 	Tiny.Length(16) is 16
 	Tiny.Length(64) is 32
-	size <= tile then size else tile
+	size.Minimum(tile)
 Owner(starts Numbers, position Number) Number
 	Tiny.Owner((0, 16, 32), 20) is 1
 	Tiny.Owner((0, 16, 32), 40) is 2

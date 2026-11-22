@@ -61,7 +61,7 @@ Refused(reason Text) StrictGenQueue
 	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
 Sent(endpoint Text) StrictGenQueue slow
 	index = pending.First
-	id = StrictGenRemote.Delivered(endpoint, (bodies.Length > index then bodies(index) else ""))
+	id = StrictGenRemote.Delivered(endpoint, bodies.Length > index then bodies(index) else "")
 	if id is "" or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
 	remote = StrictGenJob.Remote(index, endpoint, id to Number)
@@ -90,7 +90,7 @@ Remote StrictGenQueue slow
 	Finished(List(Text) + path, lines(job.current), List(Text))
 Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
 	empty = paths.Length is 0
-	recorded = Noted(job.current, (empty then "error\t" + caption else "file\t" + paths.Last))
+	recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
 	shown = Captions(paths, caption, prompts)
 	made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
 	done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)

@@ -7,7 +7,7 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	Sample.TailRgb("missing-clip.mp4", 22, 16, 16) is Error("FfmpegFailed: missing-clip.mp4")
 	rgb = path + ".tail.rgb"
 	seconds = context / H3Format.FramesPerSecond + 1
-	if Process.RunTool("ffmpeg", StrictGenJoin.Extract(path, rgb, (height, width), seconds)).Failed
+	if Process.RunTool("ffmpeg", StrictGenJoin.Extract(path, rgb, (height, width), seconds)).HasFailed
 		return Error("FfmpegFailed: " + path)
 	frame = width * height * 3
 	raw = Scaled(File(rgb).ReadBytes)
@@ -18,7 +18,7 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 TailPcm(path Text, seconds Number) Numbers slow
 	Sample.TailPcm("missing-clip.mp4", 2).Length is 128000
 	pcm = path + ".tail.pcm"
-	if Process.RunTool("ffmpeg", StrictGenJoin.ExtractAudio(path, pcm, seconds)).Failed
+	if Process.RunTool("ffmpeg", StrictGenJoin.ExtractAudio(path, pcm, seconds)).HasFailed
 		return Layer.Zeros(2 * (seconds * H3Frames.SampleRate).Round)
 	waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
@@ -41,7 +41,7 @@ Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Non
 	join = StrictGenJoin
 	merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
 	File(tail).Delete
-	if merged.Failed
+	if merged.HasFailed
 		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)
 		return Error("FfmpegFailed")
 	logger.Log("Wrote " + output)
@@ -83,17 +83,17 @@ Rendered(before Text, path Text, after Text, folder Text, suffix Text) Text slow
 	Directory.Create(folder)
 	File(output).Delete
 	args = "-y -loglevel error " + before + " -i \"" + path + "\" " + after + " \"" + output + "\""
-	Process.RunTool("ffmpeg", args).Failed or File(output).Exists is false then path else output
+	Process.RunTool("ffmpeg", args).HasFailed or File(output).Exists is false then path else output
 Probe(path Text) Text slow
 	Sample.Probe("missing-clip.mp4") is ""
 	result = Process.RunTool("ffprobe", ProbeArguments + path + "\"")
-	result.Failed then "" else result.Output.Trim
+	result.HasFailed then "" else result.Output.Trim
 Pcm(bytes Numbers) Numbers
 	Sample.Pcm((0, 0, 0, 128)) is (0, -1)
 	Sample.Pcm((0, 128, 0, 0)).First is -1
 	frames = bytes.Length / 4
 	for frames * 2
-		Sampled(bytes, (index < frames then index * 4 else (index - frames) * 4 + 2))
+		Sampled(bytes, index < frames then index * 4 else (index - frames) * 4 + 2)
 Sampled(bytes Numbers, at Number) Number
 	Sample.Sampled((0, 128), 0) is -1
 	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)

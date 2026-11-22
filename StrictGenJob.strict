@@ -56,7 +56,7 @@ Warmed(executable Text, command Text) Boolean slow
 Spawned(script Text) Boolean slow
 	if Process.OperatingSystem is "Windows" is false
 		return Process.Find("sh").Started(script) is 0
-	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").Failed is false
+	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").HasFailed is false
 Quoted(words Texts) Text
 	StrictGenJob.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
 	StrictGenJob.Quoted(("--width", "32")) is "--width 32"
@@ -99,7 +99,7 @@ Script(executable Text, arguments Text, logFile Text, doneFile Text) Texts
 Stopped(program Text) None slow
 	StrictGenJob.Stopped("StrictGenMissing") is not Error
 	executable = Executable(program)
-	if executable.StartsWith(program) is false and Process.RunTool(executable, "stop").Failed
+	if executable.StartsWith(program) is false and Process.RunTool(executable, "stop").HasFailed
 		return Error("ServersNotStopped: " + program)
 StopAll None slow
 	Stopped("MossImage")

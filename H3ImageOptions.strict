@@ -29,7 +29,7 @@ constant Local = H3ImageOptions.Parsed(("--models", "."))
 Checkpoint Text slow
 	Local.Checkpoint is Error("FileNotFound:" + Base)
 	H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors")).Checkpoint is "tinyh3image.safetensors"
-	ModelFiles(models).Located((model is "" then Base else model), "diffusion_models")
+	ModelFiles(models).Located(model is "" then Base else model, "diffusion_models")
 Decoder Text slow
 	Local.Decoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).Decoder(vae, Vae)

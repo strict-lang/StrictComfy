@@ -41,16 +41,14 @@ Received(client Number) Numbers slow
 	mutable idle = 0
 	for as long as idle < (bytes.Length is 0 then EmptyPolls else ReceivePolls) and IsComplete(bytes) is false
 		pending = Available(client)
-		if pending > 0
-			bytes = bytes + Read(client, pending)
+		bytes = pending > 0 then bytes + Read(client, pending) else bytes
 		idle = pending > 0 then 0 else (pending < 0 then ReceivePolls else idle + 1)
-		if pending is 0
-			Process.Wait(0.01)
+		Process.Wait(pending is 0 then 0.01 else 0)
 	bytes
 Available(client Number) Number slow
 	StrictGenHttp.Available(0) is -1
 	pending = Socket.Pending(client)
-	pending is Error then -1 else pending
+	pending is Error then Number.NotFound else pending
 Read(client Number, count Number) Numbers slow
 	StrictGenHttp.Read(0, 1).Length is 0
 	read = Socket.Receive(client, count)
@@ -86,7 +84,7 @@ SendFile(client Number, path Text) slow
 	changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGen.Inputs)
 	cache = changing then "no-store" else "public, max-age=86400"
 	length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
-	Sent(client, (Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload))
+	Sent(client, Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
 Sent(client Number, bytes Numbers) slow
 	StrictGenHttp.Sent(0, List(Number) + 1) is not Error
 	if Socket.Send(client, bytes) is Error

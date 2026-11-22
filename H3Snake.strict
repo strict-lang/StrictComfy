@@ -3,7 +3,7 @@ has betas Numbers
 has up Numbers
 has down Numbers
 constant Tiny = H3Snake.Loaded(H3Conv.Model, "decoder.resblocks.0.activations.0.")
-constant Single = H3Snake(List(Number) + Radians.DegreesPerRadian, (1), Tiny.up, Tiny.down)
+constant Single = H3Snake(List(Number) + Radians.DegreesPerRadian, 1, Tiny.up, Tiny.down)
 constant Upsampled = Moss.Transposed(H3Conv.Model.Values("reference.ups.0"), 64)
 constant Padding = 5
 constant Offset = 15
@@ -15,12 +15,12 @@ Loaded(model Safetensors, prefix Text) H3Snake slow
 	raising = model.Values(prefix + "upsample.filter")
 	H3Snake(scales, strengths, raising, model.Values(prefix + "downsample.lowpass.filter"))
 Angles(values Numbers) Numbers slow
-	Tiny.Angles((0))(0).IsNearlyEqual(57.29578)
+	Tiny.Angles(0)(0).IsNearlyEqual(57.29578)
 	for values
 		value.Exponential * Radians.DegreesPerRadian
 Inverses(values Numbers) Numbers slow
-	Tiny.Inverses((0))(0).IsNearlyEqual(1)
-	Tiny.Inverses((-1000))(0) is 1000000000
+	Tiny.Inverses(0)(0).IsNearlyEqual(1)
+	Tiny.Inverses(-1000)(0) is 1000000000
 	for values
 		1 / (value.Exponential + 0.000000001)
 Output(signal Numbers) Numbers slow

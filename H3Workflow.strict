@@ -29,7 +29,7 @@ Latent Json
 	Tiny.graph.Type(Tiny.Latent) is "MiniMaxH3ImageToVideo"
 	Strict.Latent.text is Strict.graph.Node(4).text
 	sampler = Sampler
-	graph.Origin(Source(sampler, (graph.Type(sampler) is "SamplerCustomAdvanced" then "latent_image" else "latent")))
+	graph.Origin(Source(sampler, graph.Type(sampler) is "SamplerCustomAdvanced" then "latent_image" else "latent"))
 Source(node Json, input Text) Json
 	Tiny.Source(Tiny.graph.Node(8), "model").Elements(0) to Number is 5
 	Tiny.Source(Tiny.graph.Node(15), "last_frame").text is ""
@@ -58,8 +58,8 @@ Loras(node Json) Texts
 		return Stack(graph.Text(node, "stack_data", 1))
 	flow = type is "ApplyHyperFlowH3"
 	folder = flow then comfyui + "/models/hyperflow/" else ""
-	named = folder + graph.Text(node, (flow then "hyperflow_file" else "lora_name"), 0)
-	ComfyInputs(graph).Lora(named, graph.Text(node, (flow then "strength" else "strength_model"), 1) to Number)
+	named = folder + graph.Text(node, flow then "hyperflow_file" else "lora_name", 0)
+	ComfyInputs(graph).Lora(named, graph.Text(node, flow then "strength" else "strength_model", 1) to Number)
 Stack(text Text) Texts
 	Tiny.Stack("[{\"on\": true, \"lora\": \"h3\\\\a\", \"str\": 1.0}, {\"on\": false}]") is ("--lora", "h3/a:1")
 	Tiny.Stack("[]").Length is 0

@@ -5,8 +5,8 @@ constant Sample = H3ImageServer(Backend(Resident("artifacts/h3imagetest"), "H3Im
 Root Text
 	H3ImageServer.Root.EndsWith(H3Image.Folder)
 	H3Artifacts.Sample.Root + H3Image.Folder
-Backended(logging Logger) Backend
-	H3ImageServer.Backended(Logger).name is "H3Image"
+Backended Backend
+	H3ImageServer.Backended.name is "H3Image"
 	Backend(Resident(Root), "H3Image")
 Ran(given Texts) Number slow
 	Sample.Ran(("--colour", "--local")) is 1
@@ -109,4 +109,4 @@ Use(arguments Texts, forced Boolean) MachineUse slow
 	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
 	options = H3ImageOptions.Parsed(Remote.Without(arguments) - Backend.Local)
 	bytes = (File(options.Checkpoint).Length, File(options.Encoder).Length)
-	MachineUse.Models(logger, "H3Image", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
+	MachineUse.Models("H3Image", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)

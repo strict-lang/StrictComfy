@@ -2,6 +2,7 @@ constant ReadPolls = 2000
 constant Closing = "\r\nConnection: close\r\n\r\n"
 constant CarriageReturn = 13
 constant LineFeed = 10
+constant Bodiless = 0
 Delivered(endpoint Text, body Text) Text slow
 	parts = endpoint.Split(":")
 	if parts.Length < 2
@@ -72,7 +73,7 @@ Finished(bytes Numbers) Boolean
 	start = header.IndexOf("content-length: ")
 	digits = start < 0 then "0" else header.Substring(start + 16, header.Length - start - 16)
 	length = digits.Split("\r\n").First to Number
-	bytes.Length - end >= (length is Error then 0 else length)
+	bytes.Length - end >= (length is Error then Bodiless else length)
 HeaderEnd(bytes Numbers) Number
 	StrictGenRemote.HeaderEnd((13, 10, 13, 10, 65)) is 4
 	StrictGenRemote.HeaderEnd((13, 10)) is -1
@@ -80,13 +81,13 @@ HeaderEnd(bytes Numbers) Number
 		if index + 3 < bytes.Length and bytes(index) is CarriageReturn and bytes(index + 1) is LineFeed
 			if bytes(index + 2) is CarriageReturn and bytes(index + 3) is LineFeed
 				return index + 4
-	-1
+	Number.NotFound
 After(bytes Numbers) Numbers
 	end = HeaderEnd(bytes)
 	end < 0 then List(Number) else bytes.Slice(end, bytes.Length - end)
 Marked(body Text) Text
 	StrictGenRemote.Marked("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
-	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1, body.Length - 1) else body
+	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1) else body
 Rewritten(body Text, path Text, saved Text) Text
 	saved is "" or saved is path then body else body.Replace(Escaped(path), Escaped(saved))
 Escaped(path Text) Text

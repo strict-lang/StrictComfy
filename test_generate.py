@@ -273,6 +273,10 @@ class GenerationCommandTests(unittest.TestCase):
 			root = models / 'loras' / name
 			root.touch()
 			self.assertEqual(module.selected_loras(args, models), [(root.resolve(), 1.0)])
+			newer = models / 'loras' / 'minimax_h3_turbo_v4_step600_ema.safetensors'
+			newer.touch()
+			self.assertEqual(module.selected_loras(args, models), [(newer.resolve(), 1.0)])
+			self.assertEqual(module.same_turbos(newer), [newer, root, nested])
 
 	def test_h3_turbo_lora_is_not_applied_twice(self):
 		module = self.module()

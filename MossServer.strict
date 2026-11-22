@@ -5,8 +5,8 @@ constant Sample = MossServer(Backend(Resident("artifacts/mosstest"), "MossImage"
 Root Text
 	MossServer.Root.EndsWith("/artifacts/moss")
 	Path(Process.Current.executable.Replace("\\", "/")).PathOnly.text + "/artifacts/moss"
-Backended(logging Logger) Backend
-	MossServer.Backended(Logger).name is "MossImage"
+Backended Backend
+	MossServer.Backended.name is "MossImage"
 	Backend(Resident(Root), "MossImage")
 Ran(given Texts) Number slow
 	if given is (Backend.Serving)
@@ -93,4 +93,4 @@ Use(arguments Texts, forced Boolean) MachineUse slow
 	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
 	files = MossOptions.Parsed(Remote.Without(arguments) - Backend.Local).files
 	bytes = (File(files.Checkpoint).Length, File(files.Encoder).Length)
-	MachineUse.Models(logger, "MossImage", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)
+	MachineUse.Models("MossImage", bytes(0), bytes(1), H3Resident.EncoderGrowth, forced)

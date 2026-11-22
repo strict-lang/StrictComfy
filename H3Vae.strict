@@ -52,7 +52,7 @@ Finished(canvas Numbers, previous Numbers, first Number, count Number) Numbers s
 	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean
 	older = previous.Length > 0
 	shape = (first, count, Blended, (older then Tokens * Ratio + Padding else first), (Tokens + Shared) * Ratio)
-	Mixed(canvas, (older then previous else canvas), shape, Mean + Deviation)
+	Mixed(canvas, older then previous else canvas, shape, Mean + Deviation)
 Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Numbers slow
 	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(84), (0, 1, 5, 0, 28), Mean + Deviation) is Mean
 	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(23) + 1 + 1 + Layer.Zeros(59), (0, 2, 5, 23, 28), (0, 0, 0, 1, 1, 1))(3) is 0.8
@@ -73,7 +73,7 @@ Canvas(window Numbers, height Number, width Number, frames = 7) Numbers native
 	strips = Columns(tiles, xs, Table(xs, width * 16, size(1)), (ys.Length, size(0), size(1), width * 16))
 	Rows(strips, ys, Table(ys, height * 16, size(0)), (size(0), height * 16, width * 16))
 Tiles(window Numbers, ys Numbers, xs Numbers, shape Numbers) Numbers native
-	Tiny.Tiles(H3Decoder.Window, (0), (0), (7, 2, 2)).Length is 86016
+	Tiny.Tiles(H3Decoder.Window, 0, 0, (7, 2, 2)).Length is 86016
 	tall = tiling.Length(shape(1) * 16) / 16
 	wide = tiling.Length(shape(2) * 16) / 16
 	rotation = decoder.Rotations(shape(0), tall, wide)
@@ -100,7 +100,7 @@ Contributions(starts Numbers, position Number, size Number) Numbers slow
 		weight = weight * (1 - share)
 	entries
 Columns(tiles Numbers, xs Numbers, table Numbers, shape Numbers) Numbers slow
-	Tiny.Columns((1, 2, 3, 4), (0), (0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0), (1, 2, 2, 2)) is (1, 2, 3, 4)
+	Tiny.Columns((1, 2, 3, 4), 0, (0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0), (1, 2, 2, 2)) is (1, 2, 3, 4)
 	Tiny.Columns((1, 2, 5, 6), (0, 1), (0, 1, 0, 0, 0, 0, 1, 0.5, 0, 0.5, 1, 0), (1, 1, 2, 2))(1) is 3.5
 	cells = tiles.Length / shape(0) / xs.Length
 	lines = cells / shape(2)

@@ -23,7 +23,8 @@ constant WorkflowHelp = List(Text) + "ComfyUI workflow (.json saved in ComfyUI, 
 constant CropHelp = List(Text) + "crop the first frame to the video aspect (the default); --crop=false stretches it"
 constant VisionHelp = List(Text) + "shorter side of the image the vision encoder sees, 768 by default, off uses the video size"
 constant MotionHelp = ("mp4 to continue; the last --context frames of its video and audio stay pinned while the new tail is sampled", "pinned context frames, 22 (default), 39 or 90")
-constant UpscaleHelp = List(Text) + "scale every video up 2x with RTX Video Super Resolution (RTX card, nvidia-vfx in ComfyUI's Python, about 2 s, its helper stays loaded)"
+constant UpscaleHelp = List(Text) + "scale every video up 2x with RTX Video Super Resolution (RTX card, nvidia-vfx in ComfyUI's Python, its helper stays loaded)"
+constant Unmixed = ""
 constant TurboHelp = List(Text) + "never add the turbo or TaoMate LoRA, for models with one merged in (names with turbo, dmd, 8step, 4step, hyperflow, distill or lightx2v count as merged)"
 constant Help = DiffusionHelp + VaeHelp + EncoderHelp + FolderHelp + FrameHelp + WorkflowHelp + CropHelp + VisionHelp + MotionHelp + UpscaleHelp + TurboHelp
 constant DecodeRoom = 2147483648
@@ -33,7 +34,7 @@ Checkpoint Text slow
 	H3Files.Parsed(("--image", "a.png", "--last_image", "b.jpg")).lastImage is "b.jpg"
 	Local.Checkpoint is Error("FileNotFound:" + H3Video.Base)
 	H3Files.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
-	ModelFiles(models).Located((model is "" then H3Video.Base else model), "diffusion_models")
+	ModelFiles(models).Located(model is "" then H3Video.Base else model, "diffusion_models")
 Decoder Text slow
 	Local.Decoder is Error
 	ModelFiles(models).Decoder(vae, Vae)
@@ -43,10 +44,10 @@ VaeEncoder Text slow
 	ModelFiles(models).VaeEncoder(vae, Vae)
 Sound Text slow
 	Local.Sound is Error
-	ModelFiles(models).Located((audioVae is "" then "minimax_h3_audio_vae_fp32.safetensors" else audioVae), "vae")
+	ModelFiles(models).Located(audioVae is "" then "minimax_h3_audio_vae_fp32.safetensors" else audioVae, "vae")
 Encoder Text slow
 	Local.Encoder is Error
-	ModelFiles(models).Located((textEncoder is "" then H3Batch.Encoder else textEncoder), "text_encoders")
+	ModelFiles(models).Located(textEncoder is "" then H3Batch.Encoder else textEncoder, "text_encoders")
 Images Texts
 	Local.Images.Length is 0
 	H3Files.Parsed(("--last_image", "b.png")).Images is ("b.png")
@@ -62,9 +63,9 @@ Workflow Text slow
 	H3Files.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
 Cropped(index Number) Boolean
-	H3Files.Parsed(("--crop=false")).Cropped(1)
+	H3Files.Parsed("--crop=false").Cropped(1)
 	H3Files.Parsed(List(Text)).Cropped(0)
-	H3Files.Parsed(("--crop=false")).Cropped(0) is false
+	H3Files.Parsed("--crop=false").Cropped(0) is false
 	H3Files.Parsed(("--upscale", "false")).Upscale is false
 	H3Files.Parsed(List(Text) + "--crop").Cropped(0)
 	crop or index is 1
@@ -86,7 +87,7 @@ Mixed Text slow
 	Local.Mixed is ""
 	checkpoint = Checkpoint
 	if checkpoint is Error
-		return ""
+		return Unmixed
 	header = TensorFile.Header(checkpoint)
 	blocks = H3.Named(header, "blocks.").Length
 	quantized = Quantized(header).Length

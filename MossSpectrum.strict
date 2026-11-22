@@ -19,7 +19,7 @@ IsActual(step Number) Boolean
 	MossSpectrum(Primed, steps = 12, period = 3).IsActual(6) is false
 	MossSpectrum(Primed, steps = 12, period = 3).IsActual(7)
 	MossSpectrum(Tiny, mode = "on").IsActual(5)
-	step < warmup or step >= steps - 1 or history.Ready is false or (step - warmup) % period is period - 1
+	step < warmup or step >= steps - 1 or history.IsReady is false or (step - warmup) % period is period - 1
 IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(1) is false
 	Tiny.IsSpanning(2)
@@ -53,7 +53,7 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 		return MossSpectrum(value, output = head, mode = updated, history = SpectralHistory, span = evaluated)
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
 Shadowed(image Numbers, coord Number) None
-	if mode is "shadow" and history.Ready
+	if mode is "shadow" and history.IsReady
 		error = MossImage.RelativeError(history.Predicted(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum

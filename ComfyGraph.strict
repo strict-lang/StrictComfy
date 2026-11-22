@@ -110,7 +110,7 @@ Produced(node Json, slot Number) Text
 		return ComfySize(ComfyGraph(nodes, links, known), node).Sized(slot) to Text
 	if type is not in Values
 		return Error("UnsupportedValue:" + type.Replace(" ", "_"))
-	Widget(node, (type is "DPRandomGenerator" then "text" else "value"), 0) to Text
+	Widget(node, type is "DPRandomGenerator" then "text" else "value", 0) to Text
 Expressed(node Json, slot Number) Number
 	Tiny.Expressed(Tiny.Node(20), 1) is 124
 	Wild.Expressed(Wild.Node(7), 0) is 3.5

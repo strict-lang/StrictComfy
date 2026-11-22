@@ -25,7 +25,7 @@ Grid(header Text) Numbers
 	start = header.IndexOf("pdd_sigmas")
 	if start < 0
 		return Error("MissingPddSigmas")
-	rest = header.Substring(start, header.Length - start)
+	rest = header.Substring(start)
 	open = rest.IndexOf("[") + 1
 	for rest.Substring(open, rest.IndexOf("]") - open).Split(", ")
 		value to Number

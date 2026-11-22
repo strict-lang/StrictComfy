@@ -36,9 +36,7 @@ Encoder(files H3Files) Qwen3 slow
 	encoder
 Tokenizing(files H3Files) H3Resident slow
 	H3Resident(tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled).Tokenizing(Files).tokenizers.Length is 1
-	if tokenizers.Length is 1
-		return value
-	H3Resident(value, tokenizers = List(Gpt2Tokens) + H3Encoder(files).Tokenizer)
+	tokenizers.Length is 1 then value else H3Resident(value, tokenizers = List(Gpt2Tokens) + H3Encoder(files).Tokenizer)
 Sampling(checkpoint Text, loras Text) H3Resident slow
 	Sampled.samplers.First.blocks.Length is 2
 	Sampled.refiners.Length is 1

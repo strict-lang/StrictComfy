@@ -94,8 +94,7 @@ State MossSpectrum
 	MossSampling(warmup = 3).State.history.fit.degree is 2
 	MossSampling(warmup = 2).State.history.fit.degree is 1
 	MossSampling(warmup = 8).State.history.fit.degree is 4
-	configured = MossSpectrumImage.Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4))
-	MossSpectrum(configured, span = span)
+	MossSpectrum(MossSpectrumImage.Configured(width, mode, steps, warmup, period, (warmup - 1).Clamp(1, 4)), span = span)
 Denoised(latent Numbers, output Numbers, sigma Number) Float32s
 	MossSampling.Denoised((1, 2), (2, 2), 0.5) is (0, 1)
 	for latent

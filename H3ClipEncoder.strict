@@ -33,7 +33,7 @@ Downsamples(model Safetensors, names Texts) List(Convolution) native
 		name = "encoder.down." + level + ".downsample.conv"
 		present = following.StartsWith(level + ".") is false and model.Entry(name + ".weight") is not ""
 		present then Stacked(model, name) else Convolution(List(Number), List(Number))
-Strides(names Texts) Numbers
+Strides(names Texts) Numbers native
 	Tiny.Strides(("0.block.1", "2.block.0")) is (1, 2)
 	for names
 		TimeDown(value.Substring(0, value.IndexOf(".")) to Number)
@@ -42,7 +42,7 @@ Stacked(model Safetensors, name Text) Convolution native
 	shape = model.Shape(name + ".weight")
 	spread = Spread(model.Values(name + ".weight"), shape)
 	Convolution(Convolution.Rearranged(spread, shape(1) * Taps, 3), model.Values(name + ".bias"))
-Spread(values Numbers, shape Numbers) Numbers
+Spread(values Numbers, shape Numbers) Numbers native
 	Tiny.Spread((1, 2, 3, 4, 5, 6), (1, 2, 3, 1, 1)) is (1, 4, 2, 5, 3, 6)
 	plane = shape(3) * shape(4)
 	inputs = shape(1)
@@ -52,7 +52,7 @@ Spread(values Numbers, shape Numbers) Numbers
 		channel = (index / plane).Floor % stacked
 		output = (index / volume).Floor
 		values(((output * inputs + channel % inputs) * Taps + (channel / inputs).Floor) * plane + index % plane)
-Joined(states List(FeatureMap), at Number) FeatureMap
+Joined(states List(FeatureMap), at Number) FeatureMap native
 	Tiny.Joined((FeatureMap((1, 2), 2, 1, Zero), FeatureMap((3, 4), 2, 1, Zero)), 1).values is (0, 1, 3, 0, 2, 4)
 	current = states(at)
 	zeros = Layer.Zeros(current.values.Length)
@@ -61,7 +61,7 @@ Joined(states List(FeatureMap), at Number) FeatureMap
 	channels = Taps * current.channels
 	values = Interleaved(earlier, previous, current.values, current.channels)
 	FeatureMap(values, current.width, channels, Layer.Zeros(channels))
-Interleaved(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers
+Interleaved(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers native
 	Tiny.Interleaved((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
 	stacked = Taps * channels
 	for earlier.Length * Taps
@@ -69,7 +69,7 @@ Interleaved(earlier Numbers, previous Numbers, current Numbers, channels Number)
 		tap = (inner / channels).Floor
 		spot = (index / stacked).Floor * channels + inner % channels
 		tap is 0 then earlier(spot) else tap is 1 then previous(spot) else current(spot)
-Affines(affines List(Numbers), at Number, channels Number) Numbers
+Affines(affines List(Numbers), at Number, channels Number) Numbers native
 	Tiny.Affines(Pair, 1, 1) is (0, 1, 3, 0, 2, 4)
 	Tiny.Affines(Pair, 0, 1) is (0, 0, 1, 0, 0, 2)
 	stacked = Taps * channels
@@ -78,7 +78,7 @@ Affines(affines List(Numbers), at Number, channels Number) Numbers
 		inner = index % stacked
 		frame = at - 2 + (inner / channels).Floor
 		frame < 0 then 0 else affines(frame)(half * channels + inner % channels)
-Triple(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers
+Triple(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers native
 	Tiny.Triple((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
 	stacked = Taps * channels
 	for 2 * stacked
@@ -106,7 +106,7 @@ Downsampled(convolution Convolution, states List(FeatureMap), stride Number) Lis
 		full = convolution.Applied(encoder.Padded(joined, (1, 1, 1, 1)), affine, Activation.Linear)
 		outputs = outputs + encoder.Strided(full, (2, 2), (joined.Height / 2, joined.width / 2))
 	outputs
-Identities(states List(FeatureMap)) List(Numbers)
+Identities(states List(FeatureMap)) List(Numbers) native
 	Tiny.Identities(List(FeatureMap) + FeatureMap((1, 2), 2, 1, List(Number) + 3)).First is (1, 3)
 	for states
 		value.Identity

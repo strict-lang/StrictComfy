@@ -98,7 +98,7 @@ Weighted(weights Safetensors, rows List(Numbers), name Text) List(Numbers) slow
 	width = rows.First.Length
 	lora = Stacked(name + ".")
 	fits = lora.rank > 0 and lora.down.Length is lora.rank * width and lora.up.Length is lora.rank * rows.Length
-	delta = Changed(name, "diff", (fits then lora.Dense else List(Number)))
+	delta = Changed(name, "diff", fits then lora.Dense else List(Number))
 	if delta.Length is 0
 		return rows
 	if name.EndsWith("adaln_proj.linear")

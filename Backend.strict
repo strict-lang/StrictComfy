@@ -6,6 +6,8 @@ constant PollSeconds = 0.2
 constant CheckSeconds = 5
 constant Gone = -2
 constant Unserved = -1
+constant Busy = -1
+constant Failed = 1
 constant Crashed = 1
 constant Clean = 0
 constant IdleSeconds = 900
@@ -34,13 +36,13 @@ Dispatched(arguments Texts) Number slow
 	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
 		return Forwarding(resident.root, coordinator).Forwarded(List(Text) + Resident.Stopping)
+	Gpu.Require(name)
 	if Local is in arguments
 		return Unserved
 	mutable code = Attempted(arguments)
-	mutable tries = 0
-	for as long as code is -1 and (tries is 0 or Port is not 0) and tries < StartSeconds
-		tries = tries + 1
-		code = Attempted(arguments)
+	for StartSeconds
+		if code is -1 and (index is 0 or Port is not 0)
+			code = Attempted(arguments)
 	code is -1 and Port is not 0 then Cleared else code
 Attempted(arguments Texts) Number slow
 	isRunning = File(resident.root + Resident.Stamp).Exists
@@ -101,11 +103,12 @@ Port Number slow
 	stamp = File(resident.root + Resident.Stamp)
 	if stamp.Exists is false
 		return 0
-	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else -1
+	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else Busy
 Paused(checked Number) Numbers slow
 	Process.Wait(PollSeconds)
 	(0, checked)
 Opened Number slow
+	Gpu.Require(name)
 	Rooted then resident.Opened else Error("NotRooted")
 Rooted Boolean slow
 	Sample.Rooted
@@ -136,6 +139,7 @@ IsCrowded(needed Number, available Number, total Number) Boolean
 	available > 0 and (available - needed) * 100 < total * FreePercent
 IsOut(available Number, total Number) Boolean
 	Sample.IsOut(3 * Gigabyte, 128 * Gigabyte)
+	Sample.IsOut(LowMemory, 128 * Gigabyte)
 	Sample.IsOut(5 * Gigabyte, 128 * Gigabyte) is false
 	Sample.IsOut(Gigabyte, 32 * Gigabyte)
 	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false

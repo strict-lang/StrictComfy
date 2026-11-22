@@ -107,7 +107,7 @@ Generated(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context
 	sized = ("--width", words(1), "--height", words(2), "--output", "MossWeb.jpg")
 	options = MossOptions.Parsed(("--quality", words(3)) + sized)
 	batch = MossBatch(options)
-	sampling = MossSampling(options.Sampling(logger), preview = "MossWebStep.jpg", previewer = previewer)
+	sampling = MossSampling(options.Sampling, preview = "MossWebStep.jpg", previewer = previewer)
 	latent = batch.Sampled(moss, sampling, words(0) to Number, context, "Image")
 	decoded = Process.Elapsed
 	width = options.width / 16

@@ -18,7 +18,7 @@ Run(arguments Texts) Number
 	given = arguments - MachineUse.Force
 	if given.Length > 1 and given(0) is "encode"
 		return H3Image(H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
-	Backend.IsServing(arguments) then H3ImageServer(H3ImageServer.Backended(logger)).Ran(arguments) else Unknown
+	Backend.IsServing(arguments) then H3ImageServer(H3ImageServer.Backended).Ran(arguments) else Unknown
 Help
 	H3Image.Help is not Error
 	logger.Log("H3Image.exe [options] makes images with H3 Image, --image edits one\n" + H3ImageOptions.Usage)
@@ -44,8 +44,7 @@ Encoded(arguments Texts) Number slow
 Encoder(prefetched Texts, visions List(QwenVision)) H3Encoder slow
 	Tiny.Encoder(List(Text), List(QwenVision)).label is Label
 	Edit.Encoder(List(Text), List(QwenVision)).frame is (1024, 2048)
-	seen = options.image is "" then (32, 32) else options.Vision(Original)
-	H3Encoder(options.Files, seen, visions, prefetched, Label)
+	H3Encoder(options.Files, options.image is "" then (32, 32) else options.Vision(Original), visions, prefetched, Label)
 Cached(prompts Texts) Texts slow
 	Tiny.Cached(("a", "b")).First is not Tiny.Cached(("a", "b")).Last
 	Tiny.Cached(List(Text) + "a").First is not Edit.Cached(List(Text) + "a").First
@@ -67,8 +66,7 @@ Contexts(prompts Texts, paths Texts, arguments Texts) List(Safetensors) slow
 	Directory.Create(artifacts.Root + Folder)
 	inputs = H3Inputs.Sample
 	images = inputs.Picked(List(Text) + options.image, Layer.Zeros(missing.Length))
-	encoding = H3Encoding(arguments)
-	code = encoding.Started(inputs.Picked(prompts, missing), images, inputs.Picked(paths, missing))
+	code = H3Encoding(arguments).Started(inputs.Picked(prompts, missing), images, inputs.Picked(paths, missing))
 	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
 Pictured Numbers slow
 	Tiny.Pictured.Length is 0

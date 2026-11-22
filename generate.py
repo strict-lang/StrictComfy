@@ -30,9 +30,11 @@ H3_BASE, H3_TURBO = 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', 'minimax
 # checkpoint names with a turbo LoRA merged in, the same markers as H3Files.Distilled
 DISTILLED = ('turbo', 'hyperflow', 'dmd', '8step', '4step', 'distill', 'lightx2v')
 H3_TAOMATE = 'h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors:1'
+# the turbo LoRA every 8 step quality prefers when it is in models/loras (best quality), like H3Files.Turbo
+H3_TURBOS = ('minimax_h3_turbo_v4_step600_ema.safetensors', H3_TURBO.rpartition(':')[0])
 # H3 quality: model, steps, routing, Spectrum warmup and period (forecast steps), LoRAs, description
 QUALITIES = {
-	'best': (H3_BASE, 8, 0, '', [H3_TURBO], 'the turbo LoRA of the H3 template, 8 steps'),
+	'best': (H3_BASE, 8, 0, '', [H3_TURBO], 'the turbo v4 LoRA (step600 EMA) when installed, else the one of the H3 template, 8 steps'),
 	'fast': (H3_BASE, 8, 1, '', [H3_TURBO], 'best with routed attention like Sol-Attn'),
 	'faster': (H3_BASE, 8, 1, 'w1p2', [H3_TURBO], 'fast with Spectrum (5 of 8 steps evaluated)'),
 	'fastest4steps': (H3_BASE, 4, 1, '', [H3_TAOMATE], 'the TaoMate 3-step LoRA instead, 4 routed steps'),
@@ -144,11 +146,21 @@ def baked_loras(metadata):
 	return marker.get('loras', [])
 
 
+def h3_turbo(loras):
+	"""The turbo LoRA of the 8 step H3 qualities: v4 step600 EMA when installed (loras, then loras/h3), else the template's, like H3Files.Turbo."""
+	for name in H3_TURBOS:
+		for folder in ('', 'h3/'):
+			if (loras / (folder + name)).is_file():
+				return folder + name
+	return H3_TURBOS[1]
+
+
 def selected_loras(args, models, metadata=None):
 	"""The given LoRAs, after the turbo LoRA at 8 steps or fewer: akhaliq's 4-step one at 4 or fewer when installed, else DMD."""
 	loras = models / 'loras'
 	nested = lambda path: 'h3/' + path if args.family == 'h3' and not (loras / path).is_file() and (loras / 'h3' / path).is_file() else path
-	selected = [(located(nested(path), loras), strength) for path, strength in map(lora_spec, args.lora)]
+	preferred = lambda path: h3_turbo(loras) if args.family == 'h3' and path == H3_TURBOS[1] else nested(path)
+	selected = [(located(preferred(path), loras), strength) for path, strength in map(lora_spec, args.lora)]
 	has_turbo = any(Path(str(path).replace('\\', '/')).name in TURBO_LORAS and strength != 0
 		for path, strength in baked_loras(metadata))
 	explicit_turbo = any(path.name in TURBO_LORAS for path, strength in selected)
@@ -383,7 +395,16 @@ def unapplied(loras, checkpoint, patches):
 	"""The H3 quality LoRAs the model does not have yet: no turbo LoRA for a turbo checkpoint, none a LoraLoader applied."""
 	baked = any(marker in Path(checkpoint).name.lower() for marker in DISTILLED)
 	return [(path, strength) for path, strength in loras if not (baked and 'turbo' in Path(path).name.lower()) and
-		not (patches and turbo_patched(patches, path))]
+		not (patches and any(turbo_patched(patches, turbo) for turbo in same_turbos(path)))]
+
+
+def same_turbos(path):
+	"""The files a LoraLoader may have applied instead of this preset LoRA: for an H3 turbo LoRA both of them, where installed."""
+	path = Path(path)
+	if path.name not in H3_TURBOS:
+		return [path]
+	folders = {path.parent, path.parent / 'h3', path.parent.parent}
+	return [path] + [folder / name for folder in sorted(folders) for name in H3_TURBOS if (folder / name).is_file() and folder / name != path]
 
 
 def lora_model(args, model, loras):

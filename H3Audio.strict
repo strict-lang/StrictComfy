@@ -65,7 +65,6 @@ Normalized(waveform Numbers) Numbers native
 	mutable squares = 0
 	for waveform
 		squares = squares + (value - mean) * (value - mean)
-	deviation = 5 * (squares / (waveform.Length - 1)).SquareRoot
-	scale = deviation < 1 then 1 else deviation
+	scale = (5 * (squares / (waveform.Length - 1)).SquareRoot).Maximum(1)
 	for waveform
 		value / scale

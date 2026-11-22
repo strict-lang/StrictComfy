@@ -79,8 +79,7 @@ Snap(size Number, divisor Number) Number
 	Total.Snap(854, 32) is 832
 	Total.Snap(10, 32) is 32
 	Plain.Snap(704, 32) is 704
-	snapped = (size.Floor / divisor).Floor * divisor
-	snapped > divisor then snapped else divisor
+	((size.Floor / divisor).Floor * divisor).Maximum(divisor)
 Widget(name Text, position Number) Text
 	Total.Widget("crop", 9) is "center"
 	Shorter.Widget("scale_mode", 0) is "Shorter Side"

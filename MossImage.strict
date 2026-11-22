@@ -13,7 +13,7 @@ Run(arguments Texts) Number
 		return 0
 	Routed(arguments)
 Routed(arguments Texts) Number slow
-	server = MossServer(MossServer.Backended(logger))
+	server = MossServer(MossServer.Backended)
 	if "coordinator" is in arguments
 		return Coordinator.Served is Error then Backend.Failed else 0
 	Backend.IsServing(arguments) then server.Ran(arguments) else server.Local(arguments).code

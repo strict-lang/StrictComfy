@@ -13,7 +13,7 @@ Template(path Text) Text slow
 	Text.Combine(File(path).ReadLines, "\n").Trim
 Templates(paths Texts, prompt Text) Texts slow
 	Sample.Templates(List(Text) + "missing.txt", "a fox") is List(Text) + "a fox"
-	Sample.Templates(List(Text) + "PromptBatch.strict", "").First.StartsWith("has logger")
+	Sample.Templates(List(Text) + "PromptBatch.strict", "").First.StartsWith("has noun")
 	for paths
 		prompt is "" then Template(value) else prompt
 Prompts(templates Texts, seeds Numbers) Texts
@@ -82,7 +82,7 @@ Free(base Text, first Number) Number slow
 Named(base Text, number Number) Text
 	Sample.Named("a.jpg", 7) is "a0007.jpg"
 	dot = base.LastIndexOf(".")
-	Numbered(base.Substring(0, dot), number) + base.Substring(dot, base.Length - dot)
+	Numbered(base.Substring(0, dot), number) + base.Substring(dot)
 IsTaken(path Text) Boolean slow
 	Sample.IsTaken("PromptBatch.strict")
 	Sample.IsTaken("PromptBatchMissing.jpg") is false

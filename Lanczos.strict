@@ -32,7 +32,7 @@ Table(source Number, target Number) List(Numbers)
 	Lanczos.Table(1, 1) is List(Numbers) + (0, 1, 4194304)
 	Lanczos.Table(4, 4)(3) is (1, 3, 0, 0, 4194304)
 	scale = source / target
-	stretch = scale < 1 then 1 else scale
+	stretch = scale.Maximum(1)
 	reach = 3 * stretch
 	for target
 		center = (index + 0.5) * scale

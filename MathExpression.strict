@@ -105,8 +105,7 @@ Combined(name Text, arguments Numbers) Number
 	Tiny.Combined("sum", (1, 2, 3)) is 6
 	mutable result = name is "sum" then 0 else arguments(0)
 	for arguments
-		larger = value > result then value else result
-		result = name is "sum" then result + value else name is "max" then larger else (value < result then value else result)
+		result = name is "sum" then result + value else name is "max" then value.Maximum(result) else value.Minimum(result)
 	result
 Operated(left Number, operator Text, right Number) Number
 	Tiny.Operated(-7, "//", 2) is -4 and Tiny.Operated(-7, "%", 3) is 2

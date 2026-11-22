@@ -2,6 +2,7 @@ has options H3Options
 constant TokensPerGibibyte = 3750
 constant Gibibyte = 1073741824
 constant Mebibyte = 1048576
+constant Unsized = 0
 constant Unknown = 90000
 constant Factors = (14, 6, 5, 3, 2)
 constant BaseSeconds = 2.1
@@ -63,7 +64,7 @@ Told(raw Text) Text
 	video = ("--video", "a.mp4", "--context", Asked(raw, "context"))
 	vram = Asked(raw, "vram") to Number
 	parsed = H3Options.Parsed(chosen + (Asked(raw, "mode") is "extend" then video else List(Text)))
-	H3Estimate(parsed).Estimate(Budget(vram is Error then 0 else vram * Mebibyte))
+	H3Estimate(parsed).Estimate(Budget(vram is Error then Unsized else vram * Mebibyte))
 Asked(raw Text, name Text) Text
 	H3Estimate.Asked(SmallRequest, "width") is "848"
 	StrictGenHttp.Query(raw, name)

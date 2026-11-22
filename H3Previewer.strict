@@ -66,8 +66,7 @@ Spreads(latent Numbers, shape Numbers, means Numbers) Numbers
 	plane = shape(2) * shape(3)
 	for means
 		squares = Squared(latent.Slice(index * plane, plane)).Sum / plane
-		spread = (squares - value * value).Clamp(0, squares + 1).SquareRoot
-		spread < Flat then Flat else spread
+		(squares - value * value).Clamp(0, squares + 1).SquareRoot.Maximum(Flat)
 Gains(spreads Numbers, frames Number) Numbers
 	Tiny.Gains((1, 3, 10, 30), 2) is (2, 2 / 3, 2, 2 / 3)
 	for spreads

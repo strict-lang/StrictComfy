@@ -2,11 +2,11 @@ has vae H3Vae
 has sound H3Audio
 has tinies List(Taeh3Decoder) = List(Taeh3Decoder)
 constant Tiny = H3Decoding(H3Vae.Tiny, H3Audio.Tiny)
-constant Fast = H3Decoding.Loaded(Logger, Taeh3Decoder.Path, "tinyh3audio.safetensors")
+constant Fast = H3Decoding.Loaded(Taeh3Decoder.Path, "tinyh3audio.safetensors")
 constant Latent = H3Vae.Model.Values("latent") + H3Audio.Latent
 constant FastLatent = Taeh3Decoder.Latent + Taeh3Decoder.Latent + H3Audio.Latent
 constant Both = Tiny.Decoded(Latent, (12, 3, 4))
-Loaded(log Logger, video Text, audio Text) H3Decoding native
+Loaded(video Text, audio Text) H3Decoding native
 	Fast.tinies.Length is 1 and Tiny.tinies.Length is 0
 	audioVae = H3Audio.Loaded(Safetensors(audio, 32))
 	if Taeh3Decoder.Is(video)

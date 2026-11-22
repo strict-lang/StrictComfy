@@ -119,8 +119,7 @@ Viewed(original Numbers) Numbers
 Multiple(amount Number, cap Number, least Number) Number
 	Video.Multiple(1331.2, 1775, 832) is 1344
 	nearest = (amount / 32).Round * 32
-	bounded = nearest > cap then nearest - 32 else nearest
-	bounded < least then least else bounded
+	(nearest > cap then nearest - 32 else nearest).Maximum(least)
 Seen(image Text) Numbers
 	Plain.Seen("tinyframe.png") is Plain.frame
 	path = image is "" then files.lastImage else image

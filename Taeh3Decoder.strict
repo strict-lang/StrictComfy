@@ -93,7 +93,7 @@ Passed(maps List(FeatureMap), group Number) List(FeatureMap) native
 Step(maps List(FeatureMap), block Taef2Block) List(FeatureMap) slow
 	Tiny.Step(List(FeatureMap) + Narrow + Narrow, Tiny.blocks(6)).Length is 2
 	for maps
-		block.Remembered(value, (index is 0 then Empty(value) else maps(index - 1)))
+		block.Remembered(value, index is 0 then Empty(value) else maps(index - 1))
 Expanded(maps List(FeatureMap), which Number) List(FeatureMap) slow
 	Tiny.Expanded(List(FeatureMap) + Started, 1).Length is 2
 	stride = which is 0 then 1 else 2

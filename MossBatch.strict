@@ -44,7 +44,7 @@ Reworded(encoder Qwen3, picked Numbers) Qwen3 slow
 	Qwen3(encoder, tokens = file.Hosted("embed_tokens", picked))
 Images(kept MossResident, seeds Numbers, prompts Texts, contexts List(Numbers)) Number slow
 	outputs = PromptBatch("Image").Outputs(options.output, seeds.Length)
-	MossRun(value, kept, Previewed(options.Sampling(logger), kept.previewers), seeds, prompts, contexts, outputs).Images
+	MossRun(value, kept, Previewed(options.Sampling, kept.previewers), seeds, prompts, contexts, outputs).Images
 Loading(loras Text) Text slow
 	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
 	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
@@ -57,7 +57,7 @@ Decoded(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, 
 		return MossDecoding(batch, kept.taefs.First).Saved(latents, seeds, prompts, outputs)
 	MossDecoding(batch, kept.fluxes.First).Saved(latents, seeds, prompts, outputs)
 Previewed(sampling MossSampling, previewers List(Taef2Decoder)) MossSampling
-	Sample.Previewed(Sample.options.Sampling(Logger), List(Taef2Decoder)).preview is ""
+	Sample.Previewed(Sample.options.Sampling, List(Taef2Decoder)).preview is ""
 	if options.preview is "" or previewers.Length is 0
 		return sampling
 	MossSampling(sampling, preview = options.preview, previewer = previewers.First)
@@ -82,7 +82,7 @@ Rgba(rgb Numbers) Numbers
 		channel is 3 then 1 else rgb((index / 4).Floor * 3 + channel)
 Described(seed Number, prompt Text) Text slow
 	Sample.Described(5, "a \"b\"").StartsWith("{\"seed\": 5, \"prompt\": \"a \\\"b\\\"\", ")
-	sampling = options.Sampling(Logger)
+	sampling = options.Sampling
 	settings = ", \"steps\": " + sampling.steps + ", \"guidance\": " + sampling.guidance + ", \"spectrum\": "
 	described = "{\"seed\": " + seed + ", \"prompt\": " + prompt.Code + settings + sampling.mode.Code
 	described + ", \"model\": " + options.files.Checkpoint.Code + ", \"loras\": " + options.Loras.Code + "}"
