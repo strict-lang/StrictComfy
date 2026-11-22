@@ -29,23 +29,23 @@ Listened(server Number) Number slow
 	mutable kept = MossResident(true)
 	mutable last = Process.Elapsed
 	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
-		socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
+		socket = backend.resident.Accept(server, built, Resident.WakeSeconds)
 		kept = socket is not Error then Replied(socket, kept) else kept
 		last = socket is not Error then Process.Elapsed else last
-		kept = backend.Unpressed(socket is not Error) then kept else MossResident(kept, code = Backend.Stopped)
-	backend.resident.Closed(server)
+		kept = backend.IsUnpressed(socket is not Error) then kept else MossResident(kept, code = Backend.Stopped)
+	backend.resident.Close(server)
 	Backend.Clean
 Replied(socket Number, kept MossResident) MossResident slow
 	resident = backend.resident
-	request = resident.Requested(socket)
+	request = resident.ReadRequest(socket)
 	isStopping = resident.Arguments(request) is (Resident.Stopping)
 	isRunning = resident.IsCurrent(request) and isStopping is false
 	skipped = MossResident(kept, code = isStopping then Backend.Stopped else -1)
 	served = isRunning then Ran(socket, request, kept) else skipped
 	isFailed = served is Error
 	if isFailed
-		GpuMemory.Evicted
-	closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+		GpuMemory.Evict
+	closed = HasEnded(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	isFailed or closed then MossResident(true) else served
 Ran(socket Number, request Text, kept MossResident) MossResident slow
 	home = Directory.Current
@@ -57,7 +57,7 @@ Ran(socket Number, request Text, kept MossResident) MossResident slow
 	served = MossServed(MossBatch(MossOptions.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	unpressed = backend.Unpressed(true)
+	unpressed = backend.IsUnpressed(true)
 	backend.Restored(isMoved, home)
 	unpressed then served else MossResident(kept, code = Backend.Stopped)
 Asked(arguments Texts, forced Boolean) Text slow
@@ -67,27 +67,27 @@ Asked(arguments Texts, forced Boolean) Text slow
 	"need\tMossImage\tMossImage\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
 IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
-	named = Remote.Named(arguments)
+	named = Remote.RunRemote(arguments)
 	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	line = Asked(arguments, forced)
 	if line is ""
 		return true
-	reply = Coordinator(backend.coordinator).Sent(line)
-	sent = Remote.Sent(arguments, "", reply, line)
+	reply = Coordinator(backend.coordinator).Send(line)
+	sent = Remote.Send(arguments, "", reply, line)
 	if sent is Error or sent >= 0
 		return sent is 0
-	settled = reply.StartsWith("wait") then Coordinator(backend.coordinator).Resolved(line) else reply
+	settled = reply.StartsWith("wait") then Coordinator(backend.coordinator).Resolve(line) else reply
 	if settled.StartsWith("refused")
-		Use(arguments, forced).Explained(settled)
-	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).Checked)
-Ended(socket Number, code Number, request Text) Boolean slow
-	Sample.Ended(0, 1, "broken") is false
-	if backend.resident.Finished(socket, code) is Error
+		Use(arguments, forced).Explain(settled)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).HasRoom)
+HasEnded(socket Number, code Number, request Text) Boolean slow
+	Sample.HasEnded(0, 1, "broken") is false
+	if backend.resident.Finish(socket, code) is Error
 		logger.Log("The MossImage client left before the result was sent, the models stay loaded")
-		return backend.Freed(request) is Error
-	backend.Freed(request, false)
+		return backend.IsFreed(request) is Error
+	backend.IsFreed(request, false)
 Use(arguments Texts, forced Boolean) MachineUse slow
 	Sample.Use(List(Text), true).isForced
 	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false

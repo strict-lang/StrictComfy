@@ -20,7 +20,7 @@ Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) H3StepLog sl
 Logged(waiting Boolean) Number slow
 	Timed.Logged(true) is 2
 	H3StepLog(Timed, logged = 1).Logged(false) is 2
-	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is (GpuMemory.Elapsed(0, 1) is -1 then 0 else 2)
+	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is (GpuMemory.Elapse(0, 1) is -1 then 0 else 2)
 	H3StepLog(Timed, logged = 2).Logged(true) is 2
 	mutable count = logged
 	for as long as Continues(count, waiting)
@@ -29,18 +29,18 @@ Logged(waiting Boolean) Number slow
 Continues(count Number, waiting Boolean) Boolean
 	Timed.Continues(0, false) and Timed.Continues(1, true)
 	Timed.Continues(2, true) is false
-	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, false) is (GpuMemory.Elapsed(0, 1) is not -1)
+	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, false) is (GpuMemory.Elapse(0, 1) is not -1)
 	H3StepLog(Timed, stamps = (0, 1, 2)).Continues(0, true)
 	count < notes.Length and (waiting or IsDone(count))
 IsDone(step Number) Boolean
 	Timed.IsDone(0)
-	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0) is (GpuMemory.Elapsed(0, 1) is not -1)
+	H3StepLog(Timed, stamps = (0, 1, 2)).IsDone(0) is (GpuMemory.Elapse(0, 1) is not -1)
 	H3StepLog(Timed, stamps = (-1, 0, 1)).IsDone(0) is false
 	H3StepLog(Timed, stamps = (0, 1, -1)).IsDone(1)
 	StepTimes(stamps, times).IsDone(step)
 Logging(step Number) Number
 	Timed.Logging(1) is 2
-	logger.Log(Line(step, GpuMemory.Elapsed(stamps(step), stamps(step + 1))))
+	logger.Log(Line(step, GpuMemory.Elapse(stamps(step), stamps(step + 1))))
 	step + 1
 Waited(step Number) Number slow
 	Timed.Waited(1) is 1

@@ -4,8 +4,8 @@ Started(prompts Texts, images Texts, paths Texts) Number slow
 	noun = prompts.Length is 1 then " prompt" else " prompts"
 	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
 	Written(prompts, images, paths)
-	GpuMemory.Evicted
-	Process.Current.Started(Command(paths))
+	GpuMemory.Evict
+	Process.Current.Start(Command(paths))
 Command(paths Texts) Text
 	H3Encoding(("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
 	mutable command = "encode \"" + Text.Combine(paths, ";") + "\""

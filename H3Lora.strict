@@ -77,8 +77,8 @@ Merged(rows Safetensors, name Text, prefix Text) List(Numbers) native
 	MossImage.RelativeError(MossLora.FoursOutput, MossBlock.Layered) < 0.1
 	lora = Stacked(prefix + name + ".")
 	if lora.rank is 0
-		return rows.Quantized(name)
-	rows.Tuned(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
+		return rows.Quantize(name)
+	rows.Tune(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeated(1 / MossLora.Gain, lora.rank))
 Dense(weights Safetensors, name Text) Batch slow
 	H3Lora("").Dense(H3Block.Model, "video_patch_proj") is MossText.Dense(H3Block.Model, "video_patch_proj")
 	Half.Dense(H3Block.Model, "video_patch_proj").biases is not MossText.Dense(H3Block.Model, "video_patch_proj").biases
@@ -102,7 +102,7 @@ Weighted(weights Safetensors, rows List(Numbers), name Text) List(Numbers) slow
 	if delta.Length is 0
 		return rows
 	if name.EndsWith("adaln_proj.linear")
-		return TensorFile.Shaped(MossText.Added(weights.Values(name + ".weight"), delta), width)
+		return TensorFile.Reshape(MossText.Added(weights.Values(name + ".weight"), delta), width)
 	for rows
 		MossText.Added(value, delta.Slice(index * width, width))
 Changed(module Text, suffix Text, base = List(Number)) Numbers slow

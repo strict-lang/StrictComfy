@@ -95,6 +95,6 @@ Decoders(path Text) MossResident native
 	if path is decoderFile
 		return value
 	emptied = MossResident(value, taefs = List(Taef2Decoder), fluxes = List(FluxDecoder), decoderFile = path)
-	if Taef2Decoder.Is(path)
+	if Taef2Decoder.IsTaef2(path)
 		return MossResident(emptied, taefs = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 	MossResident(emptied, fluxes = List(FluxDecoder) + FluxDecoder.Loaded(path, 32))

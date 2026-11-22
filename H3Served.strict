@@ -36,8 +36,8 @@ Contexted(kept H3Resident, plan H3Plan) H3Resident slow
 	if Encoded(encoding, plan, missing) is not missing.Length
 		logger.Log("The text encoder made fewer contexts than the " + missing.Length + " prompts it was given")
 	if kept.isCrowded or batch.options.IsLarge
-		GpuMemory.Evicted
-	GpuMemory.Released
+		GpuMemory.Evict
+	GpuMemory.Trim
 	kept.isCrowded then H3Resident(encoding, encoders = List(Qwen3), encoderFile = "") else encoding
 Reading(kept H3Resident) slow
 	if kept.IsSampling(batch.options.Checkpoint, batch.options.Loras) is false

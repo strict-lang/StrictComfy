@@ -25,7 +25,7 @@ Sampling(options H3ImageOptions) H3ImageResident slow
 	if key is model and models.Length is 1
 		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
 		return value
-	GpuMemory.Evicted
+	GpuMemory.Evict
 	loaded = Loaded(options)
 	refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
@@ -95,11 +95,11 @@ Fitted(options H3ImageOptions) native
 	Encoded.Fitted(Tiny) is not Error
 	checkpoint = File(options.Checkpoint).Length
 	if GpuMemory.Held + GpuMemory.Available < checkpoint
-		GpuMemory.Evicted
+		GpuMemory.Evict
 	else if options.image is "" and GpuMemory.Held + GpuMemory.Available < checkpoint + File(encoderFile).Length
 		GpuMemory.Freed(File(encoderFile).Length)
 	else if GpuMemory.Available < checkpoint
-		GpuMemory.Released
+		GpuMemory.Trim
 Staying Text
 	Kept.Staying.StartsWith(", it stays")
 	H3ImageResident.Staying is ""

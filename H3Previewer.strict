@@ -13,7 +13,7 @@ Loaded(file Text, models Text) H3Previewer slow
 	if file is ""
 		return None
 	tiny = ModelFiles(models).Located("taeh3.safetensors", "vae_approx")
-	if tiny is Error or Taeh3Decoder.Is(tiny) is false
+	if tiny is Error or Taeh3Decoder.IsTaeh3(tiny) is false
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
 Written(latent Numbers, shape Numbers) None native

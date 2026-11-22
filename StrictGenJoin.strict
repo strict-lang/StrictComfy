@@ -39,8 +39,8 @@ Filter(size Numbers, seconds Number, heard Boolean) Text
 	first = (heard then "[0:a]" else "[2:a]") + "atrim=duration=" + seconds + ",apad=whole_dur=" + seconds + ","
 	audio = first + Sound + ",asetpts=PTS-STARTPTS[a0];[1:a]" + Sound + ",asetpts=PTS-STARTPTS[a1];"
 	video + fade + ":offset=" + (seconds - fade).Round(3) + "[v];" + audio + "[a0][a1]acrossfade=d=" + fade + "[a]"
-Heard(path Text) Boolean slow
-	Sample.Heard("missing-clip.mp4") is false
+HasAudio(path Text) Boolean slow
+	Sample.HasAudio("missing-clip.mp4") is false
 	streams = Process.RunTool("ffprobe", AudioStreams + path + "\"")
 	if streams.HasFailed or streams.Output.Trim is ""
 		logger.Log(path + " has no audio, the extended video starts with silence")

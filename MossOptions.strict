@@ -79,14 +79,14 @@ Loras Text slow
 	if files.model.EndsWith(".gguf")
 		return lora.Length is 0 then "" else Error("LorasNeedSafetensorsModel")
 	specs = Specs
-	if Evaluated > 8 or Baked or Distilled(specs)
+	if Evaluated > 8 or IsBaked or IsDistilled(specs)
 		return Text.Combine(specs, ";")
 	installed = File(files.Folder + "/loras/" + MossFiles.FourSteps).Exists
 	Text.Combine(List(Text) + (files.Located(Turbo(installed), "loras") + "=1") + specs, ";")
-Baked Boolean
-	MossOptions.Parsed(("--model", "moss_image_sft_4step_int4_convrot.safetensors")).Baked
-	MossOptions.Parsed(("--model", "moss-image-sft-dit-int8-convrot-dmd.safetensors")).Baked
-	MossOptions.Parsed(List(Text)).Baked is false
+IsBaked Boolean
+	MossOptions.Parsed(("--model", "moss_image_sft_4step_int4_convrot.safetensors")).IsBaked
+	MossOptions.Parsed(("--model", "moss-image-sft-dit-int8-convrot-dmd.safetensors")).IsBaked
+	MossOptions.Parsed(List(Text)).IsBaked is false
 	name = files.model.Lower
 	name.IndexOf("dmd") >= 0 or name.IndexOf("4step") >= 0
 Turbo(installed Boolean) Text
@@ -95,11 +95,11 @@ Turbo(installed Boolean) Text
 	MossOptions.Parsed(("--steps", "4")).Turbo(false) is MossFiles.Dmd
 	MossOptions.Parsed(List(Text)).Turbo(true) is MossFiles.Dmd
 	Evaluated <= 4 and installed then MossFiles.FourSteps else MossFiles.Dmd
-Distilled(specs Texts) Boolean
-	MossOptions.Parsed(List(Text)).Distilled(("x/moss_image_sft_4step_v2.0.safetensors=1", "a=1"))
-	MossOptions.Parsed(List(Text)).Distilled("x/dmd_turbo_lora.safetensors=0")
-	MossOptions.Parsed(List(Text)).Distilled("tinylora.safetensors=1") is false
-	MossOptions.Parsed(List(Text)).Distilled(("a/dmd_turbo", "_lora.safetensors=1")) is false
+IsDistilled(specs Texts) Boolean
+	MossOptions.Parsed(List(Text)).IsDistilled(("x/moss_image_sft_4step_v2.0.safetensors=1", "a=1"))
+	MossOptions.Parsed(List(Text)).IsDistilled("x/dmd_turbo_lora.safetensors=0")
+	MossOptions.Parsed(List(Text)).IsDistilled("tinylora.safetensors=1") is false
+	MossOptions.Parsed(List(Text)).IsDistilled(("a/dmd_turbo", "_lora.safetensors=1")) is false
 	combined = Text.Combine(specs, ";")
 	dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
 	dmd or combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0

@@ -52,7 +52,7 @@ Launch StrictGenQueue slow
 	index = pending.First
 	executable = StrictGenJob.Executable(StrictGenJob.Program(modes(index)))
 	local = StrictGenJob.Local(index)
-	if local.Started(executable, modes(index), commands(index)) is false
+	if local.HasStarted(executable, modes(index), commands(index)) is false
 		return Refused("Could not start " + executable)
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = local, aim = "")
 Refused(reason Text) StrictGenQueue

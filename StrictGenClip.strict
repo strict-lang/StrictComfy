@@ -39,7 +39,7 @@ Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Non
 	if saved is Error
 		return saved
 	join = StrictGenJoin
-	merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.Heard(source)))
+	merged = Process.RunTool("ffmpeg", join.Concat(source, tail, output, size, join.HasAudio(source)))
 	File(tail).Delete
 	if merged.HasFailed
 		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)

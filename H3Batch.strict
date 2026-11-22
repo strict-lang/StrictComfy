@@ -11,7 +11,7 @@ constant Loraed = H3Batch(H3Options.Parsed(("--models", ".", "--lora", "tinylora
 constant Turbo = H3Batch(H3Options.Parsed(("--models", ".", "--model", "a_Turbo_8step.safetensors")))
 constant Vae = "FileNotFound:minimax_h3_video_vae_int8_convrot.safetensors"
 constant Longer = ("--models", ".", "--length", "22")
-Completed Boolean slow
+IsCompleted Boolean slow
 	ready = H3Batch(Noted, pictured, prompt, commandLine)
 	problem = H3Inputs(ready.options).Problem
 	if problem is not ""
@@ -83,9 +83,9 @@ Sampled(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), lat
 		logger.Log(Sampling(index, plan.seeds.Length, uploading and index is 0))
 		at = plan.paths.Unique.Index(plan.paths(index))
 		keyframes = H3Inputs(options).Keyframes(pictured, plan.images(index), plan.images)
-		Safetensors(latents(index)).Written("latent", Generated(h3, conditions(at), texts(at), value, keyframes, previewer))
+		Safetensors(latents(index)).Write("latent", Generated(h3, conditions(at), texts(at), value, keyframes, previewer))
 		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		GpuMemory.Finished
+		GpuMemory.Finish
 Sampling(index Number, count Number, uploading Boolean) Text
 	Sample.Sampling(0, 2, true) is "Sampling video 1/2 with 8 steps, the first one uploads H3 into GPU VRAM"
 	Sample.Sampling(1, 2, false) is "Sampling video 2/2 with 8 steps"
@@ -150,7 +150,7 @@ Pictured(images Texts) List(Numbers) slow
 	picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.VaeEncoder, 32)), H3Tiles.Real)
 	for firsts + options.files.lastImage
 		if value is not ""
-			picture.Encoded(picture.Frame(value, size, options.files.Cropped(index < firsts.Length then 0 else 1)), size)
+			picture.Encoded(picture.Frame(value, size, options.files.IsCropped(index < firsts.Length then 0 else 1)), size)
 Expanded(arguments Texts) H3Batch slow
 	Sample.Expanded(List(Text)).prompt is ""
 	Workflowed.Expanded(Longer).options.length is 22 and Workflowed.Expanded(Longer).prompt is "a fox"

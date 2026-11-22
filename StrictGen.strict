@@ -16,12 +16,12 @@ Run(arguments Texts) Number slow
 		return 0
 	port = Port(arguments)
 	if "stop" is in arguments
-		return Stopped(port) then 0 else 1
+		return IsStopped(port) then 0 else 1
 	if port < 1 or port > Highest
 		logger.Log("Port " + port + " is not a port number, start with --port and a number from 1 to 65535")
 		return 1
 	Served(port) is Error then 1 else 0
-Stopped(port Number) Boolean slow
+IsStopped(port Number) Boolean slow
 	logger.Log("Stopping StrictGen on port " + port + " and the MossImage, H3Video and H3Image backends")
 	answer = StrictGenRemote.Posted("127.0.0.1", port, "/quit", "")
 	StrictGenJob.StopAll
@@ -119,7 +119,8 @@ Warmed(body Text, queue StrictGenQueue) Text slow
 	if queue.IsBusy or queue.pending.Length > 0 or Json(body).get("mode") to Text is not "image"
 		return "{\"warming\":false}"
 	command = Text.Combine(StrictGenForm.Arguments(body), "\n")
-	"{\"warming\":" + (StrictGenJob.Warmed(StrictGenJob.Executable("MossImage"), command) then "true" else "false") + "}"
+	warmed = StrictGenJob.HasWarmed(StrictGenJob.Executable("MossImage"), command)
+	"{\"warming\":" + (warmed then "true" else "false") + "}"
 Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 	if route is "/job"
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)

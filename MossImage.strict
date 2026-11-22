@@ -7,7 +7,7 @@ Run(arguments Texts) Number
 		logger.Log("MossImage.exe [options] makes Moss images, " + Positional + "\n" + MossOptions.Usage)
 		return 0
 	if arguments.Length is 4 and arguments(0) is "-"
-		return Served(Loaded(arguments(1), arguments(2)), arguments(3)) then 0 else 1
+		return HasServed(Loaded(arguments(1), arguments(2)), arguments(3)) then 0 else 1
 	if arguments.Length is 4 and arguments(0).StartsWith("-") is false
 		ComparedRun(arguments(0), arguments(1), arguments(2), arguments(3))
 		return 0
@@ -15,7 +15,7 @@ Run(arguments Texts) Number
 Routed(arguments Texts) Number slow
 	server = MossServer(MossServer.Backended)
 	if "coordinator" is in arguments
-		return Coordinator.Served is Error then Backend.Failed else 0
+		return Coordinator.Serve is Error then Backend.Failed else 0
 	Backend.IsServing(arguments) then server.Ran(arguments) else server.Local(arguments).code
 Loaded(model Text, lora Text) Moss slow
 	MossImage.Loaded("tinymoss.safetensors", "").layers.Length is 2
@@ -23,12 +23,12 @@ Loaded(model Text, lora Text) Moss slow
 	moss = Moss.Loaded(model, lora)
 	logger.Log("loaded in " + (Process.Elapsed - started).Round(1) + " s")
 	moss
-Served(moss Moss, mode Text) Boolean slow
+HasServed(moss Moss, mode Text) Boolean slow
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
 		made = Generations(moss, Safetensors(dumps + "/generation.safetensors", 32), mode, dumps)
-		GpuMemory.Evicted
-		if MossFiles.FailedTexts(made)
+		GpuMemory.Evict
+		if MossFiles.AreFailedTexts(made)
 			return false
 		dumps = Process.InputLine
 	true
@@ -41,9 +41,9 @@ Generations(moss Moss, data Safetensors, mode Text, dumps Text) Texts slow
 		path = dumps + "/strict-" + mode + (count > 1 then "-" + index else "") + "-latent.safetensors"
 		label = "Generation " + (index + 1) + "/" + count
 		latent = sampling.Sampled(moss, job.Values("noise"), job.Values("context"), label)
-		Safetensors(path).Written("latent", latent)
+		Safetensors(path).Write("latent", latent)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		GpuMemory.Released
+		GpuMemory.Trim
 		path
 Configured(data Safetensors, mode Text) MossSampling
 	columns = data.Shape("noise").Last
@@ -58,12 +58,12 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	first = Safetensors(dumps + "/step0.safetensors", 64)
 	sampled = sized.Generated(model, lora, Euler(8, 5), steps, first, context)
 	logger.Log("latent error " + RelativeError(sampled, steps.Values("latent")))
-	if MossFiles.FailedNumber(sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
+	if MossFiles.IsFailedNumber(sized.Saved(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
 		return
 Generated(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers native
 	MossImage(4).Generated("tinymoss.safetensors", "", Euler(1, 5), Reference, Reference, Moss.Context).Length > 0
 	moss = Loaded(model, lora)
-	MossFiles.FailedNumber(Compared(moss, step)) then List(Number) else Sampled(moss, euler, steps, context)
+	MossFiles.IsFailedNumber(Compared(moss, step)) then List(Number) else Sampled(moss, euler, steps, context)
 Saved(latent Numbers, steps Safetensors, decoder FluxDecoder, path Text) Number native
 	MossImage(2).Saved(FluxDecoder.Latent, Decoding, FluxDecoder.Tiny, "") > 40
 	before = Process.Elapsed

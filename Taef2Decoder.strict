@@ -13,9 +13,9 @@ Loaded(path Text) Taef2Decoder slow
 	Tiny.upsamples(2).biases is Layer.Zeros(8)
 	model = Safetensors(path, 32, "decoder.layers.")
 	Taef2Decoder(FluxResnet.Convolved(model, "0"), Blocks(model), Upsamples(model), FluxResnet.Convolved(model, "18"))
-Is(path Text) Boolean
-	Taef2Decoder.Is("tinytaef2.safetensors")
-	Taef2Decoder.Is("tinyvae.safetensors") is false
+IsTaef2(path Text) Boolean
+	Taef2Decoder.IsTaef2("tinytaef2.safetensors")
+	Taef2Decoder.IsTaef2("tinyvae.safetensors") is false
 	Safetensors(path).Entry("decoder.layers.0.weight") is not ""
 Blocks(model Safetensors) List(Taef2Block) native
 	Tiny.Blocks(Taef2Block.Model)(9).convolutions.Length is 3
@@ -36,7 +36,7 @@ Channels Number
 Started(values Numbers, width Number) FeatureMap native
 	Tiny.Started(FluxDecoder.Unpatchified(Latent, 2, Tiny.Channels), 4).width is 4
 	map = FeatureMap(Clamped(values), width, Channels, Layer.Zeros(Channels))
-	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
+	Taef2Block.Rectified(entry.Apply(map, map.Identity, Activation.Linear))
 Clamped(values Numbers) Numbers
 	Tiny.Clamped((0, 3)) is (0, 3 * Activation.Tanh.Output(1))
 	for values
@@ -49,7 +49,7 @@ Decoded(latent Numbers, width Number) Numbers native
 Finished(map FeatureMap) Numbers native
 	Tiny.Finished(Tiny.Entered(Latent, 2)).Length is 4608
 	upsampled = Upsampled(map)
-	for exit.Applied(upsampled, upsampled.Identity, Activation.Linear).Completed
+	for exit.Apply(upsampled, upsampled.Identity, Activation.Linear).Completed
 		value.Clamp
 Shrunk(size Number) Number
 	Tiny.Shrunk(60) is 42
@@ -87,5 +87,5 @@ Upsampled(map FeatureMap) FeatureMap native
 	for blocks
 		state = value.Output(state)
 		if index % 3 is 2 and index < 9
-			state = upsamples((index / 3).Floor).Doubled(state)
+			state = upsamples((index / 3).Floor).Double(state)
 	state

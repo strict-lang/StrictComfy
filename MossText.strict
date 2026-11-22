@@ -29,9 +29,9 @@ Dense(block Safetensors, name Text) Batch slow
 	Batch(block.Rows(name + ".weight"), biased then block.Values(name + ".bias") else List(Number) + 0)
 Output(input Numbers, rotation Numbers) Numbers native
 	Tiny.Output(Input, MossBlock.Rotations(0, 0, 3, 128)).Length is 768
-	normed = Qwen3Block.Normalized(input, 0, input.Length, firstNorm)
+	normed = Qwen3Block.Normalize(input, 0, input.Length, firstNorm)
 	attended = Added(input, projection.Sums(MossBlock.Merged(attention.Sums(normed), rotation, queryNorm, keyNorm)))
-	fed = Qwen3Block.Normalized(attended, 0, attended.Length, secondNorm)
+	fed = Qwen3Block.Normalize(attended, 0, attended.Length, secondNorm)
 	Added(attended, down.Sums(Activated(up.Sums(fed), gate.Sums(fed))))
 Activated(hidden Numbers, gates Numbers) Numbers slow
 	Tiny.Activated((2, 1), (3, 0)) is (MossBlock.Situ(2, 3), 0)

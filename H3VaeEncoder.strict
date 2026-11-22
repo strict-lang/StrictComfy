@@ -51,7 +51,7 @@ Convolved(model Safetensors, name Text) Convolution native
 	Tiny.moments.weights(49) is Model.Values("quant_conv.weight")(49)
 	shape = model.Shape(name + ".weight")
 	taps = Last(model.Values(name + ".weight"), shape)
-	Convolution(shape(3) is 3 then Convolution.Rearranged(taps, shape(1), 3) else taps, model.Values(name + ".bias"))
+	Convolution(shape(3) is 3 then Convolution.Rearrange(taps, shape(1), 3) else taps, model.Values(name + ".bias"))
 Last(values Numbers, shape Numbers) Numbers
 	Tiny.Last((1, 2, 3, 4), (1, 1, 2, 1, 2)) is (3, 4)
 	plane = shape(3) * shape(4)
@@ -77,21 +77,21 @@ Moments(tile FeatureMap) FeatureMap native
 	for blocks
 		state = Block(value, state)
 		state = downsamples(index).biases.Length is 0 then state else Downsampled(downsamples(index), state)
-	moments.Projected(Reflected(exit, state, normOut.Affine(state), Activation.Swish))
+	moments.Project(Reflected(exit, state, normOut.Affine(state), Activation.Swish))
 Block(block FluxResnet, map FeatureMap) FeatureMap native
 	Tiny.Block(Tiny.blocks.First, Tile).values.Length is 3072
 	hidden = Reflected(block.first, map, block.firstNorm.Affine(map), Activation.Swish)
 	output = Reflected(block.second, hidden, block.secondNorm.Affine(hidden), Activation.Swish)
-	(block.shortcut.biases.Length is 0 then map else block.shortcut.Projected(map)).Plus(output)
+	(block.shortcut.biases.Length is 0 then map else block.shortcut.Project(map)).Plus(output)
 Downsampled(convolution Convolution, map FeatureMap) FeatureMap native
 	Tiny.Downsampled(Tiny.downsamples(0), Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear)).width is 16
-	full = convolution.Applied(Padded(map, (1, 1, 1, 1)), map.Identity, Activation.Linear)
+	full = convolution.Apply(Padded(map, (1, 1, 1, 1)), map.Identity, Activation.Linear)
 	Strided(full, (2, 2), (map.Height / 2, map.width / 2))
 Reflected(convolution Convolution, map FeatureMap, affine Numbers, activation Activation) FeatureMap native
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(0).IsNearlyEqual(Entry(0), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(31749).IsNearlyEqual(Entry(6112), 0.03)
 	Tiny.Reflected(Tiny.entry, Tile, Tile.Identity, Activation.Linear).Completed(32767).IsNearlyEqual(Entry(32767), 0.0001)
-	Strided(convolution.Applied(Padded(map, (1, 1, 1, 1)), affine, activation), (1, 1), (map.Height, map.width))
+	Strided(convolution.Apply(Padded(map, (1, 1, 1, 1)), affine, activation), (1, 1), (map.Height, map.width))
 Padded(map FeatureMap, sides Numbers) FeatureMap
 	Tiny.Padded(FeatureMap((1, 2), 2, 1, List(Number) + 3), (0, 0, 1, 0)).values is (2, 1, 2)
 	size = (map.Height, map.width, map.channels)

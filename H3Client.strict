@@ -10,13 +10,13 @@ Ran(given Texts) Number slow
 	arguments = given - MachineUse.Force
 	plain = Remote.Without(arguments)
 	rest = plain - Backend.Local
-	if Refused(Unparsed(rest))
+	if IsRefused(Unparsed(rest))
 		return 1
 	if MachineUse.IsChecked(arguments, root)
 		if IsGranted(arguments, MachineUse.IsForced(given)) is false
 			return 1
 	forwarded = Backended.Dispatched(plain)
-	forwarded >= 0 then forwarded else (H3Batch(H3Options.Parsed(rest)).Expanded(rest).Completed then 0 else 2)
+	forwarded >= 0 then forwarded else (H3Batch(H3Options.Parsed(rest)).Expanded(rest).IsCompleted then 0 else 2)
 Backended Backend
 	Sample.Backended.name is "H3Video"
 	Backend(Resident(root), "H3Video", coordinator)
@@ -27,24 +27,24 @@ Asked(arguments Texts, forced Boolean) Text slow
 	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
 IsGranted(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsGranted(List(Text), false) is not Error
-	named = Remote.Named(arguments)
+	named = Remote.RunRemote(arguments)
 	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
 	line = Asked(arguments, forced)
 	if line is ""
 		return true
-	reply = Coordinator(coordinator).Sent(line)
-	sent = Remote.Sent(arguments, "", reply, line)
+	reply = Coordinator(coordinator).Send(line)
+	sent = Remote.Send(arguments, "", reply, line)
 	if sent is Error or sent >= 0
 		return sent is 0
-	settled = reply.StartsWith("wait") then Coordinator(coordinator).Resolved(line) else reply
+	settled = reply.StartsWith("wait") then Coordinator(coordinator).Resolve(line) else reply
 	if settled.StartsWith("refused")
-		Use(arguments, forced).Explained(settled)
-	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).Checked)
-Refused(reply Text) Boolean
-	Sample.Refused("refused\tH3Video")
-	Sample.Refused("") is false
+		Use(arguments, forced).Explain(settled)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).HasRoom)
+IsRefused(reply Text) Boolean
+	Sample.IsRefused("refused\tH3Video")
+	Sample.IsRefused("") is false
 	if reply is not ""
 		logger.Log(reply)
 	reply is not ""

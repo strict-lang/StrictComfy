@@ -14,7 +14,7 @@ Run(arguments Texts) Number
 		Help
 		return 0
 	if "coordinator" is in arguments
-		return Coordinator.Served is Error then Backend.Failed else 0
+		return Coordinator.Serve is Error then Backend.Failed else 0
 	given = arguments - MachineUse.Force
 	if given.Length > 1 and given(0) is "encode"
 		return H3Image(H3ImageOptions.Parsed(given.Slice(2, given.Length - 2))).Encoded(given)
@@ -25,7 +25,7 @@ Help
 	logger.Log("A backend keeps the models loaded for the next runs, --local runs without it, 'H3Image stop' ends it")
 Unknown Number
 	H3Image.Unknown is 1
-	H3ImageServer.Sample.Refused(OptionsOnly) then 1 else 0
+	H3ImageServer.Sample.IsRefused(OptionsOnly) then 1 else 0
 Missing Text slow
 	Tiny.Missing.EndsWith("FileNotFound:" + H3ImageOptions.Base)
 	checkpoint = options.Checkpoint
@@ -95,7 +95,7 @@ Sampled(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds N
 		text = loaded.refiners.First.Refined(context.Values("context"))
 		latent = Generated(loaded.models.First, text, context.Values("tags"), value, loaded.references)
 		logger.Log("Image " + (index + 1) + "/" + seeds.Length + " sampled in " + (Process.Elapsed - before).Round(2) + " s")
-		GpuMemory.Finished
+		GpuMemory.Finish
 		latent
 Target Numbers slow
 	Tiny.Target is (64, 64) and Edit.Target is (1024, 2048)
@@ -114,7 +114,7 @@ Generated(model H3ImageModel, text Numbers, tags Numbers, seed Number, reference
 		solver = solver.Stepped(output, index)
 	solver.latent
 Saved(vae H3ImageVae, latents List(Numbers), outputs Texts) Texts slow
-	GpuMemory.Released
+	GpuMemory.Trim
 	GpuMemory.Freed(File(options.Decoder).Length + H3Files.DecodeRoom)
 	size = Target
 	for latents

@@ -11,15 +11,15 @@ Stepped StepTimes
 	StepTimes(stamps + GpuMemory.Stamped, times + Process.Elapsed, logged)
 IsDone(step Number) Boolean
 	Timed.IsDone(0)
-	StepTimes((0, 1, 2), Timed.times).IsDone(0) is (GpuMemory.Elapsed(0, 1) is not -1)
+	StepTimes((0, 1, 2), Timed.times).IsDone(0) is (GpuMemory.Elapse(0, 1) is not -1)
 	StepTimes((-1, 0, 1), Timed.times).IsDone(0) is false
 	StepTimes((0, 1, -1), Timed.times).IsDone(1)
-	stamps(step + 1) < 0 or GpuMemory.Elapsed(stamps(step), stamps(step + 1)) is not -1
+	stamps(step + 1) < 0 or GpuMemory.Elapse(stamps(step), stamps(step + 1)) is not -1
 Took(step Number) Number
 	Timed.Took(1) is 0.75
-	elapsed = GpuMemory.Elapsed(stamps(step), stamps(step + 1))
+	elapsed = GpuMemory.Elapse(stamps(step), stamps(step + 1))
 	elapsed < 0 then times(step + 1) - times(step) else elapsed / 1000
 Average(step Number) Number
 	Timed.Average(1) is 0.625
-	total = GpuMemory.Elapsed(stamps(0), stamps(step + 1))
+	total = GpuMemory.Elapse(stamps(0), stamps(step + 1))
 	(total < 0 then times(step + 1) - times(0) else total / 1000) / (step + 1)

@@ -28,7 +28,7 @@ VaeEncoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").VaeEncoder("tinyh3vae.safetensors", "a") is "tinyh3vae.safetensors"
 	ModelFiles(".").VaeEncoder("tinytaeh3.safetensors", "a") is Error("FileNotFound:a")
 	decoder = Decoder(vae, fallback)
-	decoder is Error or Taeh3Decoder.Is(decoder) is false then decoder else Located(fallback, "vae")
+	decoder is Error or Taeh3Decoder.IsTaeh3(decoder) is false then decoder else Located(fallback, "vae")
 Specs(loras Texts) Texts slow
 	ModelFiles("").Specs(List(Text) + "tinylora.safetensors:0.5") is ("tinylora.safetensors=0.5")
 	for loras
@@ -55,7 +55,7 @@ Prefetching(paths Texts, what Text) Text
 	ModelFiles("").Prefetching(List(Text) + "tinyqkvlora.safetensors", "LoRA") is "Reading LoRA (0 GB)" + Cached
 	mutable bytes = 0
 	for paths
-		bytes = bytes + TensorFile.Prefetched(value)
+		bytes = bytes + TensorFile.Prefetch(value)
 	bytes > 0 then "Reading " + what + " (" + (bytes / 1000000000).Round(1) + " GB)" + Cached else ""
 ComfyUI Text slow
 	ModelFiles(".").ComfyUI is "./.."

@@ -61,11 +61,11 @@ Read(socket Number) Numbers slow
 		pending = Socket.Pending(socket)
 		if pending > 0
 			bytes = bytes + Socket.Receive(socket, pending)
-		if Finished(bytes)
+		if IsFinished(bytes)
 			return bytes
 		Process.Wait(0.01)
 	bytes
-Finished(bytes Numbers) Boolean
+IsFinished(bytes Numbers) Boolean
 	end = HeaderEnd(bytes)
 	if end < 0
 		return false

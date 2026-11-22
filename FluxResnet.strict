@@ -21,9 +21,9 @@ Output(map FeatureMap) FeatureMap native
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.31808, 0.01)
 	Middle.Output(Input).Completed(383).IsNearlyEqual(0.60561, 0.01)
 	FluxResnet.Loaded(Model, "decoder.up.0.block.0.", 4).Output(Upsampled).Completed(256).IsNearlyEqual(-1.88429, 0.01)
-	hidden = first.Applied(map, firstNorm.Affine(map), Activation.Swish)
-	output = second.Applied(hidden, secondNorm.Affine(hidden), Activation.Swish)
-	(shortcut.biases.Length is 0 then map else shortcut.Projected(map)).Plus(output)
+	hidden = first.Apply(map, firstNorm.Affine(map), Activation.Swish)
+	output = second.Apply(hidden, secondNorm.Affine(hidden), Activation.Swish)
+	(shortcut.biases.Length is 0 then map else shortcut.Project(map)).Plus(output)
 Norm(model Safetensors, name Text, groups Number) GroupNorm slow
 	Middle.Norm(Model, "decoder.norm_out", 4).weights.Length is 8
 	GroupNorm(model.Values(name + ".weight"), model.Values(name + ".bias"), groups)
@@ -32,4 +32,4 @@ Convolved(model Safetensors, name Text) Convolution slow
 	Middle.Convolved(Safetensors("tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
 	shape = model.Shape(name + ".weight")
 	biases = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
-	Convolution(Convolution.Rearranged(model.Values(name + ".weight"), shape(1), shape(2)), biases)
+	Convolution(Convolution.Rearrange(model.Values(name + ".weight"), shape(1), shape(2)), biases)

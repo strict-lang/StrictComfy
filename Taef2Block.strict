@@ -28,18 +28,18 @@ Output(map FeatureMap) FeatureMap native
 	Pooling.Output(Entered).values(0).IsNearlyEqual(1.2786, 0.001)
 	Pooling.Output(Entered).values(1).IsNearlyEqual(0.02821, 0.001)
 	input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
-	first = convolutions(0).Applied(input, input.Identity, Activation.Linear)
-	second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
-	shortcut = skip.weights.Length is 0 then input else skip.Projected(input)
-	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
+	first = convolutions(0).Apply(input, input.Identity, Activation.Linear)
+	second = convolutions(1).Apply(first, first.Identity, Activation.Relu)
+	shortcut = skip.weights.Length is 0 then input else skip.Project(input)
+	Rectified(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
 Remembered(map FeatureMap, past FeatureMap) FeatureMap native
 	Taeh3Decoder.Tiny.blocks.First.Remembered(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
 	doubled = 2 * map.channels
 	joined = FeatureMap(Joined(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))
-	first = convolutions(0).Applied(joined, joined.Identity, Activation.Linear)
-	second = convolutions(1).Applied(first, first.Identity, Activation.Relu)
-	shortcut = skip.weights.Length is 0 then map else skip.Projected(map)
-	Rectified(convolutions(2).Applied(second, second.Identity, Activation.Relu).Plus(shortcut))
+	first = convolutions(0).Apply(joined, joined.Identity, Activation.Linear)
+	second = convolutions(1).Apply(first, first.Identity, Activation.Relu)
+	shortcut = skip.weights.Length is 0 then map else skip.Project(map)
+	Rectified(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
 Joined(own Numbers, past Numbers, channels Number) Numbers
 	Plain.Joined((1, 2, 3, 4), (5, 6, 7, 8), 2) is (1, 2, 5, 6, 3, 4, 7, 8)
 	doubled = 2 * channels
@@ -52,5 +52,5 @@ Rectified(map FeatureMap) FeatureMap
 	map.Applied(map.Identity, Activation.Relu)
 Pooled(map FeatureMap) FeatureMap slow
 	Pooling.Pooled(Entered).values.Length is 192
-	expanded = expand.Projected(map)
-	contract.Projected(expanded.Applied(norm.Affine(expanded), Activation.Relu))
+	expanded = expand.Project(map)
+	contract.Project(expanded.Applied(norm.Affine(expanded), Activation.Relu))

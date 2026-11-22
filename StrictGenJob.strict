@@ -41,21 +41,21 @@ Stamped(rows Texts) Texts
 Kept(rows Texts) None slow
 	StrictGenJob.Local(-9).Kept(List(Text) + "a") is not Error
 	File("StrictGenJob-" + current + ".timed").Write(Stamped(rows))
-Started(executable Text, mode Text, command Text) Boolean slow
+HasStarted(executable Text, mode Text, command Text) Boolean slow
 	words = command.Split("\n")
 	arguments = mode is "h3image" then words else words + "--preview" + preview
 	for (done, preview, log, "StrictGenJob-" + current + ".timed")
 		File(value).Delete
 	script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
 	File(script).Write(Script(executable, Quoted(arguments), log, done))
-	Spawned(script)
-Warmed(executable Text, command Text) Boolean slow
+	HasSpawned(script)
+HasWarmed(executable Text, command Text) Boolean slow
 	script = Process.OperatingSystem is "Windows" then "StrictGenWarm.cmd" else "StrictGenWarm.sh"
 	File(script).Write(Script(executable, Quoted(command.Split("\n") + "--warm"), WarmLog, WarmDone))
-	Spawned(script)
-Spawned(script Text) Boolean slow
+	HasSpawned(script)
+HasSpawned(script Text) Boolean slow
 	if Process.OperatingSystem is "Windows" is false
-		return Process.Find("sh").Started(script) is 0
+		return Process.Find("sh").Start(script) is 0
 	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").HasFailed is false
 Quoted(words Texts) Text
 	StrictGenJob.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""

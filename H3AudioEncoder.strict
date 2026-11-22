@@ -69,15 +69,15 @@ Block(signal Numbers, block Number, stride Number) Numbers slow
 		prefix = "encoder.block." + block + ".block." + index + ".block."
 		first = Snaked(state, model.Values(prefix + "0.alpha"))
 		second = Snaked(H3Conv.Loaded(model, prefix + "1", value).Output(first), model.Values(prefix + "2.alpha"))
-		state = Gpt2Block.Added(state, H3Conv.Loaded(model, prefix + "3", 1).Output(second))
+		state = Gpt2Block.Add(state, H3Conv.Loaded(model, prefix + "3", 1).Output(second))
 	name = "encoder.block." + block + ".block.4"
 	snake = Snaked(state, model.Values("encoder.block." + block + ".block.3.alpha"))
 	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, 64 * 2 ^ (block - 1))
 Projected(signal Numbers) Numbers slow
-	reduced = Linear(Gpt2Block.Added(signal, Attend(Norm(signal, "pre_block.norm1", 2048))), "pre_block.proj")
+	reduced = Linear(Gpt2Block.Add(signal, Attend(Norm(signal, "pre_block.norm1", 2048))), "pre_block.proj")
 	normed = Norm(reduced, "pre_block.norm2", 32)
-	widened = Gpt2Block.Added(Linear(normed, "pre_block.mlp.w0"), Linear(normed, "pre_block.mlp.w1"))
-	Linear(Gpt2Block.Added(reduced, Linear(widened, "pre_block.mlp.w2")), "mean_proj")
+	widened = Gpt2Block.Add(Linear(normed, "pre_block.mlp.w0"), Linear(normed, "pre_block.mlp.w1"))
+	Linear(Gpt2Block.Add(reduced, Linear(widened, "pre_block.mlp.w2")), "mean_proj")
 Norm(signal Numbers, name Text, channels Number) Numbers
 	weight = model.Values(name + ".weight")
 	bias = model.Values(name + ".bias")

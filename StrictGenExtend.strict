@@ -44,7 +44,7 @@ Prepare Text
 	Sample.Prepare is "strictgen-tail.latent.safetensors"
 	numbers = Ramp(10, 1) + Ramp(SampleAudio, SampleAudioStart)
 	shape = (1, 10, 1, 1, SampleAudio, SamplePixels)
-	Safetensors("strictgen-tail.latent.safetensors").Written(("latent", "shape"), (numbers, shape))
+	Safetensors("strictgen-tail.latent.safetensors").Write(("latent", "shape"), (numbers, shape))
 	"strictgen-tail.latent.safetensors"
 Tail(values Numbers, temporal Number, keep Number, plane Number) Numbers
 	Sample.Tail((1, 2, 3, 4, 5, 6, 7, 8), 4, 2, 1) is (3, 4, 7, 8)
@@ -109,7 +109,7 @@ Written(path Text, context Number) StrictGenExtend slow
 	if problem is not ""
 		return value
 	shape = (H3Format.Channels, frames, tall, wide, sound, context)
-	Safetensors(path).Written(("latent", "shape"), (video + audio, shape))
+	Safetensors(path).Write(("latent", "shape"), (video + audio, shape))
 	logger.Log("Kept the video context in " + path + " for the next extends")
 	value
 Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
@@ -127,5 +127,5 @@ Remembered(path Text, folder Text) Text slow
 	named.Length > 0 and named.First is path.Replace("\\", "/") and File(folder + Last).Exists then folder + Last else ""
 Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
 	shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
-	Safetensors(folder + Last).Written(("latent", "shape"), (latent, shape))
+	Safetensors(folder + Last).Write(("latent", "shape"), (latent, shape))
 	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))

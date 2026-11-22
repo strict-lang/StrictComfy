@@ -24,7 +24,7 @@ Encoding(files H3Files) H3Resident slow
 	if files.Encoder is encoderFile and encoders.Length is 1
 		return value
 	if isCrowded
-		GpuMemory.Released
+		GpuMemory.Trim
 	H3Resident(value, encoders = List(Qwen3) + Encoder(files), encoderFile = files.Encoder)
 Encoder(files H3Files) Qwen3 slow
 	None.Encoder(Files).blocks.Length is 2
@@ -43,7 +43,7 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	Sampled.Sampling("tinyh3.safetensors", "").model is Sampled.model
 	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
-	GpuMemory.Released
+	GpuMemory.Trim
 	h3 = H3Video.Loaded(checkpoint, loras)
 	refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))

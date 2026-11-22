@@ -88,14 +88,14 @@ Context(prompt Text, encoders List(Qwen3)) Numbers slow
 	batch.Encoded(encoder, ids, prompts).First
 Encoded(prompt Text, encoders List(Qwen3), hasRoom Boolean) Numbers slow
 	if hasRoom
-		GpuMemory.Released
+		GpuMemory.Trim
 	else
-		GpuMemory.Evicted
+		GpuMemory.Evict
 	context = Context(prompt, encoders)
 	if hasRoom
-		GpuMemory.Released
+		GpuMemory.Trim
 	else
-		GpuMemory.Evicted
+		GpuMemory.Evict
 	context
 Loaded(loras Text) Moss slow
 	started = Process.Elapsed

@@ -10,12 +10,12 @@ Listened(server Number) Number slow
 	mutable kept = H3Resident
 	mutable last = Process.Elapsed
 	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
-		socket = backend.resident.Accepted(server, built, Resident.WakeSeconds)
-		request = socket is not Error then backend.resident.Requested(socket) else ""
+		socket = backend.resident.Accept(server, built, Resident.WakeSeconds)
+		request = socket is not Error then backend.resident.ReadRequest(socket) else ""
 		kept = socket is not Error then Replied(socket, request, Trimmed(socket, request, kept)) else kept
 		last = socket is not Error then Process.Elapsed else last
-		kept = backend.Unpressed(socket is not Error) then kept else H3Resident(kept, code = Backend.Stopped)
-	backend.resident.Closed(server)
+		kept = backend.IsUnpressed(socket is not Error) then kept else H3Resident(kept, code = Backend.Stopped)
+	backend.resident.Close(server)
 	Backend.Clean
 Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
 	resident = backend.resident
@@ -44,7 +44,7 @@ Replied(socket Number, request Text, kept H3Resident) H3Resident slow
 	skipped = H3Resident(kept, code = isStopping then Backend.Stopped else -1)
 	served = isRunning then Ran(socket, request, kept) else skipped
 	isFailed = served is Error
-	closed = Ended(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	closed = HasEnded(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	isFailed or closed then H3Resident else served
 Claimed Text slow
 	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Claimed.EndsWith("9\n\n")
@@ -58,15 +58,15 @@ Claimed Text slow
 		File(backend.resident.Freed).Delete
 	File(backend.resident.Freed + ".9").Write("9")
 	Resident.Request(backend.resident.root, List(Text) + "test", "other", "9")
-Proved Boolean slow
-	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Proved
-	Ended(0, 1, Claimed) and File(backend.resident.Freed).Exists
-Ended(socket Number, code Number, request Text) Boolean slow
-	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).Ended(0, 1, "broken")
-	if backend.resident.Finished(socket, code) is Error
+IsProved Boolean slow
+	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).IsProved
+	HasEnded(0, 1, Claimed) and File(backend.resident.Freed).Exists
+HasEnded(socket Number, code Number, request Text) Boolean slow
+	H3Server(Backend(Resident("artifacts/h3drop"), "H3Video", Backend.Nowhere)).HasEnded(0, 1, "broken")
+	if backend.resident.Finish(socket, code) is Error
 		logger.Log("The H3Video client left before the result was sent")
-		return backend.Freed(request)
-	backend.Freed(request, false)
+		return backend.IsFreed(request)
+	backend.IsFreed(request, false)
 Ran(socket Number, request Text, kept H3Resident) H3Resident slow
 	home = Directory.Current
 	folder = backend.resident.Folder(request)
@@ -77,6 +77,6 @@ Ran(socket Number, request Text, kept H3Resident) H3Resident slow
 	served = H3Served(H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
-	unpressed = backend.Unpressed(true)
+	unpressed = backend.IsUnpressed(true)
 	backend.Restored(isMoved, home)
 	unpressed then served else H3Resident(kept, code = Backend.Stopped)

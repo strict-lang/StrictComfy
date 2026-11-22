@@ -21,5 +21,5 @@ Output(signal Numbers) Numbers native
 	mutable state = signal
 	for firsts
 		hidden = snakes(2 * index + 1).Output(value.Output(snakes(2 * index).Output(state)))
-		state = Gpt2Block.Added(state, seconds(index).Output(hidden))
+		state = Gpt2Block.Add(state, seconds(index).Output(hidden))
 	state

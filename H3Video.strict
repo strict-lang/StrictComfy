@@ -16,15 +16,15 @@ Run(arguments Texts) Number
 	if arguments.Length > 1 and arguments(0) is "encode"
 		return H3Encoding(arguments).Encoded
 	if arguments.Length > 1 and arguments(0) is "--commands"
-		return H3Commands(arguments(1), arguments.Slice(2, arguments.Length - 2)).Completed then 0 else 1
+		return H3Commands(arguments(1), arguments.Slice(2, arguments.Length - 2)).IsCompleted then 0 else 1
 	Routed(arguments)
 Routed(arguments Texts) Number slow
 	if Backend.IsServing(arguments)
 		return H3Client(H3Server.Root).Ran(arguments)
 	if "coordinator" is in arguments
-		return Coordinator.Served is Error then Backend.Failed else 0
-	arguments.Length < 2 then 2 else (Diagnosed(arguments) then 0 else 1)
-Diagnosed(arguments Texts) Boolean slow
+		return Coordinator.Serve is Error then Backend.Failed else 0
+	arguments.Length < 2 then 2 else (IsDiagnosed(arguments) then 0 else 1)
+IsDiagnosed(arguments Texts) Boolean slow
 	loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
 		Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
@@ -47,7 +47,7 @@ Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Tex
 		if conditions(index).Entry("decode") is not ""
 			decodings = Decoding(decodings, arguments.Slice(Positional.Split(" ").Length, 2))
 			decodings.First.Written(value, decodings.First.Shapes(conditions)(index), index)
-	GpuMemory.Evicted
+	GpuMemory.Evict
 	decodings
 Decoding(loaded List(H3Decoding), vaes Texts) List(H3Decoding) native
 	Tiny.Decoding(List(H3Decoding) + Decoders, ("missing.safetensors", "missing.safetensors")).Length is 1
@@ -97,9 +97,9 @@ Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text
 		steps = value.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else value
 		sampled = Generated(h3, value, H3Job(steps), texts(index), numbers, dumps)
 		file = dumps + "/" + (value.Entry("video") is "" then name else name + "-" + index)
-		Safetensors(file + "-latent.safetensors").Written("latent", sampled)
+		Safetensors(file + "-latent.safetensors").Write("latent", sampled)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
-		GpuMemory.Released
+		GpuMemory.Trim
 		file
 Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Numbers native
 	Tiny.Generated(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960

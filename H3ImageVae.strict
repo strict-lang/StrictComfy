@@ -17,7 +17,7 @@ IsDecoding(path Text) Boolean
 Decoding(path Text) H3ImageVae slow
 	Decoder.decoders.Length is 1 and Decoder.tinies.Length is 0
 	Tiny.tinies.Length is 1 and Tiny.decoders.Length is 0
-	if Taeh3Decoder.Is(path)
+	if Taeh3Decoder.IsTaeh3(path)
 		tiny = List(Taeh3Decoder) + Taeh3Decoder.Loaded(path)
 		return H3ImageVae(value, decoderFile = path, decoders = List(H3Vae), tinies = tiny)
 	vae = H3Vae(H3Decoder.Loaded(Safetensors(path, 32)), H3Tiles.Lean)

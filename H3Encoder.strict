@@ -29,7 +29,7 @@ EncodedWith(encoder Qwen3, tokens Gpt2Tokens, prompts Texts, images Texts, paths
 	loaded.Contexts(encoder, Tokens(tokens, prompts), images, paths, Pictures(Labels(tokens))).Length
 Loaded Qwen3 slow
 	Tiny.Loaded.blocks.Length is 2
-	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Loaded(H3Qwen.Theta)
+	QwenSafetensors(Safetensors(files.Encoder, 32, "model."), 0, 0, 0, "Loading text encoder").Load(H3Qwen.Theta)
 Visions List(QwenVision) slow
 	Tiny.Visions.Length is 0
 	Seeing.Visions.Length is 1
@@ -45,8 +45,8 @@ Contexts(encoder Qwen3, chosen List(Numbers), images Texts, paths Texts, picture
 		prompt = "prompt " + (index + 1) + "/" + paths.Length
 		logger.Log("Encoding " + prompt + " on the GPU" + (index is 0 then ", uploading the text encoder into VRAM" else ""))
 		hidden = Hidden(Qwen3(encoder, progress = "Encoding " + prompt), texts, images(index))
-		GpuMemory.Finished
-		Safetensors(value).Written(("context", "tags"), (hidden, Tags(texts, hidden.Length / encoder.norm.Length)))
+		GpuMemory.Finish
+		Safetensors(value).Write(("context", "tags"), (hidden, Tags(texts, hidden.Length / encoder.norm.Length)))
 		hidden.Length
 Texts(pictures List(Numbers), chosen Numbers) List(Numbers)
 	Tiny.Texts(List(Numbers), (1, 2)) is List(Numbers) + (1, 2)
@@ -58,7 +58,7 @@ Hidden(encoder Qwen3, texts List(Numbers), image Text) Numbers native
 	if texts.Length is 1
 		return encoder.Prefilled(texts.First, 0).hidden
 	seen = Seen(image)
-	Qwen3Images(encoder, visions.First).Prefilled(texts, Frames(image, seen), seen(0), seen(1)).hidden
+	Qwen3Images(encoder, visions.First).Prefill(texts, Frames(image, seen), seen(0), seen(1)).hidden
 Frames(image Text, seen Numbers) List(Numbers) slow
 	Tiny.Frames("", Tiny.frame).Length is 0
 	Framed.Frames("tinyframe.png", (3, 3)).Length is 2
@@ -66,7 +66,7 @@ Frames(image Text, seen Numbers) List(Numbers) slow
 	Framed.Frames("tinyframe.png", (3, 3))(1)(2).IsNearlyEqual(16 / 255)
 	for (image, files.lastImage)
 		if value is not ""
-			H3Picture.Framed(value, frame, seen, files.Cropped(index))
+			H3Picture.Framed(value, frame, seen, files.IsCropped(index))
 Pictures(labels List(Numbers)) List(Numbers)
 	Both.Pictures(((1, 2), (3, 4)))(1) is (151653, 3, 4, 151652)
 	Both.Pictures(((1, 2), (3, 4))) is ((1, 2, 151652), (151653, 3, 4, 151652))
@@ -77,11 +77,11 @@ Labels(tokens Gpt2Tokens) List(Numbers)
 	Both.Labels(Spelled) is ((0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 8), (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 8))
 	H3Encoder(Both, label = "Picture #: ").Labels(Spelled).Last is (1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 8)
 	for files.Images
-		tokens.Encoded(label.Replace("#", (index + 1) to Text))
+		tokens.Encode(label.Replace("#", (index + 1) to Text))
 Tokens(tokens Gpt2Tokens, prompts Texts) List(Numbers)
 	Tiny.Tokens(Gpt2Tokens.Folder("../Strict/NeuralNetworks/tinytokens"), ("ab", "")) is ((3), (151643))
 	for prompts
-		chosen = tokens.Encoded(value)
+		chosen = tokens.Encode(value)
 		chosen.Length is 0 then List(Number) + H3Qwen.EndOfText else chosen
 Tags(texts List(Numbers), total Number) Numbers
 	Tiny.Tags(List(Numbers) + (5, 6), 2) is (1, 1)

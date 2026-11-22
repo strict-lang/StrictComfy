@@ -70,15 +70,15 @@ Entered(latent Numbers, width Number) FeatureMap native
 	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
 	channels = means.Length / 4
 	patches = FeatureMap(Unpatchified(Denormalized(latent), width, channels), 2 * width, channels, Layer.Zeros(channels))
-	quantized = convolutions(0).Projected(patches)
-	convolutions(1).Applied(quantized, quantized.Identity, Activation.Linear)
+	quantized = convolutions(0).Project(patches)
+	convolutions(1).Apply(quantized, quantized.Identity, Activation.Linear)
 Decoded(latent Numbers, width Number) Numbers native
 	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.7881, 0.02)
 	Tiny.Decoded(Latent, 2)(96).IsNearlyEqual(0.9225, 0.02)
 	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.001)
 	entered = Entered(latent, width)
 	upsampled = Upsampled(middle(1).Output(attention.Output(middle(0).Output(entered))))
-	for convolutions(2).Applied(upsampled, normOut.Affine(upsampled), Activation.Swish).Completed
+	for convolutions(2).Apply(upsampled, normOut.Affine(upsampled), Activation.Swish).Completed
 		((value + 1) / 2).Clamp
 Upsampled(map FeatureMap) FeatureMap slow
 	Last.Applied(Tiny.normOut.Affine(Last), Activation.Linear).values(0).IsNearlyEqual(0.38452, 0.02)
@@ -88,5 +88,5 @@ Upsampled(map FeatureMap) FeatureMap slow
 	for blocks
 		state = value.Output(state)
 		if index % perLevel is perLevel - 1 and index < blocks.Length - 1
-			state = upsamples((index / perLevel).Floor).Doubled(state)
+			state = upsamples((index / perLevel).Floor).Double(state)
 	state

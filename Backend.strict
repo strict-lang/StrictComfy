@@ -35,7 +35,7 @@ Dispatched(arguments Texts) Number slow
 	Sample.Dispatched(List(Text) + Local) is -1
 	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
-		return Forwarding(resident.root, coordinator).Forwarded(List(Text) + Resident.Stopping)
+		return Forwarding(resident.root, coordinator).Forward(List(Text) + Resident.Stopping)
 	Gpu.Require(name)
 	if Local is in arguments
 		return Unserved
@@ -49,12 +49,12 @@ Attempted(arguments Texts) Number slow
 	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return Unserved
 	forwarding = Forwarding(resident.root)
-	if isRunning is false and Rooted
+	if isRunning is false and IsRooted
 		logger.Log("Starting the " + name + KeepsModels)
-		if forwarding.Started("") is Error
+		if forwarding.Start("") is Error
 			return Unserved
 	port = Waited(StartSeconds)
-	answered = port > 0 then forwarding.Answered(resident, port, arguments) else Forwarding.Unserved
+	answered = port > 0 then forwarding.ForwardAnswer(resident, port, arguments) else Forwarding.Unserved
 	failed = port is Gone then Crashed else Unserved
 	answered is Forwarding.Unserved then failed else (answered is Forwarding.Ended then Crashed else answered)
 Waited(seconds Number) Number slow
@@ -83,8 +83,8 @@ Cleared Number slow
 	objects = resident.root + "/obj"
 	forwarding = Forwarding(resident.root)
 	killed = forwarding.Killed
-	forwarding.Kept(objects, Forwarding.Output)
-	forwarding.Kept(objects, Forwarding.Errors)
+	forwarding.Keep(objects, Forwarding.Output)
+	forwarding.Keep(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
 	kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
 	if kept is 0 and Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors) is 0
@@ -109,9 +109,9 @@ Paused(checked Number) Numbers slow
 	(0, checked)
 Opened Number slow
 	Gpu.Require(name)
-	Rooted then resident.Opened else Error("NotRooted")
-Rooted Boolean slow
-	Sample.Rooted
+	IsRooted then resident.Opened else Error("NotRooted")
+IsRooted Boolean slow
+	Sample.IsRooted
 	parent = Path(resident.root).PathOnly.text
 	objects = resident.root + "/obj"
 	if Directory.Exists(parent) is false
@@ -149,19 +149,19 @@ Restored(isMoved Boolean, home Text) slow
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)
-Unpressed(isBusy = false) Boolean slow
-	Sample.Unpressed and Sample.Unpressed(true)
+IsUnpressed(isBusy = false) Boolean slow
+	Sample.IsUnpressed and Sample.IsUnpressed(true)
 	available = GpuMemory.Available
 	if isBusy is false and available > 0 and available < LowDevice
-		GpuMemory.Yielded
-	reply = Coordinator(coordinator).Sent("holding\t0\t" + GpuMemory.Held)
+		GpuMemory.Yield
+	reply = Coordinator(coordinator).Send("holding\t0\t" + GpuMemory.Held)
 	if reply is "free"
-		GpuMemory.Yielded
+		GpuMemory.Yield
 	reply is not "exit"
-Freed(request Text, isGone = true) Boolean slow
-	Sample.Freed("broken")
-	Sample.Freed("broken", false) is false
+IsFreed(request Text, isGone = true) Boolean slow
+	Sample.IsFreed("broken")
+	Sample.IsFreed("broken", false) is false
 	if isGone
-		GpuMemory.Yielded
-	resident.Released(request)
-	Coordinator(coordinator).Sent("done") is "exit" or isGone
+		GpuMemory.Yield
+	resident.FreePort(request)
+	Coordinator(coordinator).Send("done") is "exit" or isGone

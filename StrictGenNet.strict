@@ -112,7 +112,7 @@ Chosen(mode Text, pin Text) Text
 	if pin is "local"
 		return Fits(mode, total) then "local" else "none"
 	if pin is not "" and pin is not "any"
-		return Pinned(mode, pin) then pin else "none"
+		return IsPinned(mode, pin) then pin else "none"
 	seenGpu is false then "local" else Automatic(mode)
 Automatic(mode Text) Text
 	Roomy.Automatic("video") is "local"
@@ -147,7 +147,7 @@ IsLarge(mode Text) Boolean
 	Idle.IsLarge("extend") and Idle.IsLarge("h3image")
 	Idle.IsLarge("image") is false
 	mode is "video" or mode is "extend" or mode is "imagevideo" or mode is "h3image"
-Pinned(mode Text, address Text) Boolean
+IsPinned(mode Text, address Text) Boolean
 	for peers
 		if Address(value) is address
 			return Fits(mode, value.Split(Tab)(2) to Number)

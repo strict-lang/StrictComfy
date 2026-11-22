@@ -41,7 +41,7 @@ Stacked(model Safetensors, name Text) Convolution native
 	Tiny.Stacked(H3VaeEncoder.Model, "encoder.conv_out").biases.Length is 48
 	shape = model.Shape(name + ".weight")
 	spread = Spread(model.Values(name + ".weight"), shape)
-	Convolution(Convolution.Rearranged(spread, shape(1) * Taps, 3), model.Values(name + ".bias"))
+	Convolution(Convolution.Rearrange(spread, shape(1) * Taps, 3), model.Values(name + ".bias"))
 Spread(values Numbers, shape Numbers) Numbers native
 	Tiny.Spread((1, 2, 3, 4, 5, 6), (1, 2, 3, 1, 1)) is (1, 4, 2, 5, 3, 6)
 	plane = shape(3) * shape(4)
@@ -103,7 +103,7 @@ Downsampled(convolution Convolution, states List(FeatureMap), stride Number) Lis
 	for ((states.Length - 1) / stride).Floor + 1
 		joined = Joined(states, index * stride)
 		affine = Affines(affines, index * stride, states.First.channels)
-		full = convolution.Applied(encoder.Padded(joined, (1, 1, 1, 1)), affine, Activation.Linear)
+		full = convolution.Apply(encoder.Padded(joined, (1, 1, 1, 1)), affine, Activation.Linear)
 		outputs = outputs + encoder.Strided(full, (2, 2), (joined.Height / 2, joined.width / 2))
 	outputs
 Identities(states List(FeatureMap)) List(Numbers) native
@@ -116,7 +116,7 @@ Block(at Number, states List(FeatureMap)) List(FeatureMap) slow
 	mutable outputs = List(FeatureMap)
 	for Temporal(seconds(at), hidden, block.secondNorm, true, Activation.Swish)
 		source = states(index)
-		outputs = outputs + (block.shortcut.biases.Length is 0 then source else block.shortcut.Projected(source)).Plus(value)
+		outputs = outputs + (block.shortcut.biases.Length is 0 then source else block.shortcut.Project(source)).Plus(value)
 	outputs
 Moments(frames List(FeatureMap)) List(Numbers) native
 	Tiny.Moments((H3VaeEncoder.Tile, H3VaeEncoder.Tile)).Length is 1
@@ -127,4 +127,4 @@ Moments(frames List(FeatureMap)) List(Numbers) native
 		downsample = downsamples(index)
 		states = downsample.biases.Length is 0 then states else Downsampled(downsample, states, strides(index))
 	for Temporal(exit, states, encoder.normOut, true, Activation.Swish)
-		encoder.moments.Projected(value).Completed
+		encoder.moments.Project(value).Completed

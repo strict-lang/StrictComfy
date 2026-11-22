@@ -51,15 +51,15 @@ IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(3) is false
 	step > warmup and step < steps - 1
 Stepped(solver Solver, step Number, job H3Job) Solver
-	Safetensors("h3preview.safetensors").Written("preview", (1, 1)) is not Error
-	Safetensors("h3preview-step6.safetensors").Written("video", (7, 7)) is not Error
+	Safetensors("h3preview.safetensors").Write("preview", (1, 1)) is not Error
+	Safetensors("h3preview-step6.safetensors").Write("video", (7, 7)) is not Error
 	Previewed.latent(1).IsNearlyEqual(2 - 5 / 24 * 4)
 	Safetensors("h3preview-step6.safetensors").Values("video")(1).IsNearlyEqual(-0.5)
 	H3Spectrum(Tiny, output = (0, 0)).Stepped(Solver(Solver.Toy, kind = 6), 1, H3Job.Noisy).latent(0) is -0.842754
 	stepped = solver.Stepped(output, step, 0, job.Noise("video", step))
 	path = job.Preview(step)
 	if path is not ""
-		Safetensors(path).Written("video", stepped.denoised)
+		Safetensors(path).Write("video", stepped.denoised)
 	stepped
 Remembered(coord Number, anchor Numbers) H3Spectrum slow
 	Started.Remembered(0.8, Started.output).anchors.Length is 2

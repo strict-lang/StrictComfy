@@ -54,10 +54,10 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
 Shadowed(image Numbers, coord Number) None
 	if mode is "shadow" and history.IsReady
-		error = MossImage.RelativeError(history.Predicted(coord), image)
+		error = MossImage.RelativeError(history.Predict(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
 Forecast(moss Moss, vector Numbers, step Number) MossSpectrum
-	MossSpectrum(value, output = moss.Head(history.Predicted(Coord(step)), vector), forecasts = forecasts + 1)
+	MossSpectrum(value, output = moss.Head(history.Predict(Coord(step)), vector), forecasts = forecasts + 1)
 NeedsHistory(step Number) Boolean slow
 	Primed.NeedsHistory(5)
 	Primed.NeedsHistory(6) is false

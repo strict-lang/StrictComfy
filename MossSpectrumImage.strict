@@ -19,7 +19,7 @@ Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup
 	logger.Log("latent error " + MossImage.RelativeError(latent, data.Values("latent")))
 	sized = MossImage(data.Shape("noise").Last)
 	path = dumps + "/moss-spectrum-" + mode + ".png"
-	if MossFiles.FailedNumber(sized.Saved(latent, data, FluxDecoder.Loaded(vae, 32), path))
+	if MossFiles.IsFailedNumber(sized.Saved(latent, data, FluxDecoder.Loaded(vae, 32), path))
 		logger.Log("Saving the Moss spectrum image failed")
 Generated(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Number, period Number, degree Number) Numbers
 	data = Safetensors(dumps + "/steps.safetensors", 64)

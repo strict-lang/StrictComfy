@@ -47,7 +47,7 @@ Loras Text slow
 	Text.Combine(ModelFiles(models).Specs(lora), ";")
 Files H3Files
 	H3ImageOptions.Parsed(("--image", "a.png")).Files.Images is ("a.png")
-	H3ImageOptions.Parsed(("--image", "a.png")).Files.Cropped(0) is false
+	H3ImageOptions.Parsed(("--image", "a.png")).Files.IsCropped(0) is false
 	H3ImageOptions.Parsed(("--image", "a.png")).Files.vision is "off"
 	H3Files(textEncoder = textEncoder, models = models, image = image, crop = false, vision = "off")
 Prompted Text slow

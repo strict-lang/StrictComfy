@@ -56,10 +56,10 @@ Logged(seen StepTimes, waiting Boolean) Number slow
 			Process.Wait(StepTimes.Pause)
 	count
 Progressed(step Number, started Number, previous Number, latent Numbers, output Numbers, sigma Number) Number slow
-	GpuMemory.Finished
+	GpuMemory.Finish
 	now = Process.Elapsed
 	logger.Log(Progress(step, now - previous, (now - started) / (step + 1)))
-	if preview is "" or Previewing(step, now - previous) is false
+	if preview is "" or IsPreviewing(step, now - previous) is false
 		return now
 	pixels = previewer.Previewed(Denoised(latent, output, sigma), width)
 	part = preview + ".part"
@@ -68,14 +68,14 @@ Progressed(step Number, started Number, previous Number, latent Numbers, output 
 		File(preview).Delete
 	File(part).Rename(preview)
 	Process.Elapsed
-Previewing(step Number, took = Shown) Boolean
-	MossSampling.Previewing(0, 0.1) and MossSampling.Previewing(4, 0.1)
-	MossSampling.Previewing(1, 0.1) is false and MossSampling.Previewing(5, 0.1) is false
-	MossSampling.Previewing(6, 0.1) and MossSampling(finale = true).Previewing(7, 0.1)
-	MossSampling.Previewing(1) and MossSampling.Previewing(6, 2)
-	MossSampling.Previewing(7) is false and MossSampling.Previewing(7, 0.1) is false
-	MossSampling(steps = 4).Previewing(2, 0.1) and MossSampling(steps = 4).Previewing(3, 0.1) is false
-	MossSampling(steps = 2).Previewing(0, 0.1) and MossSampling(steps = 2).Previewing(1, 0.1) is false
+IsPreviewing(step Number, took = Shown) Boolean
+	MossSampling.IsPreviewing(0, 0.1) and MossSampling.IsPreviewing(4, 0.1)
+	MossSampling.IsPreviewing(1, 0.1) is false and MossSampling.IsPreviewing(5, 0.1) is false
+	MossSampling.IsPreviewing(6, 0.1) and MossSampling(finale = true).IsPreviewing(7, 0.1)
+	MossSampling.IsPreviewing(1) and MossSampling.IsPreviewing(6, 2)
+	MossSampling.IsPreviewing(7) is false and MossSampling.IsPreviewing(7, 0.1) is false
+	MossSampling(steps = 4).IsPreviewing(2, 0.1) and MossSampling(steps = 4).IsPreviewing(3, 0.1) is false
+	MossSampling(steps = 2).IsPreviewing(0, 0.1) and MossSampling(steps = 2).IsPreviewing(1, 0.1) is false
 	early = took >= Shown or step is 0 or step is (steps / 2).Floor or step is steps - 2
 	step >= steps - 1 then finale else early
 Progress(step Number, last Number, average Number) Text

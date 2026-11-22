@@ -26,9 +26,9 @@ Loaded(path Text) Taeh3Decoder slow
 	model = Safetensors(path, 32, "decoder.")
 	entered = FluxResnet.Convolved(model, "1")
 	Taeh3Decoder(entered, Blocks(model), Grows(model), Narrows(model), FluxResnet.Convolved(model, "22"))
-Is(path Text) Boolean
-	Taeh3Decoder.Is(Path)
-	Taeh3Decoder.Is("tinytaef2.safetensors") is false
+IsTaeh3(path Text) Boolean
+	Taeh3Decoder.IsTaeh3(Path)
+	Taeh3Decoder.IsTaeh3("tinytaef2.safetensors") is false
 	Safetensors(path).Entry("decoder.22.weight") is not ""
 Blocks(model Safetensors) List(Taef2Block) slow
 	Tiny.Blocks(Model)(8).convolutions.Length is 3
@@ -51,10 +51,10 @@ Decoded(latent Numbers, width Number) Numbers slow
 Patched(latent Numbers, width Number) Numbers native
 	Tiny.Patched(Latent, 3).Length is 4608
 	first = Passed(List(FeatureMap) + Entered(latent, width), 0).First
-	second = Passed(List(FeatureMap) + narrows(0).Doubled(Grown(first, 0, 0)), 1).First
-	pair = List(FeatureMap) + narrows(1).Doubled(Grown(second, 1, 0)) + narrows(1).Doubled(Grown(second, 1, 1))
-	final = narrows(2).Doubled(Grown(Passed(pair, 2).Last, 2, 1))
-	exit.Applied(final, final.Identity, Activation.Relu).Completed
+	second = Passed(List(FeatureMap) + narrows(0).Double(Grown(first, 0, 0)), 1).First
+	pair = List(FeatureMap) + narrows(1).Double(Grown(second, 1, 0)) + narrows(1).Double(Grown(second, 1, 1))
+	final = narrows(2).Double(Grown(Passed(pair, 2).Last, 2, 1))
+	exit.Apply(final, final.Identity, Activation.Relu).Completed
 Frames(latent Numbers, shape Numbers) Numbers slow
 	Video.Length is 5 * Pixels.Length and Video.Sum.IsNearlyEqual(1035.427, 0.5)
 	Video(286).IsNearlyEqual(0.2415, 0.002) and Video(9064).IsNearlyEqual(0.2667, 0.002)
@@ -64,8 +64,8 @@ Frames(latent Numbers, shape Numbers) Numbers slow
 	mutable frames = List(Number)
 	for completion.total
 		if index % ChunkFrames >= TrimmedFrames
-			final = narrows(2).Doubled(Grown(third((index / 2).Floor), 2, index % 2))
-			frames = frames + Shuffled(exit.Applied(final, final.Identity, Activation.Relu).Completed, final.width, false)
+			final = narrows(2).Double(Grown(third((index / 2).Floor), 2, index % 2))
+			frames = frames + Shuffled(exit.Apply(final, final.Identity, Activation.Relu).Completed, final.width, false)
 		completion.Report(index + 1)
 	frames
 Inputs(latent Numbers, shape Numbers) List(FeatureMap) slow
@@ -81,7 +81,7 @@ Entered(latent Numbers, width Number) FeatureMap slow
 	Started.channels is 8
 	clamped = Taef2Decoder.None.Clamped(Moss.Transposed(latent, Channels))
 	map = FeatureMap(clamped, width, Channels, Layer.Zeros(Channels))
-	Taef2Block.Rectified(entry.Applied(map, map.Identity, Activation.Linear))
+	Taef2Block.Rectified(entry.Apply(map, map.Identity, Activation.Linear))
 Passed(maps List(FeatureMap), group Number) List(FeatureMap) native
 	Tiny.Passed(List(FeatureMap) + Started, 0).First.channels is 8
 	Tiny.Passed(List(FeatureMap) + Narrow + Narrow, 2).Last.values.Length is 16
@@ -98,13 +98,13 @@ Expanded(maps List(FeatureMap), which Number) List(FeatureMap) slow
 	Tiny.Expanded(List(FeatureMap) + Started, 1).Length is 2
 	stride = which is 0 then 1 else 2
 	for maps.Length * stride
-		narrows(which).Doubled(Grown(maps((index / stride).Floor), which, index % stride))
+		narrows(which).Double(Grown(maps((index / stride).Floor), which, index % stride))
 Empty(map FeatureMap) FeatureMap
 	Tiny.Empty(Started).values is Layer.Zeros(48)
 	FeatureMap(Layer.Zeros(map.values.Length), map.width, map.channels, Layer.Zeros(map.channels))
 Grown(map FeatureMap, which Number, frame Number) FeatureMap slow
 	Tiny.Grown(Started, 1, 1).channels is 8
-	grown = grows(which).Projected(map).Completed
+	grown = grows(which).Project(map).Completed
 	channels = map.channels
 	total = grows(which).biases.Length
 	FeatureMap(Picked(grown, total, frame * channels, channels), map.width, channels, Layer.Zeros(channels))
