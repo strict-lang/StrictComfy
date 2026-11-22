@@ -2,7 +2,7 @@ has decoder H3Decoder
 has tiling H3Tiles
 constant Model = Safetensors("tinyh3vae.safetensors", 32, "reference.")
 constant Tiny = H3Vae(H3Decoder.Tiny, H3Tiles.Tiny)
-constant Pixels = Tiny.Decoded(Model.Values("latent"), (12, 3, 4))
+constant Pixels = Tiny.Decode(Model.Values("latent"), (12, 3, 4))
 constant Mean = (0.485, 0.456, 0.406)
 constant Deviation = (0.229, 0.224, 0.225)
 constant Tokens = 5
@@ -22,19 +22,19 @@ constant LatentDeviations = LatentDeviations1 + LatentDeviations2 + LatentDeviat
 constant Image = Safetensors("tinyh3imagevae.safetensors", 32)
 constant Picture = H3Vae(H3Decoder.Still, H3Tiles.Tiny)
 constant StillPixels = Picture.Still(Image.Values("reference.latent"), 3, 4)
-Decoded(latent Numbers, shape Numbers) Numbers native
+Decode(latent Numbers, shape Numbers) Numbers native
 	Pixels.Length is 359424 and Pixels(15000).IsNearlyEqual(0.7706, 0.01) and Pixels(359423).IsNearlyEqual(0.486, 0.01)
-	latents = decoder.Denormalized(latent)
+	latents = decoder.Denormalize(latent)
 	mutable frames = List(Number)
 	mutable shared = List(Number)
 	completion = Completion("Decoding video", (shape(0) + Dropped) / Tokens - 1, Process.Elapsed)
 	for completion.total
 		window = decoder.Cut(latents, shape, (index * Tokens, Tokens + Shared, 0, shape(1), 0, shape(2)))
 		canvas = Canvas(window, shape(1), shape(2))
-		frames = frames + Finished(canvas, shared, Padding, Tokens * Ratio - Padding)
+		frames = frames + Finish(canvas, shared, Padding, Tokens * Ratio - Padding)
 		shared = canvas
 		completion.Report(index + 1)
-	frames + Finished(shared, List(Number), Tokens * Ratio + Padding, Blended)
+	frames + Finish(shared, List(Number), Tokens * Ratio + Padding, Blended)
 Statistics(model Safetensors) List(Numbers)
 	H3Vae.Statistics(Image)(1) is LatentDeviations
 	H3Vae.Statistics(Image)(0)(23) is H3Vae.Statistics(H3Decoder.Model)(0)(23)
@@ -44,18 +44,18 @@ Statistics(model Safetensors) List(Numbers)
 Still(latent Numbers, height Number, width Number) Numbers native
 	StillPixels(0).IsNearlyEqual(Image.Values("reference.pixels")(0), 0.01)
 	MossImage.RelativeError(StillPixels, Image.Values("reference.pixels")) < 0.01
-	canvas = Canvas(decoder.Denormalized(latent), height, width, 1)
+	canvas = Canvas(decoder.Denormalize(latent), height, width, 1)
 	plane = canvas.Length / 3
 	for canvas
 		(value * Deviation((index / plane).Floor) + Mean((index / plane).Floor)).Clamp(0, 1)
-Finished(canvas Numbers, previous Numbers, first Number, count Number) Numbers slow
-	Tiny.Finished(Layer.Zeros(84), List(Number), 0, 1) is Mean
+Finish(canvas Numbers, previous Numbers, first Number, count Number) Numbers slow
+	Tiny.Finish(Layer.Zeros(84), List(Number), 0, 1) is Mean
 	older = previous.Length > 0
 	shape = (first, count, Blended, (older then Tokens * Ratio + Padding else first), (Tokens + Shared) * Ratio)
-	Mixed(canvas, older then previous else canvas, shape, Mean + Deviation)
-Mixed(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Numbers slow
-	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(84), (0, 1, 5, 0, 28), Mean + Deviation) is Mean
-	Tiny.Mixed(Layer.Zeros(84), Layer.Zeros(23) + 1 + 1 + Layer.Zeros(59), (0, 2, 5, 23, 28), (0, 0, 0, 1, 1, 1))(3) is 0.8
+	Mix(canvas, older then previous else canvas, shape, Mean + Deviation)
+Mix(canvas Numbers, source Numbers, shape Numbers, colors Numbers) Numbers slow
+	Tiny.Mix(Layer.Zeros(84), Layer.Zeros(84), (0, 1, 5, 0, 28), Mean + Deviation) is Mean
+	Tiny.Mix(Layer.Zeros(84), Layer.Zeros(23) + 1 + 1 + Layer.Zeros(59), (0, 2, 5, 23, 28), (0, 0, 0, 1, 1, 1))(3) is 0.8
 	plane = canvas.Length / 3 / shape(4)
 	for shape(1) * plane * 3
 		channel = index % 3

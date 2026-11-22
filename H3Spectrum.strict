@@ -13,7 +13,7 @@ constant Audio = H3.Model.Values("audio")
 constant Started = H3Spectrum.Tiny.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 0)
 constant Recalled = Started.Remembered(0.8, Started.output * 3)
 constant Held = H3Spectrum.Started.Advanced(H3.Tiny, Video, Audio, 0.75, H3.Prompt, H3Layout.Tiny, List(Number), H3.Turned, 1)
-constant Previewed = H3Spectrum(8, SpectralFit.Line, output = (2, 4)).Stepped(Solver(0, Euler(8, 5).Sigmas, (1, 2)), 6, H3Job(Safetensors("h3preview.safetensors")))
+constant Previewed = H3Spectrum(8, SpectralFit.Line, output = (2, 4)).Step(Solver(0, Euler(8, 5).Sigmas, (1, 2)), 6, H3Job(Safetensors("h3preview.safetensors")))
 IsActual(step Number) Boolean slow
 	Tiny.IsActual(0)
 	Tiny.IsActual(1)
@@ -33,7 +33,7 @@ Remembers(step Number) Boolean
 Coord(sigma Number, layout H3Layout) Number
 	Tiny.Coord(1, H3Layout.Tiny) is -1
 	Tiny.Coord(0, H3Layout.Tiny) is 1
-	1 - 2 * layout.Unshifted(sigma)
+	1 - 2 * layout.Unshift(sigma)
 Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers, step Number) H3Spectrum slow
 	MossImage.RelativeError(Started.output, H3.Forward) < 0.005
 	Started.coords.Length is 1
@@ -41,7 +41,7 @@ Advanced(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layou
 	Held.anchors.Length is 1
 	MossImage.RelativeError(Held.output, H3.Forward) < 0.005
 	if IsActual(step) is false
-		return H3Spectrum(value, output = Predicted(Coord(sigma, layout)), forecasts = forecasts + 1)
+		return H3Spectrum(value, output = Predict(Coord(sigma, layout)), forecasts = forecasts + 1)
 	evaluated = span.Evaluated(h3, latent, sound, sigma, text, layout, conditions, rotation, IsSpanning(step))
 	kept = Remembers(step) then Remembered(Coord(sigma, layout), evaluated.output) else value
 	H3Spectrum(kept, output = evaluated.output, span = evaluated)
@@ -50,12 +50,12 @@ IsSpanning(step Number) Boolean
 	Tiny.IsSpanning(2)
 	Tiny.IsSpanning(3) is false
 	step > warmup and step < steps - 1
-Stepped(solver Solver, step Number, job H3Job) Solver
+Step(solver Solver, step Number, job H3Job) Solver
 	Safetensors("h3preview.safetensors").Write("preview", (1, 1)) is not Error
 	Safetensors("h3preview-step6.safetensors").Write("video", (7, 7)) is not Error
 	Previewed.latent(1).IsNearlyEqual(2 - 5 / 24 * 4)
 	Safetensors("h3preview-step6.safetensors").Values("video")(1).IsNearlyEqual(-0.5)
-	H3Spectrum(Tiny, output = (0, 0)).Stepped(Solver(Solver.Toy, kind = 6), 1, H3Job.Noisy).latent(0) is -0.842754
+	H3Spectrum(Tiny, output = (0, 0)).Step(Solver(Solver.Toy, kind = 6), 1, H3Job.Noisy).latent(0) is -0.842754
 	stepped = solver.Stepped(output, step, 0, job.Noise("video", step))
 	path = job.Preview(step)
 	if path is not ""
@@ -67,13 +67,13 @@ Remembered(coord Number, anchor Numbers) H3Spectrum slow
 	kept = anchors.Length.Clamp(0, fit.degree)
 	start = anchors.Length - kept
 	H3Spectrum(value, coords = coords.Slice(start, kept) + coord, anchors = anchors.Slice(start, kept) + anchor)
-Predicted(coord Number) Numbers slow
-	Started.Predicted(0).Length is 960
-	MossImage.RelativeError(Recalled.Predicted(1), Started.output * 5) < 0.000001
+Predict(coord Number) Numbers slow
+	Started.Predict(0).Length is 960
+	MossImage.RelativeError(Recalled.Predict(1), Started.output * 5) < 0.000001
 	if anchors.Length < fit.degree + 1
 		return anchors.Last
 	weights = fit.Weights(coords, coord)
-	mutable mixed = H3Span.Combined(anchors.First * 0, anchors.First, weights.First)
+	mutable mixed = H3Span.Combine(anchors.First * 0, anchors.First, weights.First)
 	for anchors.Length - 1
-		mixed = H3Span.Combined(mixed, anchors(index + 1), weights(index + 1))
+		mixed = H3Span.Combine(mixed, anchors(index + 1), weights(index + 1))
 	mixed

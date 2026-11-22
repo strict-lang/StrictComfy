@@ -17,22 +17,22 @@ Run(arguments Texts) Number
 		return H3Encoding(arguments).Encoded
 	if arguments.Length > 1 and arguments(0) is "--commands"
 		return H3Commands(arguments(1), arguments.Slice(2, arguments.Length - 2)).IsCompleted then 0 else 1
-	Routed(arguments)
-Routed(arguments Texts) Number slow
+	Route(arguments)
+Route(arguments Texts) Number slow
 	if Backend.IsServing(arguments)
-		return H3Client(H3Server.Root).Ran(arguments)
+		return H3Client(H3Server.Root).Run(arguments)
 	if "coordinator" is in arguments
 		return Coordinator.Serve is Error then Backend.Failed else 0
 	arguments.Length < 2 then 2 else (IsDiagnosed(arguments) then 0 else 1)
 IsDiagnosed(arguments Texts) Boolean slow
 	loras = GenerationCommand.Option(arguments, 3, "")
 	if arguments(0) is "-"
-		Served(Loaded(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
+		Serve(Load(arguments(1), loras), H3Refiner.Loaded(arguments(1), loras), arguments)
 		return true
 	conditions = Conditions(arguments(0))
 	texts = H3Refiner.Loaded(arguments(1), loras).Texts(conditions)
-	Generations(Loaded(arguments(1), loras), conditions, texts, arguments(0), arguments).Length > 0
-Served(h3 H3, refiner H3Refiner, arguments Texts) slow
+	Generations(Load(arguments(1), loras), conditions, texts, arguments(0), arguments).Length > 0
+Serve(h3 H3, refiner H3Refiner, arguments Texts) slow
 	mutable decodings = List(H3Decoding)
 	mutable dumps = Process.InputLine
 	for as long as dumps is not ""
@@ -46,27 +46,27 @@ Job(h3 H3, refiner H3Refiner, loaded List(H3Decoding), dumps Text, arguments Tex
 	for files
 		if conditions(index).Entry("decode") is not ""
 			decodings = Decoding(decodings, arguments.Slice(Positional.Split(" ").Length, 2))
-			decodings.First.Written(value, decodings.First.Shapes(conditions)(index), index)
+			decodings.First.Write(value, decodings.First.Shapes(conditions)(index), index)
 	GpuMemory.Evict
 	decodings
 Decoding(loaded List(H3Decoding), vaes Texts) List(H3Decoding) native
 	Tiny.Decoding(List(H3Decoding) + Decoders, ("missing.safetensors", "missing.safetensors")).Length is 1
 	Decoders.vae.tiling is H3Tiles.Real
-	Decoders.Decoded(H3Decoding.Latent, (12, 3, 4))(1)(5000).IsNearlyEqual(H3Decoding.Both(1)(5000), 0.001)
+	Decoders.Decode(H3Decoding.Latent, (12, 3, 4))(1)(5000).IsNearlyEqual(H3Decoding.Both(1)(5000), 0.001)
 	if loaded.Length > 0
 		return loaded
 	before = Process.Elapsed
 	files = ModelFiles("")
-	logger.Log("Loading video VAE " + files.Described(vaes(0)) + " and audio VAE " + files.Described(vaes(1)))
+	logger.Log("Loading video VAE " + files.Describe(vaes(0)) + " and audio VAE " + files.Describe(vaes(1)))
 	decoding = H3Decoding.Loaded(vaes(0), vaes(1))
 	logger.Log("Video and audio VAE loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	List(H3Decoding) + decoding
-Numbered(arguments Texts) Numbers
-	H3Video.Numbered(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
+ParseNumbers(arguments Texts) Numbers
+	H3Video.ParseNumbers(("dumps", "model", "name", "", "3")) is (3, 12, 0, 1, 1, 0, 0, 0, 0, 0)
 	for (0, H3Format.Shift, 0, 1, 1, 0, 0, 0, 0, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
-Loaded(model Text, loras Text) H3 native
-	H3Video.Loaded("tinyh3.safetensors", "").blocks.Length is 2
+Load(model Text, loras Text) H3 native
+	H3Video.Load("tinyh3.safetensors", "").blocks.Length is 2
 	started = Process.Elapsed
 	logger.Log(Loading(model, loras))
 	h3 = H3.Loaded(model, loras)
@@ -75,7 +75,7 @@ Loaded(model Text, loras Text) H3 native
 Loading(model Text, loras Text) Text slow
 	H3Video.Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
 	H3Video.Loading("tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
-	loading = "Loading H3 " + ModelFiles("").Described(model) + " from disk into memory"
+	loading = "Loading H3 " + ModelFiles("").Describe(model) + " from disk into memory"
 	if loras is ""
 		return loading
 	mutable names = List(Text)
@@ -90,57 +90,57 @@ Conditions(dumps Text) List(Safetensors) slow
 	for GenerationCommand.Count(data)
 		GenerationCommand.Job(data, dumps, index)
 Generations(h3 H3, conditions List(Safetensors), texts List(Numbers), dumps Text, arguments Texts) Texts slow
-	numbers = Numbered(arguments)
+	numbers = ParseNumbers(arguments)
 	name = GenerationCommand.Option(arguments, 2, "strict")
 	for conditions
 		before = Process.Elapsed
 		steps = value.Entry("video") is "" then Safetensors(dumps + "/steps.safetensors", 64) else value
-		sampled = Generated(h3, value, H3Job(steps), texts(index), numbers, dumps)
+		sampled = Generate(h3, value, H3Job(steps), texts(index), numbers, dumps)
 		file = dumps + "/" + (value.Entry("video") is "" then name else name + "-" + index)
 		Safetensors(file + "-latent.safetensors").Write("latent", sampled)
 		logger.Log("generation " + index + " in " + ((Process.Elapsed - before) * 1000).Round + " ms")
 		GpuMemory.Trim
 		file
-Generated(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Numbers native
-	Tiny.Generated(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
+Generate(h3 H3, condition Safetensors, job H3Job, text Numbers, numbers Numbers, dumps Text) Numbers native
+	Tiny.Generate(H3.Tiny, Keyed, H3Job.Reference, H3.Prompt, (1, 12, 0, 1, 1, 0, 0, 0, 1, 1), "").Length is 960
 	shaped = Layout(job.VideoShape, job.AudioShape, condition)
 	keyframes = job.Keyframes(shaped.keyframes)
 	layout = H3Layout(shaped, keyframes = keyframes, shift = numbers(1), routing = numbers(5))
 	rows = job.Rows(condition)
 	if File(dumps + "/step0.safetensors").Exists
-		logger.Log("step 0 error " + Compared(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1))
+		logger.Log("step 0 error " + Compare(h3, Safetensors(dumps + "/step0.safetensors", 32), text, layout, 1))
 	count = numbers(0) is 0 then job.Count else numbers(0)
 	span = H3Span(numbers(6), numbers(7))
 	spectrum = H3Spectrum(count, SpectralFit(numbers(4), 0.1, 0.5), numbers(2), numbers(3), span = span)
-	sigmas = Euler(count, numbers(1)).Scheduled(numbers(9), numbers(8))
-	Sampled(h3, job, text, layout, rows, spectrum, Solver(numbers(8), sigmas, job.Video))
+	sigmas = Euler(count, numbers(1)).ScheduleSampler(numbers(9), numbers(8))
+	Sample(h3, job, text, layout, rows, spectrum, Solver(numbers(8), sigmas, job.Video))
 Layout(video Numbers, audio Numbers, condition Safetensors) H3Layout slow
 	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).Tokens is 17
 	H3Video.Layout(Shapes.Shape("reference.video"), Shapes.Shape("reference.audio"), Keyed).tags(1) is 0
 	keyframes = condition.Entry("keyframes") is "" then List(Number) else condition.Values("keyframes")
 	H3Layout(condition.Values("tags"), keyframes, audio.Last, video(1), Size(video(3), video(2)))
-Compared(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number native
-	H3Video.Compared(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
+Compare(h3 H3, first Safetensors, text Numbers, layout H3Layout, sigma Number) Number native
+	H3Video.Compare(H3.Tiny, Reference, H3.Prompt, H3Layout.Tiny, 0.75) < 0.05
 	curves = h3.Curves(layout.Times(sigma))
 	named = first.Entry("text") is "" then "token_refiner" else "text"
 	logger.Log("refined text error " + MossImage.RelativeError(text, first.Values(named)))
 	logger.Log("curve rows error " + MossImage.RelativeError(curves, first.Values("t_emb")))
-	Layered(h3, first, curves, layout, sigma)
-Layered(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Number native
-	H3Video.Layered(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
+	Layer(h3, first, curves, layout, sigma)
+Layer(h3 H3, first Safetensors, curves Numbers, layout H3Layout, sigma Number) Number native
+	H3Video.Layer(H3.Tiny, Reference, Reference.Values("t_emb"), H3Layout.Tiny, 0.75) < 0.05
 	rotation = h3.Rotation(layout)
 	starts = layout.Rows(sigma)
 	mutable state = first.Values("blocks.0.input")
 	mutable error = 0
 	for h3.blocks
-		state = value.Output(state, curves, starts, rotation, h3.Routed(layout.routing, index), h3.Leading(layout))
+		state = value.Output(state, curves, starts, rotation, h3.Route(layout.routing, index), h3.Leading(layout))
 		name = "blocks." + index
 		if first.Entry(name) is not ""
 			error = MossImage.RelativeError(state, first.Values(name))
 			logger.Log("block " + index + " error " + error)
 	error
-Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Numbers native
-	Tiny.Sampled(H3.Tiny, H3Job.Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
+Sample(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spectrum H3Spectrum, solver Solver) Numbers native
+	Tiny.Sample(H3.Tiny, H3Job.Reference, H3.Prompt, H3Layout.Tiny, List(Number), H3Spectrum.Tiny, Solved).Length is 960
 	rotation = h3.Rotation(layout)
 	mutable seen = job.HeldVideo(solver, 0)
 	mutable heard = job.HeldAudio(Solver(seen, sigmas = layout.AudioSigmas(seen.sigmas), latent = job.Audio), 0)
@@ -148,7 +148,7 @@ Sampled(h3 H3, job H3Job, text Numbers, layout H3Layout, conditions Numbers, spe
 	mutable steps = H3StepLog(job).Started
 	for spectrum.steps
 		state = state.Advanced(h3, seen.latent, heard.latent, solver.sigmas(index), text, layout, conditions, rotation, index)
-		seen = job.HeldVideo(state.Stepped(seen, index, job), index + 1)
+		seen = job.HeldVideo(state.Step(seen, index, job), index + 1)
 		heard = job.HeldAudio(heard.Stepped(state.output, index, seen.latent.Length, job.Noise("audio", index)), index + 1)
 		steps = steps.Stepped(index, state, seen, heard.latent)
 	seen.latent + heard.latent

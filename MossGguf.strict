@@ -14,12 +14,12 @@ Loaded Moss native
 Dense(model Gguf) List(Batch) slow
 	Tiny.Dense(Gguf("tinymoss.gguf")).Length is 7
 	for Moss.Denses
-		Batched(model, value)
-Batched(model Gguf, name Text) Batch slow
-	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases is (0)
-	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").weights.First.Length is 16
-	Tiny.Batched(Gguf("tinymoss.gguf"), "video_embedder").biases.Length is 256
-	Tiny.Batched(Gguf("tinymoss.gguf"), "final_linear_video").biases.Length is 1
+		LoadBatch(model, value)
+LoadBatch(model Gguf, name Text) Batch slow
+	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "final_linear_video").biases is (0)
+	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "video_embedder").weights.First.Length is 16
+	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "video_embedder").biases.Length is 256
+	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "final_linear_video").biases.Length is 1
 	biased = model.Shape(name + ".bias").Length > 0
 	Batch(model.Rows(name + ".weight"), biased then model.Values(name + ".bias") else List(Number) + 0)
 Texts(model Gguf) List(MossText) slow
@@ -30,11 +30,11 @@ Text(model Gguf, prefix Text) MossText slow
 	Tiny.Text(Gguf("tinymoss.gguf"), "text_embedder.blocks.0.").down.biases.Length is 256
 	norms = Norms(model, prefix, "norm1", "norm2")
 	headNorms = Norms(model, prefix, "q_norm", "k_norm")
-	attended = Batched(model, prefix + "qkv")
-	projected = Batched(model, prefix + "proj")
-	gated = Batched(model, prefix + "ffn_gate")
-	raised = Batched(model, prefix + "ffn_up")
-	down = Batched(model, prefix + "ffn_down")
+	attended = LoadBatch(model, prefix + "qkv")
+	projected = LoadBatch(model, prefix + "proj")
+	gated = LoadBatch(model, prefix + "ffn_gate")
+	raised = LoadBatch(model, prefix + "ffn_up")
+	down = LoadBatch(model, prefix + "ffn_down")
 	MossText(norms(0), norms(1), headNorms(0), headNorms(1), attended, projected, gated, raised, down)
 Blocks(model Gguf) List(MossBlock) slow
 	Tiny.Blocks(Gguf("tinymoss.gguf", 4)).Length is 2

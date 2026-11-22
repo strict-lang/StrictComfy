@@ -4,20 +4,20 @@ Root Text
 	H3Artifacts(H3Options.Parsed(List(Text))).Folder
 Served Number slow
 	server = backend.Opened
-	server is Error then Backend.Failed else Listened(server)
-Listened(server Number) Number slow
+	server is Error then Backend.Failed else Listen(server)
+Listen(server Number) Number slow
 	built = File(Process.Current.executable).Modified
 	mutable kept = H3Resident
 	mutable last = Process.Elapsed
 	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
 		socket = backend.resident.Accept(server, built, Resident.WakeSeconds)
 		request = socket is not Error then backend.resident.ReadRequest(socket) else ""
-		kept = socket is not Error then Replied(socket, request, Trimmed(socket, request, kept)) else kept
+		kept = socket is not Error then Reply(socket, request, Trim(socket, request, kept)) else kept
 		last = socket is not Error then Process.Elapsed else last
 		kept = backend.IsUnpressed(socket is not Error) then kept else H3Resident(kept, code = Backend.Stopped)
 	backend.resident.Close(server)
 	Backend.Clean
-Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
+Trim(socket Number, request Text, kept H3Resident) H3Resident slow
 	resident = backend.resident
 	arguments = resident.Arguments(request)
 	if resident.IsCurrent(request) is false or arguments is (Resident.Stopping)
@@ -25,24 +25,24 @@ Trimmed(socket Number, request Text, kept H3Resident) H3Resident slow
 	home = Directory.Current
 	Directory.Change(resident.Folder(request))
 	Socket.Output(socket)
-	prepared = Prepared(arguments, kept)
-	trimmed = prepared is Error then Failed(prepared to Text, kept) else prepared
-	backend.Restored(resident.Folder(request) is not home, home)
+	prepared = Prepare(arguments, kept)
+	trimmed = prepared is Error then Fail(prepared to Text, kept) else prepared
+	backend.Restore(resident.Folder(request) is not home, home)
 	trimmed
-Failed(problem Text, kept H3Resident) H3Resident
-	H3Server(Backend.Sample).Failed("broken", H3Resident).code is 0
+Fail(problem Text, kept H3Resident) H3Resident
+	H3Server(Backend.Sample).Fail("broken", H3Resident).code is 0
 	logger.Log(problem)
 	kept
-Prepared(arguments Texts, kept H3Resident) H3Resident slow
+Prepare(arguments Texts, kept H3Resident) H3Resident slow
 	batch = H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)
 	full = backend.IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	kept.Trimmed(batch.options.Checkpoint, batch.options.Loras, full).Crowded(batch)
-Replied(socket Number, request Text, kept H3Resident) H3Resident slow
+Reply(socket Number, request Text, kept H3Resident) H3Resident slow
 	resident = backend.resident
 	isStopping = resident.Arguments(request) is (Resident.Stopping)
 	isRunning = resident.IsCurrent(request) and isStopping is false
 	skipped = H3Resident(kept, code = isStopping then Backend.Stopped else -1)
-	served = isRunning then Ran(socket, request, kept) else skipped
+	served = isRunning then Run(socket, request, kept) else skipped
 	isFailed = served is Error
 	closed = HasEnded(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	isFailed or closed then H3Resident else served
@@ -67,16 +67,16 @@ HasEnded(socket Number, code Number, request Text) Boolean slow
 		logger.Log("The H3Video client left before the result was sent")
 		return backend.IsFreed(request)
 	backend.IsFreed(request, false)
-Ran(socket Number, request Text, kept H3Resident) H3Resident slow
+Run(socket Number, request Text, kept H3Resident) H3Resident slow
 	home = Directory.Current
 	folder = backend.resident.Folder(request)
 	Directory.Change(folder)
 	isMoved = folder is not home
 	Socket.Output(socket)
 	arguments = backend.resident.Arguments(request)
-	served = H3Served(H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)).Completed(kept)
+	served = H3Served(H3Batch(H3Options.Parsed(arguments)).Expanded(arguments)).Complete(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
 	unpressed = backend.IsUnpressed(true)
-	backend.Restored(isMoved, home)
+	backend.Restore(isMoved, home)
 	unpressed then served else H3Resident(kept, code = Backend.Stopped)

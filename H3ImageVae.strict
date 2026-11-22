@@ -34,4 +34,4 @@ Picturing(path Text) H3ImageVae native
 Pixels(latent Numbers, height Number, width Number) Numbers native
 	MossImage.RelativeError(Tiny.Pixels(Taeh3Decoder.Latent, 2, 3), Taeh3Decoder.Reference) < 0.005
 	MossImage.RelativeError(Decoder.Pixels(Latent, 3, 4), Lean) < 0.001
-	tinies.Length is 1 then tinies.First.Decoded(latent, width) else decoders.First.Still(latent, height, width)
+	tinies.Length is 1 then tinies.First.Decode(latent, width) else decoders.First.Still(latent, height, width)

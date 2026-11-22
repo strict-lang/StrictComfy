@@ -6,11 +6,11 @@ constant HighestVariance = 20
 constant Tiny = H3Picture(H3VaeEncoder.Tiny, H3Tiles.Tiny)
 constant Image = H3VaeEncoder.Model.Values("reference.image")
 constant Reference = H3VaeEncoder.Model.Values("reference.latent")
-constant Latent = Tiny.Encoded(Image, (48, 64))
+constant Latent = Tiny.Encode(Image, (48, 64))
 constant Tiles = Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32))
 constant Sample = Safetensors("tinyh3imagevae.safetensors", 32).Values("reference.sampled")
-constant Sampled = Tiny.Encoded(Image, (48, 64), MersenneTwister.Seeded(42).Normals(288))
-Encoded(image Numbers, size Numbers, noise = List(Number)) Numbers native
+constant Sampled = Tiny.Encode(Image, (48, 64), MersenneTwister.Seeded(42).Normals(288))
+Encode(image Numbers, size Numbers, noise = List(Number)) Numbers native
 	Latent.Length is 288
 	Latent(0).IsNearlyEqual(Reference(0), 0.01)
 	Latent(5).IsNearlyEqual(Reference(5), 0.01)
@@ -20,7 +20,7 @@ Encoded(image Numbers, size Numbers, noise = List(Number)) Numbers native
 	MossImage.RelativeError(Sampled, Sample) < 0.01
 	ys = tiling.Starts(size(0))
 	xs = tiling.Starts(size(1))
-	Normalized(Moments(image, size, ys, xs), ys, xs, size, noise)
+	Normalize(Moments(image, size, ys, xs), ys, xs, size, noise)
 Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) List(Numbers) native
 	Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32)).Length is 6
 	tall = tiling.Length(size(0))
@@ -28,17 +28,17 @@ Moments(image Numbers, size Numbers, ys Numbers, xs Numbers) List(Numbers) nativ
 	for ys.Length * xs.Length
 		box = (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)
 		encoder.Moments(encoder.Pixels(image, size, box, H3Vae.Mean + H3Vae.Deviation)).Completed
-Normalized(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Numbers) Numbers native
-	Tiny.Normalized(Tiles, (0, 16), (0, 16, 32), (48, 64), List(Number))(5) is Latent(5)
-	means = Blended(moments, ys, xs, size, 0)
-	spread = noise.Length is 0 then means else Blended(moments, ys, xs, size, H3Format.Channels)
+Normalize(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, noise Numbers) Numbers native
+	Tiny.Normalize(Tiles, (0, 16), (0, 16, 32), (48, 64), List(Number))(5) is Latent(5)
+	means = Blend(moments, ys, xs, size, 0)
+	spread = noise.Length is 0 then means else Blend(moments, ys, xs, size, H3Format.Channels)
 	plane = means.Length / H3Format.Channels
 	for means
 		channel = (index / plane).Floor
 		deviation = (0.5 * spread(index).Clamp(LowestVariance, HighestVariance)).Exponential
 		sampled = noise.Length is 0 then value else value + deviation * noise(index)
 		(sampled - encoder.Means(channel)) / encoder.Deviations(channel)
-Blended(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number) Numbers slow
+Blend(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number) Numbers slow
 	plane = size(0) * size(1) / 256
 	tall = tiling.Length(size(0)) / 16
 	wide = tiling.Length(size(1)) / 16
@@ -69,16 +69,16 @@ Frame(path Text, size Numbers, cropped Boolean) Numbers native
 	Tiny.Frame("tinyframe.png", (1, 2), false)(3).IsNearlyEqual(94 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	Tiny.Frame("tinyframe.png", (3, 3), true)(17).IsNearlyEqual(137 / 255)
-	Framed(path, size, size, cropped)
-Framed(path Text, aspect Numbers, size Numbers, cropped Boolean) Numbers native
-	Tiny.Framed("tinyframe.png", (3, 3), (3, 3), true)(4).IsNearlyEqual(35 / 255)
+	FrameAspect(path, size, size, cropped)
+FrameAspect(path Text, aspect Numbers, size Numbers, cropped Boolean) Numbers native
+	Tiny.FrameAspect("tinyframe.png", (3, 3), (3, 3), true)(4).IsNearlyEqual(35 / 255)
 	original = (ImageCodec.Height(path), ImageCodec.Width(path))
-	box = cropped then Cropped(original, aspect) else (0, original(0), 0, original(1))
-	for Lanczos.Resized(Bytes(ImageCodec.Pixels(path, 3), original(1), box), (box(1), box(3)), size)
+	box = cropped then Crop(original, aspect) else (0, original(0), 0, original(1))
+	for Lanczos.Resize(Bytes(ImageCodec.Pixels(path, 3), original(1), box), (box(1), box(3)), size)
 		value / Byte.Max
-Cropped(original Numbers, size Numbers) Numbers
-	Tiny.Cropped((2, 4), (2, 2)) is (0, 2, 1, 2)
-	Tiny.Cropped((4, 2), (2, 2)) is (1, 2, 0, 2)
+Crop(original Numbers, size Numbers) Numbers
+	Tiny.Crop((2, 4), (2, 2)) is (0, 2, 1, 2)
+	Tiny.Crop((4, 2), (2, 2)) is (1, 2, 0, 2)
 	wider = original(1) / original(0) / (size(1) / size(0))
 	left = wider > 1 then ((original(1) - original(1) / wider) / 2).Round else 0
 	top = wider < 1 then ((original(0) - original(0) * wider) / 2).Round else 0

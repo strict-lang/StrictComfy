@@ -83,8 +83,8 @@ Caution(tokens Number, budget Number) Text
 Told(raw Text) Text
 	MossEstimate.Told(ImageRequest) is "Sampling roughly 5 x 0.15 s + 0.22 s flux2-vae = 1 s, 3.5k of 15k image tokens"
 	MossEstimate.Told(FastRequest).StartsWith("Sampling roughly 6 x 0.05 s + 0.04 s flux2-small-vae = 0.4 s, 1.6k of 36k")
-	sized = ("--width", H3Estimate.Asked(raw, "width"), "--height", H3Estimate.Asked(raw, "height"))
+	sized = ("--width", H3Estimate.Ask(raw, "width"), "--height", H3Estimate.Ask(raw, "height"))
 	chosen = sized + H3Estimate.Optional(raw, "quality") + H3Estimate.Optional(raw, "steps")
-	vram = H3Estimate.Asked(raw, "vram") to Number
+	vram = H3Estimate.Ask(raw, "vram") to Number
 	budget = Budget(vram is Error then H3Estimate.Unsized else vram * H3Estimate.Mebibyte)
 	MossEstimate(MossOptions.Parsed(chosen + H3Estimate.Optional(raw, "vae"))).Estimate(budget)

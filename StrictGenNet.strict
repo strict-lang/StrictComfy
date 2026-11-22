@@ -52,7 +52,7 @@ Shouted StrictGenNet slow
 		return StrictGenNet(value, shouted = Process.Elapsed)
 	state = "\t" + ram + "\t" + (busy then "1" else "0") + "\t" + gpu
 	line = "strictgen\t" + httpPort + "\t" + total + "\t" + free + state + "\t" + id + "\t" + StrictGenHost.Name
-	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encoded(line)) is Error
+	if Socket.Shout(beacon, StrictGenNet.BeaconPort, StrictGenHttp.Encode(line)) is Error
 		logger.Log("Could not announce this StrictGen on the network")
 	StrictGenNet(value, shouted = Process.Elapsed)
 Heard StrictGenNet slow
@@ -80,7 +80,7 @@ Remembered(parts Texts, now Number) StrictGenNet
 	named = parts.Length > 9 then parts(9) else ""
 	peer = Text.Combine(parts.Slice(0, 1) + parts.Slice(2, 6) + named, "\t") + "\t" + now
 	known = Address(peer)
-	kept = Kept(peer, known)
+	kept = Keep(peer, known)
 	if kept.Length > peers.Length
 		logger.Log("StrictGen peer " + known + " " + parts(7) + " " + (parts(3) to Number / Gigabyte).Round(1) + " GB")
 	StrictGenNet(value, peers = kept)
@@ -91,7 +91,7 @@ Fresh(now Number) Texts
 		seen = value.Split("\t").Last to Number
 		if seen is Error or now - seen < FreshSeconds
 			value
-Kept(peer Text, address Text) Texts
+Keep(peer Text, address Text) Texts
 	mutable kept = List(Mutable(Text))
 	for peers
 		if Address(value) is not address

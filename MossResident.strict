@@ -42,9 +42,9 @@ Switched(file Text) MossResident
 	MossResident(emptied, prompts = List(Text), contexts = List(Numbers))
 Extended(batch MossBatch, missing Texts) MossResident slow
 	tokenizing = Tokenizing(batch)
-	ids = batch.Tokenized(tokenizing.tokenizers.First, missing)
+	ids = batch.Tokenize(tokenizing.tokenizers.First, missing)
 	encoding = tokenizing.Encoding(batch, ids)
-	encoded = batch.Encoded(encoding.encoders.First, ids, missing)
+	encoded = batch.Encode(encoding.encoders.First, ids, missing)
 	isFull = prompts.Length + missing.Length > MostPrompts
 	kept = isFull then List(Text) else prompts
 	keptContexts = isFull then List(Numbers) else contexts
@@ -61,7 +61,7 @@ Encoding(batch MossBatch, ids List(Numbers)) MossResident slow
 	if encoders.Length is 1
 		return value
 	before = Process.Elapsed
-	encoder = batch.Encoder(isKept then List(Number) else batch.Picked(ids))
+	encoder = batch.Encoder(isKept then List(Number) else batch.Pick(ids))
 	staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, encoders = List(Qwen3) + encoder)
@@ -85,7 +85,7 @@ Previewing(batch MossBatch) MossResident slow
 	files = ModelFiles(batch.options.files.models)
 	if files.Has("taef2.safetensors", "vae_approx") is false
 		return value
-	path = files.Located("taef2.safetensors", "vae_approx")
+	path = files.Locate("taef2.safetensors", "vae_approx")
 	MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 Decoders(path Text) MossResident native
 	MossResident.Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny

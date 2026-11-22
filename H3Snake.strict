@@ -4,7 +4,7 @@ has up Numbers
 has down Numbers
 constant Tiny = H3Snake.Loaded(H3Conv.Model, "decoder.resblocks.0.activations.0.")
 constant Single = H3Snake(List(Number) + Radians.DegreesPerRadian, 1, Tiny.up, Tiny.down)
-constant Upsampled = Moss.Transposed(H3Conv.Model.Values("reference.ups.0"), 64)
+constant Upsampled = Moss.Transpose(H3Conv.Model.Values("reference.ups.0"), 64)
 constant Padding = 5
 constant Offset = 15
 Loaded(model Safetensors, prefix Text) H3Snake slow
@@ -26,10 +26,10 @@ Inverses(values Numbers) Numbers slow
 Output(signal Numbers) Numbers slow
 	Tiny.Output(Upsampled).Length is 1280
 	Tiny.Output(Upsampled)(451).IsNearlyEqual(H3Conv.Model.Values("reference.resblocks.0.activations.0")(67), 0.001)
-	Lowered(Snaked(Raised(signal, alphas.Length), alphas.Length), alphas.Length)
-Raised(signal Numbers, channels Number) Numbers slow
-	Single.Raised((1, 1, 1, 1), 1).Length is 8
-	Single.Raised((1, 1, 1, 1), 1)(3).IsNearlyEqual(1, 0.01)
+	Lower(ApplySnake(Raise(signal, alphas.Length), alphas.Length), alphas.Length)
+Raise(signal Numbers, channels Number) Numbers slow
+	Single.Raise((1, 1, 1, 1), 1).Length is 8
+	Single.Raise((1, 1, 1, 1), 1)(3).IsNearlyEqual(1, 0.01)
 	length = signal.Length / channels
 	for 2 * signal.Length
 		2 * Rising(signal, up, channels, index % channels, (index / channels).Floor, length)
@@ -45,13 +45,13 @@ Rising(signal Numbers, filter Numbers, channels Number, channel Number, position
 		source = ((shifted - tap) / 2 - Padding).Clamp(0, length - 1)
 		sum = sum + filter(tap) * signal(source * channels + channel)
 	sum
-Snaked(raised Numbers, channels Number) Numbers slow
-	Single.Snaked((1, 0), 1)(0).IsNearlyEqual(1.708073)
+ApplySnake(raised Numbers, channels Number) Numbers slow
+	Single.ApplySnake((1, 0), 1)(0).IsNearlyEqual(1.708073)
 	for raised
 		Snake(value, Degrees(alphas(index % channels) * value), betas(index % channels))
-Lowered(snaked Numbers, channels Number) Numbers slow
-	Single.Lowered((1, 1, 1, 1), 1).Length is 2
-	Single.Lowered((1, 1, 1, 1), 1)(1).IsNearlyEqual(1, 0.01)
+Lower(snaked Numbers, channels Number) Numbers slow
+	Single.Lower((1, 1, 1, 1), 1).Length is 2
+	Single.Lower((1, 1, 1, 1), 1)(1).IsNearlyEqual(1, 0.01)
 	length = snaked.Length / channels
 	for snaked.Length / 2
 		Falling(snaked, down, channels, index % channels, (index / channels).Floor, length)

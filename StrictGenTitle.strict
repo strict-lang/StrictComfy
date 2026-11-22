@@ -9,15 +9,15 @@ Summary(body Text) Text
 	StrictGenTitle.Summary("{\"mode\":\"imagevideo\",\"width\":32,\"height\":64}") is "H3 Image to Video 32x64"
 	json = Json(body)
 	at = Modes.Index(json.get("mode") to Text)
-	(at < 0 then "H3 Image to Video" else Titles(at)) + " " + Sized(json) + Paced(json) + Times(json)
-Sized(json Json) Text
-	StrictGenTitle.Sized(Json("{\"width\":32,\"height\":64}")) is "32x64"
+	(at < 0 then "H3 Image to Video" else Titles(at)) + " " + FormatSize(json) + Pace(json) + Times(json)
+FormatSize(json Json) Text
+	StrictGenTitle.FormatSize(Json("{\"width\":32,\"height\":64}")) is "32x64"
 	named = json.get("sizeName") to Text
 	named is "" then json.get("width") to Text + "x" + json.get("height") to Text else named
-Paced(json Json) Text
-	StrictGenTitle.Paced(Json("{\"quality\":\"fast\",\"steps\":8}")) is ", quality: fast 8 steps"
-	StrictGenTitle.Paced(Json("{\"steps\":0}")) is ""
-	StrictGenTitle.Paced(Json("{\"steps\":6}")) is ", 6 steps"
+Pace(json Json) Text
+	StrictGenTitle.Pace(Json("{\"quality\":\"fast\",\"steps\":8}")) is ", quality: fast 8 steps"
+	StrictGenTitle.Pace(Json("{\"steps\":0}")) is ""
+	StrictGenTitle.Pace(Json("{\"steps\":6}")) is ", 6 steps"
 	quality = json.get("quality") to Text
 	steps = json.get("steps") to Text
 	stepped = steps is "" or steps is "0" then "" else (quality is "" then ", " else " ") + steps + " steps"

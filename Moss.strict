@@ -77,12 +77,12 @@ Rotation(latent Numbers, text Numbers, width Number) Float32s native
 	Tiny.Rotation(Model.Values("reference.x"), Tiny.TextEmbedded(Context, 3), 4) is MossBlock.Rotation
 	MossBlock.Rotations((latent.Length / video.weights.First.Length) / width, width, text.Length / finalNorm.Length, 128)
 Features(latent Numbers, text Numbers, rotation Numbers, vector Numbers) Numbers
-	Ran(Embedded(latent, text), blockModulation.Sums(vector), rotation, latent, 0, layers.Length)
-Embedded(latent Numbers, text Numbers) Numbers
-	video.Sums(Transposed(latent, video.weights.First.Length)) + text
+	Run(Embedd(latent, text), blockModulation.Sums(vector), rotation, latent, 0, layers.Length)
+Embedd(latent Numbers, text Numbers) Numbers
+	video.Sums(Transpose(latent, video.weights.First.Length)) + text
 Head(image Numbers, vector Numbers) Numbers
 	count = image.Length / finalNorm.Length
-	Transposed(final.Sums(MossBlock.Modulated(image, finalNorm, headModulation.Sums(vector), 0)), count)
+	Transpose(final.Sums(MossBlock.Modulate(image, finalNorm, headModulation.Sums(vector), 0)), count)
 TextEmbedded(context Numbers, text Number) Numbers native
 	Tiny.TextEmbedded(Context, 3)(0).IsNearlyEqual(0.0557, 0.02)
 	Tiny.TextEmbedded(Context, 3)(767).IsNearlyEqual(0.7422, 0.02)
@@ -91,18 +91,18 @@ TextEmbedded(context Numbers, text Number) Numbers native
 	for texts
 		hidden = value.Output(hidden, rotation)
 	hidden
-Ran(hidden Numbers, modulation Numbers, rotation Numbers, latent Numbers, first Number, last Number) Numbers slow
-	Tiny.video.Sums(Moss.Transposed(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
-	Tiny.Ran(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 1, 1) is MossBlock.Input
+Run(hidden Numbers, modulation Numbers, rotation Numbers, latent Numbers, first Number, last Number) Numbers slow
+	Tiny.video.Sums(Moss.Transpose(Model.Values("reference.x"), 16))(4095).IsNearlyEqual(-0.9805, 0.02)
+	Tiny.Run(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation, Context, 1, 1) is MossBlock.Input
 	kept = latent.Length / video.weights.First.Length * finalNorm.Length
 	mutable state = hidden
 	for last - first
 		layer = layers(first + index)
 		cropping = first + index is layers.Length - 1
-		state = cropping then layer.Cropped(state, modulation, rotation, kept) else layer.Output(state, modulation, rotation)
+		state = cropping then layer.Crop(state, modulation, rotation, kept) else layer.Output(state, modulation, rotation)
 	state
-Transposed(values Numbers, rows Number) Numbers
-	Moss.Transposed((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)
+Transpose(values Numbers, rows Number) Numbers
+	Moss.Transpose((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)
 	columns = values.Length / rows
 	for values.Length
 		values((index % rows) * columns + (index / rows).Floor)

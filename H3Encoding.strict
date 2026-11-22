@@ -1,9 +1,9 @@
 has arguments Texts
 constant Job = "artifacts/h3encoding.safetensors"
-Started(prompts Texts, images Texts, paths Texts) Number slow
+Start(prompts Texts, images Texts, paths Texts) Number slow
 	noun = prompts.Length is 1 then " prompt" else " prompts"
 	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
-	Written(prompts, images, paths)
+	Write(prompts, images, paths)
 	GpuMemory.Evict
 	Process.Current.Start(Command(paths))
 Command(paths Texts) Text
@@ -12,8 +12,8 @@ Command(paths Texts) Text
 	for arguments
 		command = command + " \"" + value + "\""
 	command
-Written(prompts Texts, images Texts, paths Texts) slow
-	H3Encoding(List(Text)).Written(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
+Write(prompts Texts, images Texts, paths Texts) slow
+	H3Encoding(List(Text)).Write(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
 	H3Encoding(List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
 	for paths
 		File(value + ".txt").Write(List(Text) + images(index) + prompts(index))
@@ -33,4 +33,4 @@ Encoded Number slow
 	inputs = H3Inputs(options)
 	model = List(Text) + options.Checkpoint + H3Batch(options).LoraFiles
 	encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), model)
-	encoder.Encoded(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths) is paths.Length then 0 else 1
+	encoder.Encode(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths) is paths.Length then 0 else 1

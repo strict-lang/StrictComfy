@@ -13,9 +13,9 @@ Loaded(model Safetensors, prefix Text, groups Number) FluxResnet slow
 	FluxResnet.Loaded(Model, "decoder.up.0.block.0.", 4).shortcut.weights.Length is 128
 	block = Safetensors(model.path, 32, model.prefix + prefix)
 	none = Convolution(List(Number), List(Number))
-	projection = block.Entry("nin_shortcut.weight") is "" then none else Convolved(block, "nin_shortcut")
-	entry = Convolved(block, "conv1")
-	FluxResnet(Norm(block, "norm1", groups), entry, Norm(block, "norm2", groups), Convolved(block, "conv2"), projection)
+	projection = block.Entry("nin_shortcut.weight") is "" then none else Convolve(block, "nin_shortcut")
+	entry = Convolve(block, "conv1")
+	FluxResnet(Norm(block, "norm1", groups), entry, Norm(block, "norm2", groups), Convolve(block, "conv2"), projection)
 Output(map FeatureMap) FeatureMap native
 	Middle.Output(Input).Completed(0).IsNearlyEqual(-0.64259, 0.01)
 	Middle.Output(Input).Completed(128).IsNearlyEqual(-0.31808, 0.01)
@@ -27,9 +27,9 @@ Output(map FeatureMap) FeatureMap native
 Norm(model Safetensors, name Text, groups Number) GroupNorm slow
 	Middle.Norm(Model, "decoder.norm_out", 4).weights.Length is 8
 	GroupNorm(model.Values(name + ".weight"), model.Values(name + ".bias"), groups)
-Convolved(model Safetensors, name Text) Convolution slow
-	Middle.Convolved(Model, "decoder.conv_in").weights(1) is Model.Values("decoder.conv_in.weight")(9)
-	Middle.Convolved(Safetensors("tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
+Convolve(model Safetensors, name Text) Convolution slow
+	Middle.Convolve(Model, "decoder.conv_in").weights(1) is Model.Values("decoder.conv_in.weight")(9)
+	Middle.Convolve(Safetensors("tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
 	shape = model.Shape(name + ".weight")
 	biases = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
 	Convolution(Convolution.Rearrange(model.Values(name + ".weight"), shape(1), shape(2)), biases)

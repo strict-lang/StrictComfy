@@ -10,18 +10,18 @@ Loaded(weights Safetensors) H3AudioEncoder
 	if weights.Entry("encoder.block.0.weight") is ""
 		return H3AudioEncoder(weights, problem = "NoAudioEncoder")
 	H3AudioEncoder(weights)
-Encoded(waveform Numbers, frames Number) Numbers slow
-	Tiny.Encoded((1, -1), 4) is Error("NoAudioEncoder")
+Encode(waveform Numbers, frames Number) Numbers slow
+	Tiny.Encode((1, -1), 4) is Error("NoAudioEncoder")
 	if problem is not ""
 		return Error(problem)
 	wanted = frames * SamplesPerFrame
 	half = waveform.Length / 2
 	left = Side(Fit(waveform.Slice(0, half), wanted))
 	right = Side(Fit(waveform.Slice(half, half), wanted))
-	Interleaved(Normalized(left, frames), Normalized(right, frames), frames)
-Snaked(signal Numbers, alpha Numbers) Numbers
-	H3AudioEncoder.Snaked(0, 1) is (0)
-	H3AudioEncoder.Snaked(1, 2).First.IsNearlyEqual(1.4134109, 0.0001)
+	Interleave(Normalize(left, frames), Normalize(right, frames), frames)
+Snake(signal Numbers, alpha Numbers) Numbers
+	H3AudioEncoder.Snake(0, 1) is (0)
+	H3AudioEncoder.Snake(1, 2).First.IsNearlyEqual(1.4134109, 0.0001)
 	channels = alpha.Length
 	for signal.Length
 		raw = alpha(index % channels)
@@ -61,19 +61,19 @@ Side(samples Numbers) Numbers slow
 	mutable state = H3Conv.Loaded(model, "encoder.block.0", 1).Output(samples)
 	for Rates
 		state = Block(state, index + 1, value)
-	state = Snaked(state, model.Values("encoder.block.6.alpha"))
-	Projected(H3Conv.Loaded(model, "encoder.block.7", 1).Output(state))
+	state = Snake(state, model.Values("encoder.block.6.alpha"))
+	Project(H3Conv.Loaded(model, "encoder.block.7", 1).Output(state))
 Block(signal Numbers, block Number, stride Number) Numbers slow
 	mutable state = signal
 	for Dilations
 		prefix = "encoder.block." + block + ".block." + index + ".block."
-		first = Snaked(state, model.Values(prefix + "0.alpha"))
-		second = Snaked(H3Conv.Loaded(model, prefix + "1", value).Output(first), model.Values(prefix + "2.alpha"))
+		first = Snake(state, model.Values(prefix + "0.alpha"))
+		second = Snake(H3Conv.Loaded(model, prefix + "1", value).Output(first), model.Values(prefix + "2.alpha"))
 		state = Gpt2Block.Add(state, H3Conv.Loaded(model, prefix + "3", 1).Output(second))
 	name = "encoder.block." + block + ".block.4"
-	snake = Snaked(state, model.Values("encoder.block." + block + ".block.3.alpha"))
+	snake = Snake(state, model.Values("encoder.block." + block + ".block.3.alpha"))
 	Down(snake, model.Values(name + ".weight"), model.Values(name + ".bias"), stride, 64 * 2 ^ (block - 1))
-Projected(signal Numbers) Numbers slow
+Project(signal Numbers) Numbers slow
 	reduced = Linear(Gpt2Block.Add(signal, Attend(Norm(signal, "pre_block.norm1", 2048))), "pre_block.proj")
 	normed = Norm(reduced, "pre_block.norm2", 32)
 	widened = Gpt2Block.Add(Linear(normed, "pre_block.mlp.w0"), Linear(normed, "pre_block.mlp.w1"))
@@ -94,18 +94,18 @@ Shift(signal Numbers with value.Bits is 32, start Number, channels Number) Numbe
 		square = square + (signal(start + index) - mean) * (signal(start + index) - mean)
 	(mean, (square / channels + 0.00001).SquareRoot)
 Attend(signal Numbers) Numbers slow
-	biased = Biased(H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(TripleChannels), 1, 1).Output(signal))
+	biased = Biase(H3Conv(model.Values("pre_block.attn.qkv.weight"), Layer.Zeros(TripleChannels), 1, 1).Output(signal))
 	time = signal.Length / 2048
 	for signal.Length
-		Weighted(biased, time, (index / 2048).Floor, index % 2048)
-Biased(mixed Numbers) Numbers
+		Weight(biased, time, (index / 2048).Floor, index % 2048)
+Biase(mixed Numbers) Numbers
 	query = model.Values("pre_block.attn.q_bias")
 	seen = model.Values("pre_block.attn.v_bias")
 	for mixed.Length
 		channel = index % TripleChannels
 		extra = channel < 2048 then query(channel) else (channel >= 4096 then seen(channel - 4096) else 0)
 		mixed(index) + extra
-Weighted(mixed Numbers, time Number, at Number, channel Number) Number
+Weight(mixed Numbers, time Number, at Number, channel Number) Number
 	mutable sum = 0
 	mutable weight = 0
 	for time
@@ -125,7 +125,7 @@ Linear(signal Numbers, name Text) Numbers slow
 	kernel = shape.Length > 2 then shape.Last else 1
 	bias = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
 	H3Conv(model.Values(name + ".weight"), bias, kernel, 1).Output(signal)
-Normalized(side Numbers, frames Number) Numbers
+Normalize(side Numbers, frames Number) Numbers
 	mean = model.Values("latents_mean")
 	deviation = model.Values("latents_std")
 	have = side.Length / 32
@@ -134,7 +134,7 @@ Normalized(side Numbers, frames Number) Numbers
 		time = index % frames
 		step = have >= frames then have - frames + time else time.Clamp(0, have - 1)
 		(side(step * 32 + channel) - mean(channel)) / deviation(channel)
-Interleaved(left Numbers, right Numbers, frames Number) Numbers
+Interleave(left Numbers, right Numbers, frames Number) Numbers
 	for 32 * 2 * frames
 		time = index % frames
 		row = (index / frames).Floor

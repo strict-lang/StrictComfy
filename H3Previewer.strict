@@ -12,34 +12,34 @@ Loaded(file Text, models Text) H3Previewer slow
 	H3Previewer.Loaded("a.jpg", ".").decoders.Length is 0
 	if file is ""
 		return None
-	tiny = ModelFiles(models).Located("taeh3.safetensors", "vae_approx")
+	tiny = ModelFiles(models).Locate("taeh3.safetensors", "vae_approx")
 	if tiny is Error or Taeh3Decoder.IsTaeh3(tiny) is false
 		return None
 	H3Previewer(file, List(Taeh3Decoder) + Taeh3Decoder.Loaded(tiny))
-Written(latent Numbers, shape Numbers) None native
-	Tiny.Written(Clip, Shape) is not Error
+Write(latent Numbers, shape Numbers) None native
+	Tiny.Write(Clip, Shape) is not Error
 	File(Tiny.path).Exists
 	if decoders.Length is 0 or latent.Length is 0
 		return
-	picked = Picked(shape(1))
+	picked = Pick(shape(1))
 	wide = picked.Length * shape(3)
-	patches = decoders.First.Patched(Tiled(Leveled(latent, shape), shape, picked), wide)
-	Saved(Shrunk(patches, shape(2) * 8 * wide * 8), wide * 8)
-Saved(pixels Numbers, width Number) slow
+	patches = decoders.First.Patch(Tile(Level(latent, shape), shape, picked), wide)
+	Save(Shrunk(patches, shape(2) * 8 * wide * 8), wide * 8)
+Save(pixels Numbers, width Number) slow
 	part = path + ".part"
 	ImageCodec.SaveJpeg(part, pixels, width, JpegQuality)
 	if File(path).Exists
 		File(path).Delete
 	File(part).Rename(path)
-Picked(count Number) Numbers
-	Tiny.Picked(2) is (0, 1)
-	Tiny.Picked(64).Length is Frames and Tiny.Picked(31).Last is 30
+Pick(count Number) Numbers
+	Tiny.Pick(2) is (0, 1)
+	Tiny.Pick(64).Length is Frames and Tiny.Pick(31).Last is 30
 	used = count.Clamp(1, Frames)
 	for used
 		(index * count / used).Floor
-Tiled(latent Numbers, shape Numbers, picked Numbers) Numbers
-	Tiny.Tiled((1, 2, 3, 4), (2, 2, 1, 1), (0, 1)) is (1, 2, 3, 4)
-	Tiny.Tiled((1, 3, 5, 7), (1, 2, 2, 1), List(Number) + 1) is (5, 7)
+Tile(latent Numbers, shape Numbers, picked Numbers) Numbers
+	Tiny.Tile((1, 2, 3, 4), (2, 2, 1, 1), (0, 1)) is (1, 2, 3, 4)
+	Tiny.Tile((1, 3, 5, 7), (1, 2, 2, 1), List(Number) + 1) is (5, 7)
 	wide = picked.Length * shape(3)
 	plane = shape(2) * shape(3)
 	cells = shape(2) * wide
@@ -47,8 +47,8 @@ Tiled(latent Numbers, shape Numbers, picked Numbers) Numbers
 		frame = picked((index % wide / shape(3)).Floor)
 		start = ((index / cells).Floor * shape(1) + frame) * plane
 		latent(start + (index / wide).Floor % shape(2) * shape(3) + index % wide % shape(3))
-Leveled(latent Numbers, shape Numbers) Numbers
-	Tiny.Leveled((1, 3, 5, 7), (1, 2, 2, 1)) is (3, 5, 3, 5)
+Level(latent Numbers, shape Numbers) Numbers
+	Tiny.Level((1, 3, 5, 7), (1, 2, 2, 1)) is (3, 5, 3, 5)
 	means = Means(latent, shape)
 	gains = Gains(Spreads(latent, shape, means), shape(1))
 	offsets = Offsets(means, gains, shape(1))
@@ -65,7 +65,7 @@ Spreads(latent Numbers, shape Numbers, means Numbers) Numbers
 	Tiny.Spreads((2, 2), (1, 1, 2, 1), List(Number) + 2) is List(Number) + Flat
 	plane = shape(2) * shape(3)
 	for means
-		squares = Squared(latent.Slice(index * plane, plane)).Sum / plane
+		squares = Square(latent.Slice(index * plane, plane)).Sum / plane
 		(squares - value * value).Clamp(0, squares + 1).SquareRoot.Maximum(Flat)
 Gains(spreads Numbers, frames Number) Numbers
 	Tiny.Gains((1, 3, 10, 30), 2) is (2, 2 / 3, 2, 2 / 3)
@@ -75,8 +75,8 @@ Offsets(means Numbers, gains Numbers, frames Number) Numbers
 	Tiny.Offsets((1, 3, 10, 30), (1, 1, 1, 1), 2) is (1, -1, 10, -10)
 	for means
 		Typical(means, frames, index) - value * gains(index)
-Squared(values Numbers) Numbers
-	Tiny.Squared((1, 2, 3)) is (1, 4, 9)
+Square(values Numbers) Numbers
+	Tiny.Square((1, 2, 3)) is (1, 4, 9)
 	for values
 		value * value
 Typical(values Numbers, every Number, wanted Number) Number

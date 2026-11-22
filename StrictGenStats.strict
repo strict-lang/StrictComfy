@@ -37,9 +37,9 @@ Status(queue StrictGenQueue, net StrictGenNet) Text slow
 	head = stats.Substring(0, stats.Length - 1) + position + busy + ",\"previewStamp\":" + stamp
 	upscaler = RtxVideo(H3Options.Parsed(List(Text))).IsAvailable then "true" else "false"
 	machine = ",\"name\":" + StrictGenHost.Name.Code + ",\"gpuName\":" + net.gpu.Code + ",\"upscaler\":" + upscaler
-	head + machine + ",\"gpuTemp\":" + StrictGenHost.Number(3) + Made(queue) + ",\"peers\":" + Peers(net) + "}"
-Made(queue StrictGenQueue) Text slow
-	Sample.Made(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
+	head + machine + ",\"gpuTemp\":" + StrictGenHost.Number(3) + Make(queue) + ",\"peers\":" + Peers(net) + "}"
+Make(queue StrictGenQueue) Text slow
+	Sample.Make(StrictGenQueue.Empty).StartsWith(",\"results\":[],\"captions\":[],\"recent\":[],\"running\":\"\"")
 	made = ",\"results\":" + Codes(queue.results) + ",\"captions\":" + Codes(queue.captions)
 	running = queue.job.current < 0 then "" else queue.lines(queue.job.current)
 	recent = ",\"recent\":" + Codes(Recent(queue)) + ",\"running\":" + running.Code
@@ -60,14 +60,14 @@ Run(queue StrictGenQueue, id Number) Text
 	current = id is queue.job.current
 	waiting = id is in queue.pending
 	kept = waiting is false and File(file).Exists then File(file).ReadLines else List(outer.Text)
-	shown = current then queue.job.Stamped(queue.job.Logged) else kept
+	shown = current then queue.job.Stamp(queue.job.Logged) else kept
 	outcome = queue.outcomes.Length > id then queue.outcomes(id) else ""
 	ended = outcome.StartsWith("error") then "error" else "done"
 	state = current then "running" else (waiting then "queued" else ended)
 	head = "{\"id\":" + (id + 1) + ",\"title\":" + queue.lines(id).Code + ",\"state\":" + state.Code
 	head + ",\"outcome\":" + outcome.Code + ",\"lines\":" + Codes(shown) + "}"
-Joined(lines Texts) Text
-	Sample.Joined(("a", "b")) is "a\nb"
+Join(lines Texts) Text
+	Sample.Join(("a", "b")) is "a\nb"
 	outer.Text.Combine(lines, "\n")
 Position(queue StrictGenQueue) Text
 	Sample.Position(StrictGenQueue.Empty) is "queue 0 done 0"
@@ -122,7 +122,7 @@ Codes(lines Texts) Text slow
 	for lines
 		quoted = quoted + value.Code
 	"[" + outer.Text.Combine(quoted, ",") + "]"
-Probed(path Text) Text slow
-	Sample.Probed("missing-clip.mp4") is ""
+Probe(path Text) Text slow
+	Sample.Probe("missing-clip.mp4") is ""
 	probed = File(path).Exists then StrictGenClip.Probe(path) else ""
-	RtxVideo(H3Options.Parsed(List(Text))).Sized(probed)
+	RtxVideo(H3Options.Parsed(List(Text))).FormatSize(probed)

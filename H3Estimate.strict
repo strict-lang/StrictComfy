@@ -57,19 +57,19 @@ Told(raw Text) Text
 	H3Estimate.Told(SmallRequest).StartsWith("Sampling roughly 6 x 2.1 s")
 	H3Estimate.Told(ExtendRequest).EndsWith("k of 38k video tokens")
 	H3Estimate.Told(MossEstimate.ImageRequest).StartsWith("Sampling roughly 5 x 0.15 s")
-	if Asked(raw, "mode") is "image"
+	if Ask(raw, "mode") is "image"
 		return MossEstimate.Told(raw)
-	sized = ("--width", Asked(raw, "width"), "--height", Asked(raw, "height"), "--length", Asked(raw, "length"))
+	sized = ("--width", Ask(raw, "width"), "--height", Ask(raw, "height"), "--length", Ask(raw, "length"))
 	chosen = sized + Optional(raw, "quality") + Optional(raw, "steps")
-	video = ("--video", "a.mp4", "--context", Asked(raw, "context"))
-	vram = Asked(raw, "vram") to Number
-	parsed = H3Options.Parsed(chosen + (Asked(raw, "mode") is "extend" then video else List(Text)))
+	video = ("--video", "a.mp4", "--context", Ask(raw, "context"))
+	vram = Ask(raw, "vram") to Number
+	parsed = H3Options.Parsed(chosen + (Ask(raw, "mode") is "extend" then video else List(Text)))
 	H3Estimate(parsed).Estimate(Budget(vram is Error then Unsized else vram * Mebibyte))
-Asked(raw Text, name Text) Text
-	H3Estimate.Asked(SmallRequest, "width") is "848"
+Ask(raw Text, name Text) Text
+	H3Estimate.Ask(SmallRequest, "width") is "848"
 	StrictGenHttp.Query(raw, name)
 Optional(raw Text, name Text) Texts
 	H3Estimate.Optional(SmallRequest, "quality") is ("--quality", "fast")
 	H3Estimate.Optional(SmallRequest, "steps").Length is 0
-	given = Asked(raw, name)
+	given = Ask(raw, name)
 	given is "" then List(Text) else ("--" + name, given)

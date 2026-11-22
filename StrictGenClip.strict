@@ -10,7 +10,7 @@ TailRgb(path Text, context Number, width Number, height Number) Numbers slow
 	if Process.RunTool("ffmpeg", StrictGenJoin.Extract(path, rgb, (height, width), seconds)).HasFailed
 		return Error("FfmpegFailed: " + path)
 	frame = width * height * 3
-	raw = Scaled(File(rgb).ReadBytes)
+	raw = Scale(File(rgb).ReadBytes)
 	File(rgb).Delete
 	count = raw.Length / frame
 	last = count > context then raw.Slice((count - context) * frame, context * frame) else raw
@@ -23,8 +23,8 @@ TailPcm(path Text, seconds Number) Numbers slow
 	waveform = Pcm(File(pcm).ReadBytes)
 	File(pcm).Delete
 	waveform
-Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) None slow
-	Sample.Appended("a.mp4", (1, 2, 3), (1, 2), (1, 1), 22, "b.mp4") is Error("ShortVideo")
+Append(source Text, video Numbers, waveform Numbers, size Numbers, context Number, output Text) None slow
+	Sample.Append("a.mp4", (1, 2, 3), (1, 2), (1, 1), 22, "b.mp4") is Error("ShortVideo")
 	frame = size(0) * size(1) * 3
 	if video.Length < (context + 1) * frame
 		return Error("ShortVideo")
@@ -32,10 +32,10 @@ Appended(source Text, video Numbers, waveform Numbers, size Numbers, context Num
 	drop = StrictGenExtend.None.SoundDrop(kept)
 	if waveform.Length < (drop + 1) * 2
 		return Error("ShortAudio")
-	Merged(source, Trimmed(video, kept, frame), Cut(waveform, drop), size, output)
-Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
+	Merge(source, Trim(video, kept, frame), Cut(waveform, drop), size, output)
+Merge(source Text, video Numbers, audio Numbers, size Numbers, output Text) None slow
 	tail = output + ".tail.mp4"
-	saved = H3Frames.Saved(video, audio, size, tail)
+	saved = H3Frames.Save(video, audio, size, tail)
 	if saved is Error
 		return saved
 	join = StrictGenJoin
@@ -45,8 +45,8 @@ Merged(source Text, video Numbers, audio Numbers, size Numbers, output Text) Non
 		logger.Log("ffmpeg could not join " + source + " and the new frames: " + merged.error.Trim)
 		return Error("FfmpegFailed")
 	logger.Log("Wrote " + output)
-Trimmed(video Numbers, context Number, frame Number) Numbers
-	Sample.Trimmed((1, 2, 3, 4, 5, 6, 7, 8, 9), 1, 3) is (4, 5, 6, 7, 8, 9)
+Trim(video Numbers, context Number, frame Number) Numbers
+	Sample.Trim((1, 2, 3, 4, 5, 6, 7, 8, 9), 1, 3) is (4, 5, 6, 7, 8, 9)
 	video.Slice(context * frame, video.Length - context * frame)
 Cut(waveform Numbers, drop Number) Numbers
 	Sample.Cut((1, 2, 3, 4, 5, 6, 7, 8), 1) is (2, 3, 4, 6, 7, 8)
@@ -57,7 +57,7 @@ Still(path Text, zoom Text) Text slow
 	Sample.Still("a.png", "false") is "a.png"
 	Sample.Still("", "25") is ""
 	isVideo = path.Lower.EndsWith(".mp4")
-	last = isVideo then Rendered("-sseof -1", path, "-update 1", StrictGen.Inputs, "-last.png") else path
+	last = isVideo then Render("-sseof -1", path, "-update 1", StrictGen.Inputs, "-last.png") else path
 	if isVideo and last is not path
 		logger.Log("Using the last frame of " + path + " as the first frame")
 	Closer(last, zoom)
@@ -67,7 +67,7 @@ Closer(path Text, zoom Text) Text slow
 	percent = zoom is "true" then 10 else (zoom is "" or zoom is "false" then 0 else zoom to Number)
 	if percent <= 0 or path is ""
 		return path
-	closer = Rendered("", path, Crop(percent), Zoomed, "-zoom" + percent + ".png")
+	closer = Render("", path, Crop(percent), Zoomed, "-zoom" + percent + ".png")
 	if closer is not path
 		logger.Log("Zoomed " + percent + "% into " + path)
 	closer
@@ -76,8 +76,8 @@ Crop(percent Number) Text
 	Sample.Crop(25) is "-vf crop=iw/1.25:ih/1.25"
 	scale = 1 + percent / 100
 	"-vf crop=iw/" + scale + ":ih/" + scale
-Rendered(before Text, path Text, after Text, folder Text, suffix Text) Text slow
-	Sample.Rendered("", "missing.png", "", Zoomed, "-zoom10.png") is "missing.png"
+Render(before Text, path Text, after Text, folder Text, suffix Text) Text slow
+	Sample.Render("", "missing.png", "", Zoomed, "-zoom10.png") is "missing.png"
 	output = folder + "/" + Path(path).FileName.RemoveExtension.text + suffix
 	Directory.Create(StrictGen.Inputs)
 	Directory.Create(folder)
@@ -93,13 +93,13 @@ Pcm(bytes Numbers) Numbers
 	Sample.Pcm((0, 128, 0, 0)).First is -1
 	frames = bytes.Length / 4
 	for frames * 2
-		Sampled(bytes, index < frames then index * 4 else (index - frames) * 4 + 2)
-Sampled(bytes Numbers, at Number) Number
-	Sample.Sampled((0, 128), 0) is -1
-	Sample.Sampled((255, 127), 0).IsNearlyEqual(1, 0.0001)
+		ReadSample(bytes, index < frames then index * 4 else (index - frames) * 4 + 2)
+ReadSample(bytes Numbers, at Number) Number
+	Sample.ReadSample((0, 128), 0) is -1
+	Sample.ReadSample((255, 127), 0).IsNearlyEqual(1, 0.0001)
 	unsigned = bytes(at) + bytes(at + 1) * 256
 	(unsigned >= SignedShortLimit then unsigned - UnsignedShortRange else unsigned) / SignedShortLimit
-Scaled(bytes Numbers) Numbers
-	Sample.Scaled((0, 255)) is (0, 1)
+Scale(bytes Numbers) Numbers
+	Sample.Scale((0, 255)) is (0, 1)
 	for bytes
 		value / Byte.Max

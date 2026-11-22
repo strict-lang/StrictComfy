@@ -14,43 +14,43 @@ Loaded(model Safetensors, prefix Text) Taef2Block slow
 	Pooling.norm.groups is 4
 	Plain.expand.weights.Length is 0
 	block = Safetensors(model.path, 32, model.prefix + prefix)
-	skipped = block.Entry("skip.weight") is "" then Unused else FluxResnet.Convolved(block, "skip")
+	skipped = block.Entry("skip.weight") is "" then Unused else FluxResnet.Convolve(block, "skip")
 	if block.Entry("pool.0.weight") is ""
 		return Taef2Block(Convolutions(block), Unused, Unnormed, Unused, skipped)
 	pooled = GroupNorm(block.Values("pool.1.weight"), block.Values("pool.1.bias"), 4)
-	contracted = FluxResnet.Convolved(block, "pool.3")
-	Taef2Block(Convolutions(block), FluxResnet.Convolved(block, "pool.0"), pooled, contracted, skipped)
+	contracted = FluxResnet.Convolve(block, "pool.3")
+	Taef2Block(Convolutions(block), FluxResnet.Convolve(block, "pool.0"), pooled, contracted, skipped)
 Convolutions(block Safetensors) List(Convolution) slow
 	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
 	for (0, 2, 4)
-		FluxResnet.Convolved(block, "conv." + value)
+		FluxResnet.Convolve(block, "conv." + value)
 Output(map FeatureMap) FeatureMap native
 	Pooling.Output(Entered).values(0).IsNearlyEqual(1.2786, 0.001)
 	Pooling.Output(Entered).values(1).IsNearlyEqual(0.02821, 0.001)
-	input = expand.biases.Length is 0 then map else map.Plus(Pooled(map))
+	input = expand.biases.Length is 0 then map else map.Plus(Pool(map))
 	first = convolutions(0).Apply(input, input.Identity, Activation.Linear)
 	second = convolutions(1).Apply(first, first.Identity, Activation.Relu)
 	shortcut = skip.weights.Length is 0 then input else skip.Project(input)
-	Rectified(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
-Remembered(map FeatureMap, past FeatureMap) FeatureMap native
-	Taeh3Decoder.Tiny.blocks.First.Remembered(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
+	Rectify(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
+Remember(map FeatureMap, past FeatureMap) FeatureMap native
+	Taeh3Decoder.Tiny.blocks.First.Remember(Taeh3Decoder.Started, Taeh3Decoder.Started).values.Length is 48
 	doubled = 2 * map.channels
-	joined = FeatureMap(Joined(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))
+	joined = FeatureMap(Join(map.Completed, past.Completed, map.channels), map.width, doubled, Layer.Zeros(doubled))
 	first = convolutions(0).Apply(joined, joined.Identity, Activation.Linear)
 	second = convolutions(1).Apply(first, first.Identity, Activation.Relu)
 	shortcut = skip.weights.Length is 0 then map else skip.Project(map)
-	Rectified(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
-Joined(own Numbers, past Numbers, channels Number) Numbers
-	Plain.Joined((1, 2, 3, 4), (5, 6, 7, 8), 2) is (1, 2, 5, 6, 3, 4, 7, 8)
+	Rectify(convolutions(2).Apply(second, second.Identity, Activation.Relu).Plus(shortcut))
+Join(own Numbers, past Numbers, channels Number) Numbers
+	Plain.Join((1, 2, 3, 4), (5, 6, 7, 8), 2) is (1, 2, 5, 6, 3, 4, 7, 8)
 	doubled = 2 * channels
 	for 2 * own.Length
 		within = index % doubled
 		pixel = (index / doubled).Floor
 		within < channels then own(pixel * channels + within) else past(pixel * channels + within - channels)
-Rectified(map FeatureMap) FeatureMap
-	Pooling.Rectified(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
+Rectify(map FeatureMap) FeatureMap
+	Pooling.Rectify(FeatureMap((1, -2), 1, 2, (0, 0))).values is (1, 0)
 	map.Applied(map.Identity, Activation.Relu)
-Pooled(map FeatureMap) FeatureMap slow
-	Pooling.Pooled(Entered).values.Length is 192
+Pool(map FeatureMap) FeatureMap slow
+	Pooling.Pool(Entered).values.Length is 192
 	expanded = expand.Project(map)
 	contract.Project(expanded.Applied(norm.Affine(expanded), Activation.Relu))

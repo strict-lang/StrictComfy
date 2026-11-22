@@ -137,7 +137,7 @@ Loras Text slow
 	if IsFew
 		return Few(local, given)
 	named = files.Turbo
-	turbo = Evaluated > 8 or HasTurbo then List(Text) else List(Text) + (local.Located(named, "loras") + TurboStrength)
+	turbo = Evaluated > 8 or HasTurbo then List(Text) else List(Text) + (local.Locate(named, "loras") + TurboStrength)
 	Text.Combine(turbo + given, ";")
 Few(local ModelFiles, given Texts) Text slow
 	H3Options.Parsed(("--models", ".", "--lora", "tinyhyperflow.safetensors")).Loras is "tinyhyperflow.safetensors=1"
@@ -145,7 +145,7 @@ Few(local ModelFiles, given Texts) Text slow
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
 	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo
 	isGiven = HasTurbo or Text.Combine(given, ";").Lower.IndexOf("taomate") >= 0
-	Text.Combine((isGiven then List(Text) else List(Text) + (local.Located(H3Video.TaoMate, "loras") + "=1")) + given, ";")
+	Text.Combine((isGiven then List(Text) else List(Text) + (local.Locate(H3Video.TaoMate, "loras") + "=1")) + given, ";")
 Clip Number
 	H3Options.Parsed(List(Text)).Clip is 124
 	H3Options.Parsed(("--video", "clip.mp4", "--length", "24", "--context", "22")).Clip is 39
@@ -156,7 +156,7 @@ Shapes Numbers
 	H3Options.Parsed(("--length", "5", "--width", "32", "--height", "32")).Shapes is (2, 2, 2, 8)
 	H3Options.Parsed(("--length", "125")).Shapes(0) is 37
 	H3Options.Parsed(("--length", "120")).Shapes(0) is 32
-	frames = H3Format.Grouped(Clip)
+	frames = H3Format.Group(Clip)
 	audio = (frames / H3Format.FramesPerSecond * H3Format.AudioPerSecond).Round
 	fitted = Fitted
 	((frames - 5) / H3Format.FrameGroup * 5 + 2, fitted.height / 16, fitted.width / 16, audio)

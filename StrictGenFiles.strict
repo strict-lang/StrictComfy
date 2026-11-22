@@ -8,12 +8,12 @@ Outputs(folder Text) Texts slow
 	Tiny.Outputs(".").First.Split("\t").Length is 3
 	if Directory.Exists(folder) is false
 		return List(Text)
-	for StrictGenForm.Listed(folder, Media)
+	for StrictGenForm.FindFiles(folder, Media)
 		path = folder + "/" + Path(value).FileName.text
 		File(path).Modified + "\t" + path + "\t" + File(path).Length
-Listed(kind Text) Texts slow
-	Tiny.Listed("moss").Length is 0
-	Tiny.Listed("lora-moss").Length is 0
+FindFiles(kind Text) Texts slow
+	Tiny.FindFiles("moss").Length is 0
+	Tiny.FindFiles("lora-moss").Length is 0
 	if kind.StartsWith(LoraPrefix)
 		return Loras(kind.Substring(LoraPrefix.Length, kind.Length - LoraPrefix.Length))
 	Models(kind)
@@ -23,7 +23,7 @@ Models(kind Text) Texts slow
 	if Directory.Exists(folder) is false
 		return List(Text)
 	mutable names = List(Mutable(Text))
-	for StrictGenForm.Listed(folder, Extensions)
+	for StrictGenForm.FindFiles(folder, Extensions)
 		name = Path(value).FileName.text
 		if Kind(folder + "/" + name) is kind
 			names.Add(name)
@@ -42,11 +42,11 @@ Loras(model Text) Texts slow
 	Tiny.Loras("moss").Length is 0
 	Tiny.Loras("h3").Length is 0
 	folder = ModelFiles(models).Folder + "/loras/" + model
-	named = Directory.Exists(folder) then Named(folder, model + "/") else List(Text)
-	model is "h3" then named + Named(ModelFiles(models).Folder + "/hyperflow", "") else named
-Named(folder Text, prefix Text) Texts slow
-	Tiny.Named("missing", "a/").Length is 0
+	named = Directory.Exists(folder) then FindNamed(folder, model + "/") else List(Text)
+	model is "h3" then named + FindNamed(ModelFiles(models).Folder + "/hyperflow", "") else named
+FindNamed(folder Text, prefix Text) Texts slow
+	Tiny.FindNamed("missing", "a/").Length is 0
 	if Directory.Exists(folder) is false
 		return List(Text)
-	for StrictGenForm.Listed(folder, List(Text) + "safetensors")
+	for StrictGenForm.FindFiles(folder, List(Text) + "safetensors")
 		(prefix is "" then folder + "/" else prefix) + Path(value).FileName.text

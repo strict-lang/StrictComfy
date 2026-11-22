@@ -17,22 +17,22 @@ Sigmas Numbers
 	Euler(6, 12).Sigmas(5).IsNearlyEqual(0.70638001)
 	Euler(3, 12).Sigmas(3) is 0 and Euler(19, 12).Sigmas(19) is 0
 	for steps + 1
-		index is steps then 0 else Shifted(1 - (index * (1000 / steps)).Floor / 1000)
-Spaced(intervals Number) Numbers
-	Euler(8, 12).Spaced(8)(1).IsNearlyEqual(0.9883928)
-	Euler(8, 12).Spaced(8)(7).IsNearlyEqual(0.6526598)
-	Euler(8, 12).Spaced(7)(7).IsNearlyEqual(0.125984251)
-	Euler(1, 12).Spaced(1) is (1, 0)
-	least = Shifted(0.001)
+		index is steps then 0 else Shift(1 - (index * (1000 / steps)).Floor / 1000)
+Space(intervals Number) Numbers
+	Euler(8, 12).Space(8)(1).IsNearlyEqual(0.9883928)
+	Euler(8, 12).Space(8)(7).IsNearlyEqual(0.6526598)
+	Euler(8, 12).Space(7)(7).IsNearlyEqual(0.125984251)
+	Euler(1, 12).Space(1) is (1, 0)
+	least = Shift(0.001)
 	for steps + 1
-		index is steps then 0 else Shifted(1 - index * (1 - least) / intervals)
+		index is steps then 0 else Shift(1 - index * (1 - least) / intervals)
 Beta(alpha Number, beta Number) Numbers
 	Euler(4, 12).Beta(0.5, 0.7)(3).IsNearlyEqual(0.563135028)
 	Euler(4, 12).Beta(0.6, 0.6) is (1, 0.982511924, 0.923360467, 0.720732949, 0)
 	distribution = BetaDistribution(alpha, beta)
 	for steps + 1
 		timestep = (distribution.Quantile(1 - index / steps) * LastTimestep).Counted("Even")
-		index is steps then 0 else Shifted((timestep + 1) / 1000)
+		index is steps then 0 else Shift((timestep + 1) / 1000)
 Quadratic Numbers
 	Euler(1, 12).Quadratic is (1, 0)
 	Euler(8, 12).Quadratic is (1, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0)
@@ -49,9 +49,9 @@ Ramp(index Number, linear Number, spread Number, slope Number) Number
 	Moss.Ramp(3, 4, 0.2375, -0.46875) is 0.01875
 	Moss.Ramp(6, 4, 0.2375, -0.46875).IsNearlyEqual(0.275)
 	index < linear then index * ThresholdNoise / linear else spread / linear * (index ^ 2 + linear ^ 2) + slope * index
-Scheduled(scheduler Number, sampler Number) Numbers
-	Euler(1, 1).Scheduled(1, 2) is (0.9999, 0) and Euler(1, 1).Scheduled(1, 4) is (0.9999, 0)
-	Euler(4, 5).Scheduled(0, 1) is Euler(4, 5).Sigmas
+ScheduleSampler(scheduler Number, sampler Number) Numbers
+	Euler(1, 1).ScheduleSampler(1, 2) is (0.9999, 0) and Euler(1, 1).ScheduleSampler(1, 4) is (0.9999, 0)
+	Euler(4, 5).ScheduleSampler(0, 1) is Euler(4, 5).Sigmas
 	sigmas = Schedule(scheduler)
 	sampler is 2 or sampler is 4 then Offset(sigmas) else sigmas
 Schedule(scheduler Number) Numbers
@@ -61,7 +61,7 @@ Schedule(scheduler Number) Numbers
 	Euler(8, 12).Schedule(6)(7).IsNearlyEqual(0.468753315)
 	Euler(8, 12).Schedule(0)(7).IsNearlyEqual(0.631578947) and Euler(8, 12).Schedule(1)(7).IsNearlyEqual(0.652659812)
 	if scheduler is 1 or scheduler is 2
-		return Spaced(scheduler is 1 then steps else (steps - 1).Clamp(1, steps))
+		return Space(scheduler is 1 then steps else (steps - 1).Clamp(1, steps))
 	if scheduler is 3 or scheduler is 4
 		return scheduler is 3 then Beta(BetaShape, BetaShape) else Beta(0.5, Beta57Tail)
 	scheduler is 6 then HyperFlow else (scheduler is 5 then Quadratic else Sigmas)
@@ -71,20 +71,20 @@ HyperFlow Numbers
 	if steps is not 8
 		return Error("HyperFlowNeedsEightSteps")
 	for Flow
-		Shifted(value)
-Shifted(time Number) Number
-	Moss.Shifted(1) is 1
-	Moss.Shifted(0.5).IsNearlyEqual(5 / 6)
+		Shift(value)
+Shift(time Number) Number
+	Moss.Shift(1) is 1
+	Moss.Shift(0.5).IsNearlyEqual(5 / 6)
 	shift * time / (1 + (shift - 1) * time)
 Offset(sigmas Numbers) Numbers
 	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(0).IsNearlyEqual(0.999979998)
 	Euler(4, 5).Offset(Euler(4, 5).Sigmas)(1) is 0.9375
 	Euler(1, 1).Offset((1, 1)) is (0.9999, 1) and Euler(1, 1).Offset((0.5, 1)) is (0.5, 1)
 	for sigmas
-		index is 0 and value >= 1 then Shifted(HighestTime) else value
-Stepped(latent Numbers, output Numbers, sigmas Numbers, step Number, start = 0) Numbers
-	Moss.Stepped((1, 2), (2, 4), Moss.Sigmas, 7)(1).IsNearlyEqual(2 - 5 / 12 * 4)
-	Moss.Stepped((1, 2), (0, 2, 4), Moss.Sigmas, 7, 1)(1).IsNearlyEqual(2 - 5 / 12 * 4)
+		index is 0 and value >= 1 then Shift(HighestTime) else value
+Step(latent Numbers, output Numbers, sigmas Numbers, step Number, start = 0) Numbers
+	Moss.Step((1, 2), (2, 4), Moss.Sigmas, 7)(1).IsNearlyEqual(2 - 5 / 12 * 4)
+	Moss.Step((1, 2), (0, 2, 4), Moss.Sigmas, 7, 1)(1).IsNearlyEqual(2 - 5 / 12 * 4)
 	change = sigmas(step + 1) - sigmas(step)
 	for latent
 		value + change * output(start + index)

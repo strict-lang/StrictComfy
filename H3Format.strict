@@ -8,9 +8,9 @@ constant Registers = 5
 constant DoubledBlocks = 0.76
 constant EarlyRouting = 0.7
 constant LateRouting = 0.455
-Grouped(count Number) Number
-	H3Format.Grouped(5) is 5
-	H3Format.Grouped(120) is 107
-	H3Format.Grouped(124) is 124
-	H3Format.Grouped(125) is 124
+Group(count Number) Number
+	H3Format.Group(5) is 5
+	H3Format.Group(120) is 107
+	H3Format.Group(124) is 124
+	H3Format.Group(125) is 124
 	((count - 5) / FrameGroup).Floor.Clamp(0, count) * FrameGroup + 5

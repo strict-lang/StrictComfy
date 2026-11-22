@@ -55,9 +55,9 @@ Position(token Number, axis Number) Number
 	if token < Words
 		return axis is 0 then token else 0
 	row = token - Words
-	row >= Conditions then Grid(Size).Seen(row - Conditions, axis, Words + Pictures) else Referenced(row, axis)
-Referenced(row Number, axis Number) Number
-	Two.Referenced(2, 2).IsNearlyEqual(-11.712813) and Two.Referenced(4, 2).IsNearlyEqual(25.237604)
+	row >= Conditions then Grid(Size).Seen(row - Conditions, axis, Words + Pictures) else Reference(row, axis)
+Reference(row Number, axis Number) Number
+	Two.Reference(2, 2).IsNearlyEqual(-11.712813) and Two.Reference(4, 2).IsNearlyEqual(25.237604)
 	picture = Picture(row)
 	Grid(Size(references(2 * picture + 1), references(2 * picture))).Seen(row - Start(picture), axis, Words + picture)
 Grid(size Size) H3Layout
@@ -68,9 +68,9 @@ Times(sigma Number) Numbers
 	Plain.Times(0.75) is (0.25)
 	Tiny.Times(0.0005) is (0.9995)
 	seen = List(Number) + (1 - sigma)
-	Pictures is 0 then seen else (seen + Pinned(sigma)).Unique.Sorted
-Pinned(sigma Number) Number
-	Tiny.Pinned(0.75) is H3Layout.Pinned
+	Pictures is 0 then seen else (seen + Pin(sigma)).Unique.Sorted
+Pin(sigma Number) Number
+	Tiny.Pin(0.75) is H3Layout.Pinned
 	1 - sigma > H3Layout.Pinned then 1 - sigma else H3Layout.Pinned
 Rows(sigma Number) Numbers
 	Tiny.Rows(0.75) is (6, 0, 6, 18, 18, 0, 0, 0, 0)

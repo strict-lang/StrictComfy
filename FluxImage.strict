@@ -5,14 +5,14 @@ Run(dumps = "Dumps", model = "Dumps/flux2-vae.safetensors")
 	logger.Log("loaded in " + Process.Elapsed.Round(2) + " s")
 	latent = steps.Values("latent")
 	width = steps.Shape("latent")(3)
-	first = Decoded(decoder, latent, width, steps.Values("image"), "decoded")
-	image = first.Length > 0 then Decoded(decoder, latent, width, steps.Values("image"), "decoded again") else first
+	first = Decode(decoder, latent, width, steps.Values("image"), "decoded")
+	image = first.Length > 0 then Decode(decoder, latent, width, steps.Values("image"), "decoded again") else first
 	shape = steps.Shape("image")
 	ImageSaver(dumps + "/strict.png").Save(Image(Size(shape(2), shape(1)), Colors(image)))
-Decoded(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, label Text) Numbers native
-	FluxImage.Decoded(FluxDecoder.Tiny, FluxDecoder.Latent, 2, Expected, "decoded").Length is 288
+Decode(decoder FluxDecoder, latent Numbers, width Number, expected Numbers, label Text) Numbers native
+	FluxImage.Decode(FluxDecoder.Tiny, FluxDecoder.Latent, 2, Expected, "decoded").Length is 288
 	before = Process.Elapsed
-	image = decoder.Decoded(latent, width)
+	image = decoder.Decode(latent, width)
 	psnr = Psnr(image, expected)
 	logger.Log(label + " in " + ((Process.Elapsed - before) * 1000).Round + " ms, PSNR " + psnr.Round(2) + " dB")
 	image

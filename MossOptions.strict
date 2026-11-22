@@ -82,7 +82,7 @@ Loras Text slow
 	if Evaluated > 8 or IsBaked or IsDistilled(specs)
 		return Text.Combine(specs, ";")
 	installed = File(files.Folder + "/loras/" + MossFiles.FourSteps).Exists
-	Text.Combine(List(Text) + (files.Located(Turbo(installed), "loras") + "=1") + specs, ";")
+	Text.Combine(List(Text) + (files.Locate(Turbo(installed), "loras") + "=1") + specs, ";")
 IsBaked Boolean
 	MossOptions.Parsed(("--model", "moss_image_sft_4step_int4_convrot.safetensors")).IsBaked
 	MossOptions.Parsed(("--model", "moss-image-sft-dit-int8-convrot-dmd.safetensors")).IsBaked
@@ -105,7 +105,7 @@ IsDistilled(specs Texts) Boolean
 	dmd or combined.IndexOf(Path(MossFiles.FourSteps).FileName.text) >= 0
 Located Text slow
 	MossOptions.Parsed(("--model", "a b.safetensors", "--models", ".")).Located is "Model file not found: a_b.safetensors"
-	MossOptions.Parsed(TinyModels).Named("") is ""
+	MossOptions.Parsed(TinyModels).NameProblem("") is ""
 	model = files.Checkpoint
 	loras = Loras
 	decoder = Decoder
@@ -113,14 +113,14 @@ Located Text slow
 	tokenizer = files.Tokenizer
 	early = model is Error then model to Text else (loras is Error then loras to Text else "")
 	late = decoder is Error then decoder to Text else (encoder is Error then encoder to Text else "")
-	Named(early + late + (tokenizer is Error then tokenizer to Text else ""))
+	NameProblem(early + late + (tokenizer is Error then tokenizer to Text else ""))
 Decoder Text slow
 	MossOptions.Parsed(TinyModels).Decoder is "tinyvae.safetensors"
 	MossOptions.Parsed(("--models", ".", "--quality", "fastest")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	quality is in (MossQuality.Fastest, MossQuality.Fastest2Steps) then files.Fast else files.Decoder
-Named(problem Text) Text
-	MossOptions.Parsed(List(Text)).Named("") is ""
-	MossOptions.Parsed(List(Text)).Named(MissingModel) is "Model file not found: a.safetensors"
+NameProblem(problem Text) Text
+	MossOptions.Parsed(List(Text)).NameProblem("") is ""
+	MossOptions.Parsed(List(Text)).NameProblem(MissingModel) is "Model file not found: a.safetensors"
 	if problem is ""
 		return ""
 	problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")

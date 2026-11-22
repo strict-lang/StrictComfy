@@ -4,16 +4,16 @@ constant Tiny = H3Clip(H3ClipEncoder.Tiny, H3Tiles.Tiny)
 constant ClipLength = 17
 constant Finished = 0.999
 constant Frame = H3VaeEncoder.Model.Values("reference.image")
-Encoded(frames List(Numbers), size Numbers) Numbers native
-	Tiny.Encoded((Frame, Frame), (48, 64)).Length is 288
-	Tiny.Encoded(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encoded(Frame, (48, 64))(5), 0.01)
+Encode(frames List(Numbers), size Numbers) Numbers native
+	Tiny.Encode((Frame, Frame), (48, 64)).Length is 288
+	Tiny.Encode(List(Numbers) + Frame, (48, 64))(5).IsNearlyEqual(H3Picture.Tiny.Encode(Frame, (48, 64))(5), 0.01)
 	boxes = (tiling.Starts(size(0)), tiling.Starts(size(1)))
 	started = Process.Elapsed
 	mutable latents = List(Numbers)
 	for Clips(frames.Length)
 		part = frames.Slice(value, (frames.Length - value).Clamp(1, ClipLength))
 		latents = latents + Latents(part, size, boxes, (value, frames.Length, started))
-	Ordered(latents)
+	Order(latents)
 Clips(count Number) Numbers native
 	Tiny.Clips(22) is (0, 17)
 	Tiny.Clips(17) is (0)
@@ -23,7 +23,7 @@ Latents(frames List(Numbers), size Numbers, boxes List(Numbers), progress Number
 	picture = H3Picture(network.encoder, tiling)
 	tiles = Tiles(frames, size, boxes, progress)
 	for tiles.First.Length
-		picture.Normalized(Column(tiles, index), boxes(0), boxes(1), size, List(Number))
+		picture.Normalize(Column(tiles, index), boxes(0), boxes(1), size, List(Number))
 Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers) List(List(Numbers)) slow
 	ys = boxes(0)
 	xs = boxes(1)
@@ -33,10 +33,10 @@ Tiles(frames List(Numbers), size Numbers, boxes List(Numbers), progress Numbers)
 	wide = tiling.Length(size(1))
 	for count
 		moments = network.Moments(Pixels(frames, size, (ys((index / xs.Length).Floor), tall, xs(index % xs.Length), wide)))
-		Reported(progress(0) / progress(1) + (index + 1) * step, step, progress(2))
+		Report(progress(0) / progress(1) + (index + 1) * step, step, progress(2))
 		moments
-Reported(fraction Number, step Number, started Number) native
-	Tiny.Reported(0.3, 0.1, Process.Elapsed) is not Error
+Report(fraction Number, step Number, started Number) native
+	Tiny.Report(0.3, 0.1, Process.Elapsed) is not Error
 	if (fraction * 4).Floor > ((fraction - step) * 4).Floor and fraction < Finished
 		elapsed = Process.Elapsed - started
 		estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
@@ -48,9 +48,9 @@ Column(tiles List(List(Numbers)), at Number) List(Numbers) native
 	Tiny.Column((((1, 2), (3, 4)), ((5, 6), (7, 8))), 1) is ((3, 4), (7, 8))
 	for tiles
 		value(at)
-Ordered(latents List(Numbers)) Numbers native
-	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(1) is 100
-	Tiny.Ordered((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(2) is 1
+Order(latents List(Numbers)) Numbers native
+	Tiny.Order((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(1) is 100
+	Tiny.Order((StrictGenExtend.Sample.Ramp(24, 0), StrictGenExtend.Sample.Ramp(24, 100)))(2) is 1
 	plane = latents.First.Length / H3Format.Channels
 	count = latents.Length
 	volume = count * plane

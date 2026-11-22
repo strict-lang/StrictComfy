@@ -57,11 +57,11 @@ Launch StrictGenQueue slow
 	StrictGenQueue(value, pending = pending.Slice(1, pending.Length - 1), job = local, aim = "")
 Refused(reason Text) StrictGenQueue
 	left = pending.Slice(1, pending.Length - 1)
-	outcome = Noted(pending.First, "error\t" + reason)
+	outcome = Note(pending.First, "error\t" + reason)
 	StrictGenQueue(value, pending = left, aim = "", finished = finished + 1, notice = reason, outcomes = outcome)
 Sent(endpoint Text) StrictGenQueue slow
 	index = pending.First
-	id = StrictGenRemote.Delivered(endpoint, bodies.Length > index then bodies(index) else "")
+	id = StrictGenRemote.Deliver(endpoint, bodies.Length > index then bodies(index) else "")
 	if id is "" or id.StartsWith("error")
 		return Refused(id is "" then "The other StrictGen did not answer" else id)
 	remote = StrictGenJob.Remote(index, endpoint, id to Number)
@@ -72,25 +72,25 @@ Polled StrictGenQueue slow
 	rows = job.Logged
 	if job.done is "" or File(job.done).Exists is false
 		return StrictGenQueue(value, job = job.Timed(rows))
-	paths = job.Existing(job.Found(rows))
-	job.Timed(rows).Kept(rows)
+	paths = job.Existing(job.Find(rows))
+	job.Timed(rows).Keep(rows)
 	File(job.done).Delete
 	reason = StrictGenConsole.Failure(rows)
 	Finished(paths, paths.Length is 0 then reason else lines(job.current), job.Prompts(rows))
 Remote StrictGenQueue slow
-	answer = StrictGenRemote.Asked(job.remote, job.remoteId)
+	answer = StrictGenRemote.Ask(job.remote, job.remoteId)
 	kind = answer.Split("\t").First
 	if answer is "wait" or kind is "wait" or answer is ""
 		return value
 	if kind is "error"
 		return Finished(List(Text), answer, List(Text))
-	path = StrictGenRemote.Saved(job.remote, answer.Split("\t").Last)
+	path = StrictGenRemote.Save(job.remote, answer.Split("\t").Last)
 	if path is ""
 		return Finished(List(Text), "The other StrictGen sent no file", List(Text))
 	Finished(List(Text) + path, lines(job.current), List(Text))
 Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
 	empty = paths.Length is 0
-	recorded = Noted(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
+	recorded = Note(job.current, empty then "error\t" + caption else "file\t" + paths.Last)
 	shown = Captions(paths, caption, prompts)
 	made = StrictGenQueue(value, results = results + paths, captions = shown, outcomes = recorded)
 	done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)
@@ -125,7 +125,7 @@ Report(id Number) Text
 	if id is job.current or id is in pending or outcomes.Length <= id
 		return "wait"
 	outcomes(id) is "" then "wait" else outcomes(id)
-Noted(at Number, text Text) Texts
+Note(at Number, text Text) Texts
 	mutable items = List(Mutable(Text))
 	for Range(0, modes.Length)
 		items.Add(at is index then text else (outcomes.Length > index then outcomes(index) else ""))

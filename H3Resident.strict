@@ -29,7 +29,7 @@ Encoding(files H3Files) H3Resident slow
 Encoder(files H3Files) Qwen3 slow
 	None.Encoder(Files).blocks.Length is 2
 	before = Process.Elapsed
-	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
+	logger.Log("Loading text encoder " + ModelFiles("").Describe(files.Encoder) + " from disk into memory")
 	encoder = H3Encoder(files).Loaded
 	staying = isCrowded then "" else ", it stays loaded for the next runs"
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
@@ -44,7 +44,7 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
 	GpuMemory.Trim
-	h3 = H3Video.Loaded(checkpoint, loras)
+	h3 = H3Video.Load(checkpoint, loras)
 	refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
 Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident

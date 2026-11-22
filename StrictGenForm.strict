@@ -56,17 +56,17 @@ Remote(json Json) Texts
 More(json Json) Texts
 	StrictGenForm.More(Json("{\"seed\":7,\"guidance\":2.5}")) is ("--seed", "7", "--guidance", "2.5")
 	guidance = json.get("guidance") to Text
-	numbers = StrictGenImage.Numbered(json) + Pair("--guidance", guidance is "" or guidance is "0" then "" else guidance)
+	numbers = StrictGenImage.Read(json) + Pair("--guidance", guidance is "" or guidance is "0" then "" else guidance)
 	sampling = Pair("--spectrum", json.get("spectrum") to Text) + Pair("--sampler", json.get("sampler") to Text)
 	numbers + sampling + Pair("--scheduler", json.get("scheduler") to Text) + Files(json)
 Files(json Json) Texts
 	StrictGenForm.Files(Json("{\"output\":\"a.mp4\",\"crop\":\"false\"}")) is ("--crop=false")
 	output = Pair("--models", json.get("models") to Text)
 	models = Pair("--text_encoder", json.get("textEncoder") to Text) + Pair("--model", json.get("model") to Text)
-	output + models + Cropped(json) + Pair("--vision", Vision(json.get("vision") to Text))
-Cropped(json Json) Texts
-	StrictGenForm.Cropped(Json("{\"crop\":\"false\"}")) is ("--crop=false")
-	StrictGenForm.Cropped(Json("{}")).Length is 0
+	output + models + Crop(json) + Pair("--vision", Vision(json.get("vision") to Text))
+Crop(json Json) Texts
+	StrictGenForm.Crop(Json("{\"crop\":\"false\"}")) is ("--crop=false")
+	StrictGenForm.Crop(Json("{}")).Length is 0
 	json.get("crop") to Text is "false" then List(Text) + "--crop=false" else List(Text)
 Vision(text Text) Text
 	StrictGenForm.Vision("768") is ""
@@ -86,35 +86,35 @@ Pair(name Text, text Text) Texts
 	StrictGenForm.Pair("--seed", "").Length is 0
 	StrictGenForm.Pair("--seed", "7") is ("--seed", "7")
 	text is "" then List(Text) else List(Text) + name + text
-Selected(kind Text, arguments Texts) Text
-	StrictGenForm.Selected("moss", List(Text)) is "image"
-	StrictGenForm.Selected("h3", List(Text)) is "video"
-	StrictGenForm.Selected("h3", ("--image", "a.png")) is "imagevideo"
-	StrictGenForm.Selected("h3", ("--last_image", "b.png")) is "imagevideo"
+Select(kind Text, arguments Texts) Text
+	StrictGenForm.Select("moss", List(Text)) is "image"
+	StrictGenForm.Select("h3", List(Text)) is "video"
+	StrictGenForm.Select("h3", ("--image", "a.png")) is "imagevideo"
+	StrictGenForm.Select("h3", ("--last_image", "b.png")) is "imagevideo"
 	if kind is "moss"
 		return "image"
 	"--image" is in arguments or "--last_image" is in arguments then "imagevideo" else "video"
-Imported(path Text) Text slow
-	StrictGenForm.Imported("tinymossworkflow.json").IndexOf("\"mode\":\"image\",") >= 0
-	StrictGenForm.Imported("tinyh3strictworkflow.json").IndexOf("\"mode\":\"imagevideo\"") >= 0
+Import(path Text) Text slow
+	StrictGenForm.Import("tinymossworkflow.json").IndexOf("\"mode\":\"image\",") >= 0
+	StrictGenForm.Import("tinyh3strictworkflow.json").IndexOf("\"mode\":\"imagevideo\"") >= 0
 	text = Text.Combine(File(path).ReadLines, "\n")
 	isCustom = text.IndexOf("SamplerCustomAdvanced") >= 0
 	h3 = text.IndexOf("StrictH3") >= 0 or text.IndexOf("MiniMax") >= 0 or isCustom
 	moss = MossWorkflow(ComfyGraph.Read(path, MossWorkflow.Known), ".").Arguments
 	arguments = h3 then H3Workflow(ComfyGraph.Read(path, H3Workflow.Known), ".").Arguments else moss
-	Described(Selected(h3 then "h3" else "moss", arguments), arguments)
-Described(mode Text, arguments Texts) Text
-	StrictGenForm.Described("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
-	width = Taken(arguments, "--width")
-	height = Taken(arguments, "--height")
-	seed = Taken(arguments, "--seed")
+	Describe(Select(h3 then "h3" else "moss", arguments), arguments)
+Describe(mode Text, arguments Texts) Text
+	StrictGenForm.Describe("image", ("--width", "480", "--height", "848", "--seed", "7")).IndexOf("\"width\":480") >= 0
+	width = Take(arguments, "--width")
+	height = Take(arguments, "--height")
+	seed = Take(arguments, "--seed")
 	size = (width is "" then "0" else width) + ",\"height\":" + (height is "" then "0" else height)
 	head = "{\"mode\":" + mode.Code + ",\"width\":" + size + ",\"seed\":" + (seed is "" then "-1" else seed)
-	body = ",\"quality\":" + Taken(arguments, "--quality").Code + ",\"prompt\":" + Taken(arguments, "--prompt").Code
-	head + body + ",\"image\":" + Taken(arguments, "--image").Code + ",\"model\":" + Taken(arguments, "--model").Code + "}"
-Taken(arguments Texts, name Text) Text
-	StrictGenForm.Taken(("--width", "480", "--height", "848"), "--width") is "480"
-	StrictGenForm.Taken(("--width", "480"), "--height") is ""
+	body = ",\"quality\":" + Take(arguments, "--quality").Code + ",\"prompt\":" + Take(arguments, "--prompt").Code
+	head + body + ",\"image\":" + Take(arguments, "--image").Code + ",\"model\":" + Take(arguments, "--model").Code + "}"
+Take(arguments Texts, name Text) Text
+	StrictGenForm.Take(("--width", "480", "--height", "848"), "--width") is "480"
+	StrictGenForm.Take(("--width", "480"), "--height") is ""
 	at = arguments.Index(name)
 	at < 0 or at + 1 >= arguments.Length then "" else arguments(at + 1)
 Neighbor(paths Texts, current Text, step Number) Text
@@ -127,17 +127,17 @@ Neighbor(paths Texts, current Text, step Number) Text
 		return ""
 	at = files.Index(current)
 	files(at < 0 then (step < 0 then files.Length - 1 else 0) else (at + step).Clamp(0, files.Length - 1))
-Listed(folder Text, extensions Texts) Texts slow
-	Text.Combine(StrictGenForm.Listed(".", List(Text) + "strict"), " ").IndexOf("StrictGenForm.strict") >= 0
+FindFiles(folder Text, extensions Texts) Texts slow
+	Text.Combine(StrictGenForm.FindFiles(".", List(Text) + "strict"), " ").IndexOf("StrictGenForm.strict") >= 0
 	mutable files = List(Mutable(Text))
 	for Directory.Files(folder)
 		if extensions.Index(value.Lower.Split(".").Last) >= 0
 			files.Add(value)
 	files.Sorted
-Stepped(path Text, step Number) Text slow
-	StrictGenForm.Stepped("", 1) is ""
+Step(path Text, step Number) Text slow
+	StrictGenForm.Step("", 1) is ""
 	if path is ""
 		return ""
 	folder = Path(path).PathOnly.text
 	extension = path.Lower.Split(".").Last
-	Neighbor(Listed(folder is "" then "." else folder, List(Text) + extension), path, step)
+	Neighbor(FindFiles(folder is "" then "." else folder, List(Text) + extension), path, step)

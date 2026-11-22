@@ -18,7 +18,7 @@ Loaded(model Safetensors, prefix Text, pairs = 24, bits = 32) H3DecoderBlock slo
 	rows = Safetensors(model.path, 32, model.prefix + prefix)
 	first = rows.Values("norm1.weight")
 	second = rows.Values("norm2.weight")
-	attended = Interleaved(Projection(rows, "attn.to_qkv", bits))
+	attended = Interleave(Projection(rows, "attn.to_qkv", bits))
 	projected = Projection(rows, "attn.to_out", bits)
 	raised = Projection(rows, "ff.w1", bits)
 	lowered = Projection(rows, "ff.w2", bits)
@@ -29,7 +29,7 @@ Projection(rows Safetensors, name Text, bits = 32) Batch slow
 	Tiny.Projection(Safetensors(Model.path, 32, "decoder.transformer_blocks.0."), "ff.w2").weights.Length is 256
 	Tiny.Projection(Safetensors(Model.path, 32, "decoder.transformer_blocks.0."), "ff.w2", 8).weights.Length is 256
 	Batch(H3Block.Projection(Safetensors(rows.path, bits, rows.prefix), name), rows.Values(name + ".bias"))
-Interleaved(batch Batch) Batch slow
+Interleave(batch Batch) Batch slow
 	Tiny.attention.biases(64) is Model.Values("decoder.transformer_blocks.0.attn.to_qkv.bias")(192)
 	order = Order(batch.weights.Length)
 	Batch(Rows(batch, order), Biases(batch, order))
@@ -51,41 +51,41 @@ Biases(batch Batch, order Numbers) Numbers slow
 		batch.biases(value)
 Output(input Numbers, rotation Numbers) Numbers native
 	Tiny.Output(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
-	attended = Scaled(input, Attended(H3Block.Normalized(input, firstNorm), rotation), firstScale)
-	Scaled(attended, Fed(H3Block.Normalized(attended, secondNorm)), secondScale)
-Attended(normed Numbers, rotation Numbers) Numbers native
-	Tiny.Attended(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
-	combined = Projected(attention, normed)
+	attended = Scale(input, Attend(H3Block.Normalize(input, firstNorm), rotation), firstScale)
+	Scale(attended, Fed(H3Block.Normalize(attended, secondNorm)), secondScale)
+Attend(normed Numbers, rotation Numbers) Numbers native
+	Tiny.Attend(H3Decoder.Embedding, H3Decoder.Turning).Length is 8448
+	combined = Project(attention, normed)
 	width = combined.Length / (rotation.Length / 2 / Decoding.head) / 3
-	queries = Rotated(combined, 0, width, rotation, Roots)
-	keys = Rotated(combined, width, width, rotation, Ones)
-	values = Widened(Batch.Columns(combined, 3 * width, 2 * width, width), 1)
+	queries = Rotate(combined, 0, width, rotation, Roots)
+	keys = Rotate(combined, width, width, rotation, Ones)
+	values = Widen(Batch.Columns(combined, 3 * width, 2 * width, width), 1)
 	heads = width / Decoding.head
 	eights = Attention(queries, keys, values, heads, heads, 2 * Decoding.head, 1, false, 0, 0, true)
-	Projected(output, Narrowed(eights.Merged))
-Rotated(combined Numbers, start Number, width Number, rotation Numbers, weights Numbers) BFloat16s slow
-	Tiny.Rotated(Layer.Zeros(64) + 1 + Layer.Zeros(127), 0, 64, H3Decoder.Turning, Ones)(127) is 0
-	Tiny.Rotated(Layer.Zeros(64) + 1 + Layer.Zeros(127), 64, 64, H3Decoder.Turning, Roots).Length is 128
+	Project(output, Narrow(eights.Merged))
+Rotate(combined Numbers, start Number, width Number, rotation Numbers, weights Numbers) BFloat16s slow
+	Tiny.Rotate(Layer.Zeros(64) + 1 + Layer.Zeros(127), 0, 64, H3Decoder.Turning, Ones)(127) is 0
+	Tiny.Rotate(Layer.Zeros(64) + 1 + Layer.Zeros(127), 64, 64, H3Decoder.Turning, Roots).Length is 128
 	RopeRotated(combined, start, width, weights, rotation, half, 2 * Decoding.head, H3Block.Epsilon).Rotated
-Widened(numbers Numbers, factor Number) Numbers slow
-	Tiny.Widened(Layer.Zeros(63) + 1, 2)(63) is 2
-	Tiny.Widened(Layer.Zeros(64), 1).Length is 128
+Widen(numbers Numbers, factor Number) Numbers slow
+	Tiny.Widen(Layer.Zeros(63) + 1, 2)(63) is 2
+	Tiny.Widen(Layer.Zeros(64), 1).Length is 128
 	wide = 2 * Decoding.head
 	for numbers.Length * 2
 		column = index % wide
 		column < Decoding.head then numbers((index / wide).Floor * Decoding.head + column) * factor else 0
-Narrowed(numbers Numbers) Numbers slow
-	Tiny.Narrowed(Layer.Zeros(64) + 1 + Layer.Zeros(63))(0) is 0
-	Tiny.Narrowed(Layer.Zeros(128)).Length is 64
+Narrow(numbers Numbers) Numbers slow
+	Tiny.Narrow(Layer.Zeros(64) + 1 + Layer.Zeros(63))(0) is 0
+	Tiny.Narrow(Layer.Zeros(128)).Length is 64
 	for numbers.Length / 2
 		numbers((index / Decoding.head).Floor * 2 * Decoding.head + index % Decoding.head)
 Fed(normed Numbers) Numbers native
 	Tiny.Fed(H3Decoder.Embedding).Length is 8448
-	Projected(down, H3Block.Activated(Projected(up, normed), down.weights.First.Length))
-Scaled(input Numbers, update Numbers, scale Numbers) Numbers slow
-	Tiny.Scaled((1, 2), (3, 4), (2, 0.5)) is (7, 4)
+	Project(down, H3Block.Activate(Project(up, normed), down.weights.First.Length))
+Scale(input Numbers, update Numbers, scale Numbers) Numbers slow
+	Tiny.Scale((1, 2), (3, 4), (2, 0.5)) is (7, 4)
 	for input.Length
 		input(index) + update(index) * scale(index % scale.Length)
-Projected(batch Batch, input Numbers) Numbers slow
-	Tiny.Projected(Batch(((1, 2), (3, 4)), (1, 0)), (1, 1)) is (4, 7)
+Project(batch Batch, input Numbers) Numbers slow
+	Tiny.Project(Batch(((1, 2), (3, 4)), (1, 0)), (1, 1)) is (4, 7)
 	rotated then batch.Sums(Convrot(input).Rotated) else batch.Sums(input)

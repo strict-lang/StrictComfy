@@ -13,9 +13,9 @@ constant Framed = H3Encoder(H3Files.Parsed(("--last_image", "tinyframe.png", "--
 constant Video = H3Encoder(H3Files.Parsed(("--vision", "768")), (832, 480))
 constant Plain = H3Encoder(H3Files.Parsed(("--vision", "off")), (832, 480))
 constant Spelled = Gpt2Tokens.Parsed("{\"<\": 0, \"P\": 1, \"i\": 2, \"c\": 3, \"t\": 4, \"u\": 5, \"r\": 6, \"e\": 7, \"\\u0120\": 8, \"1\": 9, \"2\": 10, \">\": 11, \":\": 12}", List(Text))
-Encoded(prompts Texts, images Texts, paths Texts) Number slow
+Encode(prompts Texts, images Texts, paths Texts) Number slow
 	before = Process.Elapsed
-	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
+	logger.Log("Loading text encoder " + ModelFiles("").Describe(files.Encoder) + " from disk into memory")
 	encoder = Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s")
 	EncodedWith(encoder, Tokenizer, prompts, images, paths)
@@ -66,7 +66,7 @@ Frames(image Text, seen Numbers) List(Numbers) slow
 	Framed.Frames("tinyframe.png", (3, 3))(1)(2).IsNearlyEqual(16 / 255)
 	for (image, files.lastImage)
 		if value is not ""
-			H3Picture.Framed(value, frame, seen, files.IsCropped(index))
+			H3Picture.FrameAspect(value, frame, seen, files.IsCropped(index))
 Pictures(labels List(Numbers)) List(Numbers)
 	Both.Pictures(((1, 2), (3, 4)))(1) is (151653, 3, 4, 151652)
 	Both.Pictures(((1, 2), (3, 4))) is ((1, 2, 151652), (151653, 3, 4, 151652))
@@ -93,23 +93,23 @@ Tags(texts List(Numbers), total Number) Numbers
 		text = text + value.Length
 	mutable tags = List(Number)
 	for texts
-		tags = tags + Marked(value) + Vision(index < images then (total - text) / images else 0)
+		tags = tags + Mark(value) + Vision(index < images then (total - text) / images else 0)
 	tags
-Marked(tokens Numbers) Numbers
-	Tiny.Marked((7, 151652, 151653)) is (1, 0, 0)
+Mark(tokens Numbers) Numbers
+	Tiny.Mark((7, 151652, 151653)) is (1, 0, 0)
 	for tokens
 		value is in (H3Qwen.VisionStart, H3Qwen.VisionEnd) then 0 else 1
 Vision(count Number) Numbers
 	Tiny.Vision(2) is (0, 0)
 	for count
 		0
-Viewed(original Numbers) Numbers
-	Video.Viewed((1792, 1024)) is (1344, 768)
-	Video.Viewed((1000, 600))(1) <= 600 and Video.Viewed((1000, 600))(0) <= 1000
-	Plain.Viewed((1792, 1024)) is (832, 480)
+View(original Numbers) Numbers
+	Video.View((1792, 1024)) is (1344, 768)
+	Video.View((1000, 600))(1) <= 600 and Video.View((1000, 600))(0) <= 1000
+	Plain.View((1792, 1024)) is (832, 480)
 	if files.vision is "off"
 		return frame
-	box = H3Picture.Cropped(original, frame)
+	box = H3Picture.Crop(original, frame)
 	side = (files.vision to Number, (box(1), box(3)).Minimum).Minimum
 	if side < (frame(0), frame(1)).Minimum
 		return frame
@@ -125,8 +125,8 @@ Seen(image Text) Numbers
 	path = image is "" then files.lastImage else image
 	if files.vision is "off" or path is ""
 		return frame
-	first = Viewed((ImageCodec.Height(path), ImageCodec.Width(path)))
+	first = View((ImageCodec.Height(path), ImageCodec.Width(path)))
 	if files.lastImage is "" or image is ""
 		return first
-	last = Viewed((ImageCodec.Height(files.lastImage), ImageCodec.Width(files.lastImage)))
+	last = View((ImageCodec.Height(files.lastImage), ImageCodec.Width(files.lastImage)))
 	first(0) * first(1) <= last(0) * last(1) then first else last

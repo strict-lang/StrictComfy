@@ -8,18 +8,18 @@ Root Text
 Backended Backend
 	H3ImageServer.Backended.name is "H3Image"
 	Backend(Resident(Root), "H3Image")
-Ran(given Texts) Number slow
-	Sample.Ran(("--colour", "--local")) is 1
-	Sample.Ran(("--steps", "0", "--local")) is 1
+Run(given Texts) Number slow
+	Sample.Run(("--colour", "--local")) is 1
+	Sample.Run(("--steps", "0", "--local")) is 1
 	if given is (Backend.Serving)
 		return Served
 	if given is (Resident.Stopping)
-		return backend.Dispatched(given)
+		return backend.Dispatch(given)
 	plain = Remote.Without(given - MachineUse.Force)
 	parsed = H3ImageOptions.Parsed(plain - Backend.Local)
 	if IsRefused(parsed is Error then (parsed to Text).Lines.First.Replace("Error: ", "") else Problem(parsed))
 		return 1
-	Checked(given, plain, parsed)
+	Check(given, plain, parsed)
 IsRefused(problem Text) Boolean
 	Sample.IsRefused("") is false
 	Sample.IsRefused("--steps must be at least 1")
@@ -29,55 +29,55 @@ IsRefused(problem Text) Boolean
 Problem(parsed H3ImageOptions) Text slow
 	Sample.Problem(H3ImageOptions.Parsed(("--models", "."))).StartsWith("FileNotFound:")
 	parsed.Problem is "" then H3Image(parsed).Missing else parsed.Problem
-Checked(given Texts, plain Texts, parsed H3ImageOptions) Number slow
+Check(given Texts, plain Texts, parsed H3ImageOptions) Number slow
 	arguments = given - MachineUse.Force
 	if MachineUse.IsChecked(arguments, backend.resident.root)
 		if IsGranted(arguments, MachineUse.IsForced(given)) is false
 			return 1
-	forwarded = backend.Dispatched(plain)
+	forwarded = backend.Dispatch(plain)
 	served = H3ImageServed(H3Image(parsed), plain - Backend.Local)
-	forwarded >= 0 then forwarded else served.Completed(H3ImageResident).code
+	forwarded >= 0 then forwarded else served.Complete(H3ImageResident).code
 Served Number slow
 	server = backend.Opened
-	server is Error then Backend.Failed else Listened(server)
-Listened(server Number) Number slow
+	server is Error then Backend.Failed else Listen(server)
+Listen(server Number) Number slow
 	built = File(Process.Current.executable).Modified
 	mutable kept = H3ImageResident(true)
 	mutable last = Process.Elapsed
 	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
 		socket = backend.resident.Accept(server, built, Resident.WakeSeconds)
-		kept = socket is not Error then Replied(socket, kept) else kept
+		kept = socket is not Error then Reply(socket, kept) else kept
 		last = socket is not Error then Process.Elapsed else last
 		kept = backend.IsUnpressed(socket is not Error) then kept else H3ImageResident(kept, code = Backend.Stopped)
 	backend.resident.Close(server)
 	Backend.Clean
-Replied(socket Number, kept H3ImageResident) H3ImageResident slow
+Reply(socket Number, kept H3ImageResident) H3ImageResident slow
 	resident = backend.resident
 	request = resident.ReadRequest(socket)
 	isStopping = resident.Arguments(request) is (Resident.Stopping)
 	isRunning = resident.IsCurrent(request) and isStopping is false
 	skipped = H3ImageResident(kept, code = isStopping then Backend.Stopped else -1)
-	served = isRunning then Ran(socket, request, kept) else skipped
+	served = isRunning then Run(socket, request, kept) else skipped
 	isFailed = served is Error
 	if isFailed
 		GpuMemory.Evict
 	closed = HasEnded(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
 	isFailed or closed then H3ImageResident(true) else served
-Ran(socket Number, request Text, kept H3ImageResident) H3ImageResident slow
+Run(socket Number, request Text, kept H3ImageResident) H3ImageResident slow
 	home = Directory.Current
 	folder = backend.resident.Folder(request)
 	Directory.Change(folder)
 	isMoved = folder is not home
 	Socket.Output(socket)
 	arguments = backend.resident.Arguments(request)
-	served = H3ImageServed(H3Image(H3ImageOptions.Parsed(arguments)), arguments).Completed(kept)
+	served = H3ImageServed(H3Image(H3ImageOptions.Parsed(arguments)), arguments).Complete(kept)
 	if served is Error
 		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
 	unpressed = backend.IsUnpressed(true)
-	backend.Restored(isMoved, home)
+	backend.Restore(isMoved, home)
 	unpressed then served else H3ImageResident(kept, code = Backend.Stopped)
-Asked(arguments Texts, forced Boolean) Text slow
-	Sample.Asked(List(Text), false).StartsWith("need\tH3Image\t")
+Ask(arguments Texts, forced Boolean) Text slow
+	Sample.Ask(List(Text), false).StartsWith("need\tH3Image\t")
 	use = Use(arguments, forced)
 	mode = forced then "force" else "wait"
 	"need\tH3Image\tH3Image\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
@@ -87,7 +87,7 @@ IsGranted(arguments Texts, forced Boolean) Boolean slow
 	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
 IsContinued(arguments Texts, forced Boolean) Boolean slow
 	Sample.IsContinued(List(Text), false) is not Error
-	line = Asked(arguments, forced)
+	line = Ask(arguments, forced)
 	if line is ""
 		return true
 	reply = Coordinator(backend.coordinator).Send(line)

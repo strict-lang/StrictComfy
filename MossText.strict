@@ -30,14 +30,14 @@ Dense(block Safetensors, name Text) Batch slow
 Output(input Numbers, rotation Numbers) Numbers native
 	Tiny.Output(Input, MossBlock.Rotations(0, 0, 3, 128)).Length is 768
 	normed = Qwen3Block.Normalize(input, 0, input.Length, firstNorm)
-	attended = Added(input, projection.Sums(MossBlock.Merged(attention.Sums(normed), rotation, queryNorm, keyNorm)))
+	attended = Add(input, projection.Sums(MossBlock.Merge(attention.Sums(normed), rotation, queryNorm, keyNorm)))
 	fed = Qwen3Block.Normalize(attended, 0, attended.Length, secondNorm)
-	Added(attended, down.Sums(Activated(up.Sums(fed), gate.Sums(fed))))
-Activated(hidden Numbers, gates Numbers) Numbers slow
-	Tiny.Activated((2, 1), (3, 0)) is (MossBlock.Situ(2, 3), 0)
+	Add(attended, down.Sums(Activate(up.Sums(fed), gate.Sums(fed))))
+Activate(hidden Numbers, gates Numbers) Numbers slow
+	Tiny.Activate((2, 1), (3, 0)) is (MossBlock.Situ(2, 3), 0)
 	for hidden.Length
 		MossBlock.Situ(hidden(index), gates(index))
-Added(first Numbers, second Numbers) Numbers slow
-	Tiny.Added((1, 2), (3, 4)) is (4, 6)
+Add(first Numbers, second Numbers) Numbers slow
+	Tiny.Add((1, 2), (3, 4)) is (4, 6)
 	for first.Length
 		first(index) + second(index)

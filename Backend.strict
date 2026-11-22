@@ -31,20 +31,20 @@ IsServing(arguments Texts) Boolean
 	Backend.IsServing(("encode", "a")) is false
 	isCommand = arguments is (Serving) or arguments is (Resident.Stopping)
 	isCommand or arguments.Length is 0 or arguments(0).StartsWith("-") and arguments(0) is not "-"
-Dispatched(arguments Texts) Number slow
-	Sample.Dispatched(List(Text) + Local) is -1
-	Sample.Dispatched(List(Text) + Resident.Stopping) is 0
+Dispatch(arguments Texts) Number slow
+	Sample.Dispatch(List(Text) + Local) is -1
+	Sample.Dispatch(List(Text) + Resident.Stopping) is 0
 	if arguments is (Resident.Stopping)
 		return Forwarding(resident.root, coordinator).Forward(List(Text) + Resident.Stopping)
 	Gpu.Require(name)
 	if Local is in arguments
 		return Unserved
-	mutable code = Attempted(arguments)
+	mutable code = Attempt(arguments)
 	for StartSeconds
 		if code is -1 and (index is 0 or Port is not 0)
-			code = Attempted(arguments)
+			code = Attempt(arguments)
 	code is -1 and Port is not 0 then Cleared else code
-Attempted(arguments Texts) Number slow
+Attempt(arguments Texts) Number slow
 	isRunning = File(resident.root + Resident.Stamp).Exists
 	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 		return Unserved
@@ -53,24 +53,24 @@ Attempted(arguments Texts) Number slow
 		logger.Log("Starting the " + name + KeepsModels)
 		if forwarding.Start("") is Error
 			return Unserved
-	port = Waited(StartSeconds)
+	port = Wait(StartSeconds)
 	answered = port > 0 then forwarding.ForwardAnswer(resident, port, arguments) else Forwarding.Unserved
 	failed = port is Gone then Crashed else Unserved
 	answered is Forwarding.Unserved then failed else (answered is Forwarding.Ended then Crashed else answered)
-Waited(seconds Number) Number slow
-	Sample.Waited(0) is 0
+Wait(seconds Number) Number slow
+	Sample.Wait(0) is 0
 	started = Process.Elapsed
 	mutable isBusy = false
 	mutable polled = (0, started - CheckSeconds)
 	for as long as polled(0) is 0 and (isBusy or Process.Elapsed - started < seconds)
-		polled = Polled(polled(1))
+		polled = Poll(polled(1))
 		if polled(0) is -1 and isBusy is false
 			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
 		isBusy = polled(0) < 0
-		polled = polled(0) > 0 or polled(0) is Gone then polled else Paused(polled(1))
+		polled = polled(0) > 0 or polled(0) is Gone then polled else Pause(polled(1))
 	polled(0)
-Polled(checked Number) Numbers slow
-	Sample.Polled(0) is (0, 0)
+Poll(checked Number) Numbers slow
+	Sample.Poll(0) is (0, 0)
 	port = Port
 	isDue = port < 0 and Process.Elapsed - checked >= CheckSeconds
 	nextCheck = isDue then Process.Elapsed else checked
@@ -86,12 +86,12 @@ Cleared Number slow
 	forwarding.Keep(objects, Forwarding.Output)
 	forwarding.Keep(objects, Forwarding.Errors)
 	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
-	kept = Printed(objects + "/server.previous.log") + Printed(objects + "/server.previous.errors.log")
-	if kept is 0 and Printed(objects + Forwarding.Output) + Printed(objects + Forwarding.Errors) is 0
+	kept = Print(objects + "/server.previous.log") + Print(objects + "/server.previous.errors.log")
+	if kept is 0 and Print(objects + Forwarding.Output) + Print(objects + Forwarding.Errors) is 0
 		logger.Log("(nothing in " + objects + "/server.log)")
 	killed + Gone
-Printed(path Text) Number slow
-	Sample.Printed("missing.log") is 0
+Print(path Text) Number slow
+	Sample.Print("missing.log") is 0
 	if File(path).Exists is false
 		return 0
 	lines = File(path).ReadLines - ""
@@ -104,7 +104,7 @@ Port Number slow
 	if stamp.Exists is false
 		return 0
 	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else Busy
-Paused(checked Number) Numbers slow
+Pause(checked Number) Numbers slow
 	Process.Wait(PollSeconds)
 	(0, checked)
 Opened Number slow
@@ -145,7 +145,7 @@ IsOut(available Number, total Number) Boolean
 	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false
 	Sample.IsOut(0, 128 * Gigabyte) is false
 	available > 0 and available <= (total / LastShare < LowMemory then total / LastShare else LowMemory)
-Restored(isMoved Boolean, home Text) slow
+Restore(isMoved Boolean, home Text) slow
 	Socket.Output(0)
 	if isMoved
 		Directory.Change(home)

@@ -9,15 +9,15 @@ constant VideoSeconds = "-v error -select_streams v:0 -show_entries stream=durat
 constant Stamped = ",settb=AVTB,setpts=PTS-STARTPTS"
 constant Overlap = 8
 constant Faded = "[v1];[v0][v1]xfade=transition=fade:duration="
-Fitted(size Numbers) Text
-	Sample.Fitted(Size) is "fps=24,scale=480:832:force_original_aspect_ratio=increase,crop=480:832,setsar=1"
+Fit(size Numbers) Text
+	Sample.Fit(Size) is "fps=24,scale=480:832:force_original_aspect_ratio=increase,crop=480:832,setsar=1"
 	box = size(1) + ":" + size(0)
 	"fps=" + H3Format.FramesPerSecond + ",scale=" + box + ":force_original_aspect_ratio=increase,crop=" + box + ",setsar=1"
 Extract(path Text, output Text, size Numbers, seconds Number) Text
 	Sample.Extract("a.mp4", "a.rgb", Size, 2).StartsWith("-y -loglevel error -sseof -2 -i \"a.mp4\" -vf fps=24,")
 	Sample.Extract("a.mp4", "a.rgb", Size, 2).EndsWith("-f rawvideo -pix_fmt rgb24 \"a.rgb\"")
 	raw = " -f rawvideo -pix_fmt rgb24 \"" + output + "\""
-	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\" -vf " + Fitted(size) + raw
+	"-y -loglevel error -sseof -" + seconds + " -i \"" + path + "\" -vf " + Fit(size) + raw
 ExtractAudio(path Text, output Text, seconds Number) Text
 	Sample.ExtractAudio("a.mp4", "a.pcm", 2).IndexOf("-ar 32000") > 0
 	Sample.ExtractAudio("a.mp4", "a.pcm", 2).EndsWith("\"a.pcm\"")
@@ -35,7 +35,7 @@ Filter(size Numbers, seconds Number, heard Boolean) Text
 	Sample.Filter(Size, 3, false).IndexOf("[2:a]atrim=duration=3,") > 0
 	Sample.Filter(Size, 3, true).EndsWith("acrossfade=d=0.333[a]")
 	fade = (Overlap / H3Format.FramesPerSecond).Round(3)
-	video = "[0:v]" + Fitted(size) + Stamped + "[v0];[1:v]setsar=1" + Stamped + Faded
+	video = "[0:v]" + Fit(size) + Stamped + "[v0];[1:v]setsar=1" + Stamped + Faded
 	first = (heard then "[0:a]" else "[2:a]") + "atrim=duration=" + seconds + ",apad=whole_dur=" + seconds + ","
 	audio = first + Sound + ",asetpts=PTS-STARTPTS[a0];[1:a]" + Sound + ",asetpts=PTS-STARTPTS[a1];"
 	video + fade + ":offset=" + (seconds - fade).Round(3) + "[v];" + audio + "[a0][a1]acrossfade=d=" + fade + "[a]"

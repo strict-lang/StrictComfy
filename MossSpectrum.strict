@@ -45,14 +45,14 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 	evaluated = span.Evaluated(moss, latent, text, rotation, vector, IsSpanning(step))
 	image = evaluated.output
 	coord = Coord(step)
-	Shadowed(image, coord)
+	Shadow(image, coord)
 	bytes = image.Length * 2 * history.maximum
 	head = moss.Head(image, vector)
 	if NeedsHistory(step) is false or bytes > cacheBytes
 		updated = bytes > cacheBytes then "off" else mode
 		return MossSpectrum(value, output = head, mode = updated, history = SpectralHistory, span = evaluated)
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
-Shadowed(image Numbers, coord Number) None
+Shadow(image Numbers, coord Number) None
 	if mode is "shadow" and history.IsReady
 		error = MossImage.RelativeError(history.Predict(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)

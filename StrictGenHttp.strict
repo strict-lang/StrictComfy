@@ -20,11 +20,11 @@ Query(raw Text, name Text) Text
 	question = full.IndexOf("?")
 	for (question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)).Split("&")
 		if value.StartsWith(name + "=")
-			return Unescaped(value.Substring(name.Length + 1, value.Length - name.Length - 1))
+			return Unescape(value.Substring(name.Length + 1, value.Length - name.Length - 1))
 	""
-Unescaped(text Text) Text
-	StrictGenHttp.Unescaped("a+b%2Cc%26d%25") is "a b,c&d%"
-	StrictGenHttp.Unescaped("x%2Fy%5Bz%5D") is "x/y[z]"
+Unescape(text Text) Text
+	StrictGenHttp.Unescape("a+b%2Cc%26d%25") is "a b,c&d%"
+	StrictGenHttp.Unescape("x%2Fy%5Bz%5D") is "x/y[z]"
 	mutable result = text.Replace("+", " ")
 	for Range(0, Escapes.Length / 2)
 		result = result.Replace(Escapes(index * 2), Escapes(index * 2 + 1))
@@ -34,7 +34,7 @@ Body(raw Text) Text
 	StrictGenHttp.Body("GET / HTTP/1.1\r\n\r\n") is ""
 	separator = raw.IndexOf("\r\n\r\n")
 	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
-Received(client Number) Numbers slow
+Receive(client Number) Numbers slow
 	if client is Error or client <= 0
 		return List(Number)
 	mutable bytes = List(Mutable(Number))
@@ -54,15 +54,15 @@ Read(client Number, count Number) Numbers slow
 	read = Socket.Receive(client, count)
 	read is Error then List(Number) else read
 Head(bytes Numbers) Text
-	StrictGenHttp.Head(StrictGenHttp.Encoded("GET / HTTP/1.1\r\n\r\nab")) is "GET / HTTP/1.1\r\n\r\n"
-	StrictGenHttp.Head(StrictGenHttp.Encoded("GET / HT")) is ""
-	start = Decoded(bytes.Slice(0, bytes.Length.Clamp(0, HeadBytes)))
+	StrictGenHttp.Head(StrictGenHttp.Encode("GET / HTTP/1.1\r\n\r\nab")) is "GET / HTTP/1.1\r\n\r\n"
+	StrictGenHttp.Head(StrictGenHttp.Encode("GET / HT")) is ""
+	start = Decode(bytes.Slice(0, bytes.Length.Clamp(0, HeadBytes)))
 	separator = start.IndexOf("\r\n\r\n")
 	separator < 0 then "" else start.Substring(0, separator + 4)
 IsComplete(bytes Numbers) Boolean
-	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("GET / HTTP/1.1\r\n\r\n"))
-	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab"))
-	StrictGenHttp.IsComplete(StrictGenHttp.Encoded("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab")) is false
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("GET / HTTP/1.1\r\n\r\n"))
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab"))
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab")) is false
 	head = Head(bytes)
 	if head is ""
 		return false
@@ -70,23 +70,23 @@ IsComplete(bytes Numbers) Boolean
 	length = start < 0 then 0 else head.Substring(start + 16, head.Length - start - 16).Split("\r\n").First to Number
 	bytes.Length - head.Length >= length
 Payload(bytes Numbers) Numbers
-	StrictGenHttp.Payload(StrictGenHttp.Encoded("POST / HTTP/1.1\r\n\r\nab")) is (97, 98)
+	StrictGenHttp.Payload(StrictGenHttp.Encode("POST / HTTP/1.1\r\n\r\nab")) is (97, 98)
 	head = Head(bytes)
 	bytes.Slice(head.Length, bytes.Length - head.Length)
-Replied(client Number, kind Text, body Text) slow
-	payload = Encoded(body)
-	Sent(client, Encoded(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
+Reply(client Number, kind Text, body Text) slow
+	payload = Encode(body)
+	Send(client, Encode(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
 SendFile(client Number, path Text) slow
 	if path is "" or File(path).Exists is false
-		Replied(client, "text/plain", "missing")
+		Reply(client, "text/plain", "missing")
 		return
 	payload = File(path).ReadBytes
 	changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGen.Inputs)
 	cache = changing then "no-store" else "public, max-age=86400"
 	length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
-	Sent(client, Socket.Send(client, Encoded(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
-Sent(client Number, bytes Numbers) slow
-	StrictGenHttp.Sent(0, List(Number) + 1) is not Error
+	Send(client, Socket.Send(client, Encode(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
+Send(client Number, bytes Numbers) slow
+	StrictGenHttp.Send(0, List(Number) + 1) is not Error
 	if Socket.Send(client, bytes) is Error
 		Socket.Close(client)
 		return
@@ -99,12 +99,12 @@ Kind(path Text) Text
 	extension = path.Lower.Split(".").Last
 	image = extension is "jpg" or extension is "jpeg" then "image/jpeg" else "application/octet-stream"
 	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
-Encoded(text Text) Numbers
-	StrictGenHttp.Encoded("Ab") is (65, 98)
-	StrictGenHttp.Encoded(Text.Utf8((195, 188))) is (195, 188)
+Encode(text Text) Numbers
+	StrictGenHttp.Encode("Ab") is (65, 98)
+	StrictGenHttp.Encode(Text.Utf8((195, 188))) is (195, 188)
 	text.Bytes
-Decoded(bytes Numbers) Text
-	StrictGenHttp.Decoded((65, 98)) is "Ab"
-	StrictGenHttp.Decoded((195, 188)) is Text.Utf8((195, 188))
-	StrictGenHttp.Decoded((195, 188)).Length is 1
+Decode(bytes Numbers) Text
+	StrictGenHttp.Decode((65, 98)) is "Ab"
+	StrictGenHttp.Decode((195, 188)) is Text.Utf8((195, 188))
+	StrictGenHttp.Decode((195, 188)).Length is 1
 	Text.Utf8(bytes)

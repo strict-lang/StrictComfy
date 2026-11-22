@@ -8,9 +8,9 @@ Arguments(json Json) Texts
 	StrictGenImage.Arguments(Json(Full)) is Filed
 	steps = json.get("steps") to Text
 	counted = steps is "0" then List(Text) else StrictGenForm.Pair("--steps", steps)
-	numbers = Named(json, "--image", "image") + counted + Numbered(json)
-	files = Output(json, "H3Image.jpg") + Named(json, "--models", "models")
-	models = Named(json, "--text_encoder", "textEncoder") + Named(json, "--model", "model")
+	numbers = PairOption(json, "--image", "image") + counted + Read(json)
+	files = Output(json, "H3Image.jpg") + PairOption(json, "--models", "models")
+	models = PairOption(json, "--text_encoder", "textEncoder") + PairOption(json, "--model", "model")
 	numbers + StrictGenForm.Loras(json) + files + models + StrictGenForm.Vae(json) + Flags(json)
 Output(json Json, named Text) Texts
 	StrictGenImage.Output(Json("{}"), "MossImage.jpg") is ("--output", "output/MossImage.jpg")
@@ -23,12 +23,12 @@ Default(mode Text) Text
 	StrictGenImage.Default("image") is "MossImage.jpg" and StrictGenImage.Default("h3image") is "H3Image.jpg"
 	StrictGenImage.Default("extend") is "H3Video.mp4"
 	mode is "image" then "MossImage.jpg" else (mode is "h3image" then "H3Image.jpg" else "H3Video.mp4")
-Named(json Json, option Text, field Text) Texts
-	StrictGenImage.Named(Json("{\"vae\":\"v\"}"), "--vae", "vae") is ("--vae", "v")
+PairOption(json Json, option Text, field Text) Texts
+	StrictGenImage.PairOption(Json("{\"vae\":\"v\"}"), "--vae", "vae") is ("--vae", "v")
 	StrictGenForm.Pair(option, json.get(field) to Text)
-Numbered(json Json) Texts
-	StrictGenImage.Numbered(Json("{\"seed\":-1,\"count\":1}")).Length is 0
-	StrictGenImage.Numbered(Json("{\"seed\":7,\"count\":3}")) is ("--seed", "7", "--count", "3")
+Read(json Json) Texts
+	StrictGenImage.Read(Json("{\"seed\":-1,\"count\":1}")).Length is 0
+	StrictGenImage.Read(Json("{\"seed\":7,\"count\":3}")) is ("--seed", "7", "--count", "3")
 	seed = json.get("seed") to Text
 	count = json.get("count") to Text
 	seeded = seed is "-1" then "" else seed

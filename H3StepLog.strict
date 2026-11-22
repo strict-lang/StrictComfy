@@ -13,18 +13,18 @@ Started H3StepLog
 Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) H3StepLog slow
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).logged is 1
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).notes is (", forecasts 0")
-	job.previewer.Written(video.denoised, job.shape)
+	job.previewer.Write(video.denoised, job.shape)
 	note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)
 	next = H3StepLog(value, stamps = stamps + GpuMemory.Stamped, times = times + Process.Elapsed, notes = notes + note)
-	H3StepLog(next, logged = next.Logged(step + 1 >= state.steps))
-Logged(waiting Boolean) Number slow
-	Timed.Logged(true) is 2
-	H3StepLog(Timed, logged = 1).Logged(false) is 2
-	H3StepLog(Timed, stamps = (0, 1, 2)).Logged(false) is (GpuMemory.Elapse(0, 1) is -1 then 0 else 2)
-	H3StepLog(Timed, logged = 2).Logged(true) is 2
+	H3StepLog(next, logged = next.LogStep(step + 1 >= state.steps))
+LogStep(waiting Boolean) Number slow
+	Timed.LogStep(true) is 2
+	H3StepLog(Timed, logged = 1).LogStep(false) is 2
+	H3StepLog(Timed, stamps = (0, 1, 2)).LogStep(false) is (GpuMemory.Elapse(0, 1) is -1 then 0 else 2)
+	H3StepLog(Timed, logged = 2).LogStep(true) is 2
 	mutable count = logged
 	for as long as Continues(count, waiting)
-		count = IsDone(count) then Logging(count) else Waited(count)
+		count = IsDone(count) then Logging(count) else Wait(count)
 	count
 Continues(count Number, waiting Boolean) Boolean
 	Timed.Continues(0, false) and Timed.Continues(1, true)
@@ -42,8 +42,8 @@ Logging(step Number) Number
 	Timed.Logging(1) is 2
 	logger.Log(Line(step, GpuMemory.Elapse(stamps(step), stamps(step + 1))))
 	step + 1
-Waited(step Number) Number slow
-	Timed.Waited(1) is 1
+Wait(step Number) Number slow
+	Timed.Wait(1) is 1
 	Process.Wait(StepTimes.Pause)
 	step
 Line(step Number, took Number) Text

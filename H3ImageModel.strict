@@ -4,8 +4,8 @@ has grid Numbers
 constant Source = "tinyh3image.safetensors"
 constant Model = Safetensors(Source, 32, "reference.")
 constant Tiny = H3ImageModel.Loaded(Source)
-constant Prompt = H3Refiner.Loaded(Source).Refined(Model.Values("context"))
-constant Rows = Tiny.Conditioned(List(Numbers) + Model.Values("reference"), H3ImageLayout.Tiny, 5)
+constant Prompt = H3Refiner.Loaded(Source).Refine(Model.Values("context"))
+constant Rows = Tiny.Condition(List(Numbers) + Model.Values("reference"), H3ImageLayout.Tiny, 5)
 constant Edited = Tiny.Output(Model.Values("latent"), Tiny.grid(2), Tiny.grid(3), Prompt, H3ImageLayout.Tiny, Rows)
 constant Created = Tiny.Output(Model.Values("latent"), 1, Tiny.grid(1), Prompt, H3ImageLayout.Plain, List(Number))
 Loaded(path Text, loras = "") H3ImageModel slow
@@ -46,13 +46,13 @@ Weights(sigma Number, next Number) Numbers
 	total = grid(start) - grid(stop)
 	for heads.Length
 		index is 0 then 1 else (index >= start and index < stop then (grid(index) - grid(index + 1)) / total else 0)
-Conditioned(latents List(Numbers), layout H3ImageLayout, seed Number) Numbers slow
+Condition(latents List(Numbers), layout H3ImageLayout, seed Number) Numbers slow
 	Rows(0).IsNearlyEqual(Model.Values("edit.rows")(0), 0.0001)
 	Rows(191).IsNearlyEqual(Model.Values("edit.rows")(191), 0.0001)
 	mutable rows = List(Number)
 	for latents
 		size = (H3Format.Channels, 1, layout.references(2 * index), layout.references(2 * index + 1))
-		rows = rows + H3Job.Patched(value, size, MersenneTwister.Seeded(seed).Normals(value.Length))
+		rows = rows + H3Job.Patch(value, size, MersenneTwister.Seeded(seed).Normals(value.Length))
 	rows
 Rotation(layout H3ImageLayout) Numbers slow
 	Tiny.Rotation(H3ImageLayout.Tiny).Length is 2304
@@ -60,7 +60,7 @@ Rotation(layout H3ImageLayout) Numbers slow
 Hidden(latent Numbers, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Tiny.Hidden(Model.Values("latent"), Prompt, H3ImageLayout.Tiny, Rows).Length is 2304
 	kept = layout.Conditions is 0 then text else text + h3.videoPatches.Sums(conditions)
-	kept + h3.videoPatches.Sums(h3.Patched(latent, layout.Grid(layout.Size)))
+	kept + h3.videoPatches.Sums(h3.Patch(latent, layout.Grid(layout.Size)))
 Output(latent Numbers, sigma Number, next Number, text Numbers, layout H3ImageLayout, conditions Numbers) Numbers slow
 	Edited(0).IsNearlyEqual(Model.Values("edit.output")(0), 0.05)
 	Edited(383).IsNearlyEqual(Model.Values("edit.output")(383), 0.05)
@@ -78,15 +78,15 @@ Final(hidden Numbers, curves Numbers, layout H3ImageLayout, weights Numbers) Num
 	width = h3.final.norm.Length
 	first = (layout.Words + layout.Conditions) * width
 	target = Safetensors.Part(hidden, first, hidden.Length - first, 1)
-	normed = H3Block.Modulated(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
-	for h3.final.Unpatched(Headed(normed, weights), layout.Grid(layout.Size))
+	normed = H3Block.Modulate(target, h3.final.norm, h3.final.modulation.Sums(curves), Layer.Zeros(layout.Patches), 0)
+	for h3.final.Unpatch(Head(normed, weights), layout.Grid(layout.Size))
 		-value
-Headed(normed Numbers, weights Numbers) Numbers slow
-	Tiny.Headed(Layer.Zeros(256), (1, 0, 0, 0, 0, 0)) is Tiny.heads(0).biases
+Head(normed Numbers, weights Numbers) Numbers slow
+	Tiny.Head(Layer.Zeros(256), (1, 0, 0, 0, 0, 0)) is Tiny.heads(0).biases
 	mutable sum = heads(0).Sums(normed)
 	for heads.Length - 1
 		if weights(index + 1) > 0
-			sum = H3Span.Combined(sum, heads(index + 1).Sums(normed), weights(index + 1))
+			sum = H3Span.Combine(sum, heads(index + 1).Sums(normed), weights(index + 1))
 	sum
 Sigmas(steps Number) Numbers
 	Tiny.Sigmas(6)(1).IsNearlyEqual(0.9676536, 0.000001) and Tiny.Sigmas(6)(5).IsNearlyEqual(0.2326104, 0.000001)

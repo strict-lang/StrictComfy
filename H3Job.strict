@@ -13,7 +13,7 @@ constant Keyframe = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
 constant Latent = Keyframe.Values("keyframe")
 constant Patchified = Keyframe.Values("rows")
 constant Twice = (Latent, Latent)
-constant Patches = Noisy.Patched(Latent, Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
+constant Patches = Noisy.Patch(Latent, Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
 constant Dumped = H3Job(Safetensors("h3job.safetensors"))
 Video Numbers
 	Reference.Video.Length is 768
@@ -65,10 +65,10 @@ Preview(step Number) Text
 	if video.Length > 0
 		return ""
 	file.Entry("preview") is "" then "" else file.path.Replace(".safetensors", "-step" + step + ".safetensors")
-Patched(latent Numbers, size Numbers, noise Numbers) Numbers
-	Reference.Patched((0, 1, 2, 3, 4, 5, 6, 7), (1, 1, 2, 4), Layer.Zeros(8))(4).IsNearlyEqual(1.998)
+Patch(latent Numbers, size Numbers, noise Numbers) Numbers
+	Reference.Patch((0, 1, 2, 3, 4, 5, 6, 7), (1, 1, 2, 4), Layer.Zeros(8))(4).IsNearlyEqual(1.998)
 	Patches(0).IsNearlyEqual(Patchified(0), 0.0001) and Patches(383).IsNearlyEqual(Patchified(383), 0.0001)
-	Reference.Patched(Latent, (12, 2, 4, 4), Layer.Zeros(384))(200).IsNearlyEqual(0.999 * Latent(80))
+	Reference.Patch(Latent, (12, 2, 4, 4), Layer.Zeros(384))(200).IsNearlyEqual(0.999 * Latent(80))
 	columns = 4 * size(0)
 	half = size(3) / 2
 	for latent.Length
@@ -92,18 +92,18 @@ HeldVideo(solver Solver, step Number) Solver
 	if motion.frames is 0
 		return solver
 	plane = shape(2) * shape(3)
-	mixed = motion.Mixed(solver.latent, motion.video, video, shape(1), motion.frames, plane, solver.sigmas(step))
+	mixed = motion.Mix(solver.latent, motion.video, video, shape(1), motion.frames, plane, solver.sigmas(step))
 	Solver(solver, latent = mixed)
 HeldAudio(solver Solver, step Number) Solver
 	Noisy.HeldAudio(Solver.Toy, 0).latent is (1, -2)
 	if motion.sound is 0
 		return solver
-	mixed = motion.Mixed(solver.latent, motion.audio, audio, audio.Length / 64, motion.sound, 1, solver.sigmas(step))
+	mixed = motion.Mix(solver.latent, motion.audio, audio, audio.Length / 64, motion.sound, 1, solver.sigmas(step))
 	Solver(solver, latent = mixed)
-Keyed(latents List(Numbers), size Numbers, base Number) Numbers slow
-	Reference.Keyed(List(Numbers) + Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), 0)(5) is Patches(5)
-	Reference.Keyed(Twice, Keyframe.Shape("keyframe"), 0)(389) is Patches(5)
+Key(latents List(Numbers), size Numbers, base Number) Numbers slow
+	Reference.Key(List(Numbers) + Keyframe.Values("keyframe"), Keyframe.Shape("keyframe"), 0)(5) is Patches(5)
+	Reference.Key(Twice, Keyframe.Shape("keyframe"), 0)(389) is Patches(5)
 	mutable joined = List(Number)
 	for latents
-		joined = joined + Patched(value, size, MersenneTwister.Seeded(base).Normals(value.Length))
+		joined = joined + Patch(value, size, MersenneTwister.Seeded(base).Normals(value.Length))
 	joined

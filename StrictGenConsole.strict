@@ -9,18 +9,18 @@ Told(before StrictGenQueue, after StrictGenQueue) StrictGenQueue slow
 		logger.Log("Run " + (value + 1) + " queued: " + after.lines(value))
 	id = before.job.current
 	if id >= 0 and after.job.current is id
-		Shown(id, after.job.Stamped(after.job.Logged), before.job.times.Length, after.job.times.Length)
+		Show(id, after.job.Stamp(after.job.Logged), before.job.times.Length, after.job.times.Length)
 	if id >= 0 and after.job.current is not id
-		Ended(after, id, before.job.times.Length)
-	Started(before, after)
-	Quieted(after)
-Started(before StrictGenQueue, after StrictGenQueue)
-	Sample.Started(StrictGenQueue.Empty, Added) is not Error
+		End(after, id, before.job.times.Length)
+	Start(before, after)
+	MakeQuiet(after)
+Start(before StrictGenQueue, after StrictGenQueue)
+	Sample.Start(StrictGenQueue.Empty, Added) is not Error
 	job = after.job
 	if job.current >= 0 and job.current is not before.job.current
 		logger.Log("Run " + (job.current + 1) + " started" + (job.remote is "" then " here" else " on " + job.remote))
-Shown(id Number, rows Texts, first Number, until Number)
-	Sample.Shown(0, ("0\ta", "1.5\tb"), 1, 2) is not Error
+Show(id Number, rows Texts, first Number, until Number)
+	Sample.Show(0, ("0\ta", "1.5\tb"), 1, 2) is not Error
 	for Range(first, until.Clamp(first, rows.Length))
 		parts = rows(value).Split("\t")
 		if parts.Last.Trim is not ""
@@ -33,18 +33,18 @@ Seconds(seconds Number) Text
 	tenths = (seconds * 10).Round
 	whole = (tenths / 10).Floor
 	(whole < 10 then "0" else "") + whole + "." + tenths % 10
-Ended(queue StrictGenQueue, id Number, first Number) slow
-	Sample.Ended(Added, 0, 0) is not Error
+End(queue StrictGenQueue, id Number, first Number) slow
+	Sample.End(Added, 0, 0) is not Error
 	file = "StrictGenJob-" + id + ".timed"
 	rows = File(file).Exists then File(file).ReadLines else List(Text)
-	Shown(id, rows, first, rows.Length)
+	Show(id, rows, first, rows.Length)
 	outcome = queue.outcomes.Length > id then queue.outcomes(id).Split("\t") else List(Text) + "done"
 	if outcome.Last.StartsWith(StrictGenQueue.Collecting)
 		return
 	logger.Log("Run " + (id + 1) + " " + (outcome.First is "file" then "done: " else "ended: ") + outcome.Last)
-Quieted(queue StrictGenQueue) StrictGenQueue slow
-	Sample.Quieted(Added).job.nagged is 0
-	Sample.Quieted(StrictGenQueue(Added, job = StrictGenJob(StrictGenJob.Local(0), started = 1))).job.nagged > 0
+MakeQuiet(queue StrictGenQueue) StrictGenQueue slow
+	Sample.MakeQuiet(Added).job.nagged is 0
+	Sample.MakeQuiet(StrictGenQueue(Added, job = StrictGenJob(StrictGenJob.Local(0), started = 1))).job.nagged > 0
 	job = queue.job
 	last = job.started + (job.times.Length > 0 then job.times.Last else 0)
 	if job.current < 0 or job.remote is not "" or Time.Now - Quiet < (last > job.nagged then last else job.nagged)

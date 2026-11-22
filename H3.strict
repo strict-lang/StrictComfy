@@ -29,15 +29,15 @@ Weights(path Text, bits Number) Safetensors
 	Safetensors(path, bits, prefix)
 Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slow
 	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
-	count = Named(TensorFile.Header(model.path), model.prefix + prefix).Length
+	count = FindNamed(TensorFile.Header(model.path), model.prefix + prefix).Length
 	completion = Completion(label, count, Process.Elapsed)
 	for count
 		block = H3Block.Loaded(model, prefix + index + ".", loras)
 		completion.Report(index + 1)
 		block
-Named(header Text, prefix Text) Texts slow
-	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
-	Tiny.Named(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2
+FindNamed(header Text, prefix Text) Texts slow
+	Tiny.FindNamed(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
+	Tiny.FindNamed(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2
 	for header.Split("\"" + prefix)
 		if value.Substring(0, value.IndexOf("\"")).EndsWith(".norm1.weight")
 			value
@@ -50,10 +50,10 @@ Curves(times Numbers) Numbers slow
 		place = times((index / width).Floor).Clamp * (grid - 1)
 		low = place.Floor.Clamp(0, grid - 2)
 		curve(low * width + index % width).Lerp(curve((low + 1) * width + index % width), place - low)
-Patched(latent Numbers, layout H3Layout) Numbers slow
-	Tiny.Patched((1, 2, 5, 6, 3, 4, 7, 8), H3Final.Flat) is (1, 2, 3, 4, 5, 6, 7, 8)
-	Tiny.videoPatches.Sums(Tiny.Patched(Model.Values("video"), H3Layout.Tiny))(1000).IsNearlyEqual(-0.514158, 0.01)
-	Tiny.Patched(Model.Values("video"), H3Layout.Tiny)(388) is Model.Values("video")(48)
+Patch(latent Numbers, layout H3Layout) Numbers slow
+	Tiny.Patch((1, 2, 5, 6, 3, 4, 7, 8), H3Final.Flat) is (1, 2, 3, 4, 5, 6, 7, 8)
+	Tiny.videoPatches.Sums(Tiny.Patch(Model.Values("video"), H3Layout.Tiny))(1000).IsNearlyEqual(-0.514158, 0.01)
+	Tiny.Patch(Model.Values("video"), H3Layout.Tiny)(388) is Model.Values("video")(48)
 	patches = layout.Patches
 	across = layout.Width / 2
 	size = latent.Length / (layout.frames * patches)
@@ -63,9 +63,9 @@ Patched(latent Numbers, layout H3Layout) Numbers slow
 		y = (row % patches / across).Floor * 2 + (column % 4 / 2).Floor
 		plane = (column / 4).Floor * layout.frames + (row / patches).Floor
 		latent((plane * 2 * patches + y * across) * 2 + row % patches % across * 2 + column % 2)
-Packed(sound Numbers, layout H3Layout) Numbers slow
-	Tiny.Packed((1, 3, 2, 4), H3Layout(List(Number), List(Number), 1, 0, Size(2, 2))) is (1, 2, 3, 4)
-	Tiny.audioPatches.Sums(Tiny.Packed(Model.Values("audio"), H3Layout.Tiny))(700).IsNearlyEqual(-0.413504, 0.01)
+Pack(sound Numbers, layout H3Layout) Numbers slow
+	Tiny.Pack((1, 3, 2, 4), H3Layout(List(Number), List(Number), 1, 0, Size(2, 2))) is (1, 2, 3, 4)
+	Tiny.audioPatches.Sums(Tiny.Pack(Model.Values("audio"), H3Layout.Tiny))(700).IsNearlyEqual(-0.413504, 0.01)
 	audio = layout.audio
 	channels = sound.Length / (2 * audio)
 	for sound.Length
@@ -75,9 +75,9 @@ Leading(layout H3Layout) Number slow
 	Tiny.Leading(H3Layout.Tiny) is 9
 	Tiny.Leading(H3Layout(H3Layout.Tiny, keyframes = List(Number) + 0)) is 13
 	layout.Words + layout.Conditions + 2 * layout.audio
-Routed(routing Number, block Number) Number slow
-	Tiny.Routed(1, 0) is 0.7
-	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Routed(1, 7) is 0.455
+Route(routing Number, block Number) Number slow
+	Tiny.Route(1, 0) is 0.7
+	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Route(1, 7) is 0.455
 	routing * (block < blocks.Length * H3Format.DoubledBlocks then H3Format.EarlyRouting else H3Format.LateRouting)
 Rotation(layout H3Layout) Numbers slow
 	Turned(0) is 1
@@ -85,14 +85,14 @@ Rotation(layout H3Layout) Numbers slow
 Hidden(latent Numbers, sound Numbers, text Numbers, layout H3Layout, conditions Numbers) Numbers native
 	Tiny.Hidden(Model.Values("video"), Model.Values("audio"), Prompt, H3Layout.Tiny, List(Number)).Length is 4352
 	kept = layout.Conditions is 0 then text else text + videoPatches.Sums(conditions)
-	kept + audioPatches.Sums(Packed(sound, layout)) + videoPatches.Sums(Patched(latent, layout))
-Ran(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Numbers native
-	Tiny.Ran(Prompt, Prompt, Prompt, Turned, H3Layout.Tiny, 1, 1) is Prompt
-	Fenced.Ran(Word, Word.Slice(0, 8), List(Number) + 0, Turned.Slice(0, 256), H3Layout.Tiny, 0, 2).Length is 256
+	kept + audioPatches.Sums(Pack(sound, layout)) + videoPatches.Sums(Patch(latent, layout))
+Run(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, first Number, last Number) Numbers native
+	Tiny.Run(Prompt, Prompt, Prompt, Turned, H3Layout.Tiny, 1, 1) is Prompt
+	Fenced.Run(Word, Word.Slice(0, 8), List(Number) + 0, Turned.Slice(0, 256), H3Layout.Tiny, 0, 2).Length is 256
 	mutable state = hidden
 	for last - first
 		at = first + index
-		state = blocks(at).Output(state, curves, starts, rotation, Routed(layout.routing, at), Leading(layout))
+		state = blocks(at).Output(state, curves, starts, rotation, Route(layout.routing, at), Leading(layout))
 	state
 Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers) Numbers slow
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
@@ -101,4 +101,4 @@ Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layou
 	Keyed(818).IsNearlyEqual(0.808594, 0.02)
 	curves = Curves(layout.Times(sigma))
 	hidden = Hidden(latent, sound, text, layout, conditions)
-	final.Output(Ran(hidden, curves, layout.Rows(sigma), rotation, layout, 0, blocks.Length), curves, layout, sigma)
+	final.Output(Run(hidden, curves, layout.Rows(sigma), rotation, layout, 0, blocks.Length), curves, layout, sigma)

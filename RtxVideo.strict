@@ -36,50 +36,50 @@ IsAvailable Boolean slow
 Stamp Text
 	Tiny.Stamp.EndsWith("/artifacts/h3/rtxvideo.running")
 	H3Artifacts(options).Folder + "/rtxvideo.running"
-Warmed slow
+Warm slow
 	if IsAvailable is false or File(Stamp).Exists
 		return
 	isWindows = Process.OperatingSystem is "Windows"
-	started = Process.RunTool(isWindows then "powershell" else "sh", Detached(Python, Script, isWindows))
+	started = Process.RunTool(isWindows then "powershell" else "sh", Detach(Python, Script, isWindows))
 	if started.HasFailed
 		logger.Log("Could not start " + Python + " for RTX Video Super Resolution: " + started.error.Trim)
-Detached(python Text, script Text, isWindows Boolean) Text
-	Tiny.Detached("p.exe", "r.py", true).EndsWith(" \\\"" + Tiny.Stamp + "\\\"' -WindowStyle Hidden")
-	Tiny.Detached("p", "r.py", false).StartsWith("-c \"nohup 'p' -I 'r.py' --serve 18019 ")
+Detach(python Text, script Text, isWindows Boolean) Text
+	Tiny.Detach("p.exe", "r.py", true).EndsWith(" \\\"" + Tiny.Stamp + "\\\"' -WindowStyle Hidden")
+	Tiny.Detach("p", "r.py", false).StartsWith("-c \"nohup 'p' -I 'r.py' --serve 18019 ")
 	served = " --serve " + Port + " " + Process.Id + " "
 	quoted = Quote + script + Quote + served + Quote + Stamp + Quote
 	hidden = Starting + python + "' -ArgumentList '-I " + quoted + "' -WindowStyle Hidden"
 	shell = "' -I '" + script + "'" + served + "'" + Stamp + "' >/dev/null 2>&1 &\""
 	isWindows then hidden else "-c \"nohup '" + python + shell
-Ended slow
+End slow
 	if File(Stamp).Exists is false
 		return
-	if StrictGenRemote.Posted("127.0.0.1", Port, "/quit", "") is ""
+	if StrictGenRemote.Post("127.0.0.1", Port, "/quit", "") is ""
 		File(Stamp).Delete
-Upscaled(path Text, isLast Boolean) slow
+Upscale(path Text, isLast Boolean) slow
 	if IsAvailable is false
 		logger.Log(Missing)
 		return
 	logger.Log("Upscaling " + path + " 2x with RTX Video Super Resolution")
 	full = Absolute(path)
-	queued = Queued(full, File(Stamp).Exists)
-	answer = queued is "queued" then Polled("/result", full, "busy", LongestSeconds) else queued
-	logger.Log(answer.StartsWith("RTX") then answer else Failed(answer))
+	queued = Queue(full, File(Stamp).Exists)
+	answer = queued is "queued" then Poll("/result", full, "busy", LongestSeconds) else queued
+	logger.Log(answer.StartsWith("RTX") then answer else Fail(answer))
 	if isLast
-		Ended
-Queued(path Text, isRunning Boolean) Text slow
-	Warmed
-	answer = Polled("/upscale", path, "", isRunning then PollSeconds else StartSeconds)
+		End
+Queue(path Text, isRunning Boolean) Text slow
+	Warm
+	answer = Poll("/upscale", path, "", isRunning then PollSeconds else StartSeconds)
 	if answer is not "" or isRunning is false
 		return answer
 	File(Stamp).Delete
-	Queued(path, false)
-Polled(route Text, path Text, pending Text, seconds Number) Text slow
-	Tiny.Polled("/result", "a.mp4", "", 0) is ""
+	Queue(path, false)
+Poll(route Text, path Text, pending Text, seconds Number) Text slow
+	Tiny.Poll("/result", "a.mp4", "", 0) is ""
 	mutable answer = pending
 	mutable waited = 0
 	for as long as answer is pending and waited < seconds
-		answer = StrictGenRemote.Posted("127.0.0.1", Port, route, path)
+		answer = StrictGenRemote.Post("127.0.0.1", Port, route, path)
 		if answer is pending
 			Process.Wait(PollSeconds)
 		waited = waited + PollSeconds
@@ -89,25 +89,25 @@ Absolute(path Text) Text
 	Tiny.Absolute("/a.mp4") is "/a.mp4"
 	Tiny.Absolute("a.mp4").EndsWith("/a.mp4")
 	path.StartsWith("/") or path.IndexOf(":") is 1 then path else Directory.Current.Replace("\\", "/") + "/" + path
-Failed(error Text) Text
-	Tiny.Failed("FutureWarning: pynvml\nneeds an RTX card\n").EndsWith(" keeps its size: needs an RTX card")
+Fail(error Text) Text
+	Tiny.Fail("FutureWarning: pynvml\nneeds an RTX card\n").EndsWith(" keeps its size: needs an RTX card")
 	reason = error.Trim is "" then "the helper did not answer" else error.Trim.Lines.Last
 	"RTX Video Super Resolution failed, the video keeps its size: " + reason
-Sized(probed Text) Text
-	Tiny.Sized("480,832") is "480 832"
-	Tiny.Sized("960,1664\n480x832" + Tag) is "480 832"
-	Tiny.Sized("960,1664\n200x832" + Tag) is "960 1664"
-	Tiny.Sized("") is ""
+FormatSize(probed Text) Text
+	Tiny.FormatSize("480,832") is "480 832"
+	Tiny.FormatSize("960,1664\n480x832" + Tag) is "480 832"
+	Tiny.FormatSize("960,1664\n200x832" + Tag) is "960 1664"
+	Tiny.FormatSize("") is ""
 	if probed is ""
 		return ""
 	lines = probed.Lines
 	pixels = lines.First.Split(",")
 	tagged = lines.Last.EndsWith(Tag) then lines.Last.Split(" ").First.Split("x") else pixels
 	isDoubled = tagged.Length is 2 and pixels.Length is 2 and tagged(0) to Number * 2 is pixels(0) to Number
-	Snapped(isDoubled then tagged else pixels)
-Snapped(parts Texts) Text
-	Tiny.Snapped(("33", "64")) is "32 64"
-	Tiny.Snapped(List(Text) + "") is ""
+	Snap(isDoubled then tagged else pixels)
+Snap(parts Texts) Text
+	Tiny.Snap(("33", "64")) is "32 64"
+	Tiny.Snap(List(Text) + "") is ""
 	if parts.Length < 2
 		return ""
 	ComfySize.Plain.Snap(parts(0).Trim to Number, 32) + " " + ComfySize.Plain.Snap(parts(1).Trim to Number, 32)

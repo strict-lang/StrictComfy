@@ -8,19 +8,19 @@ has outputs Texts
 Images Number slow
 	first = Latents(0, 1)
 	if GpuMemory.Available < MossFiles.Spare
-		return Saved(first + Latents(1, seeds.Length - 1), 0)
-	mutable made = Saved(first, 0)
+		return Save(first + Latents(1, seeds.Length - 1), 0)
+	mutable made = Save(first, 0)
 	for Range(1, seeds.Length)
-		made = made + Saved(Latents(value, 1), value)
+		made = made + Save(Latents(value, 1), value)
 	made
-Saved(latents List(Numbers), start Number) Number slow
+Save(latents List(Numbers), start Number) Number slow
 	count = latents.Length
 	texts = prompts.Slice(start, count)
-	batch.options.files.Eased
-	batch.Decoded(kept, latents, seeds.Slice(start, count), texts, outputs.Slice(start, count)).Length
+	batch.options.files.Ease
+	batch.Decode(kept, latents, seeds.Slice(start, count), texts, outputs.Slice(start, count)).Length
 Latents(start Number, count Number) List(Numbers) slow
 	unique = prompts.Unique
 	for Range(start, start + count)
 		label = "Image " + (value + 1) + "/" + seeds.Length + " " + Path(outputs(value)).FileName.text
 		shown = MossSampling(sampling, finale = value < seeds.Length - 1)
-		batch.Sampled(kept.mosses.First, shown, seeds(value), contexts(unique.Index(prompts(value))), label)
+		batch.RunSampling(kept.mosses.First, shown, seeds(value), contexts(unique.Index(prompts(value))), label)

@@ -8,9 +8,9 @@ Folder Text slow
 		if Directory.Exists(value)
 			return value
 	Error("ModelsFolderNotFound")
-Located(name Text, folder Text) Text slow
-	ModelFiles("").Located("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
-	ModelFiles(".").Located("x.y", "loras") is Error("FileNotFound:x.y")
+Locate(name Text, folder Text) Text slow
+	ModelFiles("").Locate("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
+	ModelFiles(".").Locate("x.y", "loras") is Error("FileNotFound:x.y")
 	if File(name).Exists
 		return name
 	inside = Folder + "/" + folder + "/" + name
@@ -18,17 +18,17 @@ Located(name Text, folder Text) Text slow
 Has(name Text, folder Text) Boolean slow
 	ModelFiles("").Has("tinymoss.safetensors", "diffusion_models")
 	ModelFiles(".").Has("x.y", "loras") is false
-	Located(name, folder) is not Error
+	Locate(name, folder) is not Error
 Decoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").Decoder("", "tinyh3vae.safetensors") is "tinyh3vae.safetensors"
 	ModelFiles(".").Decoder("missing.safetensors", "a") is Error("FileNotFound:missing.safetensors")
 	folder = File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae"
-	Located(vae is "" then fallback else vae, folder)
+	Locate(vae is "" then fallback else vae, folder)
 VaeEncoder(vae Text, fallback Text) Text slow
 	ModelFiles(".").VaeEncoder("tinyh3vae.safetensors", "a") is "tinyh3vae.safetensors"
 	ModelFiles(".").VaeEncoder("tinytaeh3.safetensors", "a") is Error("FileNotFound:a")
 	decoder = Decoder(vae, fallback)
-	decoder is Error or Taeh3Decoder.IsTaeh3(decoder) is false then decoder else Located(fallback, "vae")
+	decoder is Error or Taeh3Decoder.IsTaeh3(decoder) is false then decoder else Locate(fallback, "vae")
 Specs(loras Texts) Texts slow
 	ModelFiles("").Specs(List(Text) + "tinylora.safetensors:0.5") is ("tinylora.safetensors=0.5")
 	for loras
@@ -44,10 +44,10 @@ Spec(text Text) Text slow
 	strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
 	number = strength to Number
 	numeric = number is Error then false else number to Text is strength
-	Located(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
-Described(path Text) Text slow
-	ModelFiles("").Described("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
-	ModelFiles("").Described("C:/models/missing.safetensors") is "missing.safetensors"
+	Locate(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
+Describe(path Text) Text slow
+	ModelFiles("").Describe("tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
+	ModelFiles("").Describe("C:/models/missing.safetensors") is "missing.safetensors"
 	name = Path(path).FileName.text
 	File(path).Exists then name + " (" + (File(path).Length / 1000000000).Round(1) + " GB)" else name
 Prefetching(paths Texts, what Text) Text

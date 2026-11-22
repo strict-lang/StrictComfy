@@ -15,7 +15,7 @@ Loaded(model Safetensors, prefix Text, groups Number) FluxAttention slow
 	block = Safetensors(model.path, 32, model.prefix + prefix)
 	weights = block.Values("q.weight") + block.Values("k.weight") + block.Values("v.weight")
 	biases = block.Values("q.bias") + block.Values("k.bias") + block.Values("v.bias")
-	output = FluxResnet.Convolved(block, "proj_out")
+	output = FluxResnet.Convolve(block, "proj_out")
 	FluxAttention(FluxResnet.Norm(block, "norm", groups), Convolution(weights, biases), output)
 Output(map FeatureMap) FeatureMap slow
 	Middle.Output(Input).Completed(0).IsNearlyEqual(-0.70551, 0.0001)
@@ -23,15 +23,15 @@ Output(map FeatureMap) FeatureMap slow
 	Middle.Output(Input).Completed(383).IsNearlyEqual(1.27711, 0.0001)
 	size = map.channels
 	mixed = combined.Project(map.Applied(norm.Affine(map), Activation.Linear))
-	attended = FeatureMap(Attended(mixed), map.width, size, Safetensors.Part(combined.biases, 2 * size, size, 1))
+	attended = FeatureMap(Attend(mixed), map.width, size, Safetensors.Part(combined.biases, 2 * size, size, 1))
 	map.Plus(projection.Project(attended))
-Attended(mixed FeatureMap, budget = Budget) Numbers slow
-	Middle.Attended(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
-	Middle.Attended(Combined)(17) is Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 1, 1)(1)
-	MossImage.RelativeError(Middle.Attended(Combined, 130), Middle.Attended(Combined)) < 0.00001
+Attend(mixed FeatureMap, budget = Budget) Numbers slow
+	Middle.Attend(FeatureMap((1, 0, 3, 0, 1, 5), 1, 3, (0, 0, 0))).Length is 2
+	Middle.Attend(Combined)(17) is Middle.Chunk(Queried, Combined, Middle.Transpose(Combined.values, 16), 1, 1)(1)
+	MossImage.RelativeError(Middle.Attend(Combined, 130), Middle.Attend(Combined)) < 0.00001
 	positions = mixed.values.Length / mixed.channels
 	queries = Queries(mixed.values, combined.biases)
-	transposed = Transposed(mixed.values, mixed.channels / 3)
+	transposed = Transpose(mixed.values, mixed.channels / 3)
 	rows = Rows(positions, budget)
 	mutable attended = List(Number)
 	for (positions / rows).Ceiling
@@ -41,7 +41,7 @@ Rows(positions Number, budget Number) Number
 	FluxAttention.Rows(24, 130) is 5 and FluxAttention.Rows(24, 10) is 1 and FluxAttention.Rows(24, Budget) is 24
 	(budget / positions).Floor.Clamp(1, positions)
 Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count Number) Numbers slow
-	Middle.Chunk(Queried, Combined, Middle.Transposed(Combined.values, 16), 0, 24).Length is 384
+	Middle.Chunk(Queried, Combined, Middle.Transpose(Combined.values, 16), 0, 24).Length is 384
 	Middle.Chunk((2, 0), Keyed, (10, 20, 30, 40), 0, 1) is (11.192029, 31.192029)
 	size = mixed.channels / 3
 	positions = mixed.values.Length / mixed.channels
@@ -49,8 +49,8 @@ Chunk(queries Numbers, mixed FeatureMap, transposed Numbers, first Number, count
 	queried = Products(queries, mixed.values, shape, (first * size, 0, size, 1, size, 0, 1, 3 * size))
 	shares = Softmax.Shares(queried.Multiplied, positions)
 	Products(shares, transposed, (1, count, positions, size), (0, 0, positions, 1, 0, 0, 1, positions)).Multiplied
-Transposed(values Numbers, size Number) BFloat16s
-	FluxAttention.Transposed((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 2) is (5, 11, 6, 12)
+Transpose(values Numbers, size Number) BFloat16s
+	FluxAttention.Transpose((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 2) is (5, 11, 6, 12)
 	positions = values.Length / (3 * size)
 	offset = 2 * size
 	for values.Length / 3

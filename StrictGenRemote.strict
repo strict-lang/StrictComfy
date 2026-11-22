@@ -3,49 +3,49 @@ constant Closing = "\r\nConnection: close\r\n\r\n"
 constant CarriageReturn = 13
 constant LineFeed = 10
 constant Bodiless = 0
-Delivered(endpoint Text, body Text) Text slow
+Deliver(endpoint Text, body Text) Text slow
 	parts = endpoint.Split(":")
 	if parts.Length < 2
 		return "error\t" + endpoint
-	prepared = Prepared(parts(0), parts(1) to Number, body)
-	response = Posted(parts(0), parts(1) to Number, "/run", Marked(prepared))
+	prepared = Prepare(parts(0), parts(1) to Number, body)
+	response = Post(parts(0), parts(1) to Number, "/run", Mark(prepared))
 	if response is ""
 		return "error\t" + endpoint + " did not answer"
 	accepted = Json(response).get("accepted") to Text
 	accepted is "" or accepted is "-1" then "error\tThe other StrictGen did not queue the job" else accepted
-Prepared(host Text, port Number, body Text) Text slow
+Prepare(host Text, port Number, body Text) Text slow
 	json = Json(body)
 	video = json.get("video") to Text
 	image = json.get("image") to Text
-	sent = video is "" then body else Rewritten(body, video, Uploaded(host, port, video))
-	image is "" then sent else Rewritten(sent, image, Uploaded(host, port, image))
-Uploaded(host Text, port Number, path Text) Text slow
+	sent = video is "" then body else Rewritten(body, video, Upload(host, port, video))
+	image is "" then sent else Rewritten(sent, image, Upload(host, port, image))
+Upload(host Text, port Number, path Text) Text slow
 	if path is "" or File(path).Exists is false
 		return path
-	saved = Sent(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
+	saved = Send(host, port, "/inbox?name=" + Path(path).FileName.text, File(path).ReadBytes)
 	saved is "" then path else saved
-Asked(endpoint Text, id Number) Text slow
+Ask(endpoint Text, id Number) Text slow
 	parts = endpoint.Split(":")
-	parts.Length < 2 then "error\tmissing" else Posted(parts(0), parts(1) to Number, "/job?id=" + id, "")
-Saved(endpoint Text, path Text) Text slow
+	parts.Length < 2 then "error\tmissing" else Post(parts(0), parts(1) to Number, "/job?id=" + id, "")
+Save(endpoint Text, path Text) Text slow
 	parts = endpoint.Split(":")
 	if parts.Length < 2 or path is ""
 		return ""
-	bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escaped(path))
+	bytes = Gotten(parts(0), parts(1) to Number, "/file?path=" + Escape(path))
 	if bytes.Length is 0
 		return ""
 	Directory.Create(StrictGen.Outputs)
 	local = StrictGen.Outputs + "/" + Path(path).FileName.text
 	File(local).Write(bytes)
 	local
-Posted(host Text, port Number, path Text, body Text) Text slow
-	Sent(host, port, path, StrictGenHttp.Encoded(body))
-Sent(host Text, port Number, path Text, payload Numbers) Text slow
+Post(host Text, port Number, path Text, body Text) Text slow
+	Send(host, port, path, StrictGenHttp.Encode(body))
+Send(host Text, port Number, path Text, payload Numbers) Text slow
 	header = "POST " + path + " HTTP/1.1\r\nHost: " + host + "\r\nContent-Length: " + payload.Length + Closing
-	StrictGenHttp.Decoded(After(Exchanged(host, port, StrictGenHttp.Encoded(header) + payload)))
+	StrictGenHttp.Decode(After(Exchange(host, port, StrictGenHttp.Encode(header) + payload)))
 Gotten(host Text, port Number, path Text) Numbers slow
-	After(Exchanged(host, port, StrictGenHttp.Encoded("GET " + path + " HTTP/1.1\r\nHost: " + host + Closing)))
-Exchanged(host Text, port Number, bytes Numbers) Numbers slow
+	After(Exchange(host, port, StrictGenHttp.Encode("GET " + path + " HTTP/1.1\r\nHost: " + host + Closing)))
+Exchange(host Text, port Number, bytes Numbers) Numbers slow
 	socket = Socket.Try(host, port, 2)
 	if socket is Error
 		return List(Number)
@@ -69,7 +69,7 @@ IsFinished(bytes Numbers) Boolean
 	end = HeaderEnd(bytes)
 	if end < 0
 		return false
-	header = StrictGenHttp.Decoded(bytes.Slice(0, end)).Lower
+	header = StrictGenHttp.Decode(bytes.Slice(0, end)).Lower
 	start = header.IndexOf("content-length: ")
 	digits = start < 0 then "0" else header.Substring(start + 16, header.Length - start - 16)
 	length = digits.Split("\r\n").First to Number
@@ -85,10 +85,10 @@ HeaderEnd(bytes Numbers) Number
 After(bytes Numbers) Numbers
 	end = HeaderEnd(bytes)
 	end < 0 then List(Number) else bytes.Slice(end, bytes.Length - end)
-Marked(body Text) Text
-	StrictGenRemote.Marked("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
+Mark(body Text) Text
+	StrictGenRemote.Mark("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
 	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1) else body
 Rewritten(body Text, path Text, saved Text) Text
-	saved is "" or saved is path then body else body.Replace(Escaped(path), Escaped(saved))
-Escaped(path Text) Text
+	saved is "" or saved is path then body else body.Replace(Escape(path), Escape(saved))
+Escape(path Text) Text
 	path.Replace("\\", "\\\\").Replace("\"", "\\\"")

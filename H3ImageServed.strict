@@ -1,8 +1,8 @@
 has image H3Image
 has arguments Texts
 constant Tiny = H3ImageServed(H3Image.Tiny, List(Text))
-Completed(kept H3ImageResident) H3ImageResident slow
-	Tiny.Completed(H3ImageResident.None).code is 2
+Complete(kept H3ImageResident) H3ImageResident slow
+	Tiny.Complete(H3ImageResident.None).code is 2
 	options = image.options
 	problem = options.Problem is "" then image.Missing else options.Problem
 	if problem is not ""
@@ -12,17 +12,17 @@ Completed(kept H3ImageResident) H3ImageResident slow
 	batch = PromptBatch("Image")
 	seeds = batch.Seeds(options.Seed, options.count)
 	measured = H3ImageServed(H3Image(options, options.Original), arguments)
-	measured.Prompted(kept, seeds, batch.Prompts(List(Text) + options.Prompted, seeds), started)
-Prompted(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) H3ImageResident slow
+	measured.Prompt(kept, seeds, batch.Prompts(List(Text) + options.Prompted, seeds), started)
+Prompt(kept H3ImageResident, seeds Numbers, prompts Texts, started Number) H3ImageResident slow
 	options = image.options
-	paths = image.Cached(prompts)
-	sampling = Encoded(kept, prompts, paths).Referencing(image).Sampling(options)
-	latents = image.Sampled(sampling, H3Artifacts.Sample.Read(paths), paths, seeds)
+	paths = image.Cache(prompts)
+	sampling = Encode(kept, prompts, paths).Referencing(image).Sampling(options)
+	latents = image.Sample(sampling, H3Artifacts.Sample.Read(paths), paths, seeds)
 	decoding = sampling.Decoding(options.Decoder)
-	saved = image.Saved(decoding.vae, latents, PromptBatch("Image").Outputs(options.output, options.count))
+	saved = image.Save(decoding.vae, latents, PromptBatch("Image").Outputs(options.output, options.count))
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + saved.Length + " images")
 	H3ImageResident(decoding, code = 0)
-Encoded(kept H3ImageResident, prompts Texts, paths Texts) H3ImageResident slow
+Encode(kept H3ImageResident, prompts Texts, paths Texts) H3ImageResident slow
 	missing = H3Artifacts.Sample.Missing(paths)
 	if missing.Length is 0
 		logger.Log("Using cached prompt conditioning")
@@ -32,11 +32,11 @@ Encoded(kept H3ImageResident, prompts Texts, paths Texts) H3ImageResident slow
 	Directory.Create(H3Artifacts.Sample.Root + "/artifacts")
 	Directory.Create(H3Artifacts.Sample.Root + H3Image.Folder)
 	encoding = kept.Encoding(image.options.Files).Seeing(image.options.Files)
-	made = Contexted(encoding, H3Inputs.Sample.Picked(prompts, missing), H3Inputs.Sample.Picked(paths, missing))
+	made = Context(encoding, H3Inputs.Sample.Pick(prompts, missing), H3Inputs.Sample.Pick(paths, missing))
 	logger.Log("Encoded " + made + " prompts with the loaded text encoder")
 	encoding.Trimmed(image.options)
-Contexted(encoding H3ImageResident, prompts Texts, paths Texts) Number slow
-	images = H3Inputs.Sample.Picked(List(Text) + image.options.image, Layer.Zeros(prompts.Length))
+Context(encoding H3ImageResident, prompts Texts, paths Texts) Number slow
+	images = H3Inputs.Sample.Pick(List(Text) + image.options.image, Layer.Zeros(prompts.Length))
 	reading = encoding.models.Length is 1 then List(Text) else List(Text) + image.options.Checkpoint
 	encoder = image.Encoder(reading, encoding.visions)
 	encoder.EncodedWith(encoding.encoders.First, encoding.tokenizers.First, prompts, images, paths)

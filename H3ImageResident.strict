@@ -26,13 +26,13 @@ Sampling(options H3ImageOptions) H3ImageResident slow
 		logger.Log("Using the loaded H3 Image " + options.Checkpoint)
 		return value
 	GpuMemory.Evict
-	loaded = Loaded(options)
+	loaded = Load(options)
 	refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
 	H3ImageResident(value, models = List(H3ImageModel) + loaded, refiners = List(H3Refiner) + refiner, model = key)
-Loaded(options H3ImageOptions) H3ImageModel native
-	None.Loaded(Tiny).heads.Length is 6
+Load(options H3ImageOptions) H3ImageModel native
+	None.Load(Tiny).heads.Length is 6
 	started = Process.Elapsed
-	logger.Log("Loading H3 Image " + ModelFiles("").Described(options.Checkpoint) + " from disk into memory")
+	logger.Log("Loading H3 Image " + ModelFiles("").Describe(options.Checkpoint) + " from disk into memory")
 	loaded = H3ImageModel.Loaded(options.Checkpoint, options.Loras)
 	report = H3Lora(options.Loras).Report + Staying
 	logger.Log("H3 Image loaded in " + (Process.Elapsed - started).Round(1) + " s" + report)
@@ -42,7 +42,7 @@ Decoding(path Text) H3ImageResident native
 	Sampled.Decoding(Tiny.Decoder).Decoding(Tiny.Decoder).vae.decoderFile is Tiny.Decoder
 	if vae.IsDecoding(path)
 		return value
-	logger.Log("Loading the H3 Image decoder " + ModelFiles("").Described(path) + Staying)
+	logger.Log("Loading the H3 Image decoder " + ModelFiles("").Describe(path) + Staying)
 	H3ImageResident(value, vae = vae.Decoding(path))
 Picturing(path Text) H3ImageResident native
 	Sampled.Picturing(H3VaeEncoder.Model.path).vae.pictures.Length is 1
@@ -61,12 +61,12 @@ Referencing(image H3Image) H3ImageResident slow
 	if key is ""
 		return H3ImageResident(value, references = List(Numbers), referenceKey = "")
 	picturing = Picturing(image.options.VaeEncoder)
-	H3ImageResident(picturing, references = image.Referenced(picturing.vae.pictures.First), referenceKey = key)
+	H3ImageResident(picturing, references = image.UseReference(picturing.vae.pictures.First), referenceKey = key)
 Seeing(files H3Files) H3ImageResident native
 	Encoded.Seeing(TinyFiles).visions.Length is 0
 	if files.Images.Length is 0 or visions.Length is 1
 		return value
-	logger.Log("Loading the vision encoder of " + ModelFiles("").Described(files.Encoder) + Staying)
+	logger.Log("Loading the vision encoder of " + ModelFiles("").Describe(files.Encoder) + Staying)
 	vision = QwenVision.Loaded(Safetensors(files.Encoder, 32, "visual."), 16, H3Qwen.Deepstacks)
 	H3ImageResident(value, visions = List(QwenVision) + vision)
 Encoding(files H3Files) H3ImageResident native
@@ -75,7 +75,7 @@ Encoding(files H3Files) H3ImageResident native
 	if files.Encoder is encoderFile and encoders.Length is 1
 		return value
 	started = Process.Elapsed
-	logger.Log("Loading text encoder " + ModelFiles("").Described(files.Encoder) + " from disk into memory")
+	logger.Log("Loading text encoder " + ModelFiles("").Describe(files.Encoder) + " from disk into memory")
 	encoder = H3Encoder(files)
 	loaded = encoder.Loaded
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - started).Round(1) + " s" + Staying)
@@ -84,15 +84,15 @@ Encoding(files H3Files) H3ImageResident native
 Trimmed(options H3ImageOptions) H3ImageResident native
 	Encoded.Trimmed(Tiny).encoders.Length is (Crowded then 0 else 1)
 	H3ImageResident(Encoded, isKept = false).Trimmed(Tiny).encoders.Length is 0
-	Fitted(options)
+	Fit(options)
 	needed = models.Length is 1 then 0 else File(options.Checkpoint).Length
 	isCrowded = Backend.IsCrowded(needed, GpuMemory.HostAvailable, GpuMemory.HostTotal)
 	if encoders.Length is 0 or isKept and isCrowded is false
 		return value
 	logger.Log(isKept then "Freeing the text encoder, little memory is left, it loads again for a new prompt" else Freeing)
 	H3ImageResident(value, encoders = List(Qwen3), encoderFile = "", visions = List(QwenVision))
-Fitted(options H3ImageOptions) native
-	Encoded.Fitted(Tiny) is not Error
+Fit(options H3ImageOptions) native
+	Encoded.Fit(Tiny) is not Error
 	checkpoint = File(options.Checkpoint).Length
 	if GpuMemory.Held + GpuMemory.Available < checkpoint
 		GpuMemory.Evict

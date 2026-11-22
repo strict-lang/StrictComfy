@@ -20,10 +20,10 @@ Run(arguments Texts) Number slow
 	if port < 1 or port > Highest
 		logger.Log("Port " + port + " is not a port number, start with --port and a number from 1 to 65535")
 		return 1
-	Served(port) is Error then 1 else 0
+	Serve(port) is Error then 1 else 0
 IsStopped(port Number) Boolean slow
 	logger.Log("Stopping StrictGen on port " + port + " and the MossImage, H3Video and H3Image backends")
-	answer = StrictGenRemote.Posted("127.0.0.1", port, "/quit", "")
+	answer = StrictGenRemote.Post("127.0.0.1", port, "/quit", "")
 	StrictGenJob.StopAll
 	logger.Log(answer is "" then "No StrictGen answered on that port, the backends are stopped" else "Stopped")
 	true
@@ -32,7 +32,7 @@ Port(arguments Texts) Number
 	StrictGen.Port(("--port", "8765")) is 8765
 	at = arguments.Index("--port")
 	at < 0 or at + 1 >= arguments.Length then DefaultPort else arguments(at + 1) to Number
-Served(port Number) slow
+Serve(port Number) slow
 	socket = Socket.Listen(port)
 	if socket is Error
 		logger.Log("Port " + port + " is in use, probably by a running StrictGen; close it or start with --port <number>")
@@ -43,23 +43,23 @@ Served(port Number) slow
 	Directory.Create(Outputs)
 	peers = StrictGenNet.Opened(Socket.Port(socket)).Measured.Shouted
 	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
-	Looped(socket, StrictGenQueue, peers)
-Looped(socket Number, queue StrictGenQueue, net StrictGenNet) slow
-	StrictGen.Looped(0, StrictGenQueue.Empty, StrictGenNet.Idle) is not Error
+	Loop(socket, StrictGenQueue, peers)
+Loop(socket Number, queue StrictGenQueue, net StrictGenNet) slow
+	StrictGen.Loop(0, StrictGenQueue.Empty, StrictGenNet.Idle) is not Error
 	mutable state = queue
 	mutable peers = net
 	for Range(0, socket > 0 then Forever else 0)
 		waiting = Socket.Waiting(socket) is 1
 		peers = waiting then peers else peers.Refreshed
-		state = Turned(socket, waiting, state, peers)
+		state = Turn(socket, waiting, state, peers)
 		if state.notice.StartsWith(StrictGenQueue.Collecting) or state.notice is StrictGenQueue.Quitting
-			return Ended(state.notice)
+			return End(state.notice)
 		peers = peers.Tick(state.IsBusy)
 		Process.Wait(waiting then 0 else (state.IsBusy then BusyWait else IdleWait))
-Turned(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
-	StrictGen.Turned(0, false, StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
-	StrictGenConsole.Told(queue, Steered(waiting then Answered(Socket.Accept(socket), queue, net) else queue, net))
-Ended(reason Text) Number slow
+Turn(socket Number, waiting Boolean, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
+	StrictGen.Turn(0, false, StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
+	StrictGenConsole.Told(queue, Steer(waiting then AnswerClient(Socket.Accept(socket), queue, net) else queue, net))
+End(reason Text) Number slow
 	StrictGenJob.StopAll
 	if reason is StrictGenQueue.Quitting
 		return Error("StrictGenStopped: " + reason)
@@ -68,54 +68,54 @@ Ended(reason Text) Number slow
 Broken(reason Text) Text
 	StrictGen.Broken("GarbageCollectionExceedsLimit: test").EndsWith(FixedFirst)
 	"A backend ended with " + reason.Split(":").First + ", StrictGen stops its backends and ends here" + FixedFirst
-Steered(queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
-	StrictGen.Steered(StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
+Steer(queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
+	StrictGen.Steer(StrictGenQueue.Empty, StrictGenNet.Idle).IsBusy is false
 	choice = queue.NeedsAim then net.Chosen(queue.NextMode, queue.Pin) else ""
 	(choice is "" then queue else queue.Aimed(choice)).Advanced
-Answered(client Number, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
+AnswerClient(client Number, queue StrictGenQueue, net StrictGenNet) StrictGenQueue slow
 	if client is Error or client <= 0
 		return queue
-	bytes = StrictGenHttp.Received(client)
+	bytes = StrictGenHttp.Receive(client)
 	if IsSent(client, bytes)
 		return queue
-	raw = StrictGenHttp.Decoded(bytes)
+	raw = StrictGenHttp.Decode(bytes)
 	route = StrictGenHttp.Route(raw)
 	if route is in ("/stop", "/quit")
 		StrictGenJob.StopAll
 	next = route is in ("/run", "/stop", "/quit") then queue.Posted(route, StrictGenHttp.Body(raw)) else queue
-	StrictGenHttp.Replied(client, Typed(route), Answer(route, raw, next, net))
+	StrictGenHttp.Reply(client, Type(route), Answer(route, raw, next, net))
 	next
 IsSent(client Number, bytes Numbers) Boolean slow
-	StrictGen.IsSent(0, StrictGenHttp.Encoded("GET /status HTTP/1.1\r\n\r\n")) is false
+	StrictGen.IsSent(0, StrictGenHttp.Encode("GET /status HTTP/1.1\r\n\r\n")) is false
 	head = StrictGenHttp.Head(bytes)
 	route = StrictGenHttp.Route(head)
 	if route is "/file"
 		StrictGenHttp.SendFile(client, StrictGenHttp.Query(head, "path"))
 	if route is "/inbox"
-		StrictGenHttp.Replied(client, "text/plain", Stored(StrictGenHttp.Query(head, "name"), StrictGenHttp.Payload(bytes)))
+		StrictGenHttp.Reply(client, "text/plain", Store(StrictGenHttp.Query(head, "name"), StrictGenHttp.Payload(bytes)))
 	route is in ("/file", "/inbox")
-Typed(route Text) Text
-	StrictGen.Typed("/status") is "application/json"
-	StrictGen.Typed("/job") is "text/plain"
-	StrictGen.Typed("/outputs") is "text/plain"
-	StrictGen.Typed("/") is "text/html"
-	StrictGen.Typed("/inputs") is "text/plain"
+Type(route Text) Text
+	StrictGen.Type("/status") is "application/json"
+	StrictGen.Type("/job") is "text/plain"
+	StrictGen.Type("/outputs") is "text/plain"
+	StrictGen.Type("/") is "text/html"
+	StrictGen.Type("/inputs") is "text/plain"
 	isJson = route is in ("/run", "/stop", "/import", "/status", "/warm", "/quit")
 	plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs", "/estimate")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 	if route is "/import"
 		File("StrictGenWorkflow.json").Write(StrictGenHttp.Body(raw).Split("\n"))
-		return StrictGenForm.Imported("StrictGenWorkflow.json")
+		return StrictGenForm.Import("StrictGenWorkflow.json")
 	if route is "/warm"
-		return Warmed(StrictGenHttp.Body(raw), queue)
+		return Warm(StrictGenHttp.Body(raw), queue)
 	if route is in ("/status", "/run", "/stop", "/quit")
 		status = StrictGenStats.Status(queue, net)
 		accepted = route is "/run" then queue.modes.Length - 1 else -1
 		return status.Substring(0, status.Length - 1) + ",\"accepted\":" + accepted + "}"
-	Typed(route) is "text/plain" then Plain(route, raw, queue) else Page
-Warmed(body Text, queue StrictGenQueue) Text slow
-	StrictGen.Warmed("{\"mode\":\"video\"}", StrictGenQueue.Empty) is "{\"warming\":false}"
+	Type(route) is "text/plain" then Plain(route, raw, queue) else Page
+Warm(body Text, queue StrictGenQueue) Text slow
+	StrictGen.Warm("{\"mode\":\"video\"}", StrictGenQueue.Empty) is "{\"warming\":false}"
 	if queue.IsBusy or queue.pending.Length > 0 or Json(body).get("mode") to Text is not "image"
 		return "{\"warming\":false}"
 	command = Text.Combine(StrictGenForm.Arguments(body), "\n")
@@ -128,12 +128,12 @@ Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 		return Text.Combine(StrictGenFiles("").Outputs(route is "/outputs" then Outputs else Inputs), "\n")
 	if route is "/list"
 		files = StrictGenFiles(StrictGenHttp.Query(raw, "models"))
-		return Text.Combine(files.Listed(StrictGenHttp.Query(raw, "kind")), "\n")
+		return Text.Combine(files.FindFiles(StrictGenHttp.Query(raw, "kind")), "\n")
 	if route is "/neighbor"
-		return StrictGenForm.Stepped(StrictGenHttp.Query(raw, "path"), StrictGenHttp.Query(raw, "step") to Number)
-	route is "/estimate" then H3Estimate.Told(raw) else StrictGenStats.Probed(StrictGenHttp.Query(raw, "path"))
-Stored(name Text, bytes Numbers) Text slow
-	StrictGen.Stored("a/b/upload-test.bin", (1, 2)) is "input/upload-test.bin"
+		return StrictGenForm.Step(StrictGenHttp.Query(raw, "path"), StrictGenHttp.Query(raw, "step") to Number)
+	route is "/estimate" then H3Estimate.Told(raw) else StrictGenStats.Probe(StrictGenHttp.Query(raw, "path"))
+Store(name Text, bytes Numbers) Text slow
+	StrictGen.Store("a/b/upload-test.bin", (1, 2)) is "input/upload-test.bin"
 	Directory.Create(Inputs)
 	path = Inputs + "/" + (name is "" then "upload.bin" else Path(name.Replace("\\", "/")).FileName.text)
 	File(path).Write(bytes)

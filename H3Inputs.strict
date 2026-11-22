@@ -20,7 +20,7 @@ Problem Text slow
 	problem is "" then Limits else problem
 Limits Text slow
 	Sample.Limits is ""
-	oversized = Oversized(H3Estimate.Local)
+	oversized = Oversize(H3Estimate.Local)
 	oversized is "" then options.files.Mixed else oversized
 Tokens Number
 	Long.Tokens is 102960
@@ -28,10 +28,10 @@ Tokens Number
 	shapes = options.Shapes
 	guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
 	(shapes(0) + guides) * shapes(1) * shapes(2) / 4
-Oversized(budget Number) Text
-	Long.Oversized(90000).StartsWith("704x1280 with 396 frames is 102960 video tokens, more than the 90000")
-	Twelve.Oversized(90000) is ""
-	Twelve.Oversized(45000).EndsWith("much slower")
+Oversize(budget Number) Text
+	Long.Oversize(90000).StartsWith("704x1280 with 396 frames is 102960 video tokens, more than the 90000")
+	Twelve.Oversize(90000) is ""
+	Twelve.Oversize(45000).EndsWith("much slower")
 	tokens = Tokens
 	if tokens <= budget
 		return ""
@@ -40,13 +40,13 @@ Oversized(budget Number) Text
 Images Texts slow
 	Sample.Images is List(Text) + ""
 	Folder.Images.Last.EndsWith("tinyframe.png")
-	Listed(options.files.image, ("png", "jpg", "jpeg")).Sorted
+	FindFiles(options.files.image, ("png", "jpg", "jpeg")).Sorted
 Prompts Texts slow
 	Sample.Prompts is List(Text) + "prompt.txt"
-	Listed(options.prompt, List(Text) + "txt").Sorted
-Listed(path Text, extensions Texts) Texts slow
-	Sample.Listed("H3Inputs.strict", List(Text) + "txt") is List(Text) + "H3Inputs.strict"
-	Sample.Listed(".", List(Text) + "png").Length is 1
+	FindFiles(options.prompt, List(Text) + "txt").Sorted
+FindFiles(path Text, extensions Texts) Texts slow
+	Sample.FindFiles("H3Inputs.strict", List(Text) + "txt") is List(Text) + "H3Inputs.strict"
+	Sample.FindFiles(".", List(Text) + "png").Length is 1
 	if IsFolder(path) is false
 		return List(Text) + path
 	for Directory.Files(path)
@@ -62,10 +62,10 @@ Paired List(Texts) slow
 	images = Images
 	prompts = Prompts
 	for IsFolder(options.files.image) then images.Length else prompts.Length
-		Matched(images(index % images.Length), prompts, index)
-Matched(image Text, prompts Texts, position Number) Texts
-	Sample.Matched("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
-	Sample.Matched("a/x.png", ("b/frame1.txt", "b/frame12.txt"), 3) is ("a/x.png", "b/frame12.txt")
+		Match(images(index % images.Length), prompts, index)
+Match(image Text, prompts Texts, position Number) Texts
+	Sample.Match("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
+	Sample.Match("a/x.png", ("b/frame1.txt", "b/frame12.txt"), 3) is ("a/x.png", "b/frame12.txt")
 	stem = Path(image).FileName.RemoveExtension
 	for prompts
 		if Path(value).FileName.RemoveExtension is stem
@@ -81,8 +81,8 @@ Column(pairs List(Texts), position Number) Texts
 	Sample.Column(Pairs, 1) is ("1", "2", "3", "4")
 	for pairs
 		value(position)
-Picked(texts Texts, indices Numbers) Texts
-	Sample.Picked(("a", "b", "c"), (2, 0)) is ("c", "a")
+Pick(texts Texts, indices Numbers) Texts
+	Sample.Pick(("a", "b", "c"), (2, 0)) is ("c", "a")
 	for indices
 		texts(value)
 Firsts(images Texts) Texts

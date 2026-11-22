@@ -13,13 +13,13 @@ Table(positions Numbers, inverse Numbers, scale Number) Float32s slow
 		at = index % (2 * head)
 		pair = at % head % half
 		position = positions((index / (2 * head)).Floor * 3 + (pair / inverse.Length).Floor)
-		Turned(at, Degrees(Radians(scale * position * inverse(pair % inverse.Length)) to Degrees))
-Turned(at Number, angle Degrees) Number
-	Video.Turned(0, Degrees(60)).IsNearlyEqual(0.5)
-	Video.Turned(130, Degrees(30)).IsNearlyEqual(-0.5)
-	Video.Turned(180, Degrees(30)).IsNearlyEqual(0.5)
-	Video.Turned(100, Degrees(30)) is 1
-	Rope(64, 24).Turned(112, Degrees(30)) is 0
+		Turn(at, Degrees(Radians(scale * position * inverse(pair % inverse.Length)) to Degrees))
+Turn(at Number, angle Degrees) Number
+	Video.Turn(0, Degrees(60)).IsNearlyEqual(0.5)
+	Video.Turn(130, Degrees(30)).IsNearlyEqual(-0.5)
+	Video.Turn(180, Degrees(30)).IsNearlyEqual(0.5)
+	Video.Turn(100, Degrees(30)) is 1
+	Rope(64, 24).Turn(112, Degrees(30)) is 0
 	within = at % head
 	if within >= 2 * half
 		return at < head then 1 else 0
@@ -31,8 +31,8 @@ Still(tokens Number) Float32s
 	period = 2 * head
 	for tokens * period
 		index % period < head then 1 else 0
-Rotated(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s slow
-	Video.Rotated(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, H3Block.Tiny.queryNorm, Turning).Length is 8704
+Rotate(combined Numbers, start Number, width Number, weights Numbers, rotation Numbers) BFloat16s slow
+	Video.Rotate(Model.Values("blocks.0.attn.qkv_proj"), 0, 512, H3Block.Tiny.queryNorm, Turning).Length is 8704
 	RopeRotated(combined, start, width, weights, rotation, half, head, H3Block.Epsilon).Rotated
 Even(number Number) Float32s
 	Rope(4, 1).Even(2) is (2, 2, 2, 2)

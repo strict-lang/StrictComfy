@@ -17,12 +17,12 @@ Total(context Number, added Number) Number
 	Sample.Total(22, 24) is 39
 	Sample.Total(22, 124) is 141
 	Sample.Total(39, 5) is 39
-	H3Format.Grouped(context + added)
+	H3Format.Group(context + added)
 LatentCount(length Number) Number
 	Sample.LatentCount(22) is 7
 	Sample.LatentCount(39) is 12
 	Sample.LatentCount(90) is 27
-	(H3Format.Grouped(length) - 5) / H3Format.FrameGroup * 5 + 2
+	(H3Format.Group(length) - 5) / H3Format.FrameGroup * 5 + 2
 AudioCount(length Number) Number
 	Sample.AudioCount(22) is 37
 	Sample.AudioCount(39) is 65
@@ -72,7 +72,7 @@ Head(path Text, context Number, size Numbers, vaes Texts, folder Text = "") Stri
 	Sample.Head("strictgen-tail.mp4", 22, (16, 16), ("", "")).frames is 7
 	Sample.Head("missing-clip.mp4", 22, (16, 16), ("", "")).problem is "missing-clip.mp4 could not be read as a video"
 	beside = LatentPath(path)
-	saved = File(beside).Exists then beside else Remembered(path, folder)
+	saved = File(beside).Exists then beside else Remember(path, folder)
 	read = saved is "" then StrictGenExtend(value, problem = "Missing") else FromLatent(saved, context)
 	fits = read.problem is "" and read.tall * 16 is size(0) and read.wide * 16 is size(1)
 	made = fits then read else FromMedia(path, context, size, vaes)
@@ -84,9 +84,9 @@ FromMedia(path Text, context Number, size Numbers, vaes Texts) StrictGenExtend s
 	logger.Log("Encoding the last " + context + " frames of " + path + " with the H3 video VAE")
 	started = Process.Elapsed
 	clip = H3Clip(H3ClipEncoder.Loaded(Safetensors(vaes(0), 32)), H3Tiles.Real)
-	pictured = clip.Encoded(clip.Frames(rgb, context, size(1), size(0)), size)
+	pictured = clip.Encode(clip.Frames(rgb, context, size(1), size(0)), size)
 	waveform = StrictGenClip.TailPcm(path, context / H3Format.FramesPerSecond + 1)
-	heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encoded(waveform, AudioCount(context))
+	heard = H3AudioEncoder.Loaded(Safetensors(vaes(1), 32)).Encode(waveform, AudioCount(context))
 	logger.Log("Encoded the video context in " + (Process.Elapsed - started).Round(1) + " s")
 	StrictGenExtend("", pictured, heard, LatentCount(context), AudioCount(context), size(0) / 16, size(1) / 16)
 Starts Numbers
@@ -112,20 +112,20 @@ Written(path Text, context Number) StrictGenExtend slow
 	Safetensors(path).Write(("latent", "shape"), (video + audio, shape))
 	logger.Log("Kept the video context in " + path + " for the next extends")
 	value
-Mixed(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
-	Sample.Mixed((1, 2, 3, 4), (30, 40), (1, 2, 3, 4), 4, 2, 1, 0) is (30, 40, 3, 4)
-	Sample.Mixed((1, 2, 3, 4), (30, 40), (10, 20, 3, 4), 4, 2, 1, 0.5) is (20, 30, 3, 4)
+Mix(latent Numbers, clean Numbers, noise Numbers, temporal Number, keep Number, plane Number, sigma Number) Numbers
+	Sample.Mix((1, 2, 3, 4), (30, 40), (1, 2, 3, 4), 4, 2, 1, 0) is (30, 40, 3, 4)
+	Sample.Mix((1, 2, 3, 4), (30, 40), (10, 20, 3, 4), 4, 2, 1, 0.5) is (20, 30, 3, 4)
 	volume = temporal * plane
 	for latent.Length
 		time = (index / plane).Floor % temporal
 		at = ((index / volume).Floor * keep + time) * plane + index % plane
 		time < keep then clean(at) * (1 - sigma) + noise(index) * sigma else latent(index)
-Remembered(path Text, folder Text) Text slow
-	Sample.Remembered("a.mp4", "missing-folder") is ""
-	Sample.Remembered("a.mp4", "") is ""
+Remember(path Text, folder Text) Text slow
+	Sample.Remember("a.mp4", "missing-folder") is ""
+	Sample.Remember("a.mp4", "") is ""
 	named = File(folder + Note).Exists then File(folder + Note).ReadLines else List(Text)
 	named.Length > 0 and named.First is path.Replace("\\", "/") and File(folder + Last).Exists then folder + Last else ""
-Kept(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
+Keep(path Text, latent Numbers, shapes Numbers, pixels Number, folder Text) slow
 	shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2), shapes(3), pixels)
 	Safetensors(folder + Last).Write(("latent", "shape"), (latent, shape))
 	File(folder + Note).Write(List(Text) + path.Replace("\\", "/"))

@@ -34,40 +34,40 @@ Timed(rows Texts) StrictGenJob
 	for rows.Length - times.Length
 		stamped = stamped + now
 	StrictGenJob(value, times = stamped)
-Stamped(rows Texts) Texts
-	StrictGenJob(StrictGenJob.Local(1), times = (0, 1.5)).Stamped(("a", "b")) is ("0\ta", "1.5\tb")
+Stamp(rows Texts) Texts
+	StrictGenJob(StrictGenJob.Local(1), times = (0, 1.5)).Stamp(("a", "b")) is ("0\ta", "1.5\tb")
 	for rows
 		(index < times.Length then times(index) else 0) + "\t" + value
-Kept(rows Texts) None slow
-	StrictGenJob.Local(-9).Kept(List(Text) + "a") is not Error
-	File("StrictGenJob-" + current + ".timed").Write(Stamped(rows))
+Keep(rows Texts) None slow
+	StrictGenJob.Local(-9).Keep(List(Text) + "a") is not Error
+	File("StrictGenJob-" + current + ".timed").Write(Stamp(rows))
 HasStarted(executable Text, mode Text, command Text) Boolean slow
 	words = command.Split("\n")
 	arguments = mode is "h3image" then words else words + "--preview" + preview
 	for (done, preview, log, "StrictGenJob-" + current + ".timed")
 		File(value).Delete
 	script = Process.OperatingSystem is "Windows" then "StrictGenJob.cmd" else "StrictGenJob.sh"
-	File(script).Write(Script(executable, Quoted(arguments), log, done))
+	File(script).Write(Script(executable, Quote(arguments), log, done))
 	HasSpawned(script)
 HasWarmed(executable Text, command Text) Boolean slow
 	script = Process.OperatingSystem is "Windows" then "StrictGenWarm.cmd" else "StrictGenWarm.sh"
-	File(script).Write(Script(executable, Quoted(command.Split("\n") + "--warm"), WarmLog, WarmDone))
+	File(script).Write(Script(executable, Quote(command.Split("\n") + "--warm"), WarmLog, WarmDone))
 	HasSpawned(script)
 HasSpawned(script Text) Boolean slow
 	if Process.OperatingSystem is "Windows" is false
 		return Process.Find("sh").Start(script) is 0
 	Process.RunTool("cmd", Detached + Directory.Current + "\" cmd /c \".\\" + script + "\"").HasFailed is false
-Quoted(words Texts) Text
-	StrictGenJob.Quoted(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
-	StrictGenJob.Quoted(("--width", "32")) is "--width 32"
+Quote(words Texts) Text
+	StrictGenJob.Quote(("--prompt", "a b.txt")) is "--prompt \"a b.txt\""
+	StrictGenJob.Quote(("--width", "32")) is "--width 32"
 	mutable line = ""
 	for words
 		word = value.IndexOf(" ") < 0 then value else "\"" + value + "\""
 		line = line is "" then word else line + " " + word
 	line
-Found(rows Texts) Texts
-	StrictGenJob.Found(("Saved a.jpg in 3 ms", "Wrote b.mp4")) is ("a.jpg", "b.mp4")
-	StrictGenJob.Found(List(Text) + "hello").Length is 0
+Find(rows Texts) Texts
+	StrictGenJob.Find(("Saved a.jpg in 3 ms", "Wrote b.mp4")) is ("a.jpg", "b.mp4")
+	StrictGenJob.Find(List(Text) + "hello").Length is 0
 	for rows
 		parts = value.Split(" ")
 		if parts.Length > 1 and (parts.First is "Saved" or parts.First is "Wrote")
@@ -96,12 +96,12 @@ Script(executable Text, arguments Text, logFile Text, doneFile Text) Texts
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").First.IndexOf("MossImage.exe") >= 0
 	StrictGenJob.Script("MossImage.exe", "--width 32", "job.log", "job.done").Last.IndexOf("job.done") >= 0
 	("\"" + executable + "\" " + arguments + " > \"" + logFile + "\" 2>&1", "echo DONE> \"" + doneFile + "\"")
-Stopped(program Text) None slow
-	StrictGenJob.Stopped("StrictGenMissing") is not Error
+Stop(program Text) None slow
+	StrictGenJob.Stop("StrictGenMissing") is not Error
 	executable = Executable(program)
 	if executable.StartsWith(program) is false and Process.RunTool(executable, "stop").HasFailed
 		return Error("ServersNotStopped: " + program)
 StopAll None slow
-	Stopped("MossImage")
-	Stopped("H3Video")
-	Stopped("H3Image")
+	Stop("MossImage")
+	Stop("H3Video")
+	Stop("H3Image")

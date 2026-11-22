@@ -109,14 +109,14 @@ AudioSigma(sigma Number) Number
 	Tiny.AudioSigma(0.75).IsNearlyEqual(0.4285714)
 	Tiny.AudioSigma(1) is 1
 	H3Layout(Tiny, shift = 8).AudioSigma(0.75).IsNearlyEqual(9 / 17)
-	base = Unshifted(sigma)
+	base = Unshift(sigma)
 	AudioShift * base / (1 + (AudioShift - 1) * base)
 AudioSigmas(sigmas Numbers) Numbers
 	Tiny.AudioSigmas((1, 0.75, 0)) is (1, Tiny.AudioSigma(0.75), 0)
 	for sigmas
 		AudioSigma(value)
-Unshifted(sigma Number) Number
-	Tiny.Unshifted(1) is 1
-	Tiny.Unshifted(0.96).IsNearlyEqual(2 / 3)
-	H3Layout(Tiny, shift = 1).Unshifted(0.3).IsNearlyEqual(0.3)
+Unshift(sigma Number) Number
+	Tiny.Unshift(1) is 1
+	Tiny.Unshift(0.96).IsNearlyEqual(2 / 3)
+	H3Layout(Tiny, shift = 1).Unshift(0.3).IsNearlyEqual(0.3)
 	sigma / (shift + sigma * (1 - shift))

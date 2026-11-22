@@ -10,7 +10,7 @@ constant Model = Safetensors("tinyvae.safetensors")
 constant Tiny = FluxDecoder.Loaded("tinyvae.safetensors", 4)
 constant Latent = Model.Values("latent")
 constant Middle = FeatureMap(Model.Values("reference.mid.block_2"), 4, 16, Layer.Zeros(16))
-constant Last = Tiny.Upsampled(Middle)
+constant Last = Tiny.Upsample(Middle)
 constant Ends = ("post_quant_conv", "conv_in", "conv_out")
 Loaded(path Text, groups Number) FluxDecoder slow
 	Tiny.blocks.Length is 4
@@ -31,12 +31,12 @@ Deviations(variances Numbers) Numbers
 Convolutions(model Safetensors) List(Convolution) slow
 	Tiny.Convolutions(Safetensors("tinyvae.safetensors", 32, "decoder.")).Length is 3
 	for Ends
-		FluxResnet.Convolved(model, value)
+		FluxResnet.Convolve(model, value)
 Upsamples(model Safetensors) List(Convolution) slow
 	Tiny.Upsamples(Safetensors("tinyvae.safetensors", 32, "decoder.")).First.biases(0).IsNearlyEqual(0.092754, 0.0001)
 	for 8
 		if model.Entry("up." + (7 - index) + ".upsample.conv.weight") is not ""
-			upsample = FluxResnet.Convolved(model, "up." + (7 - index) + ".upsample.conv")
+			upsample = FluxResnet.Convolve(model, "up." + (7 - index) + ".upsample.conv")
 			Convolution(upsample.Folds, upsample.biases)
 Blocks(model Safetensors, groups Number) List(FluxResnet) slow
 	Tiny.Blocks(Safetensors("tinyvae.safetensors", 32, "decoder."), 4)(2).shortcut.biases.Length is 8
@@ -49,38 +49,38 @@ Present(model Safetensors, first Text, last Text) Number slow
 	for 8
 		if model.Entry(first + index + last) is not ""
 			1
-Denormalized(latent Numbers) Numbers slow
-	Tiny.Denormalized(Latent)(0).IsNearlyEqual(1.23467, 0.0001)
-	Tiny.Denormalized(Latent)(95).IsNearlyEqual(0.56166, 0.0001)
+Denormalize(latent Numbers) Numbers slow
+	Tiny.Denormalize(Latent)(0).IsNearlyEqual(1.23467, 0.0001)
+	Tiny.Denormalize(Latent)(95).IsNearlyEqual(0.56166, 0.0001)
 	size = latent.Length / means.Length
 	for latent
 		value * deviations((index / size).Floor) + means((index / size).Floor)
-Unpatchified(latent Numbers, width Number, channels Number) Numbers slow
-	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(0).IsNearlyEqual(1.23467, 0.0001)
-	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(32).IsNearlyEqual(-0.06728, 0.0001)
-	Tiny.Unpatchified(Tiny.Denormalized(Latent), 2, 4)(95).IsNearlyEqual(0.56166, 0.0001)
+Unpatchify(latent Numbers, width Number, channels Number) Numbers slow
+	Tiny.Unpatchify(Tiny.Denormalize(Latent), 2, 4)(0).IsNearlyEqual(1.23467, 0.0001)
+	Tiny.Unpatchify(Tiny.Denormalize(Latent), 2, 4)(32).IsNearlyEqual(-0.06728, 0.0001)
+	Tiny.Unpatchify(Tiny.Denormalize(Latent), 2, 4)(95).IsNearlyEqual(0.56166, 0.0001)
 	height = latent.Length / channels / 4 / width
 	for latent.Length
 		position = (index / channels).Floor
 		row = (position / (2 * width)).Floor
 		source = (index % channels) * 4 + (row % 2) * 2 + position % 2
 		latent((source * height + (row / 2).Floor) * width + ((position % (2 * width)) / 2).Floor)
-Entered(latent Numbers, width Number) FeatureMap native
-	Tiny.Entered(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
-	Tiny.Entered(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
+Enter(latent Numbers, width Number) FeatureMap native
+	Tiny.Enter(Latent, 2).Completed(0).IsNearlyEqual(-0.39976, 0.02)
+	Tiny.Enter(Latent, 2).Completed(383).IsNearlyEqual(0.4636, 0.02)
 	channels = means.Length / 4
-	patches = FeatureMap(Unpatchified(Denormalized(latent), width, channels), 2 * width, channels, Layer.Zeros(channels))
+	patches = FeatureMap(Unpatchify(Denormalize(latent), width, channels), 2 * width, channels, Layer.Zeros(channels))
 	quantized = convolutions(0).Project(patches)
 	convolutions(1).Apply(quantized, quantized.Identity, Activation.Linear)
-Decoded(latent Numbers, width Number) Numbers native
-	Tiny.Decoded(Latent, 2)(0).IsNearlyEqual(0.7881, 0.02)
-	Tiny.Decoded(Latent, 2)(96).IsNearlyEqual(0.9225, 0.02)
-	Tiny.Decoded(Latent, 2)(287).IsNearlyEqual(0.47337, 0.001)
-	entered = Entered(latent, width)
-	upsampled = Upsampled(middle(1).Output(attention.Output(middle(0).Output(entered))))
+Decode(latent Numbers, width Number) Numbers native
+	Tiny.Decode(Latent, 2)(0).IsNearlyEqual(0.7881, 0.02)
+	Tiny.Decode(Latent, 2)(96).IsNearlyEqual(0.9225, 0.02)
+	Tiny.Decode(Latent, 2)(287).IsNearlyEqual(0.47337, 0.001)
+	entered = Enter(latent, width)
+	upsampled = Upsample(middle(1).Output(attention.Output(middle(0).Output(entered))))
 	for convolutions(2).Apply(upsampled, normOut.Affine(upsampled), Activation.Swish).Completed
 		((value + 1) / 2).Clamp
-Upsampled(map FeatureMap) FeatureMap slow
+Upsample(map FeatureMap) FeatureMap slow
 	Last.Applied(Tiny.normOut.Affine(Last), Activation.Linear).values(0).IsNearlyEqual(0.38452, 0.02)
 	Last.Applied(Tiny.normOut.Affine(Last), Activation.Linear).values(767).IsNearlyEqual(-0.17288, 0.02)
 	perLevel = blocks.Length / (upsamples.Length + 1)

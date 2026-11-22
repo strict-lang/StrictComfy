@@ -17,13 +17,13 @@ Loaded(model Safetensors) H3ClipEncoder native
 	names = still.Names(model)
 	befores = Stacks(model, names, "conv1")
 	afters = Stacks(model, names, "conv2")
-	entered = Stacked(model, "encoder.conv_in")
-	exited = Stacked(model, "encoder.conv_out")
+	entered = Stack(model, "encoder.conv_in")
+	exited = Stack(model, "encoder.conv_out")
 	H3ClipEncoder(still, entered, befores, afters, Downsamples(model, names), Strides(names), exited)
 Stacks(model Safetensors, names Texts, convolution Text) List(Convolution) native
 	Tiny.Stacks(H3VaeEncoder.Model, List(Text) + "0.block.0", "conv1").First.biases.Length is 32
 	for names
-		Stacked(model, "encoder.down." + value + "." + convolution)
+		Stack(model, "encoder.down." + value + "." + convolution)
 Downsamples(model Safetensors, names Texts) List(Convolution) native
 	Tiny.downsamples(3).biases.Length is 64
 	Tiny.downsamples(4).biases.Length is 0
@@ -32,13 +32,13 @@ Downsamples(model Safetensors, names Texts) List(Convolution) native
 		following = index + 1 < names.Length then names(index + 1) else ""
 		name = "encoder.down." + level + ".downsample.conv"
 		present = following.StartsWith(level + ".") is false and model.Entry(name + ".weight") is not ""
-		present then Stacked(model, name) else Convolution(List(Number), List(Number))
+		present then Stack(model, name) else Convolution(List(Number), List(Number))
 Strides(names Texts) Numbers native
 	Tiny.Strides(("0.block.1", "2.block.0")) is (1, 2)
 	for names
 		TimeDown(value.Substring(0, value.IndexOf(".")) to Number)
-Stacked(model Safetensors, name Text) Convolution native
-	Tiny.Stacked(H3VaeEncoder.Model, "encoder.conv_out").biases.Length is 48
+Stack(model Safetensors, name Text) Convolution native
+	Tiny.Stack(H3VaeEncoder.Model, "encoder.conv_out").biases.Length is 48
 	shape = model.Shape(name + ".weight")
 	spread = Spread(model.Values(name + ".weight"), shape)
 	Convolution(Convolution.Rearrange(spread, shape(1) * Taps, 3), model.Values(name + ".bias"))
@@ -52,17 +52,17 @@ Spread(values Numbers, shape Numbers) Numbers native
 		channel = (index / plane).Floor % stacked
 		output = (index / volume).Floor
 		values(((output * inputs + channel % inputs) * Taps + (channel / inputs).Floor) * plane + index % plane)
-Joined(states List(FeatureMap), at Number) FeatureMap native
-	Tiny.Joined((FeatureMap((1, 2), 2, 1, Zero), FeatureMap((3, 4), 2, 1, Zero)), 1).values is (0, 1, 3, 0, 2, 4)
+Join(states List(FeatureMap), at Number) FeatureMap native
+	Tiny.Join((FeatureMap((1, 2), 2, 1, Zero), FeatureMap((3, 4), 2, 1, Zero)), 1).values is (0, 1, 3, 0, 2, 4)
 	current = states(at)
 	zeros = Layer.Zeros(current.values.Length)
 	earlier = at < 2 then zeros else states(at - 2).values
 	previous = at < 1 then zeros else states(at - 1).values
 	channels = Taps * current.channels
-	values = Interleaved(earlier, previous, current.values, current.channels)
+	values = Interleave(earlier, previous, current.values, current.channels)
 	FeatureMap(values, current.width, channels, Layer.Zeros(channels))
-Interleaved(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers native
-	Tiny.Interleaved((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
+Interleave(earlier Numbers, previous Numbers, current Numbers, channels Number) Numbers native
+	Tiny.Interleave((1, 2), (3, 4), (5, 6), 1) is (1, 3, 5, 2, 4, 6)
 	stacked = Taps * channels
 	for earlier.Length * Taps
 		inner = index % stacked
@@ -93,18 +93,18 @@ Temporal(convolution Convolution, states List(FeatureMap), norm GroupNorm, norme
 	for states
 		current = normed then norm.Affine(value) else value.Identity
 		affine = Triple(earlier, previous, current, value.channels)
-		outputs = outputs + encoder.Reflected(convolution, Joined(states, index), affine, activation)
+		outputs = outputs + encoder.Reflect(convolution, Join(states, index), affine, activation)
 		earlier = previous
 		previous = current
 	outputs
-Downsampled(convolution Convolution, states List(FeatureMap), stride Number) List(FeatureMap) slow
+Downsample(convolution Convolution, states List(FeatureMap), stride Number) List(FeatureMap) slow
 	affines = Identities(states)
 	mutable outputs = List(FeatureMap)
 	for ((states.Length - 1) / stride).Floor + 1
-		joined = Joined(states, index * stride)
+		joined = Join(states, index * stride)
 		affine = Affines(affines, index * stride, states.First.channels)
-		full = convolution.Apply(encoder.Padded(joined, (1, 1, 1, 1)), affine, Activation.Linear)
-		outputs = outputs + encoder.Strided(full, (2, 2), (joined.Height / 2, joined.width / 2))
+		full = convolution.Apply(encoder.Padd(joined, (1, 1, 1, 1)), affine, Activation.Linear)
+		outputs = outputs + encoder.Stride(full, (2, 2), (joined.Height / 2, joined.width / 2))
 	outputs
 Identities(states List(FeatureMap)) List(Numbers) native
 	Tiny.Identities(List(FeatureMap) + FeatureMap((1, 2), 2, 1, List(Number) + 3)).First is (1, 3)
@@ -125,6 +125,6 @@ Moments(frames List(FeatureMap)) List(Numbers) native
 	for encoder.blocks
 		states = Block(index, states)
 		downsample = downsamples(index)
-		states = downsample.biases.Length is 0 then states else Downsampled(downsample, states, strides(index))
+		states = downsample.biases.Length is 0 then states else Downsample(downsample, states, strides(index))
 	for Temporal(exit, states, encoder.normOut, true, Activation.Swish)
 		encoder.moments.Project(value).Completed
