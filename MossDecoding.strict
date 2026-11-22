@@ -3,6 +3,6 @@ has decoder Generic
 Save(latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Texts slow
 	for seeds
 		started = Process.Elapsed
-		image = decoder.Decoded(latents(index), batch.options.width / 16)
+		image = decoder.Decode(latents(index), batch.options.width / 16)
 		decoded = Process.Elapsed
 		batch.Save(image, decoded, value, prompts(index), outputs(index), decoded - started)
