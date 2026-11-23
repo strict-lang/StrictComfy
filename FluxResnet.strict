@@ -3,7 +3,7 @@ has first Convolution
 has secondNorm GroupNorm
 has second Convolution
 has shortcut Convolution
-constant Model = Safetensors("tinyvae.safetensors")
+constant Model = Safetensors("tinymodels/tinyvae.safetensors")
 constant Middle = FluxResnet.Loaded(Model, "decoder.mid.block_1.", 4)
 constant Upsampled = FeatureMap(Model.Values("reference.up.1.upsample"), 8, 16, Layer.Zeros(16))
 constant Input = FeatureMap(Model.Values("reference.conv_in"), 4, 16, Layer.Zeros(16))
@@ -29,7 +29,7 @@ Norm(model Safetensors, name Text, groups Number) GroupNorm slow
 	GroupNorm(model.Values(name + ".weight"), model.Values(name + ".bias"), groups)
 Convolve(model Safetensors, name Text) Convolution slow
 	Middle.Convolve(Model, "decoder.conv_in").weights(1) is Model.Values("decoder.conv_in.weight")(9)
-	Middle.Convolve(Safetensors("tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
+	Middle.Convolve(Safetensors("tinymodels/tinytaef2.safetensors"), "decoder.layers.6").biases is Layer.Zeros(8)
 	shape = model.Shape(name + ".weight")
 	biases = model.Entry(name + ".bias") is "" then Layer.Zeros(shape(0)) else model.Values(name + ".bias")
 	Convolution(Convolution.Rearrange(model.Values(name + ".weight"), shape(1), shape(2)), biases)

@@ -1,7 +1,7 @@
 has norm GroupNorm
 has combined Convolution
 has projection Convolution
-constant Model = Safetensors("tinyvae.safetensors")
+constant Model = Safetensors("tinymodels/tinyvae.safetensors")
 constant Middle = FluxAttention.Loaded(Model, "decoder.mid.attn_1.", 4)
 constant Budget = 16777216
 constant Combined = Middle.combined.Project(Input)

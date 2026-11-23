@@ -8,7 +8,7 @@ has routing Number = 0
 constant Tiny = H3Layout((1, 1, 1), List(Number), 3, 2, Size(4, 4))
 constant Keyframed = H3Layout(Tiny, keyframes = List(Number) + 0)
 constant Pinning = (24, 24, 24, 36, 36, 36, 36, 12, 12, 12, 12, 12, 12, 18, 18, 18, 18, 18, 18, 18, 18)
-constant Inverse = Safetensors("tinyh3.safetensors").Values("rope.inv_freq")
+constant Inverse = Safetensors("tinymodels/tinyh3.safetensors").Values("rope.inv_freq")
 constant Chunk = 32768
 constant Pinned = 0.999
 constant AudioShift = 3

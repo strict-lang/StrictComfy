@@ -18,22 +18,23 @@ constant FolderHelp = List(Text) + "ComfyUI models folder for files given by nam
 constant WorkflowHelp = List(Text) + "ComfyUI image workflow (.json saved in ComfyUI, a path or a name in user/default/workflows) whose model, LoRAs, prompt, size, seed and steps this run uses, options after it change them"
 constant WarmHelp = List(Text) + "only load the text encoder, Moss and the decoder into the backend, the next image starts at once"
 constant Help = ModelHelp + FolderHelp + WorkflowHelp + WarmHelp
-constant Encoding = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--text_encoder", "tinymoss.safetensors", "--models", "."))
-constant Local = MossFiles.Parsed(("--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--models", "."))
+constant Encoding = MossFiles.Parsed(("--model", "tinymodels/tinymoss.safetensors", "--text_encoder", "tinymodels/tinymoss.safetensors", "--models", "."))
+constant Local = MossFiles.Parsed(("--model", "tinymodels/tinymoss.safetensors", "--vae", "tinymodels/tinyvae.safetensors", "--models", "."))
+constant TinyMoss = "tinymodels/tinymoss.safetensors"
 Folder Text slow
 	Local.Folder is "."
 	ModelFiles(models).Folder
 Locate(name Text, folder Text) Text slow
-	Local.Locate("tinymoss.safetensors", "diffusion_models") is "tinymoss.safetensors"
+	Local.Locate("tinymodels/tinymoss.safetensors", "diffusion_models") is "tinymodels/tinymoss.safetensors"
 	Local.Locate("x.y", "loras") is Error("FileNotFound:x.y")
 	ModelFiles(models).Locate(name, folder)
 Checkpoint Text slow
-	Local.Checkpoint is "tinymoss.safetensors"
+	Local.Checkpoint is "tinymodels/tinymoss.safetensors"
 	MossFiles.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:moss-image-sft-dit-int8-convrot.safetensors")
 	MossFiles.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
 	Locate(model is "" then "moss-image-sft-dit-int8-convrot.safetensors" else model, "diffusion_models")
 Decoder Text slow
-	Local.Decoder is "tinyvae.safetensors"
+	Local.Decoder is "tinymodels/tinyvae.safetensors"
 	MossFiles.Parsed(("--models", ".")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	if vae is not ""
 		return Locate(vae, File(Folder + "/vae_approx/" + vae).Exists then "vae_approx" else "vae")
@@ -43,16 +44,16 @@ Tiny Text slow
 	Local.Tiny is "./vae_approx/taef2.safetensors"
 	Folder + "/vae_approx/taef2.safetensors"
 Fast Text slow
-	Local.Fast is "tinyvae.safetensors"
+	Local.Fast is "tinymodels/tinyvae.safetensors"
 	MossFiles.Parsed(("--models", ".")).Fast is Error("FileNotFound:flux2-vae.safetensors")
 	vae is "" and File(Tiny).Exists then Tiny else Decoder
 Encoder Text slow
 	Local.Encoder is Error("FileNotFound:qwen3.5_9b_int8_convrot.safetensors")
-	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Encoder is "tinymoss.safetensors"
+	MossFiles.Parsed(("--text_encoder", TinyMoss, "--models", ".")).Encoder is TinyMoss
 	MossFiles.Parsed(("--models", "web", "--text_encoder", "h3_preview.js")).Encoder is Error("FileNotFound:h3_preview.js")
 	Locate(textEncoder is "" then "qwen3.5_9b_int8_convrot.safetensors" else textEncoder, "text_encoders")
 Tokenizer Text slow
-	MossFiles.Parsed(("--text_encoder", "tinymoss.safetensors", "--models", ".")).Tokenizer is Error("TokenizerNotFound")
+	MossFiles.Parsed(("--text_encoder", TinyMoss, "--models", ".")).Tokenizer is Error("TokenizerNotFound")
 	beside = Path(Encoder).PathOnly.text
 	next = (beside is "" then "." else beside) + "/qwen35_tokenizer"
 	if Directory.Exists(next)

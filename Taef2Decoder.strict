@@ -4,8 +4,8 @@ has upsamples List(Convolution)
 has exit Convolution
 constant UpsampleLayers = (6, 11, 16)
 constant Shrink = 0.7071
-constant Tiny = Taef2Decoder.Loaded("tinytaef2.safetensors")
-constant Latent = Safetensors("tinytaef2.safetensors").Values("latent")
+constant Tiny = Taef2Decoder.Loaded("tinymodels/tinytaef2.safetensors")
+constant Latent = Safetensors("tinymodels/tinytaef2.safetensors").Values("latent")
 constant Layers = (2, 3, 4, 7, 8, 9, 12, 13, 14, 17)
 constant None = Taef2Decoder(Taef2Block.Unused, List(Taef2Block), List(Convolution), Taef2Block.Unused)
 Loaded(path Text) Taef2Decoder slow
@@ -14,8 +14,8 @@ Loaded(path Text) Taef2Decoder slow
 	model = Safetensors(path, 32, "decoder.layers.")
 	Taef2Decoder(FluxResnet.Convolve(model, "0"), Blocks(model), Upsamples(model), FluxResnet.Convolve(model, "18"))
 IsTaef2(path Text) Boolean
-	Taef2Decoder.IsTaef2("tinytaef2.safetensors")
-	Taef2Decoder.IsTaef2("tinyvae.safetensors") is false
+	Taef2Decoder.IsTaef2("tinymodels/tinytaef2.safetensors")
+	Taef2Decoder.IsTaef2("tinymodels/tinyvae.safetensors") is false
 	Safetensors(path).Entry("decoder.layers.0.weight") is not ""
 Blocks(model Safetensors) List(Taef2Block) native
 	Tiny.Blocks(Taef2Block.Model)(9).convolutions.Length is 3

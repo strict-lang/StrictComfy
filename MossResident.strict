@@ -13,7 +13,7 @@ has code = 0
 has previewers List(Taef2Decoder) = List(Taef2Decoder)
 constant MostPrompts = 100
 constant Spelled = MossResident(tokenizers = List(Gpt2Tokens) + H3Encoder.Spelled)
-constant Unloaded = MossResident(taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinytaef2.safetensors")
+constant Unloaded = MossResident(taefs = List(Taef2Decoder) + Taef2Decoder.None, decoderFile = "tinymodels/tinytaef2.safetensors")
 constant Cached = MossResident(true, prompts = ("a", "b"), contexts = ((1, 2), (3, 4)))
 Missing(unique Texts) Texts
 	Cached.Missing(("b", "c", "a")) is ("c")
@@ -88,10 +88,10 @@ Previewing(batch MossBatch) MossResident slow
 	path = files.Locate("taef2.safetensors", "vae_approx")
 	MossResident(value, previewers = List(Taef2Decoder) + Taef2Decoder.Loaded(path))
 Decoders(path Text) MossResident native
-	MossResident.Decoders("tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
-	Unloaded.Decoders("tinytaef2.safetensors").taefs.First is Taef2Decoder.None
-	Unloaded.Decoders("tinyvae.safetensors").fluxes.Length is 1
-	Unloaded.Decoders("tinyvae.safetensors").taefs.Length is 0
+	MossResident.Decoders("tinymodels/tinytaef2.safetensors").taefs is List(Taef2Decoder) + Taef2Decoder.Tiny
+	Unloaded.Decoders("tinymodels/tinytaef2.safetensors").taefs.First is Taef2Decoder.None
+	Unloaded.Decoders("tinymodels/tinyvae.safetensors").fluxes.Length is 1
+	Unloaded.Decoders("tinymodels/tinyvae.safetensors").taefs.Length is 0
 	if path is decoderFile
 		return value
 	emptied = MossResident(value, taefs = List(Taef2Decoder), fluxes = List(FluxDecoder), decoderFile = path)

@@ -9,7 +9,7 @@ constant Image = H3VaeEncoder.Model.Values("reference.image")
 constant Reference = H3VaeEncoder.Model.Values("reference.latent")
 constant Latent = Tiny.Encode(Image, (48, 64))
 constant Tiles = Tiny.Moments(Image, (48, 64), (0, 16), (0, 16, 32))
-constant Sample = Safetensors("tinyh3imagevae.safetensors", 32).Values("reference.sampled")
+constant Sample = Safetensors("tinymodels/tinyh3imagevae.safetensors", 32).Values("reference.sampled")
 constant Sampled = Tiny.Encode(Image, (48, 64), MersenneTwister.Seeded(42).Normals(288))
 Encode(image Numbers, size Numbers, noise = List(Number)) Numbers native
 	Latent.Length is 288

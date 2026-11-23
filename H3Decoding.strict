@@ -2,7 +2,7 @@ has vae H3Vae
 has sound H3Audio
 has tinies List(Taeh3Decoder) = List(Taeh3Decoder)
 constant Tiny = H3Decoding(H3Vae.Tiny, H3Audio.Tiny)
-constant Fast = H3Decoding.Loaded(Taeh3Decoder.Path, "tinyh3audio.safetensors")
+constant Fast = H3Decoding.Loaded(Taeh3Decoder.Path, "tinymodels/tinyh3audio.safetensors")
 constant Latent = H3Vae.Model.Values("latent") + H3Audio.Latent
 constant FastLatent = Taeh3Decoder.Latent + Taeh3Decoder.Latent + H3Audio.Latent
 constant Both = Tiny.Decode(Latent, (12, 3, 4))
@@ -25,16 +25,16 @@ Tiled(tiling H3Tiles) H3Decoding
 	Tiny.Tiled(H3Tiles.Lean).vae.decoder is Tiny.vae.decoder
 	H3Decoding(H3Vae(vae.decoder, tiling), sound, tinies)
 Shapes(conditions List(Safetensors)) List(Numbers)
-	Safetensors("h3decode.safetensors").Write(("video", "decode"), ((1, 2, 3), List(Number) + 1)) is not Error
-	Tiny.Shapes(List(Safetensors) + Safetensors("h3decode.safetensors")).First is (3)
+	Safetensors("tinymodels/h3decode.safetensors").Write(("video", "decode"), ((1, 2, 3), List(Number) + 1)) is not Error
+	Tiny.Shapes(List(Safetensors) + Safetensors("tinymodels/h3decode.safetensors")).First is (3)
 	Tiny.Shapes(List(Safetensors) + H3Video.Reference).First.Length is 0
 	for conditions
 		value.Entry("decode") is "" then List(Number) else H3Job(value).VideoShape
 Write(file Text, shape Numbers, index Number) None native
-	Safetensors("h3test-latent.safetensors").Write("latent", Latent) is not Error
+	Safetensors("tinymodels/h3test-latent.safetensors").Write("latent", Latent) is not Error
 	Tiny.Write("h3test", (24, 12, 3, 4), 0) is not Error
 	File("h3test-decoded.rgb").Length is 359424
-	Safetensors("h3test-decoded.safetensors", 32).Values("audio") is Both(1)
+	Safetensors("tinymodels/h3test-decoded.safetensors", 32).Values("audio") is Both(1)
 	before = Process.Elapsed
 	decoded = Decode(Safetensors(file + "-latent.safetensors", 32).Values("latent"), shape.Slice(1, 3))
 	File(file + "-decoded.rgb").Write(H3Frames.Bytes(decoded(0)))

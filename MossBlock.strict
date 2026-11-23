@@ -7,7 +7,7 @@ has rotated = true
 has deltas List(MossLora) = List(MossLora)
 constant Cap = 25
 constant Layers = 41
-constant Model = Safetensors("tinymoss.safetensors")
+constant Model = Safetensors("tinymodels/tinymoss.safetensors")
 constant Tiny = MossBlock.Loaded(Model, "layers.0.", "")
 constant Input = Model.Values("reference.video_embedder") + Model.Values("reference.text_embedder")
 constant Modulation = Model.Values("reference.shared_block_modulation")
@@ -15,7 +15,7 @@ constant Rotation = MossBlock.Rotations(4, 4, 3, 128)
 constant Layered = MossBlock.Tiny.Output(Input, Modulation, Rotation)
 Loaded(model Safetensors, prefix Text, loras Text) MossBlock native
 	Tiny.expansion.Length is 512
-	MossBlock.Loaded(Model, "layers.0.", "tinylora.safetensors").attention is not Tiny.attention
+	MossBlock.Loaded(Model, "layers.0.", "tinymodels/tinylora.safetensors").attention is not Tiny.attention
 	tuning = MossTuning(Safetensors(model.path, 32, prefix + "proj."), loras)
 	tuned = tuning.Deltas
 	projected = tuning.Merge("o", tuned)

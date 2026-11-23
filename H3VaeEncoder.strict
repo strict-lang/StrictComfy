@@ -6,7 +6,7 @@ has exit Convolution
 has moments Convolution
 has Means Numbers
 has Deviations Numbers
-constant Model = Safetensors("tinyh3encoder.safetensors", 32)
+constant Model = Safetensors("tinymodels/tinyh3encoder.safetensors", 32)
 constant Tiny = H3VaeEncoder.Loaded(Model)
 constant Tile = Tiny.Pixels(Model.Values("reference.image"), (48, 64), (0, 32, 0, 32), H3Vae.Mean + H3Vae.Deviation)
 constant Entry = Model.Values("reference.entry")

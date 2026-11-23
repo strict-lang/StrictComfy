@@ -22,9 +22,10 @@ constant CountHelp = ("LoRA path[:strength] in models/loras or anywhere, repeat 
 constant SizeHelp = ("width in pixels, rounded down to a multiple of 32", "height in pixels, rounded down to a multiple of 32")
 constant OutputHelp = ("numbered output base (.jpg or .png), never overwritten, or a .safetensors that gets the encoded prompt (context) for the browser page instead of an image", "write the settings of every image next to it as .json")
 constant PreviewHelp = List(Text) + "JPEG written during the sampling steps, empty for none"
-constant TinyModels = ("--models", ".", "--model", "tinymoss.safetensors", "--vae", "tinyvae.safetensors", "--text_encoder", "tinymoss.safetensors")
+constant TinyModels = ("--models", ".", "--model", "tinymodels/tinymoss.safetensors", "--vae", "tinymodels/tinyvae.safetensors", "--text_encoder", "tinymodels/tinymoss.safetensors")
 constant MissingModel = "Error: FileNotFound:a.safetensors\nnext"
 constant Help = PromptHelp + StepsHelp + SpectrumHelp + CountHelp + SizeHelp + OutputHelp + PreviewHelp
+constant TinyLora = "tinymodels/tinylora.safetensors"
 Sampling MossSampling
 	MossOptions.Parsed(("--preview", "step.jpg")).preview is "step.jpg"
 	MossOptions.Parsed(List(Text)).Sampling is MossSampling(44, 8, 1, "off", 5, 2)
@@ -71,9 +72,9 @@ Span MossSpan
 	valid = parts.Length is 2 and first >= 0 and first < last and last <= MossBlock.Layers
 	valid then MossSpan(first, last) else Error("InvalidSkip")
 Loras Text slow
-	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
+	MossOptions.Parsed(("--lora", TinyLora + ":0.5", "--steps", "20")).Loras is TinyLora + "=0.5"
 	MossOptions.Parsed(("--models", ".")).Loras is Error("FileNotFound:moss/dmd_turbo_lora.safetensors")
-	MossOptions.Parsed(("--model", "tinymoss.gguf", "--models", ".")).Loras is ""
+	MossOptions.Parsed(("--model", "tinymodels/tinymoss.gguf", "--models", ".")).Loras is ""
 	MossOptions.Parsed(("--model", "tinymoss-dmd.safetensors", "--models", ".")).Loras is ""
 	MossOptions.Parsed(("--model", "a.gguf", "--lora", "b")).Loras is Error("LorasNeedSafetensorsModel")
 	if files.model.EndsWith(".gguf")
@@ -98,7 +99,7 @@ Turbo(installed Boolean) Text
 IsDistilled(specs Texts) Boolean
 	MossOptions.Parsed(List(Text)).IsDistilled(("x/moss_image_sft_4step_v2.0.safetensors=1", "a=1"))
 	MossOptions.Parsed(List(Text)).IsDistilled("x/dmd_turbo_lora.safetensors=0")
-	MossOptions.Parsed(List(Text)).IsDistilled("tinylora.safetensors=1") is false
+	MossOptions.Parsed(List(Text)).IsDistilled("tinymodels/tinylora.safetensors=1") is false
 	MossOptions.Parsed(List(Text)).IsDistilled(("a/dmd_turbo", "_lora.safetensors=1")) is false
 	combined = Text.Combine(specs, ";")
 	dmd = combined.IndexOf(Path(MossFiles.Dmd).FileName.text) >= 0
@@ -115,7 +116,7 @@ Located Text slow
 	late = decoder is Error then decoder to Text else (encoder is Error then encoder to Text else "")
 	NameProblem(early + late + (tokenizer is Error then tokenizer to Text else ""))
 Decoder Text slow
-	MossOptions.Parsed(TinyModels).Decoder is "tinyvae.safetensors"
+	MossOptions.Parsed(TinyModels).Decoder is "tinymodels/tinyvae.safetensors"
 	MossOptions.Parsed(("--models", ".", "--quality", "fastest")).Decoder is Error("FileNotFound:flux2-vae.safetensors")
 	quality is in (MossQuality.Fastest, MossQuality.Fastest2Steps) then files.Fast else files.Decoder
 NameProblem(problem Text) Text
@@ -125,7 +126,7 @@ NameProblem(problem Text) Text
 		return ""
 	problem.Lines.First.Replace("Error: ", "").Replace("FileNotFound:", "Model file not found: ")
 Specs Texts slow
-	MossOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Specs is ("tinylora.safetensors=0.5")
+	MossOptions.Parsed(("--lora", "tinymodels/tinylora.safetensors:0.5")).Specs is ("tinymodels/tinylora.safetensors=0.5")
 	ModelFiles(files.models).Specs(lora)
 Problem Text
 	MossOptions.Parsed(List(Text)).Problem is ""

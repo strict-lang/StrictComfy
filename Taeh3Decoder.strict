@@ -3,7 +3,7 @@ has blocks List(Taef2Block)
 has grows List(Convolution)
 has narrows List(Convolution)
 has exit Convolution
-constant Path = "tinytaeh3.safetensors"
+constant Path = "tinymodels/tinytaeh3.safetensors"
 constant Model = Safetensors(Path, 32, "decoder.")
 constant Tiny = Taeh3Decoder.Loaded(Path)
 constant Layers = (3, 4, 5, 9, 10, 11, 15, 16, 17)
@@ -28,7 +28,7 @@ Loaded(path Text) Taeh3Decoder slow
 	Taeh3Decoder(entered, Blocks(model), Grows(model), Narrows(model), FluxResnet.Convolve(model, "22"))
 IsTaeh3(path Text) Boolean
 	Taeh3Decoder.IsTaeh3(Path)
-	Taeh3Decoder.IsTaeh3("tinytaef2.safetensors") is false
+	Taeh3Decoder.IsTaeh3("tinymodels/tinytaef2.safetensors") is false
 	Safetensors(path).Entry("decoder.22.weight") is not ""
 Blocks(model Safetensors) List(Taef2Block) slow
 	Tiny.Blocks(Model)(8).convolutions.Length is 3

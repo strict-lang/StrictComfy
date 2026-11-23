@@ -8,7 +8,7 @@ has expansion List(Numbers)
 has reduction List(Numbers)
 has adaln Batch
 has deltas List(MossLora) = List(MossLora)
-constant Model = Safetensors("tinyh3.safetensors")
+constant Model = Safetensors("tinymodels/tinyh3.safetensors")
 constant Tiny = H3Block.Loaded(Model, "blocks.0.")
 constant Input = Model.Values("reference.blocks.0.input")
 constant Layered = Tiny.Output(Input, Model.Values("reference.t_emb"), H3Layout.Tiny.Rows(0.75), Rope.Turning)

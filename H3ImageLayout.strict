@@ -4,7 +4,7 @@ has Size
 constant Tiny = H3ImageLayout((1, 0, 1), (2, 4), Size(4, 4))
 constant Plain = H3ImageLayout((1, 1, 1), List(Number), Size(4, 4))
 constant Two = H3ImageLayout((1, 0, 1), (2, 4, 2, 6), Size(4, 4))
-constant Expected = Safetensors("tinyh3image.safetensors", 32).Values("reference.positions")
+constant Expected = Safetensors("tinymodels/tinyh3image.safetensors", 32).Values("reference.positions")
 Words Number
 	Tiny.Words is 3
 	tags.Length

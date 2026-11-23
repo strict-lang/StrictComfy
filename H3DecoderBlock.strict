@@ -8,7 +8,7 @@ has firstScale Numbers
 has secondScale Numbers
 has rotated Boolean
 has half Number = 24
-constant Model = Safetensors("tinyh3vae.safetensors")
+constant Model = Safetensors("tinymodels/tinyh3vae.safetensors")
 constant Tiny = H3DecoderBlock.Loaded(Model, "decoder.transformer_blocks.0.")
 constant Decoding = Rope(64, 24)
 constant Ones = Decoding.Even(1)

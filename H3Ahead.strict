@@ -1,5 +1,5 @@
 has loras Text
-constant Rows = Safetensors("tinymoss.safetensors", 32, "layers.0.proj.")
+constant Rows = Safetensors("tinymodels/tinymoss.safetensors", 32, "layers.0.proj.")
 Start(rows Safetensors, name Text) List(Numbers) slow
 	H3Ahead("").Start(Rows, "o").Length is 0
 	loras is "" or rows.Entry(name + ".comfy_quant") is "" then List(Numbers) else RowsAhead(rows).Start(name)

@@ -1,7 +1,7 @@
 has h3 H3
 has heads List(Batch)
 has grid Numbers
-constant Source = "tinyh3image.safetensors"
+constant Source = "tinymodels/tinyh3image.safetensors"
 constant Model = Safetensors(Source, 32, "reference.")
 constant Tiny = H3ImageModel.Loaded(Source)
 constant Prompt = H3Refiner.Loaded(Source).Refine(Model.Values("context"))

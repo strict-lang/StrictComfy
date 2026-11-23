@@ -1,7 +1,7 @@
 has head Number
 has half Number
 constant Video = Rope(128, 48)
-constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
+constant Model = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.")
 constant Turning = Video.Table(H3Layout.Tiny.Positions, H3Layout.Inverse, 1)
 Table(positions Numbers, inverse Numbers, scale Number) Float32s slow
 	Turning(3329).IsNearlyEqual(-0.869141)

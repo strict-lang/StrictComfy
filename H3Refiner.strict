@@ -2,8 +2,8 @@ has condition Batch
 has refiner List(H3Block)
 has refinedNorm Numbers
 has quantized Boolean
-constant Tiny = H3Refiner.Loaded("tinyh3.safetensors")
-constant Tuned = H3Refiner.Loaded("tinyh3.safetensors", H3Lora.Half.loras)
+constant Tiny = H3Refiner.Loaded("tinymodels/tinyh3.safetensors")
+constant Tuned = H3Refiner.Loaded("tinymodels/tinyh3.safetensors", H3Lora.Half.loras)
 Loaded(path Text, loras = "") H3Refiner slow
 	Tiny.refiner.Length is 2
 	Tiny.quantized is false

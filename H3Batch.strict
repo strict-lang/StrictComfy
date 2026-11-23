@@ -7,7 +7,7 @@ constant Sample = H3Batch(H3Options.Parsed(("--models", ".", "--length", "5", "-
 constant Workflowed = H3Batch(H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
 constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 constant Keyframed = H3Batch(H3Options.Parsed(("--models", ".", "--last_image", "tinyframe.png")))
-constant Loraed = H3Batch(H3Options.Parsed(("--models", ".", "--lora", "tinylora.safetensors:0.5", "--lora", "tinyqkvlora.safetensors", "--steps", "20")))
+constant Loraed = H3Batch(H3Options.Parsed(("--models", ".", "--lora", "tinymodels/tinylora.safetensors:0.5", "--lora", "tinymodels/tinyqkvlora.safetensors", "--steps", "20")))
 constant Turbo = H3Batch(H3Options.Parsed(("--models", ".", "--model", "a_Turbo_8step.safetensors")))
 constant Vae = "FileNotFound:minimax_h3_video_vae_int8_convrot.safetensors"
 constant Longer = ("--models", ".", "--length", "22")
@@ -65,7 +65,7 @@ Videos(plan H3Plan, conditions List(Safetensors)) None slow
 	options.files.Freed
 	Decode(latents, plan.images)
 LoraFiles Texts slow
-	Loraed.LoraFiles is ("tinylora.safetensors", "tinyqkvlora.safetensors")
+	Loraed.LoraFiles is ("tinymodels/tinylora.safetensors", "tinymodels/tinyqkvlora.safetensors")
 	Turbo.LoraFiles.Length is 0
 	loras = options.Loras
 	if loras is ""
@@ -73,7 +73,7 @@ LoraFiles Texts slow
 	for loras.Split(";")
 		value.Split("=").First
 Prefetch(paths Texts, what Text)
-	Sample.Prefetch(List(Text) + "tinyqkvlora.safetensors", "LoRA") is not Error
+	Sample.Prefetch(List(Text) + "tinymodels/tinyqkvlora.safetensors", "LoRA") is not Error
 	logger.Log(ModelFiles("").Prefetching(paths, what))
 RunSampling(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean) slow
 	texts = refiner.Texts(conditions)

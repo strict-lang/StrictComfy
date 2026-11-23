@@ -5,10 +5,10 @@ has contract Convolution
 has skip Convolution
 constant Unused = Convolution(List(Number), List(Number))
 constant Unnormed = GroupNorm(List(Number), List(Number), 1)
-constant Model = Safetensors("tinytaef2.safetensors", 32, "decoder.layers.")
+constant Model = Safetensors("tinymodels/tinytaef2.safetensors", 32, "decoder.layers.")
 constant Pooling = Taef2Block.Loaded(Model, "2.")
 constant Plain = Taef2Block.Loaded(Model, "7.")
-constant Entered = FeatureMap(Safetensors("tinytaef2.safetensors").Values("reference.entered"), 4, 8, Layer.Zeros(8))
+constant Entered = FeatureMap(Safetensors("tinymodels/tinytaef2.safetensors").Values("reference.entered"), 4, 8, Layer.Zeros(8))
 Loaded(model Safetensors, prefix Text) Taef2Block slow
 	Pooling.convolutions.Length is 3
 	Pooling.norm.groups is 4
@@ -21,7 +21,7 @@ Loaded(model Safetensors, prefix Text) Taef2Block slow
 	contracted = FluxResnet.Convolve(block, "pool.3")
 	Taef2Block(Convolutions(block), FluxResnet.Convolve(block, "pool.0"), pooled, contracted, skipped)
 Convolutions(block Safetensors) List(Convolution) slow
-	Plain.Convolutions(Safetensors("tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
+	Plain.Convolutions(Safetensors("tinymodels/tinytaef2.safetensors", 32, "decoder.layers.7.")).Length is 3
 	for (0, 2, 4)
 		FluxResnet.Convolve(block, "conv." + value)
 Output(map FeatureMap) FeatureMap native

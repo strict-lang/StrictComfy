@@ -2,7 +2,7 @@ has weights Numbers
 has biases Numbers
 has kernel Number
 has dilation Number
-constant Model = Safetensors("tinyh3audio.safetensors")
+constant Model = Safetensors("tinymodels/tinyh3audio.safetensors")
 constant Pre = H3Conv.Loaded(Model, "decoder.conv_pre", 1)
 constant Up = H3Conv.Loaded(Model, "decoder.ups.0.0", 1)
 constant Entered = Moss.Transpose(Model.Values("reference.dec_in_proj"), 64)

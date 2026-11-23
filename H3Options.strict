@@ -35,6 +35,8 @@ constant GivenTaoMate = "x_taomate.safetensors=1"
 constant Miscounted = "--count must not be negative and --length at least 5"
 constant Samplers = ("euler", "res_multistep", "er_sde", "euler_ancestral", "dpmpp_2m_sde", "gradient_estimation", "lcm")
 constant Schedulers = ("simple", "sgm_uniform", "normal", "beta", "beta57", "linear_quadratic", "hyperflow")
+constant TinyLora = "tinymodels/tinylora.safetensors"
+constant TinyHyperflow = "tinymodels/tinyhyperflow.safetensors"
 Preset Numbers
 	H3Options.Parsed(List(Text)).Preset is (8, 1, 0)
 	H3Options.Parsed(("--quality", "faster")).Preset is (8, 1, 2)
@@ -125,10 +127,10 @@ IsLarge Boolean
 	width * height * length >= LargeClip
 Checkpoint Text slow
 	H3Options.Parsed(("--models", ".")).Checkpoint is Error("FileNotFound:" + H3Video.Base)
-	H3Options.Parsed(("--model", "tinyh3.safetensors")).Checkpoint is "tinyh3.safetensors"
+	H3Options.Parsed(("--model", "tinymodels/tinyh3.safetensors")).Checkpoint is "tinymodels/tinyh3.safetensors"
 	files.Checkpoint
 Loras Text slow
-	H3Options.Parsed(("--lora", "tinylora.safetensors:0.5", "--steps", "20")).Loras is "tinylora.safetensors=0.5"
+	H3Options.Parsed(("--lora", TinyLora + ":0.5", "--steps", "20")).Loras is TinyLora + "=0.5"
 	H3Options.Parsed(("--models", ".", "--quality", "fastest2steps")).Loras is Error
 	H3Options.Parsed(("--models", ".")).Loras is Error("FileNotFound:" + H3Video.Turbo)
 	H3Options.Parsed(("--models", ".", "--model", "a_Turbo_8step.safetensors")).Loras is ""
@@ -140,7 +142,7 @@ Loras Text slow
 	turbo = Evaluated > 8 or HasTurbo then List(Text) else List(Text) + (local.Locate(named, "loras") + TurboStrength)
 	Text.Combine(turbo + given, ";")
 Few(local ModelFiles, given Texts) Text slow
-	H3Options.Parsed(("--models", ".", "--lora", "tinyhyperflow.safetensors")).Loras is "tinyhyperflow.safetensors=1"
+	H3Options.Parsed(("--models", ".", "--lora", TinyHyperflow)).Loras is TinyHyperflow + "=1"
 	H3Options.Parsed(FourStepArguments).Few(ModelFiles("."), List(Text) + GivenTaoMate) is GivenTaoMate
 	H3Options.Parsed(("--quality", "fastest4steps")).Few(ModelFiles("."), List(Text) + "a.safetensors=1") is Error
 	H3Options.Parsed(FourStepArguments + TurboArguments).Few(ModelFiles("."), List(Text) + GivenTurbo) is GivenTurbo

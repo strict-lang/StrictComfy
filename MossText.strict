@@ -7,7 +7,7 @@ has projection Batch
 has gate Batch
 has up Batch
 has down Batch
-constant Model = Safetensors("tinymoss.safetensors")
+constant Model = Safetensors("tinymodels/tinymoss.safetensors")
 constant Tiny = MossText.Loaded(Model, "text_embedder.blocks.0.")
 constant Input = Safetensors.Part(Model.Values("reference.text_embedder"), 0, 768, 1)
 Loaded(model Safetensors, prefix Text) MossText slow

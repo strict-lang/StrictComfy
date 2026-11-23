@@ -33,7 +33,7 @@ Missing(paths Texts) Numbers slow
 			index
 Read(paths Texts) List(Safetensors) slow
 	Sample.Read(List(Text) + "H3BatchMissing.safetensors") is Error("TextEncoderFailed")
-	Sample.Read(("tinyh3.safetensors", "tinyh3.safetensors")).Length is 1
+	Sample.Read(("tinymodels/tinyh3.safetensors", "tinymodels/tinyh3.safetensors")).Length is 1
 	if Missing(paths).Length > 0
 		return Error("TextEncoderFailed")
 	for paths.Unique

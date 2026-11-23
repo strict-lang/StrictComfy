@@ -13,10 +13,10 @@ constant EncoderGrowth = 1.6
 constant None = H3Resident
 constant Files = H3Files.Parsed(("--text_encoder", "../Strict/NeuralNetworks/tinyqwen3vl.safetensors"))
 constant Encoded = H3Resident.None.Encoding(H3Resident.Files)
-constant Sized = H3Options.Parsed(("--model", "tinyh3.safetensors", "--vae", "tinyh3vae.safetensors", "--audio_vae", "tinyh3audio.safetensors"))
+constant Sized = H3Options.Parsed(("--model", "tinymodels/tinyh3.safetensors", "--vae", "tinymodels/tinyh3vae.safetensors", "--audio_vae", "tinymodels/tinyh3audio.safetensors"))
 constant Whole = H3Batch(H3Options(Sized, files = H3Files(Sized.files, textEncoder = Files.textEncoder)))
-constant Sampled = H3Resident.None.Sampling("tinyh3.safetensors", "")
-constant Decoders = ("tinyh3vae.safetensors", "tinyh3audio.safetensors")
+constant Sampled = H3Resident.None.Sampling("tinymodels/tinyh3.safetensors", "")
+constant Decoders = ("tinymodels/tinyh3vae.safetensors", "tinymodels/tinyh3audio.safetensors")
 Encoding(files H3Files) H3Resident slow
 	Encoded.encoders.Length is 1
 	Encoded.Encoding(Files).encoders.First.blocks.Length is 2
@@ -40,7 +40,7 @@ Tokenizing(files H3Files) H3Resident slow
 Sampling(checkpoint Text, loras Text) H3Resident slow
 	Sampled.samplers.First.blocks.Length is 2
 	Sampled.refiners.Length is 1
-	Sampled.Sampling("tinyh3.safetensors", "").model is Sampled.model
+	Sampled.Sampling("tinymodels/tinyh3.safetensors", "").model is Sampled.model
 	if Key(checkpoint, loras) is model and samplers.Length is 1
 		return value
 	GpuMemory.Trim
@@ -48,11 +48,11 @@ Sampling(checkpoint Text, loras Text) H3Resident slow
 	refiner = H3Refiner.Loaded(checkpoint, loras)
 	H3Resident(value, samplers = List(H3) + h3, refiners = List(H3Refiner) + refiner, model = Key(checkpoint, loras))
 Trimmed(checkpoint Text, loras Text, isTight Boolean) H3Resident
-	Sampled.Trimmed("tinyh3.safetensors", "", false).samplers.Length is 1
-	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).samplers.Length is 0
-	Sampled.Trimmed("tinyh3.safetensors", "a=1", false).model is ""
-	Encoded.Trimmed("tinyh3.safetensors", "", true).encoders.Length is 0
-	Encoded.Trimmed("tinyh3.safetensors", "", false).encoders.Length is 1
+	Sampled.Trimmed("tinymodels/tinyh3.safetensors", "", false).samplers.Length is 1
+	Sampled.Trimmed("tinymodels/tinyh3.safetensors", "a=1", false).samplers.Length is 0
+	Sampled.Trimmed("tinymodels/tinyh3.safetensors", "a=1", false).model is ""
+	Encoded.Trimmed("tinymodels/tinyh3.safetensors", "", true).encoders.Length is 0
+	Encoded.Trimmed("tinymodels/tinyh3.safetensors", "", false).encoders.Length is 1
 	if samplers.Length is 1 and IsSampling(checkpoint, loras) is false
 		return Unsampled("Freeing the loaded H3 first, this run needs another model or LoRAs")
 	isDropped = isTight and encoders.Length is 1
@@ -87,9 +87,9 @@ Key(checkpoint Text, loras Text) Text
 	None.Key("a.safetensors", "b=1") is "a.safetensors|b=1"
 	checkpoint + "|" + loras
 IsSampling(checkpoint Text, loras Text) Boolean
-	Sampled.IsSampling("tinyh3.safetensors", "")
-	Sampled.IsSampling("tinyh3.safetensors", "a=1") is false
-	None.IsSampling("tinyh3.safetensors", "") is false
+	Sampled.IsSampling("tinymodels/tinyh3.safetensors", "")
+	Sampled.IsSampling("tinymodels/tinyh3.safetensors", "a=1") is false
+	None.IsSampling("tinymodels/tinyh3.safetensors", "") is false
 	Key(checkpoint, loras) is model and samplers.Length is 1
 Decoding(files Texts) H3Resident native
 	Sampled.Decoding(Decoders).decodings.Length is 1

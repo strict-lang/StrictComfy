@@ -1,4 +1,4 @@
-constant Data = Safetensors("tinymoss.safetensors", 32, "reference.")
+constant Data = Safetensors("tinymodels/tinymoss.safetensors", 32, "reference.")
 Measure(step Number, before Number, latent Numbers, data Safetensors, suffix Text = "")
 	MossTiming.Measure(0, Process.Elapsed - 1, (1, 2), Data) is not Error
 	MossTiming.Measure(0, 0, List(Number), Data) is Error("Empty Moss latent")

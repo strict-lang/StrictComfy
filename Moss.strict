@@ -8,17 +8,18 @@ has layers List(MossBlock)
 has finalNorm Numbers
 has final Batch
 has headModulation Batch
-constant Tiny = Moss.Loaded("tinymoss.safetensors", "")
-constant Model = Safetensors("tinymoss.safetensors")
+constant Tiny = Moss.Loaded("tinymodels/tinymoss.safetensors", "")
+constant Model = Safetensors("tinymodels/tinymoss.safetensors")
 constant Context = Model.Values("reference.context")
 constant Forward = Moss.Tiny.Output(Model.Values("reference.x"), 0.75, Moss.Tiny.TextEmbedded(Context, 3), MossBlock.Rotation)
 constant Denses = ("video_embedder", "text_embedder.proj", "time_embedding.0", "time_embedding.2", "shared_block_modulation", "final_linear_video", "video_head_modulation")
+constant TinyLora = "tinymodels/tinylora.safetensors"
 Loaded(path Text, lora Text) Moss native
 	Tiny.layers.Length is 2
 	Tiny.texts.Length is 2
-	Moss.Loaded("tinymoss.gguf", "").layers.Length is 2
-	Moss.Loaded("tinymossint4.safetensors", "").layers.Length is 2
-	Moss.Loaded("tinymossqkv.safetensors", "tinylora.safetensors").layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
+	Moss.Loaded("tinymodels/tinymoss.gguf", "").layers.Length is 2
+	Moss.Loaded("tinymodels/tinymossint4.safetensors", "").layers.Length is 2
+	Moss.Loaded("tinymodels/tinymossqkv.safetensors", TinyLora).layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
 	model = Safetensors(path, BFloat16.SafetensorsBits)
@@ -27,7 +28,7 @@ Loaded(path Text, lora Text) Moss native
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))
 Layers(model Safetensors, lora Text) List(MossBlock) slow
 	Tiny.Layers(Model, "").Length is 2
-	Tiny.Layers(Safetensors("tinyvae.safetensors"), "") is Error("NoMossLayersFound:tinyvae.safetensors")
+	Tiny.Layers(Safetensors("tinymodels/tinyvae.safetensors"), "") is Error("NoMossLayersFound:tinyvae.safetensors")
 	count = TensorFile.Header(model.path).Split(".proj.o.weight\"").Length - 1
 	if count is 0
 		return Error("NoMossLayersFound:" + Path(model.path).FileName.text)

@@ -1,5 +1,5 @@
 has path Text
-constant Tiny = MossGguf("tinymoss.gguf")
+constant Tiny = MossGguf("tinymodels/tinymoss.gguf")
 constant Opened = Tiny.Loaded
 constant Forward = Opened.Output(Moss.Model.Values("reference.x"), 0.75, Opened.TextEmbedded(Moss.Context, 3), MossBlock.Rotation)
 Loaded Moss native
@@ -12,22 +12,22 @@ Loaded Moss native
 	layers = Blocks(Gguf(path, 4))
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), layers, normed, dense(5), dense(6))
 Dense(model Gguf) List(Batch) slow
-	Tiny.Dense(Gguf("tinymoss.gguf")).Length is 7
+	Tiny.Dense(Gguf("tinymodels/tinymoss.gguf")).Length is 7
 	for Moss.Denses
 		LoadBatch(model, value)
 LoadBatch(model Gguf, name Text) Batch slow
-	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "final_linear_video").biases is (0)
-	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "video_embedder").weights.First.Length is 16
-	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "video_embedder").biases.Length is 256
-	Tiny.LoadBatch(Gguf("tinymoss.gguf"), "final_linear_video").biases.Length is 1
+	Tiny.LoadBatch(Gguf("tinymodels/tinymoss.gguf"), "final_linear_video").biases is (0)
+	Tiny.LoadBatch(Gguf("tinymodels/tinymoss.gguf"), "video_embedder").weights.First.Length is 16
+	Tiny.LoadBatch(Gguf("tinymodels/tinymoss.gguf"), "video_embedder").biases.Length is 256
+	Tiny.LoadBatch(Gguf("tinymodels/tinymoss.gguf"), "final_linear_video").biases.Length is 1
 	biased = model.Shape(name + ".bias").Length > 0
 	Batch(model.Rows(name + ".weight"), biased then model.Values(name + ".bias") else List(Number) + 0)
 Texts(model Gguf) List(MossText) slow
-	Tiny.Texts(Gguf("tinymoss.gguf")).Length is 2
+	Tiny.Texts(Gguf("tinymodels/tinymoss.gguf")).Length is 2
 	for 2
 		Text(model, "text_embedder.blocks." + index + ".")
 Text(model Gguf, prefix Text) MossText slow
-	Tiny.Text(Gguf("tinymoss.gguf"), "text_embedder.blocks.0.").down.biases.Length is 256
+	Tiny.Text(Gguf("tinymodels/tinymoss.gguf"), "text_embedder.blocks.0.").down.biases.Length is 256
 	norms = Norms(model, prefix, "norm1", "norm2")
 	headNorms = Norms(model, prefix, "q_norm", "k_norm")
 	attended = LoadBatch(model, prefix + "qkv")
@@ -37,14 +37,14 @@ Text(model Gguf, prefix Text) MossText slow
 	down = LoadBatch(model, prefix + "ffn_down")
 	MossText(norms(0), norms(1), headNorms(0), headNorms(1), attended, projected, gated, raised, down)
 Blocks(model Gguf) List(MossBlock) slow
-	Tiny.Blocks(Gguf("tinymoss.gguf", 4)).Length is 2
+	Tiny.Blocks(Gguf("tinymodels/tinymoss.gguf", 4)).Length is 2
 	for 64
 		if model.Shape("layers." + index + ".norm1.weight").Length > 0
 			Block(model, "layers." + index + ".")
 Block(model Gguf, prefix Text) MossBlock slow
-	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").rotated is false
-	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").attention.Length is 768
-	Tiny.Block(Gguf("tinymoss.gguf"), "layers.0.").norms.Length is 4
+	Tiny.Block(Gguf("tinymodels/tinymoss.gguf"), "layers.0.").rotated is false
+	Tiny.Block(Gguf("tinymodels/tinymoss.gguf"), "layers.0.").attention.Length is 768
+	Tiny.Block(Gguf("tinymodels/tinymoss.gguf"), "layers.0.").norms.Length is 4
 	rows = prefix + "proj."
 	norms = Norms(model, prefix, "norm1", "norm2")
 	headNorms = Norms(model, prefix, "q_norm", "k_norm")
@@ -54,7 +54,7 @@ Block(model Gguf, prefix Text) MossBlock slow
 	attended = model.Rows(rows + "qkv.weight")
 	MossBlock((norms(0), norms(1), headNorms(0), headNorms(1)), attended, output, expanded, reduced, false)
 Norms(model Gguf, prefix Text, first Text, second Text) List(Numbers) slow
-	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "q_norm", "k_norm").First.Length is 128
-	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Length is 2
-	Tiny.Norms(Gguf("tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Last.Length is 128
+	Tiny.Norms(Gguf("tinymodels/tinymoss.gguf"), "layers.0.", "q_norm", "k_norm").First.Length is 128
+	Tiny.Norms(Gguf("tinymodels/tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Length is 2
+	Tiny.Norms(Gguf("tinymodels/tinymoss.gguf"), "layers.0.", "norm1", "q_norm").Last.Length is 128
 	(model.Values(prefix + first + ".weight"), model.Values(prefix + second + ".weight"))

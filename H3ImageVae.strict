@@ -4,7 +4,7 @@ has tinies List(Taeh3Decoder)
 has pictureFile Text
 has pictures List(H3Picture)
 constant None = H3ImageVae("", List(H3Vae), List(Taeh3Decoder), "", List(H3Picture))
-constant Image = "tinyh3imagevae.safetensors"
+constant Image = "tinymodels/tinyh3imagevae.safetensors"
 constant Decoder = None.Decoding(Image)
 constant Tiny = None.Decoding(Taeh3Decoder.Path)
 constant Latent = H3Vae.Image.Values("reference.latent")

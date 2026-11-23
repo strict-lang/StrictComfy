@@ -1,13 +1,13 @@
-constant Reference = Safetensors("tinyh3.safetensors", 32, "reference.")
-constant Shapes = Safetensors("tinyh3.safetensors", 32)
-constant Keyed = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
+constant Reference = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.")
+constant Shapes = Safetensors("tinymodels/tinyh3.safetensors", 32)
+constant Keyed = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.i2v.")
 constant Tiny = H3Video
 constant Solved = Solver(1, Euler(4, 12).Sigmas, H3Video.Reference.Values("video"))
 constant Base = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
 constant Turbo = "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
 constant TurboV4 = "minimax_h3_turbo_v4_step600_ema.safetensors"
 constant TaoMate = "h3/minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors"
-constant Decoders = H3Video.Decoding(List(H3Decoding), ("tinyh3vae.safetensors", "tinyh3audio.safetensors")).First
+constant Decoders = H3Video.Decoding(List(H3Decoding), ("tinymodels/tinyh3vae.safetensors", "tinymodels/tinyh3audio.safetensors")).First
 constant Positional = "dumps model name loras steps shift period warmup degree routing first last sampler scheduler"
 Run(arguments Texts) Number
 	if "--help" is in arguments
@@ -66,15 +66,15 @@ ParseNumbers(arguments Texts) Numbers
 	for (0, H3Format.Shift, 0, 1, 1, 0, 0, 0, 0, 0)
 		arguments.Length > index + 4 then arguments(index + 4) to Number else value
 Load(model Text, loras Text) H3 native
-	H3Video.Load("tinyh3.safetensors", "").blocks.Length is 2
+	H3Video.Load("tinymodels/tinyh3.safetensors", "").blocks.Length is 2
 	started = Process.Elapsed
 	logger.Log(Loading(model, loras))
 	h3 = H3.Loaded(model, loras)
 	logger.Log("H3 loaded in " + (Process.Elapsed - started).Round(1) + " s" + H3Lora(loras).Report)
 	h3
 Loading(model Text, loras Text) Text slow
-	H3Video.Loading("tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
-	H3Video.Loading("tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
+	H3Video.Loading("tinymodels/tinyh3.safetensors", "") is "Loading H3 tinyh3.safetensors (0 GB) from disk into memory"
+	H3Video.Loading("tinymodels/tinyh3.safetensors", "a/b.safetensors=1;c=0.5").EndsWith("b.safetensors, c on the GPU")
 	loading = "Loading H3 " + ModelFiles("").Describe(model) + " from disk into memory"
 	if loras is ""
 		return loading

@@ -1,4 +1,4 @@
-constant Expected = Safetensors("tinyvae.safetensors", 32, "reference.").Values("image")
+constant Expected = Safetensors("tinymodels/tinyvae.safetensors", 32, "reference.").Values("image")
 Run(dumps = "Dumps", model = "Dumps/flux2-vae.safetensors")
 	decoder = FluxDecoder.Loaded(model, 32)
 	steps = Safetensors(dumps + "/steps.safetensors")

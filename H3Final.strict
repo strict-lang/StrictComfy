@@ -2,8 +2,8 @@ has norm Numbers
 has modulation Batch
 has video Batch
 has audio Batch
-constant Tiny = H3Final.Loaded(Safetensors("tinyh3.safetensors"))
-constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
+constant Tiny = H3Final.Loaded(Safetensors("tinymodels/tinyh3.safetensors"))
+constant Model = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.")
 constant Flat = H3Layout(List(Number), List(Number), 0, 1, Size(4, 2))
 constant Quad = H3Layout(List(Number), List(Number), 0, 2, Size(4, 4))
 constant FirstOrder = (0, 1, 8, 9, 2, 3, 10, 11, 16, 17, 24, 25, 18, 19, 26, 27, 32, 33, 40, 41, 34, 35, 42, 43, 48, 49, 56, 57, 50, 51, 58, 59)

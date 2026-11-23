@@ -1,7 +1,7 @@
 has options MossOptions
 has prompted = ""
 constant JpegQuality = 85
-constant Sample = MossBatch(MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymoss.safetensors")))
+constant Sample = MossBatch(MossOptions.Parsed(("--models", ".", "--steps", "20", "--model", "tinymodels/tinymoss.safetensors")))
 constant Workflowed = MossBatch(MossOptions.Parsed(("--models", ".", "--workflow", "tinymossworkflow.json")))
 constant Prompted = ("--models", ".", "--prompt", "a cat")
 constant ExamplePerson = "closeup of a {young|24 year old|35 year old|middle-aged|elderly} {asian|european|african|american|} {woman|man} "

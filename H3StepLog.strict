@@ -4,7 +4,7 @@ has times Numbers = List(Number)
 has notes Texts = List(Text)
 has logged = 0
 constant Tiny = H3StepLog(H3Job.Reference)
-constant Stepping = H3StepLog(H3Job(Safetensors("tinyh3steps.safetensors", 32)))
+constant Stepping = H3StepLog(H3Job(Safetensors("tinymodels/tinyh3steps.safetensors", 32)))
 constant Timed = H3StepLog(H3Job.Reference, (-1, -1, -1), (1, 1.5, 2.25), (", forecasts 0", ", forecasts 1"))
 Started H3StepLog
 	Tiny.Started.stamps.Length is 1

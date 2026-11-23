@@ -24,25 +24,28 @@ constant ModelHelp = ("H3 Image model file, a name in models/diffusion_models or
 constant EncoderHelp = ("Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for " + H3Batch.Encoder, "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
 constant OutputHelp = List(Text) + "numbered output base (.jpg or .png), never overwritten"
 constant Help = PromptHelp + SizeHelp + StepsHelp + LoraHelp + ModelHelp + EncoderHelp + OutputHelp
-constant Stacked = ("--lora", "tinyqkvlora.safetensors", "--lora", "tinylora.safetensors")
+constant Stacked = ("--lora", "tinymodels/tinyqkvlora.safetensors", "--lora", "tinymodels/tinylora.safetensors")
 constant Local = H3ImageOptions.Parsed(("--models", "."))
+constant TinyCheckpoint = "tinymodels/tinyh3image.safetensors"
+constant TinyVae = "tinymodels/tinyh3imagevae.safetensors"
+constant TinyTae = "tinymodels/tinytaeh3.safetensors"
 Checkpoint Text slow
 	Local.Checkpoint is Error("FileNotFound:" + Base)
-	H3ImageOptions.Parsed(("--model", "tinyh3image.safetensors")).Checkpoint is "tinyh3image.safetensors"
+	H3ImageOptions.Parsed(("--model", TinyCheckpoint)).Checkpoint is TinyCheckpoint
 	ModelFiles(models).Locate(model is "" then Base else model, "diffusion_models")
 Decoder Text slow
 	Local.Decoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).Decoder(vae, Vae)
 VaeEncoder Text slow
-	H3ImageOptions.Parsed(("--vae", "tinyh3imagevae.safetensors")).VaeEncoder is "tinyh3imagevae.safetensors"
-	H3ImageOptions.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error("FileNotFound:" + Vae)
+	H3ImageOptions.Parsed(("--vae", TinyVae)).VaeEncoder is TinyVae
+	H3ImageOptions.Parsed(("--models", ".", "--vae", TinyTae)).VaeEncoder is Error("FileNotFound:" + Vae)
 	ModelFiles(models).VaeEncoder(vae, Vae)
 Encoder Text slow
 	Local.Encoder is Error("FileNotFound:" + H3Batch.Encoder)
 	Files.Encoder
 Loras Text slow
-	H3ImageOptions.Parsed(("--lora", "tinylora.safetensors:0.5")).Loras is "tinylora.safetensors=0.5"
-	H3ImageOptions.Parsed(Stacked).Loras is "tinyqkvlora.safetensors=1;tinylora.safetensors=1"
+	H3ImageOptions.Parsed(("--lora", "tinymodels/tinylora.safetensors:0.5")).Loras is "tinymodels/tinylora.safetensors=0.5"
+	H3ImageOptions.Parsed(Stacked).Loras is "tinymodels/tinyqkvlora.safetensors=1;tinylora.safetensors=1"
 	Local.Loras is ""
 	Text.Combine(ModelFiles(models).Specs(lora), ";")
 Files H3Files

@@ -30,7 +30,7 @@ constant Help = DiffusionHelp + VaeHelp + EncoderHelp + FolderHelp + FrameHelp +
 constant DecodeRoom = 2147483648
 constant Local = H3Files.Parsed(("--models", "."))
 Checkpoint Text slow
-	H3Files.Parsed(("--model", "tinyh3.safetensors")).Checkpoint is "tinyh3.safetensors"
+	H3Files.Parsed(("--model", "tinymodels/tinyh3.safetensors")).Checkpoint is "tinymodels/tinyh3.safetensors"
 	H3Files.Parsed(("--image", "a.png", "--last_image", "b.jpg")).lastImage is "b.jpg"
 	Local.Checkpoint is Error("FileNotFound:" + H3Video.Base)
 	H3Files.Parsed(("--models", "web", "--model", "h3_preview.js")).Checkpoint is Error("FileNotFound:h3_preview.js")
@@ -39,8 +39,8 @@ Decoder Text slow
 	Local.Decoder is Error
 	ModelFiles(models).Decoder(vae, Vae)
 VaeEncoder Text slow
-	H3Files.Parsed(("--vae", "tinyh3vae.safetensors")).VaeEncoder is "tinyh3vae.safetensors"
-	H3Files.Parsed(("--models", ".", "--vae", "tinytaeh3.safetensors")).VaeEncoder is Error
+	H3Files.Parsed(("--vae", "tinymodels/tinyh3vae.safetensors")).VaeEncoder is "tinymodels/tinyh3vae.safetensors"
+	H3Files.Parsed(("--models", ".", "--vae", "tinymodels/tinytaeh3.safetensors")).VaeEncoder is Error
 	ModelFiles(models).VaeEncoder(vae, Vae)
 Sound Text slow
 	Local.Sound is Error
@@ -83,7 +83,7 @@ Problem Text slow
 		return "--image is a still first frame; leave it empty when --video continues a clip"
 	""
 Mixed Text slow
-	H3Files.Parsed(("--model", "tinyh3.safetensors")).Mixed is ""
+	H3Files.Parsed(("--model", "tinymodels/tinyh3.safetensors")).Mixed is ""
 	Local.Mixed is ""
 	checkpoint = Checkpoint
 	if checkpoint is Error
@@ -100,7 +100,7 @@ Quantize(header Text) Texts
 		if index > 0 and value.Substring(0, value.IndexOf("\"")).EndsWith(".attn.qkv_proj.comfy_quant")
 			value
 Freed slow
-	H3Files.Parsed(("--model", "tinyh3.safetensors")).Freed is not Error
+	H3Files.Parsed(("--model", "tinymodels/tinyh3.safetensors")).Freed is not Error
 	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
 		GpuMemory.Evict
 	else

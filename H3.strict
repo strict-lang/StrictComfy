@@ -4,8 +4,8 @@ has curve Numbers
 has inverse Numbers
 has blocks List(H3Block)
 has final H3Final
-constant Tiny = H3.Loaded("tinyh3.safetensors")
-constant Model = Safetensors("tinyh3.safetensors", 32, "reference.")
+constant Tiny = H3.Loaded("tinymodels/tinyh3.safetensors")
+constant Model = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.")
 constant Prompt = Model.Values("token_refiner")
 constant Turned = Tiny.Rotation(H3Layout.Tiny)
 constant Forward = Tiny.Output(Model.Values("video"), Model.Values("audio"), 0.75, Prompt, H3Layout.Tiny, List(Number), Turned)
@@ -23,12 +23,12 @@ Loaded(path Text, loras = "") H3 native
 	loaded = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
 	H3(patches, heard, table, model.Values("rope.inv_freq"), loaded, H3Final.Loaded(model, loras))
 Weights(path Text, bits Number) Safetensors
-	H3.Weights("tinyh3.safetensors", 16).prefix is ""
-	H3.Weights("tinyh3prefixed.safetensors", 16).prefix is "model.diffusion_model."
+	H3.Weights("tinymodels/tinyh3.safetensors", 16).prefix is ""
+	H3.Weights("tinymodels/tinyh3prefixed.safetensors", 16).prefix is "model.diffusion_model."
 	prefix = TensorFile.Header(path).IndexOf("\"model.diffusion_model.") < 0 then "" else "model.diffusion_model."
 	Safetensors(path, bits, prefix)
 Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slow
-	Tiny.Blocks(Safetensors("tinyh3.safetensors"), "blocks.", "").Length is 2
+	Tiny.Blocks(Safetensors("tinymodels/tinyh3.safetensors"), "blocks.", "").Length is 2
 	count = FindNamed(TensorFile.Header(model.path), model.prefix + prefix).Length
 	completion = Completion(label, count, Process.Elapsed)
 	for count
@@ -36,8 +36,8 @@ Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slo
 		completion.Report(index + 1)
 		block
 FindNamed(header Text, prefix Text) Texts slow
-	Tiny.FindNamed(TensorFile.Header("tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
-	Tiny.FindNamed(TensorFile.Header("tinyh3.safetensors"), "blocks.").Length is 2
+	Tiny.FindNamed(TensorFile.Header("tinymodels/tinyh3.safetensors"), "token_refiner.blocks.").Length is 2
+	Tiny.FindNamed(TensorFile.Header("tinymodels/tinyh3.safetensors"), "blocks.").Length is 2
 	for header.Split("\"" + prefix)
 		if value.Substring(0, value.IndexOf("\"")).EndsWith(".norm1.weight")
 			value

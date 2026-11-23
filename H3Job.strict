@@ -7,14 +7,15 @@ has rows Numbers = List(Number)
 has keyframes Numbers = List(Number)
 has motion StrictGenExtend = StrictGenExtend.None
 has previewer = H3Previewer.None
-constant Reference = H3Job(Safetensors("tinyh3.safetensors", 32, "reference."))
+constant Reference = H3Job(Safetensors("tinymodels/tinyh3.safetensors", 32, "reference."))
 constant Noisy = H3Job(Safetensors(""), Layer.Zeros(32), Layer.Zeros(64), (2, 4, 2, 2), 3)
-constant Keyframe = Safetensors("tinyh3.safetensors", 32, "reference.i2v.")
+constant Keyframe = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.i2v.")
 constant Latent = Keyframe.Values("keyframe")
 constant Patchified = Keyframe.Values("rows")
 constant Twice = (Latent, Latent)
 constant Patches = Noisy.Patch(Latent, Keyframe.Shape("keyframe"), MersenneTwister.Seeded(0).Normals(384))
-constant Dumped = H3Job(Safetensors("h3job.safetensors"))
+constant Dumped = H3Job(Safetensors("tinymodels/h3job.safetensors"))
+constant JobFile = "tinymodels/h3job.safetensors"
 Video Numbers
 	Reference.Video.Length is 768
 	Noisy.Video.Length is 32
@@ -38,7 +39,7 @@ Stream(name Text) Text
 Count Number
 	Reference.Count is 1
 	Noisy.Count is 1
-	Safetensors("h3job.safetensors").Write(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is not Error
+	Safetensors(JobFile).Write(("sigmas", "video.noise.2"), ((1, 0.6, 0.3, 0), (0.5, -1.5))) is not Error
 	Dumped.Count is 3
 	video.Length > 0 then 1 else file.Entry("sigmas") is "" then 1 else file.Values("sigmas").Length - 1
 Noise(stream Text, step Number) Numbers
@@ -61,7 +62,7 @@ Drawn(stream Text, step Number) Numbers
 Preview(step Number) Text
 	Reference.Preview(0) is ""
 	Noisy.Preview(0) is ""
-	H3Job(Safetensors("h3preview.safetensors")).Preview(6) is "h3preview-step6.safetensors"
+	H3Job(Safetensors("tinymodels/h3preview.safetensors")).Preview(6) is "tinymodels/h3preview-step6.safetensors"
 	if video.Length > 0
 		return ""
 	file.Entry("preview") is "" then "" else file.path.Replace(".safetensors", "-step" + step + ".safetensors")

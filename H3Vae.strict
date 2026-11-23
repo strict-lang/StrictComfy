@@ -1,6 +1,6 @@
 has decoder H3Decoder
 has tiling H3Tiles
-constant Model = Safetensors("tinyh3vae.safetensors", 32, "reference.")
+constant Model = Safetensors("tinymodels/tinyh3vae.safetensors", 32, "reference.")
 constant Tiny = H3Vae(H3Decoder.Tiny, H3Tiles.Tiny)
 constant Pixels = Tiny.Decode(Model.Values("latent"), (12, 3, 4))
 constant Mean = (0.485, 0.456, 0.406)
@@ -19,7 +19,7 @@ constant LatentDeviations1 = (1.2223774194717407, 1.2767263650894165, 1.68317747
 constant LatentDeviations2 = (0.841948926448822, 0.7729952931404114, 1.8955937623977661, 0.946841835975647, 0.7996809482574463, 0.44988900423049925, 0.7197399735450745, 0.69362932443618775)
 constant LatentDeviations3 = (2.961095094680786, 2.7694199085235595, 3.0496184825897215, 2.1088054180145265, 3.276226282119751, 3.1627357006073, 2.28168129920959475, 2.6127843856811525)
 constant LatentDeviations = LatentDeviations1 + LatentDeviations2 + LatentDeviations3
-constant Image = Safetensors("tinyh3imagevae.safetensors", 32)
+constant Image = Safetensors("tinymodels/tinyh3imagevae.safetensors", 32)
 constant Picture = H3Vae(H3Decoder.Still, H3Tiles.Tiny)
 constant StillPixels = Picture.Still(Image.Values("reference.latent"), 3, 4)
 Decode(latent Numbers, shape Numbers) Numbers native
