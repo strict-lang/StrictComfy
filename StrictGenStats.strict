@@ -81,6 +81,7 @@ Recent(queue StrictGenQueue) Texts
 	Sample.Recent(StrictGenQueue.Empty).Length is 0
 	queue.results.Reverse
 Lines(queue StrictGenQueue, ids Numbers) Texts
+	Sample.Lines(Queued, List(Number) + 0) is List(Text) + "fox" and Sample.Lines(Queued, List(Number)).Length is 0
 	for ids
 		queue.lines(value)
 Examples Texts slow

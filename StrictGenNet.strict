@@ -25,6 +25,9 @@ constant Big = "10.0.0.3\t59139\t24576\t20000\t60000\t0\tNVIDIA GeForce RTX 4090
 constant Small = "10.0.0.4\t59140\t10240\t8000\t30000\t0\tNVIDIA GeForce RTX 3080\t100"
 constant BusyCard = "10.0.0.3\t59139\t24576\t2000\t60000\t1\tNVIDIA GeForce RTX 4090\t100"
 constant Heard4090 = ("10.0.0.3", "strictgen", "8001", "24576", "20000", "60000", "0", "RTX 4090", "7")
+constant Line4090 = Text.Combine(Heard4090, Tab)
+constant Short4090 = Text.Combine(Heard4090.Slice(0, 8), Tab)
+constant Unrelated = "1\tother\t9\t1\t2\t3\t0\tG"
 constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
@@ -68,6 +71,11 @@ Tick(isBusy Boolean) StrictGenNet slow
 	heard = StrictGenNet(value, busy = isBusy).Heard
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
 Noted(line Text, now Number) StrictGenNet
+	Idle.Noted("a\tb", 1).peers.Length is 0 and Idle.Noted(Line4090, 1).peers.Length is 1
+	StrictGenNet(Idle, id = 7).Noted(Line4090, 1).own is "10.0.0.3" and Idle.Noted(Short4090, 1).peers.Length is 1
+	StrictGenNet(Idle, httpPort = 8001).Noted(Short4090, 1).own is "10.0.0.3"
+	Idle.Noted(Unrelated, 1).peers.Length is 0
+	StrictGenNet(Idle, own = "10.0.0.3").Noted(Line4090, 1).peers.Length is 0
 	parts = line.Split("\t")
 	if parts.Length < 8 or parts(1) is not "strictgen"
 		return value
@@ -92,6 +100,7 @@ Fresh(now Number) Texts
 		if seen is Error or now - seen < FreshSeconds
 			value
 Keep(peer Text, address Text) Texts
+	Mixed.Keep("x", "10.0.0.3:59139") is (Small, "x") and Mixed.Keep("x", "none") is (Big, Small, "x")
 	mutable kept = List(Mutable(Text))
 	for peers
 		if Address(value) is not address
@@ -128,6 +137,9 @@ Automatic(mode Text) Text
 	fallback = Fits(mode, total) then "local" else Best(0, video then H3Mb else MossMb)
 	fallback is "" then "none" else fallback
 Best(floor Number, least Number) Text
+	Mixed.Best(0, 0) is "10.0.0.3:59139" and Mixed.Best(30000, 0) is "" and Mixed.Best(0, 30000) is ""
+	StrictGenNet(Idle, peers = (BusyCard, Small)).Best(0, 0) is "10.0.0.4:59140"
+	StrictGenNet(Idle, peers = List(Text) + "a\tb").Best(0, 0) is "" and Mixed.Best(0, 24576) is "10.0.0.3:59139"
 	mutable chosen = ""
 	mutable largest = floor
 	for peers
@@ -148,6 +160,8 @@ IsLarge(mode Text) Boolean
 	Idle.IsLarge("image") is false
 	mode is "video" or mode is "extend" or mode is "imagevideo" or mode is "h3image"
 IsPinned(mode Text, address Text) Boolean
+	Mixed.IsPinned("image", "10.0.0.3:59139") and Mixed.IsPinned("image", "none") is false
+	StrictGenNet(Idle, peers = List(Text) + "10.0.0.9\t1\t4096\t1\t1\t0\tGPU\t1").IsPinned("video", "10.0.0.9:1") is false
 	for peers
 		if Address(value) is address
 			return Fits(mode, value.Split(Tab)(2) to Number)

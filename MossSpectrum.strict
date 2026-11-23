@@ -53,6 +53,12 @@ Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbe
 		return MossSpectrum(value, output = head, mode = updated, history = SpectralHistory, span = evaluated)
 	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
 Shadow(image Numbers, coord Number) None
+	logger.Capture(true) is ""
+	Tiny.Shadow((1, 2), 0) is not Error and Primed.Shadow((5, 6), 1) is not Error
+	MossSpectrum(Tiny, mode = "shadow").Shadow((1, 2), 0) is not Error
+	logger.Capture(false).IndexOf("Spectrum shadow") is -1 and logger.Capture(true) is ""
+	MossSpectrum(Primed, mode = "shadow").Shadow((5, 6), 1) is not Error
+	logger.Capture(false).IndexOf("Spectrum shadow 1 feature error") >= 0
 	if mode is "shadow" and history.IsReady
 		error = MossImage.RelativeError(history.Predict(coord), image)
 		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)

@@ -13,6 +13,9 @@ has job = StrictGenJob
 has finished = 0
 has halted = false
 constant Empty = StrictGenQueue
+constant One = Empty.Added("image", ("--width", "32"), "fox", "body", "local")
+constant Two = One.Added("video", ("--length", "24"), "owl")
+constant Done = StrictGenQueue(One, pending = List(Number))
 constant Collecting = "GarbageCollectionExceedsLimit"
 constant Quitting = "StrictGen stop"
 constant NoOutput = "The run finished without an output file"
@@ -20,6 +23,9 @@ Added(mode Text, command Texts, line Text, body Text = "", pin Text = "") Strict
 	Empty.Added("image", ("--width", "32"), "Image fox 32x32 fastest m").modes.Length is 1
 	Empty.Added("image", ("--width", "32"), "fox").Added("video", ("--length", "24"), "owl").pending.Length is 2
 	Empty.Added("image", ("--width", "32"), "Image fox").Cleared.pending.Length is 0
+	Two.modes is ("image", "video") and Two.commands is ("--width\n32", "--length\n24") and Two.pending is (0, 1)
+	Two.lines is ("fox", "owl") and Two.bodies is ("body", "") and Two.pins is ("local", "") and Two.outcomes is ("", "")
+	Empty.Cleared.Added("image", ("--width", "32"), "fox").halted is false
 	queued = StrictGenQueue(value, modes = modes + mode, commands = commands + Text.Combine(command, "\n"))
 	kept = StrictGenQueue(queued, bodies = bodies + body, pins = pins + pin, outcomes = outcomes + "")
 	StrictGenQueue(kept, lines = lines + line, pending = pending + (modes.Length), halted = false)
@@ -96,15 +102,21 @@ Finished(paths Texts, caption Text, prompts Texts) StrictGenQueue slow
 	done = StrictGenQueue(made, job = StrictGenJob, finished = finished + 1, notice = empty then caption else notice)
 	halted then done else done.Advanced
 Captions(paths Texts, caption Text, prompts Texts) Texts
+	One.Captions(("a.png", "b.png"), "c", List(Text) + "p") is ("p", "c")
+	StrictGenQueue(One, captions = List(Text) + "old").Captions(List(Text) + "a", "c", List(Text)) is ("old", "c")
 	mutable kept = captions
 	for paths
 		kept = kept + (index < prompts.Length then prompts(index) else caption)
 	kept
 IsBusy Boolean
 	Empty.IsBusy is false
+	StrictGenQueue(Empty, job = StrictGenJob.Local(0)).IsBusy and StrictGenQueue(Empty, job = StrictGenJob.Local(3)).IsBusy
 	job.current >= 0
 NeedsAim Boolean
 	Empty.NeedsAim is false
+	One.NeedsAim and Done.NeedsAim is false and One.Aimed("local").NeedsAim is false
+	StrictGenQueue(One, job = StrictGenJob.Local(0)).NeedsAim is false
+	StrictGenQueue(One, halted = true).NeedsAim is false
 	pending.Length > 0 and job.current < 0 and aim is "" and halted is false
 NextMode Text
 	Empty.NextMode is ""
@@ -113,6 +125,8 @@ NextMode Text
 Pin Text
 	Empty.Pin is ""
 	Empty.Added("video", ("--length", "24"), "owl", "", "local").Pin is "local"
+	StrictGenQueue(One, pins = List(Text)).Pin is "" and StrictGenQueue(One, pending = List(Number) + 1).Pin is ""
+	StrictGenQueue(One, pending = List(Number) + 2).Pin is ""
 	pending.Length is 0 or pins.Length <= pending.First then "" else pins(pending.First)
 Aimed(target Text) StrictGenQueue
 	Empty.Aimed("local").aim is "local"
@@ -120,13 +134,17 @@ Aimed(target Text) StrictGenQueue
 Report(id Number) Text
 	Empty.Report(0) is "error\tmissing"
 	Empty.Added("image", ("--width", "32"), "fox").Report(0) is "wait"
+	One.Report(-1) is "error\tmissing" and One.Report(1) is "error\tmissing" and Done.Report(0) is "wait"
+	StrictGenQueue(Done, outcomes = List(Text) + "file\ta.png").Report(0) is "file\ta.png"
+	StrictGenQueue(Done, outcomes = List(Text) + "x", job = StrictGenJob.Local(0)).Report(0) is "wait"
+	StrictGenQueue(Done, outcomes = List(Text)).Report(0) is "wait"
 	if id < 0 or id >= modes.Length
 		return "error\tmissing"
 	if id is job.current or id is in pending or outcomes.Length <= id
 		return "wait"
 	outcomes(id) is "" then "wait" else outcomes(id)
 Note(at Number, text Text) Texts
-	mutable items = List(Mutable(Text))
+	StrictGenQueue(Two, outcomes = List(Text) + "a").Note(1, "b") is ("a", "b")
+	StrictGenQueue(Two, outcomes = List(Text)).Note(0, "b") is ("b", "")
 	for Range(0, modes.Length)
-		items.Add(at is index then text else (outcomes.Length > index then outcomes(index) else ""))
-	items
+		at is index then text else (outcomes.Length > index then outcomes(index) else "")

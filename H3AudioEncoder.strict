@@ -85,6 +85,8 @@ Norm(signal Numbers, name Text, channels Number) Numbers
 		shift = Shift(signal, (index / channels).Floor * channels, channels)
 		(signal(index) - shift(0)) / shift(1) * weight(index % channels) + bias(index % channels)
 Shift(signal Numbers with value.Bits is 32, start Number, channels Number) Numbers
+	Tiny.Shift((1, 3, 5, 9), 2, 2)(0) is 7 and Tiny.Shift((1, 3, 5, 9), 2, 2)(1).IsNearlyEqual(2.0000025)
+	Tiny.Shift((1, 3), 0, 2)(1).IsNearlyEqual(1.000005)
 	mutable sum = 0
 	mutable square = 0
 	for channels
@@ -106,6 +108,8 @@ Biase(mixed Numbers) Numbers
 		extra = channel < 2048 then query(channel) else (channel >= 4096 then seen(channel - 4096) else 0)
 		mixed(index) + extra
 Weight(mixed Numbers, time Number, at Number, channel Number) Number
+	Tiny.Weight(HeadRotated.Ones(TripleChannels, 0.1), 1, 0, 0).IsNearlyEqual(0.1)
+	Tiny.Weight(HeadRotated.Ones(2 * TripleChannels, 0.1), 2, 1, 5).IsNearlyEqual(0.1)
 	mutable sum = 0
 	mutable weight = 0
 	for time
@@ -114,6 +118,8 @@ Weight(mixed Numbers, time Number, at Number, channel Number) Number
 		sum = sum + share * mixed(index * TripleChannels + 4096 + channel)
 	sum / (weight + 0.000000001)
 Score(mixed Numbers, at Number, other Number) Number
+	Tiny.Score(HeadRotated.Ones(TripleChannels, 1), 0, 0).IsNearlyEqual(2048.SquareRoot)
+	Tiny.Score(HeadRotated.Ones(2 * TripleChannels, 2), 1, 0).IsNearlyEqual(4 * 2048.SquareRoot)
 	first = at * TripleChannels
 	second = other * TripleChannels + 2048
 	mutable sum = 0
@@ -135,6 +141,8 @@ Normalize(side Numbers, frames Number) Numbers
 		step = have >= frames then have - frames + time else time.Clamp(0, have - 1)
 		(side(step * 32 + channel) - mean(channel)) / deviation(channel)
 Interleave(left Numbers, right Numbers, frames Number) Numbers
+	Tiny.Interleave(HeadRotated.Ones(32, 1), HeadRotated.Ones(32, 2), 1).Slice(0, 4) is (1, 2, 1, 2)
+	Tiny.Interleave(HeadRotated.Ones(64, 1), HeadRotated.Ones(64, 2), 2).Slice(0, 4) is (1, 1, 2, 2)
 	for 32 * 2 * frames
 		time = index % frames
 		row = (index / frames).Floor

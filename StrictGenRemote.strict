@@ -66,12 +66,17 @@ Read(socket Number) Numbers slow
 		Process.Wait(0.01)
 	bytes
 IsFinished(bytes Numbers) Boolean
+	StrictGenRemote.IsFinished((13, 10)) is false and StrictGenRemote.IsFinished((65, 13, 10, 13, 10))
+	StrictGenRemote.IsFinished(StrictGenHttp.Encode("HTTP/1.1 200\r\nContent-Length: 2\r\n\r\na")) is false
+	StrictGenRemote.IsFinished(StrictGenHttp.Encode("HTTP/1.1 200\r\nContent-Length: 2\r\n\r\nab"))
+	StrictGenRemote.IsFinished(StrictGenHttp.Encode("HTTP/1.1 200\r\nContent-Length: 2\r\n\r\nabc"))
+	StrictGenRemote.IsFinished(StrictGenHttp.Encode("HTTP/1.1 200\r\nContent-Length: x\r\n\r\n"))
 	end = HeaderEnd(bytes)
 	if end < 0
 		return false
 	header = StrictGenHttp.Decode(bytes.Slice(0, end)).Lower
 	start = header.IndexOf("content-length: ")
-	digits = start < 0 then "0" else header.Substring(start + 16, header.Length - start - 16)
+	digits = start < 0 then "" else header.Substring(start + 16, header.Length - start - 16)
 	length = digits.Split("\r\n").First to Number
 	bytes.Length - end >= (length is Error then Bodiless else length)
 HeaderEnd(bytes Numbers) Number
@@ -83,12 +88,15 @@ HeaderEnd(bytes Numbers) Number
 				return index + 4
 	Number.NotFound
 After(bytes Numbers) Numbers
+	StrictGenRemote.After((13, 10, 13, 10, 65)) is List(Number) + 65 and StrictGenRemote.After((13, 10)).Length is 0
 	end = HeaderEnd(bytes)
 	end < 0 then List(Number) else bytes.Slice(end, bytes.Length - end)
 Mark(body Text) Text
 	StrictGenRemote.Mark("{\"a\":1}") is "{\"placed\":true,\"a\":1}"
 	body.StartsWith("{") then "{\"placed\":true," + body.Substring(1) else body
 Rewritten(body Text, path Text, saved Text) Text
-	saved is "" or saved is path then body else body.Replace(Escape(path), Escape(saved))
+	StrictGenRemote.Rewritten("a b", "a", "") is "a b" and StrictGenRemote.Rewritten("x a", "a", "a") is "x a"
+	StrictGenRemote.Rewritten("{\"p\":\"a\"}", "a", "b") is "{\"p\":\"b\"}"
+	saved is "" then body else body.Replace(Escape(path), Escape(saved))
 Escape(path Text) Text
 	path.Replace("\\", "\\\\").Replace("\"", "\\\"")

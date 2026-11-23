@@ -4,6 +4,7 @@ constant Statistics = 2 * H3Format.Channels
 constant LowestVariance = -30
 constant HighestVariance = 20
 constant Tiny = H3Picture(H3VaeEncoder.Tiny, H3Tiles.Tiny)
+constant Pair = (HeadRotated.Ones(Statistics, 3), HeadRotated.Ones(Statistics, 5))
 constant Image = H3VaeEncoder.Model.Values("reference.image")
 constant Reference = H3VaeEncoder.Model.Values("reference.latent")
 constant Latent = Tiny.Encode(Image, (48, 64))
@@ -50,6 +51,8 @@ Blend(moments List(Numbers), ys Numbers, xs Numbers, size Numbers, offset Number
 		place = (above, left, row - ys(above) / 16, column - xs(left) / 16, (index / plane).Floor + offset)
 		Value(moments, place, (xs.Length, tall, wide, Extent(ys, above, tall), Extent(xs, left, wide)))
 Value(moments List(Numbers), place Numbers, extents Numbers) Number
+	Tiny.Value(Pair, (0, 1, 0, 0, 0), (2, 1, 1, 0, 0)) is 5 and Tiny.Value(Pair, (0, 1, 0, 0, 0), (2, 1, 1, 0, 1)) is 3
+	Tiny.Value(Pair, (1, 0, 0, 0, 0), (1, 1, 1, 1, 0)) is 3 and Tiny.Value(Pair, (1, 0, 0, 0, 0), (1, 1, 1, 0, 0)) is 5
 	tile = place(0) * extents(0) + place(1)
 	own = moments(tile)((place(2) * extents(2) + place(3)) * Statistics + place(4))
 	upper = place(0) > 0 and place(2) < extents(3)
