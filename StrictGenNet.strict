@@ -28,6 +28,8 @@ constant Heard4090 = ("10.0.0.3", "strictgen", "8001", "24576", "20000", "60000"
 constant Line4090 = Text.Combine(Heard4090, Tab)
 constant Short4090 = Text.Combine(Heard4090.Slice(0, 8), Tab)
 constant Unrelated = "1\tother\t9\t1\t2\t3\t0\tG"
+constant Malformed = "10.0.0.5\tstrictgen\tx\t1\t2\t3\t0\tGPU"
+constant Line3080 = "10.0.0.4\tstrictgen\t8002\t10240\t8000\t30000\t0\tRTX 3080\t8"
 constant Seen = StrictGenNet(Idle, seenGpu = true)
 constant Roomy = StrictGenNet(Seen, total = 10240, free = 8000)
 constant Mixed = StrictGenNet(Roomy, peers = (Big, Small))
@@ -71,18 +73,18 @@ Tick(isBusy Boolean) StrictGenNet slow
 	heard = StrictGenNet(value, busy = isBusy).Heard
 	Process.Elapsed - heard.shouted >= 5 then heard.Shouted else heard
 Noted(line Text, now Number) StrictGenNet
-	Idle.Noted("a\tb", 1).peers.Length is 0 and Idle.Noted(Line4090, 1).peers.Length is 1
+	Idle.Noted("a\tb", 1).peers.Length is 0 and Idle.Noted(Unrelated, 1).peers.Length is 0
+	logger.Capture(true) is "" and Idle.Noted(Line4090, 1).Noted(Malformed, 2).Noted(Line3080, 3).peers.Length is 2
+	logger.Capture(false).IndexOf("Skipping the beacon 10.0.0.5 strictgen x 1") >= 0
 	StrictGenNet(Idle, id = 7).Noted(Line4090, 1).own is "10.0.0.3" and Idle.Noted(Short4090, 1).peers.Length is 1
-	StrictGenNet(Idle, httpPort = 8001).Noted(Short4090, 1).own is "10.0.0.3"
-	Idle.Noted(Unrelated, 1).peers.Length is 0
-	StrictGenNet(Idle, own = "10.0.0.3").Noted(Line4090, 1).peers.Length is 0
 	parts = line.Split("\t")
-	if parts.Length < 8 or parts(1) is not "strictgen"
+	port = parts.Length < 8 or parts(1) is not "strictgen" then 0 else parts(2) to Number
+	if port is Error
+		logger.Log("Skipping the beacon " + line.Replace("\t", " ") + ", its port is not a number")
 		return value
-	port = parts(2) to Number
-	if parts.Length > 8 then parts(8) to Number is id else port is httpPort
+	if port > 0 and (parts.Length > 8 then parts(8) to Number is id else port is httpPort)
 		return StrictGenNet(value, own = parts(0))
-	port is Error or parts(0) is own then value else Remembered(parts, now)
+	port is 0 or parts(0) is own then value else Remembered(parts, now)
 Remembered(parts Texts, now Number) StrictGenNet
 	Idle.Remembered(Heard4090, 1).peers.Length is 1
 	named = parts.Length > 9 then parts(9) else ""
