@@ -1,6 +1,7 @@
 has rows Safetensors
 has loras Text
 constant Lora = "tinymodels/tinylora.safetensors"
+constant ComfyPrefix = "model.diffusion_model."
 constant Fours = MossTuning(Safetensors("tinymodels/tinymossint4.safetensors", 32, "layers.0.proj."), Lora)
 constant Floats = MossTuning(Safetensors(MossBlock.Model.path, 32, "layers.0.proj."), Lora)
 constant Fused = MossTuning(Safetensors("tinymodels/tinymossqkv.safetensors", 32, "layers.0.proj."), "")
@@ -19,10 +20,10 @@ Deltas List(MossLora) native
 	(qkv, Stack("o."), Stack("ffn_up_gate."), Stack("ffn_down."))
 Stack(name Text) MossLora slow
 	Fours.Stack("q.").rank is 8
-	H3Lora(loras).Stack(rows.prefix + name)
+	H3Lora(loras).Stack(rows.prefix.Replace(ComfyPrefix, "") + name)
 Merge(name Text, deltas List(MossLora)) List(Numbers) slow
 	Fours.Merge("o", Fours.Deltas) is MossTuning(Fours.rows, "").Merge("o", List(MossLora))
-	H3Lora(deltas.Length is 0 then loras else "").Merge(rows, name, rows.prefix)
+	H3Lora(deltas.Length is 0 then loras else "").Merge(rows, name, rows.prefix.Replace(ComfyPrefix, ""))
 Qkv(deltas List(MossLora)) List(Numbers) slow
 	MossBlock.Tiny.attention.Length is 768
 	MossTuning(Floats.rows, "").Qkv(List(MossLora)) is MossBlock.Tiny.attention

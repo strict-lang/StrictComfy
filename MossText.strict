@@ -13,7 +13,7 @@ constant Input = Safetensors.Part(Model.Values("reference.text_embedder"), 0, 76
 Loaded(model Safetensors, prefix Text) MossText slow
 	Tiny.attention.weights.Length is 768
 	Tiny.down.biases.Length is 256
-	block = Safetensors(model.path, model.bits, prefix)
+	block = Safetensors(model.path, model.bits, model.prefix + prefix)
 	first = block.Values("norm1.weight")
 	second = block.Values("norm2.weight")
 	queried = block.Values("q_norm.weight")

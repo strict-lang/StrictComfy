@@ -22,7 +22,7 @@ Loaded(path Text, lora Text) Moss native
 	Moss.Loaded("tinymodels/tinymossqkv.safetensors", TinyLora).layers(0).attention(300)(5).IsNearlyEqual(-0.069, 0.003)
 	if path.EndsWith(".gguf")
 		return MossGguf(path).Loaded
-	model = Safetensors(path, BFloat16.SafetensorsBits)
+	model = H3.Weights(path, BFloat16.SafetensorsBits)
 	dense = Dense(model)
 	normed = model.Values("final_norm_video.weight")
 	Moss(dense(0), dense(1), Texts(model), dense(2), dense(3), dense(4), Layers(model, lora), normed, dense(5), dense(6))

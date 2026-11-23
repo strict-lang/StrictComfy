@@ -3,6 +3,8 @@ constant Tiny = StrictGenFiles(".")
 constant Extensions = ("safetensors", "gguf")
 constant LoraPrefix = "lora-"
 constant Media = ("jpg", "jpeg", "png", "mp4")
+constant Examples = "Content"
+constant ExampleFiles = "MossWebExample*.jpg"
 Outputs(folder Text) Texts slow
 	Tiny.Outputs("missing-outputs").Length is 0
 	Tiny.Outputs(".").First.Split("\t").Length is 3
@@ -11,6 +13,35 @@ Outputs(folder Text) Texts slow
 	for StrictGenForm.FindFiles(folder, Media)
 		path = folder + "/" + Path(value).FileName.text
 		File(path).Modified + "\t" + path + "\t" + File(path).Length
+Seed(folder Text) slow
+	Tiny.Seed("artifacts/seeded") is not Error
+	Directory.Files("artifacts/seeded", ExampleFiles).Length is 9
+	Directory.Create(folder)
+	if Directory.Files(folder).Length > 0
+		return
+	for Directory.Files(Examples, ExampleFiles)
+		name = Path(value).FileName.text
+		File(folder + "/" + name).Write(File(Examples + "/" + name).ReadBytes)
+Answer(route Text, path Text) Text slow
+	Tiny.Answer("/delete", "../x.jpg") is "refused"
+	Tiny.Answer("/inputs", "") is Text.Combine(Tiny.Outputs(StrictGen.Inputs), "\n")
+	Tiny.Answer("/outputs", "") is Text.Combine(Tiny.Outputs(StrictGen.Outputs), "\n")
+	if route is "/delete"
+		return Delete(path)
+	Text.Combine(Outputs(route is "/outputs" then StrictGen.Outputs else StrictGen.Inputs), "\n")
+Delete(path Text) Text slow
+	Tiny.Delete("../StrictGen.strict") is "refused" and Tiny.Delete("input/a.jpg") is "refused"
+	Tiny.Delete("output/missing-delete-test.jpg") is "missing"
+	Directory.Create(StrictGen.Outputs) is not Error and File("output/dt.jpg").Write("x") is not Error
+	File("output/dt.latent.safetensors").Write("x") is not Error and Tiny.Delete("output/dt.jpg") is "deleted"
+	File("output/dt.jpg").Exists is false and File("output/dt.latent.safetensors").Exists is false
+	if path.StartsWith(StrictGen.Outputs + "/") is false or path.IndexOf("..") >= 0 or path.IndexOf("\\") >= 0
+		return "refused"
+	if File(path).Exists is false
+		return "missing"
+	for Directory.Files(StrictGen.Outputs, Path(path).FileName.text.Split(".").First + ".*")
+		File(StrictGen.Outputs + "/" + Path(value).FileName.text).Delete
+	"deleted"
 FindFiles(kind Text) Texts slow
 	Tiny.FindFiles("moss").Length is 0
 	Tiny.FindFiles("lora-moss").Length is 0

@@ -219,7 +219,8 @@
 			<span id="count">0/0</span>
 			<div id="picker"><input id="pick" type="text" placeholder="No results yet" autocomplete="off" spellcheck="false"><div id="options" class="hidden"></div></div>
 			<button class="small" id="forward" type="button">&#9654;</button>
-			<button class="small" id="reuse" type="button">Send to H3 Image to Video</button>
+			<button class="small" id="reuse" type="button" title="Send to H3 Image to Video">Send to H3 I2V</button>
+			<button class="small" id="remove" type="button" title="Delete this output and the files beside it">&#128465;</button>
 		</div>
 	</section>
 	<aside class="side" id="outputSide"><div class="strip" id="outputStrip"></div></aside>
@@ -253,7 +254,7 @@
 	const stored = () => read(storeKey, {});
 	const seconds = since => ((performance.now() - since) / 1000).toFixed(1) + " s";
 	const stepsFor = (mode, quality) => mode === "h3image" ? 6 : (mode === "image" ? mossSteps : h3Steps)[quality] || 8;
-	const skipFor = (mode, quality) => mode === "h3image" ? "" : mode === "image" || quality === "best" ? "off" : "5:45";
+	const skipFor = (mode, quality) => mode === "h3image" ? "" : quality === "best" ? "off" : mode === "image" ? mossSkip[1] : "5:45";
 	const defaultsFor = mode => {
 		if (mode === "h3image") return {
 			prompt: "a red fox in a snowy birch forest at sunrise, soft golden light, detailed fur, photo", size: "2048 2048", width: 2048, height: 2048,
@@ -733,7 +734,7 @@
 		if (atEnd) log.scrollTop = log.scrollHeight;
 	};
 	const baseOf = () => { const machine = element("machine").value; return machine && machine !== "local" ? "http://" + machine : ""; };
-	const examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => ({ path: "MossWebExample" + number + ".jpg", stamp: "0", name: "example " + number }));
+	const examples = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(number => ({ path: "Content/MossWebExample" + number + ".jpg", stamp: "0", name: "example " + number }));
 	const loadOutputs = async jump => {
 		const base = baseOf();
 		let text = "";
@@ -884,7 +885,10 @@
 		element("count").textContent = (state.index + 1) + "/" + all.length;
 		if (!(state.pending && atNewest() && showPending())) media(entry.path, state.base + "/file?path=" + encodeURIComponent(entry.path) + "&v=" + entry.stamp);
 		if (document.activeElement !== element("pick")) element("pick").value = entry.name;
-		element("reuse").textContent = entry.path.toLowerCase().endsWith(".mp4") ? "Send to H3 Video Extend" : "Send to H3 Image to Video";
+		const isClip = entry.path.toLowerCase().endsWith(".mp4");
+		element("reuse").textContent = isClip ? "Send to H3 Video Extend" : "Send to H3 I2V";
+		element("reuse").title = isClip ? "Send to H3 Video Extend" : "Send to H3 Image to Video";
+		element("remove").disabled = entry.stamp === "0";
 		drawOutputStrip();
 		showInfo();
 	};
@@ -941,6 +945,12 @@
 		save();
 	};
 	element("reuse").onclick = () => reuse((state.outputs[state.index] || {}).path);
+	element("remove").onclick = async () => {
+		const entry = state.outputs[state.index];
+		if (!entry || entry.stamp === "0") return;
+		try { await timed_fetch(state.base + "/delete?path=" + encodeURIComponent(entry.path), {}, 10); } catch { }
+		await loadOutputs();
+	};
 	element("back").onclick = () => step(-1);
 	element("forward").onclick = () => step(1);
 	window.onkeydown = event => {

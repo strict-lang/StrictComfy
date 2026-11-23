@@ -39,7 +39,7 @@ Serve(port Number) slow
 		return socket
 	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket) + StrictGenHost.Utf8Console)
 	logger.Log("Page " + Located)
-	Directory.Create(Inputs)
+	StrictGenFiles("").Seed(Inputs)
 	Directory.Create(Outputs)
 	peers = StrictGenNet.Opened(Socket.Port(socket)).Measured.Shouted
 	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
@@ -101,7 +101,7 @@ Type(route Text) Text
 	StrictGen.Type("/") is "text/html"
 	StrictGen.Type("/inputs") is "text/plain"
 	isJson = route is in ("/run", "/stop", "/import", "/status", "/warm", "/quit")
-	plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs", "/estimate")
+	plain = route is in ("/neighbor", "/probe", "/job", "/list", "/outputs", "/inputs", "/estimate", "/delete")
 	isJson then "application/json" else (plain then "text/plain" else "text/html")
 Answer(route Text, raw Text, queue StrictGenQueue, net StrictGenNet) Text slow
 	if route is "/import"
@@ -124,8 +124,8 @@ Warm(body Text, queue StrictGenQueue) Text slow
 Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 	if route is "/job"
 		return queue.Report(StrictGenHttp.Query(raw, "id") to Number)
-	if route is "/outputs" or route is "/inputs"
-		return Text.Combine(StrictGenFiles("").Outputs(route is "/outputs" then Outputs else Inputs), "\n")
+	if route is in ("/outputs", "/inputs", "/delete")
+		return StrictGenFiles("").Answer(route, StrictGenHttp.Query(raw, "path"))
 	if route is "/list"
 		files = StrictGenFiles(StrictGenHttp.Query(raw, "models"))
 		return Text.Combine(files.FindFiles(StrictGenHttp.Query(raw, "kind")), "\n")

@@ -117,6 +117,17 @@
 	const seed = element("seed"), size = element("size"), quality = element("quality"), decoder = element("decoder"), prompt = element("prompt");
 	const parameters = new URLSearchParams(location.search), began = { time: 0, isRunning: false };
 	let warm = false;
+	// once per visit: a step (after the first, which uploads Moss) over 4 ms per image token is far slower than any GPU
+	// with room for Moss (a 4090 takes about 0.35 ms), mostly another program holding the GPU memory
+	let isSlowTold = false;
+	const slowStep = (number, milliseconds) => {
+		const [width, height] = (began.size || "480 848").split(" ").map(Number);
+		if (isSlowTold || number < 2 || milliseconds < 4 * (width / 16) * (height / 16)) return;
+		isSlowTold = true;
+		log.textContent += "Warning: step " + number + " took " + (milliseconds / 1000).toFixed(1) + " s, much slower than expected. " +
+			"Is another program using the GPU (ComfyUI, a game, other AI tools)? Moss needs at least 4 GB of free GPU memory, " +
+			"8 GB or more is better, with less it gets very slow. Close other GPU programs or pick a smaller size.\n";
+	};
 	const pageTitle = "Moss in the browser";
 	let jobs = [], jobAt = 0, encodes = 0;
 	const isMobile = /Android|iPhone|iPad|Mobi/.test(navigator.userAgent);
@@ -276,6 +287,7 @@
 		}
 		if (step) {
 			began.step = Number(step[1]);
+			slowStep(Number(step[1]), Number(step[3]));
 			if (began.isPreviewed) element("caption").textContent = previewed(step[1] + "/" + step[2] + " in " + (step[3] / 1000).toFixed(1) + "s");
 			bar.style.width = (10 + 80 * step[1] / step[2]) + "%";
 			show("Sampling step " + step[1] + " of " + step[2]);
@@ -345,7 +357,7 @@
 		element("delete").disabled = gallery.index < exampleImages;
 		if (gallery.index < exampleImages) {
 			marked();
-			return pictured("MossWebExample" + (gallery.index + 1) + ".jpg", position + ", example");
+			return pictured("Content/MossWebExample" + (gallery.index + 1) + ".jpg", position + ", example");
 		}
 		const directory = await folder(), name = gallery.names[gallery.index - exampleImages];
 		const image = await (await directory.getFileHandle(name + ".jpg")).getFile();
@@ -385,7 +397,7 @@
 	const exampleThumbs = () => {
 		const boxes = [];
 		for (let index = 0; index < exampleImages; index++)
-			boxes.push(thumb("example:" + (index + 1), "MossWebExample" + (index + 1) + ".jpg", "Example " + (index + 1), index));
+			boxes.push(thumb("example:" + (index + 1), "Content/MossWebExample" + (index + 1) + ".jpg", "Example " + (index + 1), index));
 		return boxes;
 	};
 	let stripTicket = 0;
