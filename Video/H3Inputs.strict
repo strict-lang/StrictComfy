@@ -1,0 +1,113 @@
+has options H3Options
+constant Sample = H3Inputs(H3Options.Parsed(List(Text)))
+constant Folder = H3Inputs(H3Options.Parsed(("--image", ".", "--count", "2")))
+constant Both = H3Inputs(H3Options.Parsed(("--image", ".", "--last_image", "a.png")))
+constant Pairs = (("a", "1"), ("b", "2"), ("c", "3"), ("d", "4"))
+constant TooMany = " this GPU handles (3750 per GB of VRAM): above that it gets very slow and the start of the video and its sound break. "
+constant Slowdown = "Use a shorter --length or a smaller size. Past half of that budget a slight slowdown is expected, and past three quarters it might run much slower"
+constant Long = H3Inputs(H3Options.Parsed(("--length", "396", "--width", "704", "--height", "1280")))
+constant Twelve = H3Inputs(H3Options.Parsed(("--length", "288", "--width", "704", "--height", "1280")))
+Problem Text slow
+	Sample.Problem is ""
+	H3Inputs(H3Options.Parsed(("--image", "web"))).Problem is "--image web has no png or jpg files"
+	H3Inputs(H3Options.Parsed(("--prompt", "web"))).Problem is "--prompt web has no txt files"
+	H3Inputs(H3Options.Parsed(("--width", "500"))).options.Fitted.width is 480
+	if Images.Length is 0
+		return "--image " + options.files.image + " has no png or jpg files"
+	if Prompts.Length is 0
+		return "--prompt " + options.prompt + " has no txt files"
+	problem = options.Problem
+	problem is "" then Limits else problem
+Limits Text slow
+	Sample.Limits is ""
+	oversized = Oversize(H3Estimate.Local)
+	oversized is "" then options.files.Mixed else oversized
+Tokens Number
+	Long.Tokens is 102960
+	Twelve.Tokens is 72160
+	shapes = options.Shapes
+	guides = options.files.video is "" then 0 else StrictGenExtend.None.LatentCount(options.files.context)
+	(shapes(0) + guides) * shapes(1) * shapes(2) / 4
+Oversize(budget Number) Text
+	Long.Oversize(90000).StartsWith("704x1280 with 396 frames is 102960 video tokens, more than the 90000")
+	Twelve.Oversize(90000) is ""
+	Twelve.Oversize(45000).EndsWith("much slower")
+	tokens = Tokens
+	if tokens <= budget
+		return ""
+	size = options.Fitted.width + "x" + options.Fitted.height + " with " + options.Clip + " frames is " + tokens
+	size + " video tokens, more than the " + budget + TooMany + Slowdown
+Images Texts slow
+	Sample.Images is List(Text) + ""
+	Folder.Images.Last.EndsWith("tinyframe.png")
+	FindFiles(options.files.image, ("png", "jpg", "jpeg")).Sorted
+Prompts Texts slow
+	Sample.Prompts is List(Text) + "prompt.txt"
+	FindFiles(options.prompt, List(Text) + "txt").Sorted
+FindFiles(path Text, extensions Texts) Texts slow
+	Sample.FindFiles("Video/H3Inputs.strict", List(Text) + "txt") is List(Text) + "Video/H3Inputs.strict"
+	Sample.FindFiles(".", List(Text) + "png").Length is 1
+	if IsFolder(path) is false
+		return List(Text) + path
+	for Directory.Files(path)
+		if value.Lower.Split(".").Last is in extensions
+			value
+Count Number slow
+	Sample.Count is 1
+	Folder.Count is 2
+	options.count > 0 then options.count else Paired.Length
+Paired List(Texts) slow
+	Sample.Paired is List(Texts) + ("", "prompt.txt")
+	Folder.Paired.Last.First.EndsWith("tinyframe.png")
+	images = Images
+	prompts = Prompts
+	for IsFolder(options.files.image) then images.Length else prompts.Length
+		Match(images(index % images.Length), prompts, index)
+Match(image Text, prompts Texts, position Number) Texts
+	Sample.Match("a/frame12.png", ("b/frame1.txt", "b/frame12.txt"), 0) is ("a/frame12.png", "b/frame12.txt")
+	Sample.Match("a/x.png", ("b/frame1.txt", "b/frame12.txt"), 3) is ("a/x.png", "b/frame12.txt")
+	stem = Path(image).FileName.RemoveExtension
+	for prompts
+		if Path(value).FileName.RemoveExtension is stem
+			return (image, value)
+	(image, prompts(position % prompts.Length))
+Chosen(pairs List(Texts), seeds Numbers) List(Texts)
+	Sample.Chosen(Pairs, (7, 8, 9, 10, 11)).Last is ("a", "1")
+	Folder.Chosen(Pairs, (1, 5)) is (("c", "3"), ("b", "2"))
+	order = options.count > 0 then pairs.Shuffled(PseudoRandom(seeds.First)) else pairs
+	for seeds
+		order(index % order.Length)
+Column(pairs List(Texts), position Number) Texts
+	Sample.Column(Pairs, 1) is ("1", "2", "3", "4")
+	for pairs
+		value(position)
+Pick(texts Texts, indices Numbers) Texts
+	Sample.Pick(("a", "b", "c"), (2, 0)) is ("c", "a")
+	for indices
+		texts(value)
+Firsts(images Texts) Texts
+	Sample.Firsts(("", "a.png", "a.png", "b.png")) is ("a.png", "b.png")
+	for images.Unique
+		if value is not ""
+			value
+Keyframes(pictured List(Numbers), image Text, images Texts) List(Numbers)
+	Sample.Keyframes(List(Numbers), "", List(Text) + "").Length is 0
+	Both.Keyframes(((1, 1), (2, 2), (3, 3)), "b.png", ("a.png", "b.png")) is ((2, 2), (3, 3))
+	first = image is "" then List(Numbers) else List(Numbers) + pictured(Firsts(images).Index(image))
+	options.files.lastImage is "" then first else first + pictured.Last
+Indices Numbers
+	Sample.Indices.Length is 0
+	H3Inputs(H3Options.Parsed(("--image", "a.png", "--last_image", "b.png", "--length", "22"))).Indices is (0, 21)
+	last = (options.Shapes(0) - 2) / 5 * H3Format.FrameGroup + 4
+	first = options.files.image is "" then List(Number) else List(Number) + 0
+	options.files.lastImage is "" then first else first + last
+Output(image Text) Text slow
+	Sample.Output("") is "H3Video.mp4"
+	Folder.Output("./frame12.png") is "H3Video-frame12-.mp4"
+	named = Path(options.output).RemoveExtension.text + "-" + Path(image).FileName.RemoveExtension.text + "-.mp4"
+	IsFolder(options.files.image) then named else options.output
+IsFolder(path Text) Boolean slow
+	Sample.IsFolder(".")
+	Sample.IsFolder("") is false
+	Sample.IsFolder("Video/H3Inputs.strict") is false
+	path is not "" and Directory.Exists(path)

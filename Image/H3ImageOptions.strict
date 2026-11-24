@@ -1,0 +1,93 @@
+has prompt = "prompt.txt"
+has image = ""
+has width = 0
+has height = 0
+has steps = 6
+has Seed = -1
+has count = 1
+has lora Texts = List(Text)
+has model = ""
+has vae = ""
+has textEncoder = ""
+has models = ""
+has output = "H3Image.jpg"
+constant Base = "minimax_h3_image_pruned_int8_convrot.safetensors"
+constant Vae = "minimax_h3_image_vae_fp16.safetensors"
+constant Area = 2048
+constant PromptHelp = ("UTF-8 prompt file or the prompt itself, {a|b|c} picks one of them per image; with --image an edit instruction that can name it <Picture 1>", "image (png or jpg) to edit, empty makes a new image")
+constant SizeHelp = ("width in pixels, rounded to a multiple of 32, 0 for 2048 or the --image width scaled to a short side of 1024 to 2048", "height in pixels, 0 like --width")
+constant StepsHelp = ("sampling steps, 6 match the model's distilled heads (ComfyUI's template), fewer are faster and rougher", "seed of every image, -1 for a random one per image", "images per run")
+constant LoraHelp = List(Text) + "LoRA path[:strength] in models/loras or anywhere, repeat for more"
+constant DecoderHelp = "decoder: the H3 Image VAE, p-h3-image_vae_int8_convrot.safetensors (cleaner faces, slower) or taeh3.safetensors (tiny draft), "
+constant DecoderNamesHelp = "a name in models/vae or models/vae_approx or a path, empty for " + Vae
+constant ModelHelp = ("H3 Image model file, a name in models/diffusion_models or a path, empty for " + Base, DecoderHelp + DecoderNamesHelp)
+constant EncoderHelp = ("Qwen3-VL text encoder file, a name in models/text_encoders or a path, empty for " + H3Batch.Encoder, "ComfyUI models folder for files given by name, empty for D: or C:/ComfyUI_windows_portable/ComfyUI/models")
+constant OutputHelp = List(Text) + "numbered output base (.jpg or .png), never overwritten"
+constant Help = PromptHelp + SizeHelp + StepsHelp + LoraHelp + ModelHelp + EncoderHelp + OutputHelp
+constant Stacked = ("--lora", "tinymodels/tinyqkvlora.safetensors", "--lora", "tinymodels/tinylora.safetensors")
+constant Local = H3ImageOptions.Parsed(("--models", "."))
+constant TinyCheckpoint = "tinymodels/tinyh3image.safetensors"
+constant TinyVae = "tinymodels/tinyh3imagevae.safetensors"
+constant TinyTae = "tinymodels/tinytaeh3.safetensors"
+Checkpoint Text slow
+	Local.Checkpoint is Error("FileNotFound:" + Base)
+	H3ImageOptions.Parsed(("--model", TinyCheckpoint)).Checkpoint is TinyCheckpoint
+	ModelFiles(models).Locate(model is "" then Base else model, "diffusion_models")
+Decoder Text slow
+	Local.Decoder is Error("FileNotFound:" + Vae)
+	ModelFiles(models).Decoder(vae, Vae)
+VaeEncoder Text slow
+	H3ImageOptions.Parsed(("--vae", TinyVae)).VaeEncoder is TinyVae
+	H3ImageOptions.Parsed(("--models", ".", "--vae", TinyTae)).VaeEncoder is Error("FileNotFound:" + Vae)
+	ModelFiles(models).VaeEncoder(vae, Vae)
+Encoder Text slow
+	Local.Encoder is Error("FileNotFound:" + H3Batch.Encoder)
+	Files.Encoder
+Loras Text slow
+	H3ImageOptions.Parsed(("--lora", "tinymodels/tinylora.safetensors:0.5")).Loras is "tinymodels/tinylora.safetensors=0.5"
+	H3ImageOptions.Parsed(Stacked).Loras is "tinymodels/tinyqkvlora.safetensors=1;tinymodels/tinylora.safetensors=1"
+	Local.Loras is ""
+	Text.Combine(ModelFiles(models).Specs(lora), ";")
+Files H3Files
+	H3ImageOptions.Parsed(("--image", "a.png")).Files.Images is ("a.png")
+	H3ImageOptions.Parsed(("--image", "a.png")).Files.IsCropped(0) is false
+	H3ImageOptions.Parsed(("--image", "a.png")).Files.vision is "off"
+	H3Files(textEncoder = textEncoder, models = models, image = image, crop = false, vision = "off")
+Prompted Text slow
+	H3ImageOptions.Parsed(("--prompt", "a red fox")).Prompted is "a red fox"
+	H3ImageOptions.Parsed(("--prompt", "Image/H3ImageOptions.strict")).Prompted.StartsWith("has prompt")
+	File(prompt).Exists then PromptBatch.Sample.Template(prompt) else prompt
+Original Numbers slow
+	H3ImageOptions.Parsed(("--image", "tinyframe.png")).Original is (2, 4)
+	Local.Original.Length is 0
+	image is "" then List(Number) else (ImageCodec.Height(image), ImageCodec.Width(image))
+Size(original Numbers) Numbers
+	Local.Size(List(Number)) is (2048, 2048)
+	H3ImageOptions.Parsed(("--width", "1000")).Size(List(Number)) is (2048, 992)
+	H3ImageOptions.Parsed(("--width", "512", "--height", "768")).Size((100, 100)) is (768, 512)
+	Local.Size((600, 900)) is (1024, 1536)
+	fallback = original.Length is 0 then (Area, Area) else Scale(original, 1024, 2 * 1024)
+	high = height > 0 then ComfySize.Plain.Snap(height, 32) else fallback(0)
+	(high, (width > 0 then ComfySize.Plain.Snap(width, 32) else fallback(1)))
+Vision(original Numbers) Numbers
+	Local.Vision((600, 900)) is (1024, 1536)
+	Local.Vision((3000, 2000)) is (1536, 1024)
+	Scale(original, 1024, 1024)
+Scale(original Numbers, low Number, high Number) Numbers
+	Local.Scale((3000, 5000), 1024, 2048) is (2048, 3424)
+	Local.Scale((1200, 1300), 1024, 2048) is (1216, 1312)
+	shortest = (original(0), original(1)).Minimum
+	scale = shortest.Clamp(low, high) / shortest
+	for original
+		((value * scale / 32).Round * 32, 32).Maximum
+Problem Text slow
+	Local.Problem is ""
+	Local.output is "H3Image.jpg"
+	H3ImageOptions.Parsed(("--steps", "0")).Problem is "--steps and --count must be at least 1"
+	H3ImageOptions.Parsed(("--output", "a.gif")).Problem is "--output must end with .jpg or .png"
+	H3ImageOptions.Parsed(("--image", "missing.png")).Problem is "--image missing.png was not found"
+	if steps < 1 or count < 1
+		return "--steps and --count must be at least 1"
+	if (output.Lower.EndsWith(".jpg") or output.Lower.EndsWith(".png")) is false
+		return "--output must end with .jpg or .png"
+	image is "" or File(image).Exists then "" else "--image " + image + " was not found"

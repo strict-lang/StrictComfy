@@ -1,0 +1,116 @@
+has options H3ImageOptions = Defaults
+has measured Numbers = List(Number)
+constant Defaults = H3ImageOptions.Parsed(List(Text))
+constant Folder = "/artifacts/h3image"
+constant Label = "Picture #: "
+constant Reference = 42
+constant Tiny = H3ImageJob(H3ImageOptions.Parsed(("--models", ".", "--width", "64", "--height", "64", "--steps", "2")))
+constant Edit = H3ImageJob(H3ImageOptions.Parsed(("--image", "tinyframe.png")))
+Missing Text slow
+	Tiny.Missing.EndsWith("FileNotFound:" + H3ImageOptions.Base)
+	checkpoint = options.Checkpoint
+	decoder = options.Decoder
+	encoder = options.Encoder
+	if checkpoint is Error
+		return (checkpoint to Text).Lines.First.Replace("Error: ", "")
+	if decoder is Error
+		return (decoder to Text).Lines.First.Replace("Error: ", "")
+	encoder is Error then (encoder to Text).Lines.First.Replace("Error: ", "") else ""
+Encode(arguments Texts) Number slow
+	paths = arguments(1).Split(";")
+	jobs = H3Encoding(List(Text)).Jobs(paths)
+	encoder = Encoder(List(Text) + options.Checkpoint, List(QwenVision))
+	encoder.Encode(H3Inputs.Sample.Column(jobs, 1), H3Inputs.Sample.Column(jobs, 0), paths) > 0 then 0 else 1
+Encoder(prefetched Texts, visions List(QwenVision)) H3Encoder slow
+	Tiny.Encoder(List(Text), List(QwenVision)).label is Label
+	Edit.Encoder(List(Text), List(QwenVision)).frame is (1024, 2048)
+	H3Encoder(options.Files, options.image is "" then (32, 32) else options.Vision(Original), visions, prefetched, Label)
+Cache(prompts Texts) Texts slow
+	Tiny.Cache(("a", "b")).First is not Tiny.Cache(("a", "b")).Last
+	Tiny.Cache(List(Text) + "a").First is not Edit.Cache(List(Text) + "a").First
+	Tiny.Cache(List(Text) + "a").First is Tiny.Context(H3Batch.Encoder + "\n\na", 1)
+	named = options.textEncoder is "" then H3Batch.Encoder else options.textEncoder
+	pictured = options.image is "" then "" else options.image + " " + File(options.image).Length
+	for prompts
+		Context(named + "\n" + pictured + "\n" + value, value.Length)
+Context(identity Text, length Number) Text
+	Tiny.Context("a", 1).EndsWith(Folder + "/context-" + HashCode("a").number + "-1.safetensors")
+	H3Artifacts.Sample.Root + Folder + "/context-" + HashCode(identity).number + "-" + length + ".safetensors"
+Contexts(prompts Texts, paths Texts, arguments Texts) List(Safetensors) slow
+	artifacts = H3Artifacts.Sample
+	missing = artifacts.Missing(paths)
+	if missing.Length is 0
+		logger.Log("Using cached prompt conditioning")
+		return artifacts.Read(paths)
+	Directory.Create(artifacts.Root + "/artifacts")
+	Directory.Create(artifacts.Root + Folder)
+	inputs = H3Inputs.Sample
+	images = inputs.Pick(List(Text) + options.image, Layer.Zeros(missing.Length))
+	code = H3Encoding(arguments).Start(inputs.Pick(prompts, missing), images, inputs.Pick(paths, missing))
+	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
+Pictured Numbers slow
+	Tiny.Pictured.Length is 0
+	Edit.Pictured is (64, 128)
+	if options.image is ""
+		return List(Number)
+	for options.Scale(Original, 1024, 2 * 1024)
+		value / 16
+Original Numbers slow
+	H3ImageJob(Edit.options, (4, 8)).Original is (4, 8)
+	Edit.Original is (2, 4)
+	measured.Length is 2 then measured else options.Original
+UseReference(picture H3Picture) List(Numbers) slow
+	Tiny.UseReference(H3Picture.Tiny).Length is 0
+	size = Pictured
+	if size.Length is 0
+		return List(Numbers)
+	logger.Log("Encoding " + options.image + " at " + size(1) * 16 + "x" + size(0) * 16 + " with the H3 Image VAE")
+	noise = MersenneTwister.Seeded(Reference).Normals(H3Format.Channels * size(0) * size(1))
+	pixels = (size(0) * 16, size(1) * 16)
+	List(Numbers) + picture.Encode(picture.Frame(options.image, pixels, false), pixels, noise)
+Sample(loaded H3ImageResident, contexts List(Safetensors), paths Texts, seeds Numbers) List(Numbers) slow
+	for seeds
+		context = contexts(paths.Unique.Index(paths(index)))
+		before = Process.Elapsed
+		text = loaded.refiners.First.Refine(context.Values("context"))
+		latent = Generate(loaded.models.First, text, context.Values("tags"), value, loaded.references)
+		logger.Log("Image " + (index + 1) + "/" + seeds.Length + " sampled in " + (Process.Elapsed - before).Round(2) + " s")
+		GpuMemory.Finish
+		latent
+Target Numbers slow
+	Tiny.Target is (64, 64) and Edit.Target is (1024, 2048)
+	options.Size(Original)
+Generate(model H3ImageModel, text Numbers, tags Numbers, seed Number, references List(Numbers)) Numbers native
+	Tiny.Generate(H3ImageModel.Tiny, H3ImageModel.Prompt, (1, 1, 1), 3, List(Numbers)).Length is 384
+	size = Target
+	layout = H3ImageLayout(tags, Pictured, Size(size(1) / 16, size(0) / 16))
+	conditions = model.Condition(references, layout, seed)
+	sigmas = model.Sigmas(options.steps)
+	completion = Completion("Sampling", options.steps, Process.Elapsed)
+	mutable solver = Solver(0, sigmas, MersenneTwister.Seeded(seed).Normals(H3Format.Channels * layout.Patches * 4))
+	for options.steps
+		completion.Report(index)
+		output = model.Output(solver.latent, sigmas(index), sigmas(index + 1), text, layout, conditions)
+		solver = solver.Stepped(output, index)
+	solver.latent
+Save(vae H3ImageVae, latents List(Numbers), outputs Texts) Texts slow
+	GpuMemory.Trim
+	GpuMemory.Freed(File(options.Decoder).Length + H3Files.DecodeRoom)
+	size = Target
+	for latents
+		started = Process.Elapsed
+		path = PromptBatch("Image").Saving(outputs(index), options.output)
+		Write(path, vae.Pixels(value, size(0) / 16, size(1) / 16), size)
+		logger.Log("Saved " + path + " in " + (Process.Elapsed - started).Round(2) + " s")
+		path
+Write(path Text, pixels Numbers, size Numbers)
+	Tiny.Write("artifacts/H3ImageTest.png", (0, 1, 0.5, 0.25, 0, 1), (1, 2)) is not Error
+	interleaved = Interleave(pixels, size(0) * size(1))
+	if path.Lower.EndsWith(".png")
+		ImageCodec.SavePng(path, MossBatch.Sample.Rgba(interleaved), size(1))
+	else
+		ImageCodec.SaveJpeg(path, interleaved, size(1), MossBatch.JpegQuality)
+Interleave(pixels Numbers, plane Number) Numbers
+	Tiny.Interleave((1, 2, 3, 4, 5, 6), 2) is (1, 3, 5, 2, 4, 6)
+	for pixels.Length
+		pixels(index % 3 * plane + (index / 3).Floor)

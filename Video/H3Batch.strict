@@ -1,0 +1,165 @@
+has options H3Options
+has pictured List(Numbers) = List(Numbers)
+has prompt = ""
+has commandLine Texts = List(Text)
+has motion StrictGenExtend = StrictGenExtend.None
+constant Sample = H3Batch(H3Options.Parsed(("--models", ".", "--length", "5", "--width", "32", "--height", "32")))
+constant Workflowed = H3Batch(H3Options.Parsed(("--models", ".", "--workflow", "tinyh3strictworkflow.json")))
+constant Encoder = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+constant Keyframed = H3Batch(H3Options.Parsed(("--models", ".", "--last_image", "tinyframe.png")))
+constant Loraed = H3Batch(H3Options.Parsed(("--models", ".", "--lora", "tinymodels/tinylora.safetensors:0.5", "--lora", "tinymodels/tinyqkvlora.safetensors", "--steps", "20")))
+constant Turbo = H3Batch(H3Options.Parsed(("--models", ".", "--model", "a_Turbo_8step.safetensors")))
+constant Vae = "FileNotFound:minimax_h3_video_vae_int8_convrot.safetensors"
+constant Longer = ("--models", ".", "--length", "22")
+IsCompleted Boolean slow
+	ready = H3Batch(Noted, pictured, prompt, commandLine)
+	problem = H3Inputs(ready.options).Problem
+	if problem is not ""
+		logger.Log(problem)
+		return false
+	started = Process.Elapsed
+	plan = ready.Planned
+	plan.batch.Videos(plan, ready.Conditions(plan.prompts, plan.images, plan.paths))
+	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + plan.seeds.Length + " videos")
+	true
+Noted H3Options
+	H3Batch(H3Options.Parsed(("--width", "720"))).Noted.width is 704
+	fitted = options.Fitted
+	if fitted.width is options.width and fitted.height is options.height
+		return fitted
+	logger.Log("H3 size " + options.width + "x" + options.height + " changed to " + fitted.width + "x" + fitted.height)
+	fitted
+Planned H3Plan slow
+	inputs = H3Inputs(options)
+	batch = PromptBatch("Video")
+	seeds = batch.Seeds(options.seed, inputs.Count)
+	chosen = inputs.Chosen(inputs.Paired, seeds)
+	images = inputs.Column(chosen, 0)
+	prompts = batch.Prompts(batch.Templates(inputs.Column(chosen, 1), prompt), seeds)
+	logger.Log(H3Estimate(options).Estimate(H3Estimate.Local))
+	framed = H3Batch(options, Picture(images), prompt, commandLine)
+	H3Plan(framed, seeds, images, prompts, H3Artifacts(options).Cache(prompts, images))
+Conditions(prompts Texts, images Texts, paths Texts) List(Safetensors) slow
+	artifacts = H3Artifacts(options)
+	missing = artifacts.Missing(paths)
+	inputs = H3Inputs(options)
+	if missing.Length is 0
+		logger.Log("Using cached prompt conditioning")
+		return artifacts.Read(paths)
+	code = Encode(inputs.Pick(prompts, missing), inputs.Pick(images, missing), inputs.Pick(paths, missing))
+	code is 0 then artifacts.Read(paths) else Error("TextEncoderFailed")
+Encode(prompts Texts, images Texts, paths Texts) Number slow
+	encoding = H3Encoding(commandLine)
+	Directory.Create(H3Artifacts(options).Root + "/artifacts")
+	Directory.Create(H3Artifacts(options).Folder)
+	encoding.Start(prompts, images, paths)
+Videos(plan H3Plan, conditions List(Safetensors)) None slow
+	batch = Armed
+	if batch.motion.problem is not ""
+		return Error(batch.motion.problem)
+	h3 = H3Sampling.Load(options.Checkpoint, options.Loras)
+	refiner = H3Refiner.Loaded(options.Checkpoint, options.Loras)
+	latents = H3Artifacts(options).Latents(plan.seeds.Length, "")
+	batch.Prefetch((options.files.Decoder, options.files.Sound), "the VAEs")
+	batch.RunSampling(h3, refiner, plan, conditions, latents, true)
+	options.files.Freed
+	Decode(latents, plan.images)
+LoraPaths Texts slow
+	Loraed.LoraPaths is ("tinymodels/tinylora.safetensors", "tinymodels/tinyqkvlora.safetensors")
+	Turbo.LoraPaths.Length is 0
+	loras = options.Loras
+	if loras is ""
+		return List(Text)
+	for loras.Split(";")
+		value.Split("=").First
+Prefetch(paths Texts, what Text)
+	Sample.Prefetch(List(Text) + "tinymodels/tinyqkvlora.safetensors", "LoRA") is not Error
+	logger.Log(ModelFiles("").Prefetching(paths, what))
+RunSampling(h3 H3, refiner H3Refiner, plan H3Plan, conditions List(Safetensors), latents Texts, uploading Boolean) slow
+	texts = refiner.Texts(conditions)
+	previewer = H3Previewer.Loaded(options.preview, options.files.models)
+	for plan.seeds
+		before = Process.Elapsed
+		logger.Log(Sampling(index, plan.seeds.Length, uploading and index is 0))
+		at = plan.paths.Unique.Index(plan.paths(index))
+		keyframes = H3Inputs(options).Keyframes(pictured, plan.images(index), plan.images)
+		Safetensors(latents(index)).Write("latent", Generate(h3, conditions(at), texts(at), value, keyframes, previewer))
+		logger.Log("Video " + (index + 1) + " sampled in " + ((Process.Elapsed - before) * 1000).Round + " ms")
+		GpuMemory.Finish
+Sampling(index Number, count Number, uploading Boolean) Text
+	Sample.Sampling(0, 2, true) is "Sampling video 1/2 with 8 steps, the first one uploads H3 into GPU VRAM"
+	Sample.Sampling(1, 2, false) is "Sampling video 2/2 with 8 steps"
+	sampling = "Sampling video " + (index + 1) + "/" + count + " with " + options.Evaluated + " steps"
+	uploading then sampling + ", the first one uploads H3 into GPU VRAM" else sampling
+Generate(h3 H3, condition Safetensors, text Numbers, seed Number, keyframes List(Numbers), previewer H3Previewer) Numbers slow
+	shapes = options.Shapes
+	count = H3Format.Channels * shapes(0) * shapes(1) * shapes(2)
+	noise = MersenneTwister.Seeded(seed).Normals(count + 64 * shapes(3))
+	audio = noise.Slice(count, noise.Length - count)
+	shape = (H3Format.Channels, shapes(0), shapes(1), shapes(2))
+	job = H3Job(Safetensors(""), noise.Slice(0, count), audio, shape, options.IsNoisy then seed else -1)
+	rows = job.Key(keyframes + motion.Latents, (H3Format.Channels, 1, shapes(1), shapes(2)), seed)
+	indices = H3Inputs(options).Indices + motion.Starts
+	guided = StrictGenExtend(motion, frames = 0, sound = 0)
+	keyed = H3Job(job, rows = rows, keyframes = indices, motion = guided, previewer = previewer)
+	H3Sampling.Generate(h3, condition, keyed, text, options.Numbers, "")
+Decode(latents Texts, images Texts) slow
+	DecodedWith(H3Sampling.Decoding(List(H3Decoding), (options.files.Decoder, options.files.Sound)).First, latents, images)
+DecodedWith(decoding H3Decoding, latents Texts, images Texts) slow
+	if options.files.Upscale
+		RtxVideo(options).Warm
+	for latents
+		logger.Log("Decoding video " + (index + 1) + "/" + latents.Length)
+		output = H3Inputs(options).Output(images(index))
+		Save(decoding, Safetensors(value, 32).Values("latent"), output, index is latents.Length - 1)
+Save(decoding H3Decoding, latent Numbers, output Text, isLast Boolean) slow
+	before = Process.Elapsed
+	shapes = options.Shapes
+	decoded = decoding.Tiled(options.Tiling).Decode(latent, shapes.Slice(0, 3))
+	logger.Log("Video decoded in " + (Process.Elapsed - before).Round(1) + " s")
+	path = PromptBatch("Video").Reserve(output)
+	StrictGenExtend.Keep(path, latent, shapes, options.Clip, H3Artifacts(options).Folder)
+	if Join(decoded, (shapes(1) * 16, shapes(2) * 16), path) is Error
+		if File(path).Length is 0
+			File(path).Delete
+		return Error("VideoNotWritten")
+	if options.files.Upscale
+		RtxVideo(options).Upscale(path, isLast)
+Join(decoded List(Numbers), size Numbers, path Text) slow
+	video = options.files.video
+	if video is ""
+		return H3Frames.Save(decoded(0), decoded(1), size, path)
+	StrictGenClip.Append(video, decoded(0), decoded(1), size, options.files.context, path)
+Armed H3Batch slow
+	files = options.files
+	if files.video is ""
+		return value
+	extend = StrictGenExtend
+	size = (options.height, options.width)
+	head = extend.Head(files.video, files.context, size, (files.VaeEncoder, files.Sound), H3Artifacts(options).Folder)
+	H3Batch(value, motion = head)
+Picture(images Texts) List(Numbers) slow
+	Sample.Picture(List(Text) + "").Length is 0
+	Keyframed.Picture(List(Text) + "") is Error(Vae) and Keyframed.Picture(List(Text) + "tinyframe.png") is Error(Vae)
+	firsts = H3Inputs(options).Firsts(images)
+	count = firsts.Length + (options.files.lastImage is "" then 0 else 1)
+	if count is 0
+		return List(Numbers)
+	size = (options.height, options.width)
+	logger.Log("Encoding " + count + " keyframe images")
+	picture = H3Picture(H3VaeEncoder.Loaded(Safetensors(options.files.VaeEncoder, 32)), H3Tiles.Real)
+	for firsts + options.files.lastImage
+		if value is not ""
+			picture.Encode(picture.Frame(value, size, options.files.IsCropped(index < firsts.Length then 0 else 1)), size)
+Expanded(arguments Texts) H3Batch slow
+	Sample.Expanded(List(Text)).prompt is ""
+	Workflowed.Expanded(Longer).options.length is 22 and Workflowed.Expanded(Longer).prompt is "a fox"
+	Workflowed.Expanded(("--models", ".", "--prompt", "b.txt")).prompt is ""
+	if options.files.workflow is ""
+		return H3Batch(Noted, List(Numbers), "", arguments)
+	workflow = H3Workflow(ComfyGraph.Read(options.files.Workflow, H3Workflow.Known), options.files.ComfyUI)
+	settings = workflow.Arguments
+	logger.Log("Workflow settings: " + Text.Combine(settings, " "))
+	logger.Log("Skipped nodes (not needed or unsupported): " + Text.Combine(workflow.graph.Skipped, ", "))
+	prompted = "--prompt" is in arguments then "" else workflow.Prompt
+	H3Batch(H3Batch(H3Options.Parsed(settings + arguments)).Noted, pictured, prompted, arguments)

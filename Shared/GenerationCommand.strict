@@ -1,0 +1,21 @@
+constant Jobs = "tinymodels/generationjobs.safetensors"
+constant Counts = (List(Number) + 3, List(Number) + 2, List(Number) + 0, List(Number) + 2.5)
+constant Reference = Safetensors("tinymodels/tinymoss.safetensors", 32, "reference.")
+Count(data Safetensors) Number
+	GenerationCommand.Count(Reference) is 1
+	Safetensors(Jobs).Write(("a.jobs", "b.runs", "c.jobs", "d.jobs"), Counts) is not Error
+	GenerationCommand.Count(Safetensors(Jobs, 32, "a.")) is 3
+	GenerationCommand.Count(Safetensors(Jobs, 32, "b.")) is 2
+	GenerationCommand.Count(Safetensors(Jobs, 32, "c.")) is Error("Invalid generation count")
+	GenerationCommand.Count(Safetensors(Jobs, 32, "d.")) is Error("Invalid generation count")
+	key = data.Entry("jobs") is "" then "runs" else "jobs"
+	count = data.Entry(key) is "" then 1 else data.Values(key).First
+	count < 1 or count.Floor is not count then Error("Invalid generation count") else count
+Job(data Safetensors, dumps Text, index Number) Safetensors
+	GenerationCommand.Job(Reference, "", 0).path is "tinymodels/tinymoss.safetensors"
+	GenerationCommand.Job(Safetensors(Jobs, 32, "a."), "dumps", 2).path is "dumps/generation-2.safetensors"
+	data.Entry("jobs") is "" then data else Safetensors(dumps + "/generation-" + index + ".safetensors", 32)
+Option(arguments Texts, index Number, default Text) Text
+	GenerationCommand.Option(("a", "b"), 1, "c") is "b"
+	GenerationCommand.Option(("a", "b"), 2, "c") is "c"
+	arguments.Length > index then arguments(index) else default

@@ -1,0 +1,118 @@
+constant ReceivePolls = 500
+constant EmptyPolls = 50
+constant HeadBytes = 8192
+constant Inputs = "input"
+constant Outputs = "output"
+constant Request = "GET /estimate?mode=video&width=848&quality=fast HTTP/1.1"
+constant Escapes = ("%20", " ", "%2F", "/", "%5C", "\\", "%3A", ":", "%2C", ",", "%26", "&", "%23", "#", "%5B", "[", "%5D", "]", "%2B", "+", "%3D", "=", "%40", "@", "%3B", ";", "%27", "'", "%25", "%")
+constant OkHeader = "HTTP/1.1 200 OK\r\nContent-Type: "
+constant Open = "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
+Route(raw Text) Text
+	StrictGenHttp.Route("GET /status HTTP/1.1\r\n\r\n") is "/status"
+	StrictGenHttp.Route("GET /file?path=a.jpg HTTP/1.1\r\n\r\n") is "/file"
+	StrictGenHttp.Route("GET") is "/"
+	parts = raw.Split("\r\n").First.Split(" ")
+	target = parts.Length > 1 then parts(1) else "/"
+	question = target.IndexOf("?")
+	question < 0 then target else target.Substring(0, question)
+Query(raw Text, name Text) Text
+	StrictGenHttp.Query("GET /file?path=a.jpg HTTP/1.1\r\n\r\n", "path") is "a.jpg"
+	StrictGenHttp.Query("GET /file?path=a+b.jpg HTTP/1.1\r\n\r\n", "path") is "a b.jpg"
+	target = raw.Split("\r\n").First.Split(" ")
+	full = target.Length > 1 then target(1) else ""
+	question = full.IndexOf("?")
+	for (question < 0 then "" else full.Substring(question + 1, full.Length - question - 1)).Split("&")
+		if value.StartsWith(name + "=")
+			return Unescape(value.Substring(name.Length + 1, value.Length - name.Length - 1))
+	""
+Unescape(text Text) Text
+	StrictGenHttp.Unescape("a+b%2Cc%26d%25") is "a b,c&d%"
+	StrictGenHttp.Unescape("x%2Fy%5Bz%5D") is "x/y[z]"
+	mutable result = text.Replace("+", " ")
+	for Range(0, Escapes.Length / 2)
+		result = result.Replace(Escapes(index * 2), Escapes(index * 2 + 1))
+	result
+Body(raw Text) Text
+	StrictGenHttp.Body("POST /run HTTP/1.1\r\n\r\n{\"a\":1}") is "{\"a\":1}"
+	StrictGenHttp.Body("GET / HTTP/1.1\r\n\r\n") is ""
+	separator = raw.IndexOf("\r\n\r\n")
+	separator < 0 then "" else raw.Substring(separator + 4, raw.Length - separator - 4)
+Receive(client Number) Numbers slow
+	if client is Error or client <= 0
+		return List(Number)
+	mutable bytes = List(Mutable(Number))
+	mutable idle = 0
+	for as long as idle < (bytes.Length is 0 then EmptyPolls else ReceivePolls) and IsComplete(bytes) is false
+		pending = Available(client)
+		bytes = pending > 0 then bytes + Read(client, pending) else bytes
+		idle = pending > 0 then 0 else (pending < 0 then ReceivePolls else idle + 1)
+		Process.Wait(pending is 0 then 0.01 else 0)
+	bytes
+Available(client Number) Number slow
+	StrictGenHttp.Available(0) is -1
+	pending = Socket.Pending(client)
+	pending is Error then Number.NotFound else pending
+Read(client Number, count Number) Numbers slow
+	StrictGenHttp.Read(0, 1).Length is 0
+	read = Socket.Receive(client, count)
+	read is Error then List(Number) else read
+Head(bytes Numbers) Text
+	StrictGenHttp.Head(StrictGenHttp.Encode("GET / HTTP/1.1\r\n\r\nab")) is "GET / HTTP/1.1\r\n\r\n"
+	StrictGenHttp.Head(StrictGenHttp.Encode("GET / HT")) is ""
+	start = Decode(bytes.Slice(0, bytes.Length.Clamp(0, HeadBytes)))
+	separator = start.IndexOf("\r\n\r\n")
+	separator < 0 then "" else start.Substring(0, separator + 4)
+IsComplete(bytes Numbers) Boolean
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("GET / HTTP/1.1\r\n\r\n"))
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab"))
+	StrictGenHttp.IsComplete(StrictGenHttp.Encode("POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nab")) is false
+	head = Head(bytes)
+	if head is ""
+		return false
+	start = head.Lower.IndexOf("content-length: ")
+	length = start < 0 then 0 else head.Substring(start + 16, head.Length - start - 16).Split("\r\n").First to Number
+	bytes.Length - head.Length >= length
+Payload(bytes Numbers) Numbers
+	StrictGenHttp.Payload(StrictGenHttp.Encode("POST / HTTP/1.1\r\n\r\nab")) is (97, 98)
+	head = Head(bytes)
+	bytes.Slice(head.Length, bytes.Length - head.Length)
+Reply(client Number, kind Text, body Text) slow
+	payload = Encode(body)
+	Send(client, Encode(OkHeader + kind + "\r\nContent-Length: " + payload.Length + Open) + payload)
+SendFile(client Number, path Text) slow
+	if path is "" or File(path).Exists is false
+		Reply(client, "text/plain", "missing")
+		return
+	payload = File(path).ReadBytes
+	changing = path.IndexOf("StrictGenStep") >= 0 or path.StartsWith(StrictGenHttp.Inputs)
+	cache = changing then "no-store" else "public, max-age=86400"
+	length = "\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\nCache-Control: " + cache + "\r\n\r\n"
+	Send(client, Socket.Send(client, Encode(OkHeader + Kind(path) + length)) is Error then List(Byte) else payload)
+Send(client Number, bytes Numbers) slow
+	StrictGenHttp.Send(0, List(Number) + 1) is not Error
+	if Socket.Send(client, bytes) is Error
+		Socket.Close(client)
+		return
+	Socket.Close(client)
+Kind(path Text) Text
+	StrictGenHttp.Kind("a.jpg") is "image/jpeg"
+	StrictGenHttp.Kind("a.mp4") is "video/mp4"
+	StrictGenHttp.Kind("a.png") is "image/png"
+	StrictGenHttp.Kind("a.jpeg") is "image/jpeg" and StrictGenHttp.Kind("a.bin") is "application/octet-stream"
+	extension = path.Lower.Split(".").Last
+	image = extension is "jpg" or extension is "jpeg" then "image/jpeg" else "application/octet-stream"
+	extension is "png" then "image/png" else (extension is "mp4" then "video/mp4" else image)
+Encode(text Text) Numbers
+	StrictGenHttp.Encode("Ab") is (65, 98)
+	StrictGenHttp.Encode(Text.Utf8((195, 188))) is (195, 188)
+	text.Bytes
+Decode(bytes Numbers) Text
+	StrictGenHttp.Decode((65, 98)) is "Ab"
+	StrictGenHttp.Decode((195, 188)) is Text.Utf8((195, 188))
+	StrictGenHttp.Decode((195, 188)).Length is 1
+	Text.Utf8(bytes)
+Optional(raw Text, name Text) Texts
+	StrictGenHttp.Optional(Request, "quality") is ("--quality", "fast")
+	StrictGenHttp.Optional(Request, "steps").Length is 0
+	given = Query(raw, name)
+	given is "" then List(Text) else ("--" + name, given)

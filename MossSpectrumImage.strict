@@ -1,5 +1,4 @@
 constant Tiny = MossSpectrum(4, 1, 1)
-constant Image = MossSpectrumImage
 Sample(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context Numbers) Numbers native
 	MossSpectrumImage.Sample(Moss.Tiny, Tiny, MossImage.Reference, Euler(1, 5), Moss.Context).Length is 256
 	text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
@@ -16,7 +15,7 @@ Sample(moss Moss, spectrum MossSpectrum, data Safetensors, euler Euler, context 
 Run(dumps Text, model Text, lora Text, vae Text, mode Text, steps Number, warmup Number, period Number, degree Number)
 	data = Safetensors(dumps + "/steps.safetensors", 64)
 	latent = Generate(dumps, model, lora, mode, steps, warmup, period, degree)
-	logger.Log("latent error " + MossImage.RelativeError(latent, data.Values("latent")))
+	logger.Log("latent error " + Tensors.RelativeError(latent, data.Values("latent")))
 	sized = MossImage(data.Shape("noise").Last)
 	path = dumps + "/moss-spectrum-" + mode + ".png"
 	if MossFiles.IsFailedNumber(sized.Save(latent, data, FluxDecoder.Loaded(vae, 32), path))
@@ -25,27 +24,9 @@ Generate(dumps Text, model Text, lora Text, mode Text, steps Number, warmup Numb
 	data = Safetensors(dumps + "/steps.safetensors", 64)
 	context = Safetensors(dumps + "/conditioning.safetensors", 64).Values("context")
 	width = data.Shape("noise").Last
-	spectrum = Configure(width, mode, steps, warmup, period, degree)
+	spectrum = MossSpectrum.Configured(width, mode, steps, warmup, period, degree)
 	before = Process.Elapsed
 	moss = Moss.Loaded(model, lora)
 	compared = MossImage(width).Compare(moss, Safetensors(dumps + "/step0.safetensors", 64))
 	logger.Log("loaded in " + (Process.Elapsed - before).Round(1) + " s, compared " + compared)
 	Sample(moss, spectrum, data, Euler(steps, 5), context)
-Configure(width Number, mode Text, steps Number, warmup Number, period Number, degree Number) MossSpectrum
-	Image.Configure(4, "on", 8, 3, 2, 2).history.maximum is 4 and Image.Configure(4, "off", 1, 0, 2, 2).steps is 1
-	Image.Configure(4, "shadow", 8, 3, 2, 2).mode is "shadow" and Image.Configure(4, "on", 8, -1, 2, 2) is Error
-	Image.Configure(4, "on", 8, 3, 2, 5) is Error and Image.Configure(4, "x", 8, 3, 2, 2) is Error
-	Image.Configure(4, "on", 8, 3, 1, 2) is Error and Image.Configure(4, "on", 0, 3, 2, 2) is Error
-	fit = SpectralFit(degree, 0.1, 0.5)
-	if fit.IsValid is false or mode is not in ("off", "shadow", "on")
-		return Error("Invalid Spectrum configuration")
-	if (IsCount(period, 2) and IsCount(steps, 1)) is false
-		return Error("Invalid Spectrum schedule")
-	if IsCount(warmup, 0) is false
-		return Error("Invalid Spectrum warmup")
-	MossSpectrum(width, steps, warmup, period, mode, SpectralHistory(fit = fit, maximum = degree + 2))
-IsCount(number Number, minimum Number) Boolean
-	Image.IsCount(2, 2) and Image.IsCount(0, 0)
-	Image.IsCount(1, 2) is false
-	Image.IsCount(2.5, 2) is false
-	number >= minimum and number.Floor is number

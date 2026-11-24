@@ -135,6 +135,6 @@ strict build H3Image windows
 strict build StrictGen windows
 ```
 
-and the same with `linux` for the Linux programs.
+and the same with `linux` for the Linux programs. The programs are in this folder, the types they use in the packages `Shared`, `Moss`, `H3`, `Video` and `Image` ([Packages.md](Packages.md)).
 
 Tests: `python test_generate.py` with ComfyUI's Python, `strict test MossImage.strict`, `strict check .`

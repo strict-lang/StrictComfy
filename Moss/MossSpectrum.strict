@@ -1,0 +1,90 @@
+has width Number
+has steps Number = 8
+has warmup Number = 8
+has period Number = 2
+has mode Text = "off"
+has history SpectralHistory = SpectralHistory
+has output Numbers = List(Number)
+has forecasts Number = 0
+has cacheBytes Number = 536870912
+has span MossSpan = MossSpan.Off
+constant Tiny = MossSpectrum(4, 8, 5)
+constant Words = Moss.Tiny.TextEmbedded(Moss.Context, 3)
+constant Primed = MossSpectrum(Tiny, mode = "on", history = SpectralHistory.Pair)
+IsActual(step Number) Boolean
+	Primed.IsActual(4)
+	Primed.IsActual(5) is false
+	Primed.IsActual(6)
+	Primed.IsActual(7)
+	MossSpectrum(Primed, steps = 12, period = 3).IsActual(6) is false
+	MossSpectrum(Primed, steps = 12, period = 3).IsActual(7)
+	MossSpectrum(Tiny, mode = "on").IsActual(5)
+	step < warmup or step >= steps - 1 or history.IsReady is false or (step - warmup) % period is period - 1
+IsSpanning(step Number) Boolean
+	Tiny.IsSpanning(1) is false
+	Tiny.IsSpanning(2)
+	Tiny.IsSpanning(7) is false
+	step > 1 and step < steps - 1
+Coord(step Number) Number
+	Tiny.Coord(0) is -1
+	Tiny.Coord(7) is 1
+	MossSpectrum(Tiny, steps = 1).Coord(0) is 0
+	steps <= 1 then 0 else 2 * step / (steps - 1) - 1
+Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum native
+	Tiny.Advanced(Moss.Tiny, Moss.Model.Values("reference.x"), 0.75, Words, MossBlock.Rotation, 0).output.Length is 256
+	vector = moss.TimeEmbedded(sigma)
+	if mode is "off"
+		evaluated = span.Evaluated(moss, latent, text, rotation, vector, IsSpanning(step))
+		return MossSpectrum(value, output = moss.Head(evaluated.output, vector), span = evaluated)
+	if mode is not in ("on", "shadow")
+		return Error("Unknown Spectrum mode")
+	if mode is "on" and IsActual(step) is false
+		return Forecast(moss, vector, step)
+	Measured(moss, latent, text, rotation, vector, step)
+Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, step Number) MossSpectrum
+	evaluated = span.Evaluated(moss, latent, text, rotation, vector, IsSpanning(step))
+	image = evaluated.output
+	coord = Coord(step)
+	Shadow(image, coord)
+	bytes = image.Length * 2 * history.maximum
+	head = moss.Head(image, vector)
+	if NeedsHistory(step) is false or bytes > cacheBytes
+		updated = bytes > cacheBytes then "off" else mode
+		return MossSpectrum(value, output = head, mode = updated, history = SpectralHistory, span = evaluated)
+	MossSpectrum(value, output = head, history = history.Remembered(coord, image), span = evaluated)
+Shadow(image Numbers, coord Number) None
+	logger.Capture(true) is ""
+	Tiny.Shadow((1, 2), 0) is not Error and Primed.Shadow((5, 6), 1) is not Error
+	MossSpectrum(Tiny, mode = "shadow").Shadow((1, 2), 0) is not Error
+	logger.Capture(false).IndexOf("Spectrum shadow") is -1 and logger.Capture(true) is ""
+	MossSpectrum(Primed, mode = "shadow").Shadow((5, 6), 1) is not Error
+	logger.Capture(false).IndexOf("Spectrum shadow 1 feature error") >= 0
+	if mode is "shadow" and history.IsReady
+		error = Tensors.RelativeError(history.Predict(coord), image)
+		logger.Log("Spectrum shadow " + coord.Round(4) + " feature error " + error)
+Forecast(moss Moss, vector Numbers, step Number) MossSpectrum
+	MossSpectrum(value, output = moss.Head(history.Predict(Coord(step)), vector), forecasts = forecasts + 1)
+NeedsHistory(step Number) Boolean slow
+	Primed.NeedsHistory(5)
+	Primed.NeedsHistory(6) is false
+	MossSpectrum(Primed, mode = "shadow").NeedsHistory(6)
+	MossSpectrum(Primed, mode = "shadow").NeedsHistory(7) is false
+	step < (mode is "shadow" then steps - 1 else steps - 2)
+Configured(columns Number, kind Text, count Number, start Number, every Number, degree Number) MossSpectrum
+	Tiny.Configured(4, "on", 8, 3, 2, 2).history.maximum is 4 and Tiny.Configured(4, "off", 1, 0, 2, 2).steps is 1
+	Tiny.Configured(4, "shadow", 8, 3, 2, 2).mode is "shadow" and Tiny.Configured(4, "on", 8, -1, 2, 2) is Error
+	Tiny.Configured(4, "on", 8, 3, 2, 5) is Error and Tiny.Configured(4, "x", 8, 3, 2, 2) is Error
+	Tiny.Configured(4, "on", 8, 3, 1, 2) is Error and Tiny.Configured(4, "on", 0, 3, 2, 2) is Error
+	fit = SpectralFit(degree, 0.1, 0.5)
+	if fit.IsValid is false or kind is not in ("off", "shadow", "on")
+		return Error("Invalid Spectrum configuration")
+	if (IsCount(every, 2) and IsCount(count, 1)) is false
+		return Error("Invalid Spectrum schedule")
+	if IsCount(start, 0) is false
+		return Error("Invalid Spectrum warmup")
+	MossSpectrum(columns, count, start, every, kind, SpectralHistory(fit = fit, maximum = degree + 2))
+IsCount(number Number, minimum Number) Boolean
+	Tiny.IsCount(2, 2) and Tiny.IsCount(0, 0)
+	Tiny.IsCount(1, 2) is false
+	Tiny.IsCount(2.5, 2) is false
+	number >= minimum and number.Floor is number

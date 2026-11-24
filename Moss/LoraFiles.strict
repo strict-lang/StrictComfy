@@ -1,0 +1,158 @@
+has loras Text
+constant Flow = LoraFiles("tinymodels/tinyhyperflow.safetensors")
+constant Half = LoraFiles("tinymodels/tinyh3lora.safetensors=0.5")
+constant Quarters = LoraFiles("tinymodels/tinyh3lora.safetensors=0.25;tinymodels/tinyh3lora.safetensors=0.25")
+constant Reference = Safetensors("tinymodels/tinyh3lora.safetensors", 32, "reference.")
+constant Normed = Reference.Values("blocks.0.attn.input")
+constant Linears = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
+constant Floats = ("video_patch_proj", "audio_patch_proj", "condition_proj", "final_layer.video_out", "final_layer.audio_out")
+constant Model = Safetensors("tinymodels/tinyh3.safetensors")
+constant TinyMoss = "tinymodels/tinymoss.safetensors"
+Tuning(prefix Text) List(MossLora) native
+	LoraFiles("").Tuning("blocks.0.").Length is 0
+	Half.Tuning("blocks.1.")(3).rank is 5
+	LoraFiles(Reference.path).Tuning("blocks.1.")(3).up.Length is 256 * 5
+	Tensors.RelativeError(Quarters.Tuning("blocks.0.")(0).Delta(Normed), Reference.Values("qkv")) < 0.005
+	if loras is ""
+		return List(MossLora)
+	for Linears
+		Stack(prefix + value + ".")
+Stack(name Text) MossLora slow
+	Half.Stack("blocks.0.mlp.fc1.").rank is 2
+	Half.Stack("blocks.1.mlp.fc2.").up(1) * 2 is LoraFiles(Reference.path).Stack("blocks.1.mlp.fc2.").up(1)
+	Half.Stack("blocks.0.adaln_proj.linear.").rank is 0
+	LoraFiles("tinymodels/tinyqkvlora.safetensors").Stack("layers.0.proj.k.").up is MossLora.Tiny.up * 2
+	LoraFiles("").Stack("blocks.0.mlp.fc1.").rank is 0
+	if loras is ""
+		return MossLora.None
+	mutable stacked = MossLora.None
+	for loras.Split(";")
+		stacked = stacked.Stacked(Find(value.Split("=").First, name, Strength(value)))
+	stacked
+Strength(entry Text) Number
+	Half.Strength("a.safetensors=0.25") is 0.25
+	Half.Strength("a.safetensors") is 1
+	parts = entry.Split("=")
+	parts.Length is 1 then 1 else parts.Last to Number
+Find(path Text, name Text, strength Number) MossLora slow
+	Half.Find(Flow.loras, "f.o.", 1).rank is 0 and Half.Find(Flow.loras, "f.k.", 1).up is (128)
+	Half.Find(Flow.loras, "o.", 1).up is (64, 128) and Half.Find(Flow.loras, "a.mlp.fc1.", 1).up is (128, 64)
+	Half.Find(Reference.path, "blocks.0.mlp.fc1.", 1).up(0) is -5.78125
+	header = TensorFile.Header(path)
+	prefix = Prefix(header, name)
+	if prefix is not ""
+		return Swap(MossLora.Loaded(path, prefix, strength), name.EndsWith("mlp.fc1.") and IsFlipped(header))
+	if name.EndsWith(".qkv.")
+		return Fuse(path, name, strength)
+	part = (".q.", ".k.", ".v.").Index(name.Substring(name.Length - 3, 3))
+	fused = part < 0 then "" else Prefix(header, name.Substring(0, name.Length - 2) + "qkv.")
+	fused is "" then MossLora.None else MossLora.Loaded(path, fused, strength).Third(part)
+Fuse(path Text, name Text, strength Number) MossLora slow
+	Half.Fuse("tinymodels/tinylora.safetensors", "layers.0.proj.qkv.", 1).rank is 24
+	Half.Fuse("tinymodels/tinylora.safetensors", "layers.0.proj.qkv.", 1).up.Length is 768 * 24
+	base = name.Substring(0, name.Length - 4)
+	query = Find(path, base + "q.", strength).Placed(0)
+	query.Stacked(Find(path, base + "k.", strength).Placed(1)).Stacked(Find(path, base + "v.", strength).Placed(2))
+IsFlipped(header Text) Boolean
+	Half.IsFlipped("\"hyperflow\":\"true\"")
+	Half.IsFlipped("\"hyperflow\":\"true\",\"hyperflow_fc1_layout\":\"gate_value\"") is false
+	Half.IsFlipped("") is false
+	header.IndexOf("\"hyperflow\":\"true\"") >= 0 and header.IndexOf("\"hyperflow_fc1_layout\":\"gate_value\"") < 0
+Swap(lora MossLora, flipped Boolean) MossLora
+	Half.Swap(MossLora(MossLora.Tiny, up = (1, 2, 3, 4)), true).up is (3, 4, 1, 2)
+	Half.Swap(MossLora.Tiny, false) is MossLora.Tiny
+	if flipped is false
+		return lora
+	half = lora.up.Length / 2
+	MossLora(lora, up = lora.up.Slice(half, half) + lora.up.Slice(0, half))
+Merge(rows Safetensors, name Text, prefix Text) List(Numbers) native
+	LoraFiles("").Merge(Safetensors(TinyMoss, 32, "layers.0.proj."), "o", "") is MossBlock.Tiny.output
+	Tensors.RelativeError(MossLora.Output, MossLora.Reference.Values("output")) < 0.02
+	Tensors.RelativeError(MossLora.FoursOutput, MossBlock.Layered) < 0.1
+	lora = Stack(prefix + name + ".")
+	if lora.rank is 0
+		return rows.Quantize(name)
+	rows.Tune(name, Convrot(lora.down).Rotated, lora.up, MossLora.Repeat(1 / MossLora.Gain, lora.rank))
+Dense(weights Safetensors, name Text) Batch slow
+	LoraFiles("").Dense(Model, "video_patch_proj") is MossText.Dense(Model, "video_patch_proj")
+	Half.Dense(Model, "video_patch_proj").biases is not MossText.Dense(Model, "video_patch_proj").biases
+	batch = MossText.Dense(weights, name)
+	loras is "" then batch else Batch(Weight(weights, batch.weights, name), Change(name, "diff_b", batch.biases))
+Optional(weights Safetensors, name Text) Batch slow
+	LoraFiles("").Optional(Model, "audio").weights.Length is 0
+	LoraFiles("").Optional(Model, "video_patch_proj") is Dense(Model, "video_patch_proj")
+	weights.Entry(name + ".weight") is "" then Batch(List(Numbers), Layer.Unbiased) else Dense(weights, name)
+Values(weights Safetensors, name Text) Numbers slow
+	Half.Values(Model, "blocks.1.norm1") is Model.Values("blocks.1.norm1.weight")
+	Half.Values(Model, "blocks.0.norm1") is not Model.Values("blocks.0.norm1.weight")
+	Change(name, "diff", weights.Values(name + ".weight"))
+Weight(weights Safetensors, rows List(Numbers), name Text) List(Numbers) slow
+	Flow.Weight(Reference, ((1, 2), (3, 4)), "o")(1)(0) is 5 and Flow.Weight(Reference, ((1), (3)), "p")(1)(0) is 3
+	Flow.Weight(Safetensors(Flow.loras), ((0, 0), (0, 0)), "adaln_proj.linear") is ((11, 22), (33, 44))
+	width = rows.First.Length
+	lora = Stack(name + ".")
+	fits = lora.rank > 0 and lora.down.Length is lora.rank * width and lora.up.Length is lora.rank * rows.Length
+	delta = Change(name, "diff", fits then lora.Dense else List(Number))
+	if delta.Length is 0
+		return rows
+	if name.EndsWith("adaln_proj.linear")
+		return TensorFile.Reshape(MossText.Add(weights.Values(name + ".weight"), delta), width)
+	for rows
+		MossText.Add(value, delta.Slice(index * width, width))
+Change(module Text, suffix Text, base = List(Number)) Numbers slow
+	Half.Change("missing", "diff").Length is 0
+	Half.Change("video_patch_proj", "diff_b")(0) is 0.07177734375
+	Quarters.Change("video_patch_proj", "diff_b") is Half.Change("video_patch_proj", "diff_b")
+	LoraFiles("").Change("video_patch_proj", "diff_b", (1, 2)) is (1, 2)
+	mutable sum = base
+	for loras.Split(";")
+		path = value.Split("=").First
+		prefix = loras is "" then "" else Prefix(TensorFile.Header(path), module + ".", suffix + "\"")
+		if prefix is not ""
+			current = Safetensors(path, 32, prefix).Values(suffix) * Strength(value)
+			sum = sum.Length is 0 then current else MossText.Add(sum, current)
+	sum
+Prefix(header Text, name Text, suffix = "lora_") Text
+	Half.Prefix("\"diffusion_model.b.fc1.lora_A.weight\"", "b.fc1.") is "diffusion_model.b.fc1."
+	Half.Prefix("\"lora_unet_b_fc1.lora_down.weight\"", "b.fc1.") is "lora_unet_b_fc1."
+	Half.Prefix("\"b.fc1.alpha\"", "b.fc1.") is ""
+	Half.Prefix("\"b.norm1.diff_b\"", "b.norm1.", "diff\"") is ""
+	Half.Prefix("\"b.fc1.lora_A\"", "b.fc1.") is "b.fc1." and Half.Prefix("\"x.b.fc1.lora_A\"", "b.fc1.") is ""
+	for ("diffusion_model." + name, name, "lora_unet_" + name.Substring(0, name.Length - 1).Replace(".", "_") + ".")
+		if header.IndexOf("\"" + value + suffix) >= 0
+			return value
+	""
+Report Text
+	LoraFiles("").Report is ""
+	Half.Report is ", tinymodels/tinyh3lora.safetensors applies 53 of its 61 tensors"
+	if loras is ""
+		return ""
+	mutable report = ""
+	for loras.Split(";")
+		path = value.Split("=").First
+		header = TensorFile.Header(path)
+		applied = ", " + path + " applies " + Apply(header)
+		report = report + applied + " of its " + (header.Split("\"dtype\"").Length - 1) + " tensors"
+	report
+Apply(header Text) Number
+	Half.Apply("\"b.mlp.fc1.lora_A.weight\":{},\"b.mlp.fc1.alpha\":{},\"b.norm1.diff\"") is 3
+	Half.Apply("\"lora_unet_b_mlp_fc1.lora_down.weight\":{},\"lora_unet_b_mlp_fc1.alpha\":{}") is 2
+	Half.Apply("\"audio_out.lora_A.weight\",\"b.norm.diff\",\"final_layer.norm.diff\",\"condition_proj.diff_b\"") is 2
+	Half.Apply("\"video_patch_proj.lora_A.weight\":{},\"video_patch_proj.alpha\":{}") is 2
+	Half.Apply("\"final_layer.adaln_proj.linear.lora_A.weight\":{},\"b.adaln_proj.linear.lora_B.weight\"") is 2
+	mutable count = 0
+	for Linears + "adaln_proj.linear"
+		count = count + Count(header, "." + value + ".") + Count(header, "_" + value.Replace(".", "_") + ".")
+	for Floats
+		count = count + Count(header, value + ".") + header.Split(value + ".diff").Length - 1
+	count + Norms(header)
+Norms(header Text) Number
+	Half.Norms("\"b.norm1.diff\",\"b.norm2.diff\",\"final_layer.norm.diff\",\"x.adaln_proj.linear.diff_b\"") is 4
+	Half.Norms("\"b.norm.diff\"") is 0
+	mutable count = 0
+	for (".norm1.diff\"", ".norm2.diff\"", "final_layer.norm.diff\"", "adaln_proj.linear.diff_b\"")
+		count = count + header.Split(value).Length - 1
+	count
+Count(header Text, module Text) Number
+	Half.Count("\"a.b.lora_A\",\"a.b.alpha\",\"a.c.alpha\"", ".b.") is 2
+	header.Split(module + "lora_").Length + header.Split(module + "alpha").Length - 2

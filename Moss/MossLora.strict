@@ -1,0 +1,85 @@
+has down Numbers
+has up Numbers
+has rank Number
+has columns Number
+constant Gain = 64
+constant Tiny = MossLora.Loaded("tinymodels/tinylora.safetensors", "diffusion_model.layers.0.proj.q.")
+constant Reference = Safetensors("tinymodels/tinylora.safetensors", 32, "reference.")
+constant Query = Reference.Values("q")
+constant Latent = Reference.Values("x")
+constant Lowered = Moss.Loaded("tinymodels/tinymoss.safetensors", "tinymodels/tinylora.safetensors")
+constant Words = MossLora.Lowered.TextEmbedded(Moss.Context, 3)
+constant Output = MossLora.Lowered.Output(Latent, 0.75, Words, MossBlock.Rotation)
+constant None = MossLora(List(Number), List(Number), 0, 0)
+constant Fours = MossBlock.Loaded(Safetensors("tinymodels/tinymossint4.safetensors"), "layers.0.", "")
+constant FoursOutput = Fours.Output(MossBlock.Input, MossBlock.Modulation, MossBlock.Rotation)
+constant TinyLora = "tinymodels/tinylora.safetensors"
+Loaded(path Text, prefix Text, strength = 1) MossLora slow
+	Tiny.rank is 8 and Tiny.columns is 256 and Tiny.up.Length is 2048
+	MossLora.Loaded("tinymodels/tinyhyperflow.safetensors", "a.mlp.fc1.").up is (64, 128)
+	MossLora.Loaded("tinymodels/tinyhyperflow.safetensors", "a.mlp.fc1.").down is (1, 2)
+	MossLora.Loaded(TinyLora, "diffusion_model.layers.0.proj.q.", 0.5).up(0).IsNearlyEqual(-1.11, 0.01)
+	file = Safetensors(path, 32, prefix)
+	peft = file.Entry("lora_A.weight") is not ""
+	shape = file.Shape(peft then "lora_A.weight" else "lora_down.weight")
+	ratio = file.Entry("alpha") is "" then 1 else file.Values("alpha").First / shape(0)
+	downs = Pack(file.Values(peft then "lora_A.weight" else "lora_down.weight"), 1)
+	ups = Pack(file.Values(peft then "lora_B.weight" else "lora_up.weight"), Gain * strength * ratio)
+	MossLora(downs, ups, shape(0), shape(1))
+Pack(values Numbers, scale Number) Float32s
+	MossLora.Pack((0.5, -1.25), 2) is (1, -2.5)
+	MossLora.Pack((0.5, -1.25), 1) is (0.5, -1.25)
+	for values
+		value * scale
+DownProjected(input Numbers, total Number) Numbers
+	Products(input, down, (1, input.Length / columns, columns, total), (0, 0, columns, 1, 0, 0, 1, columns)).Multiplied
+Expand(hidden Numbers, offset Number, stride Number) Numbers
+	tokens = hidden.Length / stride
+	Products(hidden, up, (1, tokens, rank, up.Length / rank), (offset, 0, stride, 1, 0, 0, 1, rank)).Multiplied
+Project(input Numbers) Numbers
+	Expand(DownProjected(input, rank), 0, rank)
+Delta(input Numbers) Numbers slow
+	Tiny.Delta(MossBlock.Input).Length is 4864
+	Tensors.RelativeError(Tiny.Delta(MossBlock.Input), Query) < 0.005
+	for Project(input)
+		value / Gain
+Dense Numbers slow
+	MossLora((1, 2), (64, 128), 1, 2).Dense is (1, 2, 2, 4)
+	MossLora((1, 2, 3, 4), (64, 128), 2, 2).Dense is (7, 10)
+	for Products(up, down, (1, up.Length / rank, rank, columns), (0, 0, rank, 1, 0, 0, columns, 1)).Multiplied
+		value / Gain
+Apply(loras List(MossLora), linear Number, base Numbers, input Numbers) Numbers slow
+	MossLora.Apply(List(MossLora), 0, (1, 2), (3, 4)) is (1, 2)
+	Tensors.RelativeError(MossLora.Apply(List(MossLora) + Tiny, 0, Query, MossBlock.Input), Query * 2) < 0.005
+	MossLora.Apply(List(MossLora) + MossLora(Tiny, rank = 0), 0, (1, 2), (3, 4)) is (1, 2)
+	loras.Length is 0 or loras(linear).rank is 0 then base else ScaledAdd(base, loras(linear).Project(input))
+ScaledAdd(base Numbers, delta Numbers) BFloat16s
+	MossLora.ScaledAdd((1, 2), (64, -128)) is (2, 0)
+	for base.Length
+		base(index) + delta(index) / Gain
+Stacked(other MossLora) MossLora native
+	MossLora(Tiny, rank = 0).Stacked(Tiny).up is Tiny.up
+	Tiny.Stacked(Tiny).rank is 16
+	Tensors.RelativeError(Tiny.Stacked(Tiny).Delta(MossBlock.Input), Tiny.Delta(MossBlock.Input) * 2) < 0.0001
+	rank is 0 then other else MossLora(down + other.down, Widen(other), rank + other.rank, columns)
+Widen(other MossLora) BFloat16s slow
+	MossLora(Tiny, up = (1, 2, 3, 4), rank = 2).Widen(MossLora(Tiny, up = (5, 6), rank = 1)) is (1, 2, 5, 3, 4, 6)
+	Interleave(up, other.up, rank, other.rank)
+Interleave(first Numbers, second Numbers, firstRank Number, secondRank Number) BFloat16s
+	MossLora.Interleave((1, 2, 3, 4), (5, 6), 2, 1) is (1, 2, 5, 3, 4, 6)
+	MossLora.Interleave((1, 2), (5, 6, 7, 8), 1, 2) is (1, 5, 6, 2, 7, 8)
+	for first.Length + second.Length
+		row = (index / (firstRank + secondRank)).Floor
+		column = index % (firstRank + secondRank)
+		column < firstRank then first(row * firstRank + column) else second(row * secondRank + column - firstRank)
+Third(part Number) MossLora
+	MossLora(List(Number), (1, 2, 3, 4, 5, 6), 2, 1).Third(1).up is (3, 4)
+	MossLora(down, up.Slice(part * up.Length / 3, up.Length / 3), rank, columns)
+Placed(part Number) MossLora
+	MossLora(List(Number), (1, 2), 1, 1).Placed(1).up is (0, 0, 1, 2, 0, 0)
+	None.Placed(2).rank is 0
+	MossLora(down, Layer.Zeros(part * up.Length) + up + Layer.Zeros((2 - part) * up.Length), rank, columns)
+Repeat(number Number, count Number) Numbers
+	MossLora.Repeat(2, 3) is (2, 2, 2)
+	for count
+		number

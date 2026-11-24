@@ -1,0 +1,27 @@
+has condition Batch
+has refiner List(H3Block)
+has refinedNorm Numbers
+has quantized Boolean
+constant Tiny = H3Refiner.Loaded("tinymodels/tinyh3.safetensors")
+constant Tuned = H3Refiner.Loaded("tinymodels/tinyh3.safetensors", LoraFiles.Half.loras)
+Loaded(path Text, loras = "") H3Refiner slow
+	Tiny.refiner.Length is 2
+	Tiny.quantized is false
+	halves = ModelFiles.Weights(path, 16)
+	refiners = H3.Blocks(ModelFiles.Weights(path, 32), "token_refiner.blocks.", loras)
+	norm = halves.Values("token_refiner.final_norm.weight")
+	marker = halves.Entry("token_refiner.blocks.0.attn.qkv_proj.comfy_quant")
+	H3Refiner(LoraFiles(loras).Dense(halves, "condition_proj"), refiners, norm, marker is not "")
+Refine(context Numbers) Numbers native
+	Tiny.Refine(H3.Model.Values("context"))(0).IsNearlyEqual(-0.960938, 0.03)
+	Tiny.Refine(H3.Model.Values("context"))(767).IsNearlyEqual(0.613281, 0.03)
+	Tensors.RelativeError(Tuned.Refine(H3.Model.Values("context")), LoraFiles.Reference.Values("token_refiner")) < 0.02
+	unturned = Rope.Video.Still(context.Length / condition.weights.First.Length)
+	mutable hidden = condition.Sums(context)
+	for refiner
+		hidden = value.Refine(hidden, unturned, quantized)
+	H3Block.Normalize(hidden, refinedNorm)
+Texts(conditions List(Safetensors)) List(Numbers) native
+	Tiny.Texts(List(Safetensors) + H3.Model)(0) is Tiny.Refine(H3.Model.Values("context"))
+	for conditions
+		Refine(value.Values("context"))

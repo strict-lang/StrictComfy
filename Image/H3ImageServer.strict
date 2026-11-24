@@ -1,0 +1,112 @@
+has backend Backend
+constant MinimumRam = 68719476736
+constant MinimumVram = 10737418240
+constant Sample = H3ImageServer(Backend(Resident("artifacts/h3imagetest"), "H3Image", Backend.Nowhere))
+Root Text
+	H3ImageServer.Root.EndsWith(H3ImageJob.Folder)
+	H3Artifacts.Sample.Root + H3ImageJob.Folder
+Backended Backend
+	H3ImageServer.Backended.name is "H3Image"
+	Backend(Resident(Root), "H3Image")
+Run(given Texts) Number slow
+	Sample.Run(("--colour", "--local")) is 1
+	Sample.Run(("--steps", "0", "--local")) is 1
+	if given is (Backend.Serving)
+		return Served
+	if given is (Resident.Stopping)
+		return backend.Dispatch(given)
+	plain = Remote.Without(given - MachineUse.Force)
+	parsed = H3ImageOptions.Parsed(plain - Backend.Local)
+	if IsRefused(parsed is Error then (parsed to Text).Lines.First.Replace("Error: ", "") else Problem(parsed))
+		return 1
+	Check(given, plain, parsed)
+IsRefused(problem Text) Boolean
+	Sample.IsRefused("") is false
+	Sample.IsRefused("--steps must be at least 1")
+	if problem is not ""
+		logger.Log(problem)
+	problem is not ""
+Problem(parsed H3ImageOptions) Text slow
+	Sample.Problem(H3ImageOptions.Parsed(("--models", "."))).StartsWith("FileNotFound:")
+	parsed.Problem is "" then H3ImageJob(parsed).Missing else parsed.Problem
+Check(given Texts, plain Texts, parsed H3ImageOptions) Number slow
+	arguments = given - MachineUse.Force
+	if MachineUse.IsChecked(arguments, backend.resident.root)
+		if IsGranted(arguments, MachineUse.IsForced(given)) is false
+			return 1
+	forwarded = backend.Dispatch(plain)
+	served = H3ImageServed(H3ImageJob(parsed), plain - Backend.Local)
+	forwarded >= 0 then forwarded else served.Complete(H3ImageResident).code
+Served Number slow
+	server = backend.Opened
+	server is Error then Backend.Failed else Listen(server)
+Listen(server Number) Number slow
+	built = File(Process.Current.executable).Modified
+	mutable kept = H3ImageResident(true)
+	mutable last = Process.Elapsed
+	for as long as kept.code is not Backend.Stopped and backend.IsWanted(Process.Elapsed - last, built)
+		socket = backend.resident.Accept(server, built, Resident.WakeSeconds)
+		kept = socket is not Error then Reply(socket, kept) else kept
+		last = socket is not Error then Process.Elapsed else last
+		kept = backend.IsUnpressed(socket is not Error) then kept else H3ImageResident(kept, code = Backend.Stopped)
+	backend.resident.Close(server)
+	Backend.Clean
+Reply(socket Number, kept H3ImageResident) H3ImageResident slow
+	resident = backend.resident
+	request = resident.ReadRequest(socket)
+	isStopping = resident.Arguments(request) is (Resident.Stopping)
+	isRunning = resident.IsCurrent(request) and isStopping is false
+	skipped = H3ImageResident(kept, code = isStopping then Backend.Stopped else -1)
+	served = isRunning then Run(socket, request, kept) else skipped
+	isFailed = served is Error
+	if isFailed
+		GpuMemory.Evict
+	closed = HasEnded(socket, isFailed then 1 else (served.code is Backend.Stopped then 0 else served.code), request)
+	isFailed or closed then H3ImageResident(true) else served
+Run(socket Number, request Text, kept H3ImageResident) H3ImageResident slow
+	home = Directory.Current
+	folder = backend.resident.Folder(request)
+	Directory.Change(folder)
+	isMoved = folder is not home
+	Socket.Output(socket)
+	arguments = backend.resident.Arguments(request)
+	served = H3ImageServed(H3ImageJob(H3ImageOptions.Parsed(arguments)), arguments).Complete(kept)
+	if served is Error
+		logger.Log(served to Text + "\nThe run failed, the next one loads the models again")
+	unpressed = backend.IsUnpressed(true)
+	backend.Restore(isMoved, home)
+	unpressed then served else H3ImageResident(kept, code = Backend.Stopped)
+Ask(arguments Texts, forced Boolean) Text slow
+	Sample.Ask(List(Text), false).StartsWith("need\tH3Image\t")
+	use = Use(arguments, forced)
+	mode = forced then "force" else "wait"
+	"need\tH3Image\tH3Image\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
+IsGranted(arguments Texts, forced Boolean) Boolean slow
+	Sample.IsGranted(List(Text), false) is not Error
+	named = Remote.RunRemote(arguments)
+	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
+IsContinued(arguments Texts, forced Boolean) Boolean slow
+	Sample.IsContinued(List(Text), false) is not Error
+	line = Ask(arguments, forced)
+	if line is ""
+		return true
+	reply = Coordinator(backend.coordinator).Send(line)
+	sent = Remote.Send(arguments, "", reply, line)
+	if sent is Error or sent >= 0
+		return sent is 0
+	settled = reply.StartsWith("wait") then Coordinator(backend.coordinator).Resolve(line) else reply
+	if settled.StartsWith("refused")
+		Use(arguments, forced).Explain(settled)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).HasRoom)
+HasEnded(socket Number, code Number, request Text) Boolean slow
+	Sample.HasEnded(0, 1, "broken")
+	if backend.resident.Finish(socket, code) is Error
+		logger.Log("The H3Image client left before the result was sent")
+		return backend.IsFreed(request)
+	backend.IsFreed(request, false)
+Use(arguments Texts, forced Boolean) MachineUse slow
+	Sample.Use(List(Text), true).isForced
+	Sample.Use(("--local", "--remote", "AiServer"), false).isForced is false
+	options = H3ImageOptions.Parsed(Remote.Without(arguments) - Backend.Local)
+	bytes = (File(options.Checkpoint).Length, File(options.Encoder).Length)
+	MachineUse.Models("H3Image", bytes(0), bytes(1), Backend.EncoderGrowth, forced)

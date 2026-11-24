@@ -1,0 +1,77 @@
+has root Text
+has coordinator = ""
+constant MinimumRam = 68719476736
+constant MinimumVram = 10737418240
+constant QualityChoices = "--quality must be best, fast, faster, fastest4steps or fastest2steps"
+constant Sample = H3Client("artifacts/h3test", Backend.Nowhere)
+Run(given Texts) Number slow
+	if given is (Backend.Serving)
+		return H3Server(Backended).Served
+	arguments = given - MachineUse.Force
+	plain = Remote.Without(arguments)
+	rest = plain - Backend.Local
+	if IsRefused(Unparse(rest))
+		return 1
+	if MachineUse.IsChecked(arguments, root)
+		if IsGranted(arguments, MachineUse.IsForced(given)) is false
+			return 1
+	forwarded = Backended.Dispatch(plain)
+	forwarded >= 0 then forwarded else (H3Batch(H3Options.Parsed(rest)).Expanded(rest).IsCompleted then 0 else 2)
+Backended Backend
+	Sample.Backended.name is "H3Video"
+	Backend(Resident(root), "H3Video", coordinator)
+Ask(arguments Texts, forced Boolean) Text slow
+	Sample.Ask(List(Text), false).StartsWith("need\tH3Video\t")
+	use = Use(arguments, forced)
+	mode = forced then "force" else "wait"
+	"need\tH3Video\tH3Video\t" + MinimumRam + "\t" + use.ram + "\t" + MinimumVram + "\t" + use.vram + "\t0\t" + mode
+IsGranted(arguments Texts, forced Boolean) Boolean slow
+	Sample.IsGranted(List(Text), false) is not Error
+	named = Remote.RunRemote(arguments)
+	named is Error or named >= 0 then named is 0 else IsContinued(arguments, forced)
+IsContinued(arguments Texts, forced Boolean) Boolean slow
+	Sample.IsContinued(List(Text), false) is not Error
+	line = Ask(arguments, forced)
+	if line is ""
+		return true
+	reply = Coordinator(coordinator).Send(line)
+	sent = Remote.Send(arguments, "", reply, line)
+	if sent is Error or sent >= 0
+		return sent is 0
+	settled = reply.StartsWith("wait") then Coordinator(coordinator).Resolve(line) else reply
+	if settled.StartsWith("refused")
+		Use(arguments, forced).Explain(settled)
+	settled.StartsWith("refused") is false and (settled is not "" or Use(arguments, forced).HasRoom)
+IsRefused(reply Text) Boolean
+	Sample.IsRefused("refused\tH3Video")
+	Sample.IsRefused("") is false
+	if reply is not ""
+		logger.Log(reply)
+	reply is not ""
+Use(arguments Texts, forced Boolean) MachineUse slow
+	Sample.Use(List(Text), true).isForced
+	files = Options(arguments).files
+	bytes = (File(files.Checkpoint).Length, File(files.Encoder).Length)
+	MachineUse.Models("H3Video", bytes(0), bytes(1), Backend.EncoderGrowth, forced)
+Unparse(arguments Texts) Text
+	Sample.Unparse(List(Text)) is ""
+	Sample.Unparse(List(Text) + "stop") is ""
+	Sample.Unparse(("--quality", "fastest")) is QualityChoices
+	Sample.Unparse(("--colour", "red")) is "--colour is not an option of H3Video, see H3Video --help"
+	Sample.Unparse(("--count", "many")) is "--count many must be a number"
+	parsed = H3Options.Parsed(arguments)
+	parsed is Error then Explain((parsed to Text).Lines.First.Replace("Error: ", "")) else ""
+Explain(problem Text) Text
+	Sample.Explain("UnknownChoice:--quality") is QualityChoices
+	Sample.Explain("InvalidNumber:--count") is "--count must be a number"
+	Sample.Explain("UnknownOption:--colour").StartsWith("--colour is not an option")
+	Sample.Explain("Odd") is "Odd"
+	option = problem.Split(":").Last.Trim
+	if problem.StartsWith("InvalidNumber:")
+		return option + " must be a number"
+	if problem.StartsWith("UnknownChoice:")
+		return QualityChoices
+	problem.StartsWith("UnknownOption:") then option + " is not an option of H3Video, see H3Video --help" else problem
+Options(arguments Texts) H3Options
+	Sample.Options(("--local", "--remote", "AiServer", "--steps", "6")).steps is 6
+	H3Options.Parsed(Remote.Without(arguments) - Backend.Local)

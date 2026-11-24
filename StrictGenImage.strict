@@ -18,7 +18,7 @@ Output(json Json, named Text) Texts
 	StrictGenImage.Output(Json("{\"output\":\"x/b.png\"}"), "H3Image.jpg") is ("--output", "x/b.png")
 	given = json.get("output") to Text
 	file = given is "" then named else given
-	StrictGenForm.Pair("--output", Path(file).PathOnly.text is "" then StrictGen.Outputs + "/" + file else file)
+	StrictGenForm.Pair("--output", Path(file).PathOnly.text is "" then StrictGenHttp.Outputs + "/" + file else file)
 Default(mode Text) Text
 	StrictGenImage.Default("image") is "MossImage.jpg" and StrictGenImage.Default("h3image") is "H3Image.jpg"
 	StrictGenImage.Default("extend") is "H3Video.mp4"

@@ -1,0 +1,19 @@
+RelativeError(values Numbers with value.Bits is 32, expected Numbers with value.Bits is 32) Number
+	Tensors.RelativeError((1, 2), (1, 2)) is 0
+	Tensors.RelativeError((2, 0), (1, 0)) is 1
+	Tensors.RelativeError((3, 0), (2, 0)) is 0.5
+	mutable difference = 0
+	mutable size = 0
+	for expected
+		difference = difference + (values(index) - value) * (values(index) - value)
+		size = size + value * value
+	(difference / size).SquareRoot
+Transpose(values Numbers, rows Number) Numbers
+	Tensors.Transpose((1, 2, 3, 4, 5, 6), 2) is (1, 4, 2, 5, 3, 6)
+	columns = values.Length / rows
+	for values.Length
+		values((index % rows) * columns + (index / rows).Floor)
+Combine(sum Numbers, anchor Numbers, weight Number) Numbers
+	Tensors.Combine((1, 2), (3, 4), 2) is (7, 10)
+	for sum.Length
+		sum(index) + weight * anchor(index)

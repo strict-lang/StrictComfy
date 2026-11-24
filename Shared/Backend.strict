@@ -1,0 +1,170 @@
+has resident Resident
+has name Text
+has coordinator = ""
+constant StartSeconds = 30
+constant PollSeconds = 0.2
+constant CheckSeconds = 5
+constant Gone = -2
+constant Unserved = -1
+constant Busy = -1
+constant Failed = 1
+constant Crashed = 1
+constant Clean = 0
+constant IdleSeconds = 900
+constant LowMemory = 4294967296
+constant Gigabyte = 1073741824
+constant LastShare = 20
+constant FreePercent = 8
+constant LowDevice = 536870912
+constant Stopped = -3
+constant Local = "--local"
+constant Serving = "serve"
+constant KeepsModels = " backend, it keeps the models loaded for the next runs (--local runs without it)"
+constant EncoderGrowth = 1.6
+constant Gibibyte = 1073741824
+constant Mebibyte = 1048576
+constant Nowhere = "artifacts/h3test/obj/MissingCoordinator"
+constant Sample = Backend(Resident("artifacts/h3test"), "H3Video", Nowhere)
+IsServing(arguments Texts) Boolean
+	Backend.IsServing(List(Text))
+	Backend.IsServing(("--prompt", "a.txt"))
+	Backend.IsServing(List(Text) + "serve")
+	Backend.IsServing(List(Text) + "stop")
+	Backend.IsServing(List(Text) + "-") is false
+	Backend.IsServing(("encode", "a")) is false
+	isCommand = arguments is (Serving) or arguments is (Resident.Stopping)
+	isCommand or arguments.Length is 0 or arguments(0).StartsWith("-") and arguments(0) is not "-"
+Dispatch(arguments Texts) Number slow
+	Sample.Dispatch(List(Text) + Local) is -1
+	Sample.Dispatch(List(Text) + Resident.Stopping) is 0
+	if arguments is (Resident.Stopping)
+		return Forwarding(resident.root, coordinator).Forward(List(Text) + Resident.Stopping)
+	Gpu.Require(name)
+	if Local is in arguments
+		return Unserved
+	mutable code = Attempt(arguments)
+	for StartSeconds
+		if code is -1 and (index is 0 or Port is not 0)
+			code = Attempt(arguments)
+	code is -1 and Port is not 0 then Cleared else code
+Attempt(arguments Texts) Number slow
+	isRunning = File(resident.root + Resident.Stamp).Exists
+	if isRunning is false and IsCrowded(0, GpuMemory.HostAvailable, GpuMemory.HostTotal)
+		return Unserved
+	forwarding = Forwarding(resident.root)
+	if isRunning is false and IsRooted
+		logger.Log("Starting the " + name + KeepsModels)
+		if forwarding.Start("") is Error
+			return Unserved
+	port = Wait(StartSeconds)
+	answered = port > 0 then forwarding.ForwardAnswer(resident, port, arguments) else Forwarding.Unserved
+	failed = port is Gone then Crashed else Unserved
+	answered is Forwarding.Unserved then failed else (answered is Forwarding.Ended then Crashed else answered)
+Wait(seconds Number) Number slow
+	Sample.Wait(0) is 0
+	started = Process.Elapsed
+	mutable isBusy = false
+	mutable polled = (0, started - CheckSeconds)
+	for as long as polled(0) is 0 and (isBusy or Process.Elapsed - started < seconds)
+		polled = Poll(polled(1))
+		if polled(0) is -1 and isBusy is false
+			logger.Log("Waiting for the " + name + " backend to finish the run it works on")
+		isBusy = polled(0) < 0
+		polled = polled(0) > 0 or polled(0) is Gone then polled else Pause(polled(1))
+	polled(0)
+Poll(checked Number) Numbers slow
+	Sample.Poll(0) is (0, 0)
+	port = Port
+	isDue = port < 0 and Process.Elapsed - checked >= CheckSeconds
+	nextCheck = isDue then Process.Elapsed else checked
+	((isDue and IsGone then Cleared else port), nextCheck)
+IsGone Boolean slow
+	Sample.IsGone is false
+	stamp = File(resident.root + Resident.Stamp)
+	stamp.Exists and Forwarding(resident.root).IsDead(stamp.ReadLines.First to Number)
+Cleared Number slow
+	objects = resident.root + "/obj"
+	forwarding = Forwarding(resident.root)
+	killed = forwarding.Killed
+	forwarding.Keep(objects, Forwarding.Output)
+	forwarding.Keep(objects, Forwarding.Errors)
+	logger.Log("The " + name + " backend stopped answering or ended without finishing its run, its output:")
+	kept = Print(objects + "/server.previous.log") + Print(objects + "/server.previous.errors.log")
+	if kept is 0 and Print(objects + Forwarding.Output) + Print(objects + Forwarding.Errors) is 0
+		logger.Log("(nothing in " + objects + "/server.log)")
+	killed + Gone
+Print(path Text) Number slow
+	Sample.Print("missing.log") is 0
+	if File(path).Exists is false
+		return 0
+	lines = File(path).ReadLines - ""
+	for lines
+		logger.Log(value)
+	lines.Length
+Port Number slow
+	Sample.Port is 0
+	stamp = File(resident.root + Resident.Stamp)
+	if stamp.Exists is false
+		return 0
+	File(resident.root + Resident.Free).Exists then stamp.ReadLines.First to Number else Busy
+Pause(checked Number) Numbers slow
+	Process.Wait(PollSeconds)
+	(0, checked)
+Opened Number slow
+	Gpu.Require(name)
+	IsRooted then resident.Opened else Error("NotRooted")
+IsRooted Boolean slow
+	Sample.IsRooted
+	parent = Path(resident.root).PathOnly.text
+	objects = resident.root + "/obj"
+	if Directory.Exists(parent) is false
+		Directory.Create(parent)
+	if Directory.Exists(resident.root) is false
+		Directory.Create(resident.root)
+	if Directory.Exists(objects) is false
+		Directory.Create(objects)
+	Directory.Exists(parent) and Directory.Exists(resident.root) and Directory.Exists(objects)
+IsWanted(idle Number, built Number) Boolean slow
+	Sample.IsWanted(0, File(Process.Current.executable).Modified)
+	Sample.IsWanted(IdleSeconds + 1, File(Process.Current.executable).Modified) is false
+	Sample.IsWanted(0, 0) is false
+	hasRoom = IsOut(GpuMemory.HostAvailable, GpuMemory.HostTotal) is false
+	File(Process.Current.executable).Modified is built and idle < IdleSeconds and hasRoom
+IsCrowded(needed Number, available Number, total Number) Boolean
+	Sample.IsCrowded(0, 10 * Gigabyte, 128 * Gigabyte)
+	Sample.IsCrowded(0, 11 * Gigabyte, 128 * Gigabyte) is false
+	Sample.IsCrowded(0, 2 * Gigabyte, 32 * Gigabyte)
+	Sample.IsCrowded(0, 3 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsCrowded(0, 0, 128 * Gigabyte) is false
+	Sample.IsCrowded(16 * Gigabyte, 18 * Gigabyte, 32 * Gigabyte)
+	Sample.IsCrowded(16 * Gigabyte, 19 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsCrowded(40 * Gigabyte, 0, 32 * Gigabyte) is false
+	available > 0 and (available - needed) * 100 < total * FreePercent
+IsOut(available Number, total Number) Boolean
+	Sample.IsOut(3 * Gigabyte, 128 * Gigabyte)
+	Sample.IsOut(LowMemory, 128 * Gigabyte)
+	Sample.IsOut(5 * Gigabyte, 128 * Gigabyte) is false
+	Sample.IsOut(Gigabyte, 32 * Gigabyte)
+	Sample.IsOut(2 * Gigabyte, 32 * Gigabyte) is false
+	Sample.IsOut(0, 128 * Gigabyte) is false
+	available > 0 and available <= (total / LastShare < LowMemory then total / LastShare else LowMemory)
+Restore(isMoved Boolean, home Text) slow
+	Socket.Output(0)
+	if isMoved
+		Directory.Change(home)
+IsUnpressed(isBusy = false) Boolean slow
+	Sample.IsUnpressed and Sample.IsUnpressed(true)
+	available = GpuMemory.Available
+	if isBusy is false and available > 0 and available < LowDevice
+		GpuMemory.Yield
+	reply = Coordinator(coordinator).Send("holding\t0\t" + GpuMemory.Held)
+	if reply is "free"
+		GpuMemory.Yield
+	reply is not "exit"
+IsFreed(request Text, isGone = true) Boolean slow
+	Sample.IsFreed("broken")
+	Sample.IsFreed("broken", false) is false
+	if isGone
+		GpuMemory.Yield
+	resident.FreePort(request)
+	Coordinator(coordinator).Send("done") is "exit" or isGone

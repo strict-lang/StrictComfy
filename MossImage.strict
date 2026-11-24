@@ -58,7 +58,7 @@ ComparedRun(dumps Text, model Text, lora Text, vae Text)
 	sized = MossImage(steps.Shape("noise").Last)
 	first = Safetensors(dumps + "/step0.safetensors", 64)
 	sampled = sized.Generate(model, lora, Euler(8, 5), steps, first, context)
-	logger.Log("latent error " + RelativeError(sampled, steps.Values("latent")))
+	logger.Log("latent error " + Tensors.RelativeError(sampled, steps.Values("latent")))
 	if MossFiles.IsFailedNumber(sized.Save(sampled, steps, FluxDecoder.Loaded(vae, 32), dumps + "/moss-strict.png"))
 		return
 Generate(model Text, lora Text, euler Euler, steps Safetensors, step Safetensors, context Numbers) Numbers native
@@ -88,15 +88,16 @@ Sample(moss Moss, euler Euler, steps Safetensors, context Numbers) Numbers nativ
 	latent
 Compare(moss Moss, step Safetensors) Number native
 	MossImage(4).Compare(Moss.Tiny, Reference) < 0.05
+	MossImage(4).Compare(MossLora.Lowered, MossLora.Reference) < 0.02
 	context = step.Values("context")
 	vector = moss.TimeEmbedded(step.Values("timestep").First)
 	modulation = moss.blockModulation.Sums(vector)
-	logger.Log("time embedding error " + RelativeError(vector, step.Values("time_embedding")))
-	logger.Log("modulation error " + RelativeError(modulation, step.Values("shared_block_modulation")))
+	logger.Log("time embedding error " + Tensors.RelativeError(vector, step.Values("time_embedding")))
+	logger.Log("modulation error " + Tensors.RelativeError(modulation, step.Values("shared_block_modulation")))
 	text = moss.TextEmbedded(context, context.Length / moss.textProjection.weights.First.Length)
-	video = moss.video.Sums(Moss.Transpose(step.Values("x"), moss.video.weights.First.Length))
-	logger.Log("text embedder error " + RelativeError(text, step.Values("text_embedder")))
-	logger.Log("video embedder error " + RelativeError(video, step.Values("video_embedder")))
+	video = moss.video.Sums(Tensors.Transpose(step.Values("x"), moss.video.weights.First.Length))
+	logger.Log("text embedder error " + Tensors.RelativeError(text, step.Values("text_embedder")))
+	logger.Log("video embedder error " + Tensors.RelativeError(video, step.Values("video_embedder")))
 	Layer(moss, step, video + text, modulation)
 Layer(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number native
 	MossImage(4).Layer(Moss.Tiny, Reference, MossBlock.Input, MossBlock.Modulation) < 0.05
@@ -106,16 +107,6 @@ Layer(moss Moss, step Safetensors, hidden Numbers, modulation Numbers) Number na
 	mutable error = 0
 	for moss.layers
 		state = value.Output(state, modulation, rotation)
-		error = RelativeError(state, step.Values("layers." + index))
+		error = Tensors.RelativeError(state, step.Values("layers." + index))
 		logger.Log("layer " + index + " error " + error)
 	error
-RelativeError(values Numbers with value.Bits is 32, expected Numbers with value.Bits is 32) Number
-	MossImage.RelativeError((1, 2), (1, 2)) is 0
-	MossImage.RelativeError((2, 0), (1, 0)) is 1
-	MossImage.RelativeError((3, 0), (2, 0)) is 0.5
-	mutable difference = 0
-	mutable size = 0
-	for expected
-		difference = difference + (values(index) - value) * (values(index) - value)
-		size = size + value * value
-	(difference / size).SquareRoot

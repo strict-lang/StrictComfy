@@ -4,8 +4,6 @@ constant IdleWait = 0.02
 constant Preview = "StrictGenStep.jpg"
 constant Shell = "StrictGen.shell.html"
 constant Fallback = "<!doctype html><html><head><title>StrictGen</title></head><body><p>StrictGen.shell.html was not found beside the program.</p></body></html>"
-constant Inputs = "input"
-constant Outputs = "output"
 constant DefaultPort = 8001
 constant Highest = 65535
 constant Usage = "StrictGen.exe [--port " + DefaultPort + "] serves a page for images and video on that port\nStrictGen.exe stop [--port n] ends it and the MossImage, H3Video and H3Image backends"
@@ -39,8 +37,8 @@ Serve(port Number) slow
 		return socket
 	logger.Log("StrictGen serves http://localhost:" + Socket.Port(socket) + StrictGenHost.Utf8Console)
 	logger.Log("Page " + Located)
-	StrictGenFiles("").Seed(Inputs)
-	Directory.Create(Outputs)
+	StrictGenFiles("").Seed(StrictGenHttp.Inputs)
+	Directory.Create(StrictGenHttp.Outputs)
 	peers = StrictGenNet.Opened(Socket.Port(socket)).Measured.Shouted
 	logger.Log("Other StrictGen programs are found on UDP " + StrictGenNet.BeaconPort)
 	Loop(socket, StrictGenQueue, peers)
@@ -134,8 +132,8 @@ Plain(route Text, raw Text, queue StrictGenQueue) Text slow
 	route is "/estimate" then H3Estimate.Told(raw) else StrictGenStats.Probe(StrictGenHttp.Query(raw, "path"))
 Store(name Text, bytes Numbers) Text slow
 	StrictGen.Store("a/b/upload-test.bin", (1, 2)) is "input/upload-test.bin"
-	Directory.Create(Inputs)
-	path = Inputs + "/" + (name is "" then "upload.bin" else Path(name.Replace("\\", "/")).FileName.text)
+	Directory.Create(StrictGenHttp.Inputs)
+	path = StrictGenHttp.Inputs + "/" + (name is "" then "upload.bin" else Path(name.Replace("\\", "/")).FileName.text)
 	File(path).Write(bytes)
 	path
 Page Text slow

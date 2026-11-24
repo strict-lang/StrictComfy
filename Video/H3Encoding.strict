@@ -1,0 +1,36 @@
+has arguments Texts
+constant Job = "artifacts/h3encoding.safetensors"
+Start(prompts Texts, images Texts, paths Texts) Number slow
+	noun = prompts.Length is 1 then " prompt" else " prompts"
+	logger.Log("Starting the text encoder in its own process for " + prompts.Length + noun)
+	Write(prompts, images, paths)
+	GpuMemory.Evict
+	Process.Current.Start(Command(paths))
+Command(paths Texts) Text
+	H3Encoding(("--models", "a b")).Command(("x", "y")) is "encode \"x;y\" \"--models\" \"a b\""
+	mutable command = "encode \"" + Text.Combine(paths, ";") + "\""
+	for arguments
+		command = command + " \"" + value + "\""
+	command
+Write(prompts Texts, images Texts, paths Texts) slow
+	H3Encoding(List(Text)).Write(List(Text) + "a fox\nin snow", List(Text) + "", List(Text) + Job) is not Error
+	H3Encoding(List(Text)).Jobs(List(Text) + Job) is List(Texts) + ("", "a fox\nin snow")
+	for paths
+		File(value + ".txt").Write(List(Text) + images(index) + prompts(index))
+Jobs(paths Texts) List(Texts) slow
+	H3Encoding(List(Text)).Jobs(List(Text)).Length is 0
+	H3Encoding(List(Text)).Jobs(List(Text) + "missing.txt") is Error("FileNotFound:missing.txt.txt")
+	for paths
+		if File(value + ".txt").Exists is false
+			return Error("FileNotFound:" + value + ".txt")
+		lines = File(value + ".txt").ReadLines
+		(lines.First, Text.Combine(lines.Slice(1, lines.Length - 1), "\n"))
+Encoded Number slow
+	rest = arguments.Slice(2, arguments.Length - 2)
+	options = H3Batch(H3Options.Parsed(rest)).Expanded(rest).options
+	paths = arguments(1).Split(";")
+	jobs = Jobs(paths)
+	inputs = H3Inputs(options)
+	model = List(Text) + options.Checkpoint + H3Batch(options).LoraPaths
+	encoder = H3Encoder(options.files, (options.height, options.width), List(QwenVision), model)
+	encoder.Encode(inputs.Column(jobs, 1), inputs.Column(jobs, 0), paths) is paths.Length then 0 else 1
