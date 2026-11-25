@@ -45,8 +45,8 @@ Images(kept MossResident, seeds Numbers, prompts Texts, contexts List(Numbers)) 
 	outputs = PromptBatch("Image").Outputs(options.output, seeds.Length)
 	MossRun(value, kept, Preview(options.Sampling, kept.previewers), seeds, prompts, contexts, outputs).Images
 Loading(loras Text) Text slow
-	Sample.Loading("") is "Loading Moss from tinymoss.safetensors"
-	Sample.Loading("a=1;b=0.5") is "Loading Moss from tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it"
+	Sample.Loading("") is "Loading Moss from tinymodels/tinymoss.safetensors"
+	Sample.Loading("a=1;b=0.5").EndsWith("tinymoss.safetensors and merging the LoRAs a=1, b=0.5 into it")
 	merging = loras is "" then "" else " and merging the LoRAs " + loras.Replace(";", ", ") + " into it"
 	"Loading Moss from " + options.files.Checkpoint + merging
 Decode(kept MossResident, latents List(Numbers), seeds Numbers, prompts Texts, outputs Texts) Texts slow

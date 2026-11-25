@@ -13,6 +13,9 @@ constant Spanned = MossSpectrum(MossSpectrum.Tiny, span = MossSpan(MossSpan(6, 3
 constant Forecasting = MossSpectrum(MossSpectrum.Tiny, forecasts = 3)
 constant Shown = 1
 constant Forecaster = MossSampling(mode = "on")
+constant Guided = MossSampling(guidance = 3)
+constant Latent = MossSpectrum.Latent
+constant Words = MossSpectrum.Words
 Guid(positive Numbers, negative Numbers) Numbers
 	MossSampling(guidance = 3).Guid((2, 4), (1, 2)) is (4, 8)
 	MossSampling.Guid((2, 4), List(Number)) is (2, 4)
@@ -88,7 +91,9 @@ Summary(label Text, seconds Number, state MossSpectrum) Text
 	forecast = state.forecasts > 0 then ", " + state.forecasts + " of " + steps + " steps forecast" else ""
 	layers = ", layers " + state.span.first + "-" + state.span.last + " reused in " + state.span.reused + " steps"
 	label + " sampled in " + (seconds * 1000).Round + " ms" + forecast + (state.span.reused > 0 then layers else "")
-Uncondition(state MossSpectrum, moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum
+Uncondition(state MossSpectrum, moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers, step Number) MossSpectrum native
+	MossSampling.Uncondition(MossSpectrum.Tiny, Moss.Tiny, Latent, 0.75, Words, MossBlock.Rotation, 0) is MossSpectrum.Tiny
+	Guided.Uncondition(MossSpectrum.Tiny, Moss.Tiny, Latent, 0.75, Words, MossBlock.Rotation, 0).output.Length is 256
 	guidance is 1 then state else state.Advanced(moss, latent, sigma, text, rotation, step)
 State MossSpectrum
 	MossSampling(warmup = 3).State.history.fit.degree is 2

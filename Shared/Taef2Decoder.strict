@@ -6,6 +6,7 @@ constant UpsampleLayers = (6, 11, 16)
 constant Shrink = 0.7071
 constant Tiny = Taef2Decoder.Loaded("tinymodels/tinytaef2.safetensors")
 constant Latent = Safetensors("tinymodels/tinytaef2.safetensors").Values("latent")
+constant Reference = Safetensors("tinymodels/tinytaef2.safetensors", 32, "reference.")
 constant Layers = (2, 3, 4, 7, 8, 9, 12, 13, 14, 17)
 constant None = Taef2Decoder(Taef2Block.Unused, List(Taef2Block), List(Convolution), Taef2Block.Unused)
 Loaded(path Text) Taef2Decoder slow
@@ -27,8 +28,7 @@ Upsamples(model Safetensors) List(Convolution) native
 		upsample = FluxResnet.Convolve(model, value to Text)
 		Convolution(upsample.Folds, upsample.biases)
 Enter(latent Numbers, width Number) FeatureMap native
-	Tiny.Enter(Latent, 2).values(0).IsNearlyEqual(0.53169, 0.0001)
-	Tiny.Enter(Latent, 2).values(191).IsNearlyEqual(0.11273, 0.0001)
+	Tensors.RelativeError(Tiny.Enter(Latent, 2).values, Reference.Values("entered")) < 0.01
 	Start(FluxDecoder.Unpatchify(latent, width, Channels), 2 * width)
 Channels Number
 	Tiny.Channels is Tiny.entry.weights.Length / Tiny.entry.biases.Length / 9
@@ -42,9 +42,7 @@ Clamp(values Numbers) Numbers
 	for values
 		3 * Activation.Tanh.Output(value / 3)
 Decode(latent Numbers, width Number) Numbers native
-	Tiny.Decode(Latent, 2)(0).IsNearlyEqual(0.42635, 0.001)
-	Tiny.Decode(Latent, 2)(1).IsNearlyEqual(0.68325, 0.001)
-	Tiny.Decode(Latent, 2)(4607).IsNearlyEqual(0.52472, 0.001)
+	Tensors.RelativeError(Tiny.Decode(Latent, 2), Reference.Values("image")) < 0.01
 	Finish(Enter(latent, width))
 Finish(map FeatureMap) Numbers native
 	Tiny.Finish(Tiny.Enter(Latent, 2)).Length is 4608

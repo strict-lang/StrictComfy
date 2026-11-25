@@ -41,7 +41,9 @@ Report(fraction Number, step Number, started Number) native
 		elapsed = Process.Elapsed - started
 		estimate = elapsed.Round(1) + "s/" + (elapsed / fraction).Round(1) + "s"
 		logger.Log("Encoding the video context " + (fraction * 100).Round + "% " + estimate)
-Pixels(frames List(Numbers), size Numbers, box Numbers) List(FeatureMap)
+Pixels(frames List(Numbers), size Numbers, box Numbers) List(FeatureMap) native
+	Tiny.Pixels((Frame, Frame), (48, 64), (0, 32, 0, 32)).Length is 2
+	Tiny.Pixels((Frame, Frame), (48, 64), (0, 32, 0, 32)).First is H3VaeEncoder.Tile
 	for frames
 		network.encoder.Pixels(value, size, box, H3Vae.Mean + H3Vae.Deviation)
 Column(tiles List(List(Numbers)), at Number) List(Numbers) native

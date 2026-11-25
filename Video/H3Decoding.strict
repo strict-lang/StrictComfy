@@ -32,8 +32,8 @@ Shapes(conditions List(Safetensors)) List(Numbers)
 		value.Entry("decode") is "" then List(Number) else H3Job(value).VideoShape
 Write(file Text, shape Numbers, index Number) None native
 	Safetensors("tinymodels/h3test-latent.safetensors").Write("latent", Latent) is not Error
-	Tiny.Write("h3test", (24, 12, 3, 4), 0) is not Error
-	File("h3test-decoded.rgb").Length is 359424
+	Tiny.Write("tinymodels/h3test", (24, 12, 3, 4), 0) is not Error
+	File("tinymodels/h3test-decoded.rgb").Length is 359424
 	Safetensors("tinymodels/h3test-decoded.safetensors", 32).Values("audio") is Both(1)
 	before = Process.Elapsed
 	decoded = Decode(Safetensors(file + "-latent.safetensors", 32).Values("latent"), shape.Slice(1, 3))

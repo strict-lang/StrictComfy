@@ -115,5 +115,5 @@ Generate(moss Moss, previewer Taef2Decoder, decoders List(FluxDecoder), context 
 	batch.Save(image, decoded, words(0) to Number, "", "MossWeb.jpg")
 Decoders(decoder Text) List(FluxDecoder) native
 	MossWeb.Decoders("taef2").Length is 0
-	MossWeb.Decoders("tinyvae").Length is 1
+	MossWeb.Decoders("tinymodels/tinyvae").Length is 1
 	decoder is "taef2" then List(FluxDecoder) else List(FluxDecoder) + FluxDecoder.Loaded(decoder + ".safetensors", 32)

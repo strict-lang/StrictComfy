@@ -1,5 +1,6 @@
 has models Text
 constant Cached = " into the file cache in the background"
+constant Unparsed = "tinymodels/tinylora.safetensors:0.50"
 Folder Text slow
 	ModelFiles(".").Folder is "."
 	if models is not ""
@@ -38,7 +39,7 @@ Spec(text Text) Text slow
 	ModelFiles("").Spec("tinymodels/tinylora.safetensors:0.25") is "tinymodels/tinylora.safetensors=0.25"
 	ModelFiles(".").Spec("a:5") is Error("FileNotFound:a:5")
 	ModelFiles(".").Spec("a b:5") is Error("FileNotFound:a_b")
-	ModelFiles(".").Spec("tinymodels/tinylora.safetensors:0.50") is Error("FileNotFound:tinylora.safetensors:0.50")
+	ModelFiles(".").Spec(Unparsed) is Error("FileNotFound:" + Unparsed)
 	ModelFiles("tinymodels").Spec("tinyfolderlora.safetensors:0.5") is "tinymodels/loras/tinyfolderlora.safetensors=0.5"
 	at = text.LastIndexOf(":")
 	strength = at > 1 then text.Substring(at + 1, text.Length - at - 1) else ""
@@ -46,7 +47,7 @@ Spec(text Text) Text slow
 	numeric = number is Error then false else number to Text is strength
 	Locate(numeric then text.Substring(0, at) else text, "loras") + "=" + (numeric then strength else "1")
 Describe(path Text) Text slow
-	ModelFiles("").Describe("tinymodels/tinymoss.safetensors") is "tinymodels/tinymoss.safetensors (0 GB)"
+	ModelFiles("").Describe("tinymodels/tinymoss.safetensors") is "tinymoss.safetensors (0 GB)"
 	ModelFiles("").Describe("C:/models/missing.safetensors") is "missing.safetensors"
 	name = Path(path).FileName.text
 	File(path).Exists then name + " (" + (File(path).Length / 1000000000).Round(1) + " GB)" else name

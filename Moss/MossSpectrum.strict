@@ -11,6 +11,9 @@ has span MossSpan = MossSpan.Off
 constant Tiny = MossSpectrum(4, 8, 5)
 constant Words = Moss.Tiny.TextEmbedded(Moss.Context, 3)
 constant Primed = MossSpectrum(Tiny, mode = "on", history = SpectralHistory.Pair)
+constant Latent = Moss.Model.Values("reference.x")
+constant Vector = Moss.Tiny.TimeEmbedded(0.75)
+constant Uncached = MossSpectrum(Primed, cacheBytes = 0)
 IsActual(step Number) Boolean
 	Primed.IsActual(4)
 	Primed.IsActual(5) is false
@@ -41,7 +44,10 @@ Advanced(moss Moss, latent Numbers, sigma Number, text Numbers, rotation Numbers
 	if mode is "on" and IsActual(step) is false
 		return Forecast(moss, vector, step)
 	Measured(moss, latent, text, rotation, vector, step)
-Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, step Number) MossSpectrum
+Measured(moss Moss, latent Numbers, text Numbers, rotation Numbers, vector Numbers, step Number) MossSpectrum native
+	Primed.Measured(Moss.Tiny, Latent, Words, MossBlock.Rotation, Vector, 5).history.coords.Last is Primed.Coord(5)
+	Primed.Measured(Moss.Tiny, Latent, Words, MossBlock.Rotation, Vector, 6).mode is "on"
+	Uncached.Measured(Moss.Tiny, Latent, Words, MossBlock.Rotation, Vector, 5).mode is "off"
 	evaluated = span.Evaluated(moss, latent, text, rotation, vector, IsSpanning(step))
 	image = evaluated.output
 	coord = Coord(step)

@@ -11,7 +11,7 @@ Started H3StepLog
 	Tiny.Started.times.Length is 1
 	H3StepLog(value, stamps = List(Number) + GpuMemory.Stamped, times = List(Number) + Process.Elapsed)
 Stepped(step Number, state H3Spectrum, video Solver, audio Numbers) H3StepLog slow
-	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).logged is 1
+	Tiny.Started.Stepped(0, H3Spectrum(H3Spectrum.Tiny, steps = 1), Solver.Toy, (3, 4)).logged is 1
 	Tiny.Started.Stepped(0, H3Spectrum.Tiny, Solver.Toy, (3, 4)).notes is (", forecasts 0")
 	job.previewer.Write(video.denoised, job.shape)
 	note = ", forecasts " + state.forecasts + Errors(step + 1, state.steps, video.latent, audio)

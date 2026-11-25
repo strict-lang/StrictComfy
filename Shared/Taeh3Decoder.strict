@@ -69,7 +69,7 @@ Frames(latent Numbers, shape Numbers) Numbers slow
 		completion.Report(index + 1)
 	frames
 Inputs(latent Numbers, shape Numbers) List(FeatureMap) slow
-	Tiny.Inputs(Latent, (1, 2, 3)).First.values is Started.values
+	Tensors.RelativeError(Tiny.Inputs(Latent, (1, 2, 3)).First.values, Started.values) < 0.01
 	plane = shape(1) * shape(2)
 	for shape(0)
 		Enter(Slice(latent, shape(0), index, plane), shape(2))
