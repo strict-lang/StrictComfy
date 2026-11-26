@@ -23,7 +23,7 @@ Loaded(path Text, prefix Text, strength = 1) MossLora slow
 	peft = file.Entry("lora_A.weight") is not ""
 	shape = file.Shape(peft then "lora_A.weight" else "lora_down.weight")
 	ratio = file.Entry("alpha") is "" then 1 else file.Values("alpha").First / shape(0)
-	downs = Pack(file.Values(peft then "lora_A.weight" else "lora_down.weight"), 1)
+	downs = file.Values(peft then "lora_A.weight" else "lora_down.weight")
 	ups = Pack(file.Values(peft then "lora_B.weight" else "lora_up.weight"), Gain * strength * ratio)
 	MossLora(downs, ups, shape(0), shape(1))
 Pack(values Numbers, scale Number) Float32s
