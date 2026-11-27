@@ -55,7 +55,7 @@ Quality(options MossOptions) Text
 	MossWeb.Quality(MossOptions.Parsed(("--steps", "4"))) is "fastest"
 	MossWeb.Quality(MossOptions.Parsed(("--steps", "6"))) is "best"
 	if options.steps is 0
-		return Qualities(options.quality)
+		return Qualities(options.QualityIndex)
 	options.steps <= 2 then "fastest2steps" else (options.steps <= 4 then "fastest" else "best")
 HasRoom(line Text) Boolean
 	MossWeb.HasRoom(Sample) is false

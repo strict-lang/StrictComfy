@@ -17,7 +17,7 @@ Estimate(budget Number) Text
 	Small.Estimate(90000) is "Sampling roughly 6 x 2.1 s = 13 s, 14k of 90k video tokens"
 	Twelve.Estimate(90000).EndsWith("72k of 90k video tokens, might run much slower")
 	tokens = H3Inputs(options).Tokens
-	factor = Factors(options.quality) * options.Evaluated / options.Preset.First
+	factor = Factors(options.QualityIndex) * options.Evaluated / options.Preset.First
 	step = StepSeconds(tokens, budget)
 	sampling = "Sampling roughly " + factor.Round(1) + " x " + step.Round(1) + " s = " + StepTimes.Lasting(factor * step)
 	sampling + ", " + (tokens / 1000).Round + "k of " + (budget / 1000).Round + "k video tokens" + Caution(tokens, budget)

@@ -57,7 +57,7 @@ Estimate(budget Number) Text
 	Fast.Estimate(Unknown) is "Sampling roughly 5 x 0.15 s + 0.22 s flux2-vae = 1 s, 3.5k of 36k image tokens"
 	Large.Estimate(18000).EndsWith("16.4k of 18k image tokens, might run much slower")
 	tokens = Tokens
-	factor = Factors(options.quality) * options.Evaluated / MossSampling.Presets(options.quality).First
+	factor = Factors(options.QualityIndex) * options.Evaluated / MossSampling.Presets(options.QualityIndex).First
 	step = StepSeconds(tokens, budget)
 	decode = DecodeSeconds(tokens)
 	head = "Sampling roughly " + factor.Round(1) + " x " + step.Round(2) + " s + " + decode.Round(2) + " s " + Decoder

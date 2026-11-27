@@ -34,7 +34,7 @@ Sampling MossSampling
 	MossOptions.Parsed(("--steps", "6", "--guidance", "3")).Sampling.guidance is 3
 	MossOptions.Parsed(("--spectrum", "spectrum8_w3p4")).Sampling.period is 4
 	MossOptions.Parsed(("--quality", "fastest2steps")).Sampling.period is 2
-	preset = MossSampling.Presets(quality)
+	preset = MossSampling.Presets(QualityIndex)
 	spectral = Spectral(preset)
 	mode = spectral(0) > 0 then "on" else "off"
 	used = guidance > 0 then guidance else preset(1)
@@ -43,7 +43,10 @@ Evaluated Number
 	MossOptions.Parsed(("--quality", "best25steps")).Evaluated is 25
 	MossOptions.Parsed(("--steps", "12")).Evaluated is 12
 	MossOptions.Parsed(("--quality", "fastest2steps")).Evaluated is 2
-	steps > 0 then steps else MossSampling.Presets(quality).First
+	steps > 0 then steps else MossSampling.Presets(QualityIndex).First
+QualityIndex Number
+	MossOptions.Parsed(("--quality", "fast")).QualityIndex is 3
+	(MossQuality.Best, MossQuality.Best25Steps, MossQuality.Best50Steps, MossQuality.Fast, MossQuality.Faster, MossQuality.Fastest, MossQuality.Fastest2Steps).Index(quality)
 Spectral(preset Numbers) Numbers
 	MossOptions.Parsed(List(Text)).Spectral((8, 1, 3, 3)) is (3, 3)
 	MossOptions.Parsed(("--spectrum", "off", "--quality", "fast")).Spectral((8, 1, 3, 3)) is (0, 2)
