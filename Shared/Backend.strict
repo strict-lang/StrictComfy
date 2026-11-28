@@ -55,7 +55,7 @@ Attempt(arguments Texts) Number slow
 	if isRunning is false and IsRooted
 		logger.Log("Starting the " + name + KeepsModels)
 		if forwarding.Start("") is Error
-			return Unserved
+			Process.Wait(PollSeconds)
 	port = Wait(StartSeconds)
 	answered = port > 0 then forwarding.ForwardAnswer(resident, port, arguments) else Forwarding.Unserved
 	failed = port is Gone then Crashed else Unserved

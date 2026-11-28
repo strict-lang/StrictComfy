@@ -91,7 +91,7 @@ Encode(prompt Text, encoders List(Qwen3), hasRoom Boolean) Numbers slow
 		GpuMemory.Trim
 	else
 		GpuMemory.Evict
-	context = Context(prompt, encoders)
+	context = (TensorFile.Prefetch(FourSteps), Context(prompt, encoders))(1)
 	if hasRoom
 		GpuMemory.Trim
 	else

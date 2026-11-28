@@ -13,17 +13,40 @@ Complete(kept MossResident) MossResident slow
 	logger.Log(MossEstimate(options).Estimate(MossEstimate.Local))
 	Prompt(kept, seeds, PromptBatch("Image").Prompts(List(Text) + template, seeds), started)
 Prompt(kept MossResident, seeds Numbers, prompts Texts, started Number) MossResident slow
-	encoded = kept.Encoded(batch, prompts.Unique)
-	c = encoded.Contexts(prompts.Unique)
-	if batch.options.output.EndsWith(".safetensors")
+	unique = prompts.Unique
+	missing = kept.Missing(unique)
+	wantsImage = batch.options.output.EndsWith(".safetensors") is false
+	if wantsImage and kept.IsSampling(batch) is false and missing.Length > 0
+		Prefetch(List(Text) + batch.options.files.Checkpoint + LoraPaths, "Moss and its LoRAs")
+	encoded = kept.Encoded(batch, unique)
+	c = encoded.Contexts(unique)
+	if wantsImage is false
 		Safetensors(batch.options.output).Write("context", c.First)
 		return MossResident(encoded, code = 0)
-	batch.options.files.Ease
+	PrefetchAndFree(encoded, missing.Length > 0)
 	decoding = encoded.Sampling(batch).Decoders(batch.options.Decoder).Previewing(batch)
 	made = batch.Images(decoding, seeds, prompts, c)
 	batch.options.files.Ease
 	logger.Log("Total " + (Process.Elapsed - started).Round(2) + " s for " + made + " images")
 	MossResident(decoding, code = 0)
+LoraPaths Texts slow
+	MossServed(MossBatch.Sample).LoraPaths.Length is 0
+	for batch.options.Loras is "" then List(Text) else batch.options.Loras.Split(";")
+		value.Split("=").First
+Prefetch(paths Texts, what Text)
+	MossServed(MossBatch.Sample).Prefetch(List(Text) + "tinymodels/tinyqkvlora.safetensors", "LoRA") is not Error
+	reading = ModelFiles("").Prefetching(paths, what)
+	if reading is not ""
+		logger.Log(reading)
+PrefetchAndFree(encoded MossResident, encodedAny Boolean) slow
+	MossServed(MossBatch(MossOptions(MossFiles.Local, steps = 20))).PrefetchAndFree(MossResident, false) is not Error
+	if encoded.IsSampling(batch) is false or encodedAny
+		batch.options.files.Freed
+	else
+		batch.options.files.Ease
+	decoder = batch.options.Decoder
+	if decoder is not Error and encoded.decoderFile is not decoder
+		Prefetch(List(Text) + decoder, "the decoder")
 Warm(kept MossResident) MossResident slow
 	started = Process.Elapsed
 	encoding = kept.Switched(batch.options.files.Encoder).Tokenizing(batch).Encoding(batch, List(Numbers))

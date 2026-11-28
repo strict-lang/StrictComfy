@@ -35,6 +35,8 @@ Layers(model Safetensors, lora Text) List(MossBlock) slow
 	label = lora is "" then "Loading Moss" else "Loading Moss and applying LoRAs"
 	completion = Completion(label, count, Process.Elapsed)
 	for count
+		if (index + 1) % 10 is 0
+			GpuMemory.Trim
 		block = MossBlock.Loaded(model, "layers." + index + ".", lora)
 		completion.Report(index + 1)
 		block

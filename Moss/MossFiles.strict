@@ -64,17 +64,23 @@ Workflow Text slow
 	MossFiles.Parsed(("--workflow", "tinymossworkflow.json")).Workflow is "tinymossworkflow.json"
 	MossFiles.Parsed(("--models", ".", "--workflow", "a.json")).Workflow is "./../user/default/workflows/a.json"
 	ModelFiles(models).Workflow(workflow)
-Freed slow
-	Encoding.Freed is not Error
-	if GpuMemory.Held + GpuMemory.Available <= File(Checkpoint).Length
+Room(needed Number) slow
+	Encoding.Room(0) is not Error
+	if GpuMemory.Available >= needed
+		return
+	if GpuMemory.Held + GpuMemory.Available <= needed
 		GpuMemory.Evict
 	else
 		GpuMemory.Trim
-		GpuMemory.Freed(Spare)
+		GpuMemory.Freed(needed)
+Freed slow
+	Encoding.Freed is not Error
+	Room(File(Checkpoint).Length + Spare)
 Ease slow
 	Encoding.Ease is not Error
-	if GpuMemory.Available < Spare
-		Freed
+	GpuMemory.Trim
+	if GpuMemory.Available < Spare / 2
+		Room(Spare / 2)
 IsFailedNumber(number Number) Boolean
 	MossFiles.IsFailedNumber(Error("x"))
 	MossFiles.IsFailedNumber(0) is false

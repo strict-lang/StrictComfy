@@ -1,0 +1,20 @@
+has loras Text
+constant Rows = Safetensors("tinymodels/tinymoss.safetensors", 32, "layers.0.proj.")
+Start(rows Safetensors, name Text) List(Numbers) slow
+	MossAhead("").Start(Rows, "o").Length is 0
+	MossAhead(MossTuning.Lora).Start(Rows, "missing").Length is 0
+	MossAhead(MossTuning.Lora).Start(MossTuning.Fours.rows, "o").Length is 0
+	MossAhead(MossTuning.Lora).Prepare(Rows, "o", "layers.0.proj.", MossAhead(MossTuning.Lora).Start(Rows, "o")).Length is 256
+	if loras is "" or rows.Entry(name + ".weight_scale") is ""
+		return List(Numbers)
+	rows.Entry(name + ".weight").IndexOf("\"dtype\":\"I4\"") < 0 then RowsAhead(rows).Start(name) else List(Numbers)
+Prepare(rows Safetensors, name Text, prefix Text, filled List(Numbers)) List(Numbers) slow
+	MossAhead("").Prepare(Rows, "o", "", List(Numbers)) is MossBlock.Tiny.output
+	if filled.Length is 0
+		return LoraFiles(loras).Merge(rows, name, prefix)
+	lora = LoraFiles(loras).Stack(prefix + name + ".")
+	ahead = RowsAhead(rows)
+	if lora.rank is 0
+		return ahead.Finish(filled)
+	tuned = ahead.Retune(filled, Convrot(lora.down).Rotated, lora.up, MossLora.Repeat(1 / MossLora.Gain, lora.rank))
+	tuned.Length > 0 then tuned else LoraFiles(loras).Merge(rows, name, prefix)

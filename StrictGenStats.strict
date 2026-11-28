@@ -52,10 +52,10 @@ Runs(queue StrictGenQueue) Text slow
 	first = (queue.modes.Length - RunsShown).Clamp(0, queue.modes.Length)
 	mutable items = List(outer.Text)
 	for Range(first, queue.modes.Length)
-		items = items + Run(queue, value)
+		items = items + Describe(queue, value)
 	"[" + outer.Text.Combine(items, ",") + "]"
-Run(queue StrictGenQueue, id Number) Text
-	Sample.Run(Queued, 0).StartsWith("{\"id\":1,\"title\":\"fox\"")
+Describe(queue StrictGenQueue, id Number) Text
+	Sample.Describe(Queued, 0).StartsWith("{\"id\":1,\"title\":\"fox\"")
 	file = "StrictGenJob-" + id + ".timed"
 	current = id is queue.job.current
 	waiting = id is in queue.pending

@@ -43,6 +43,9 @@ Switched(file Text) MossResident
 Extended(batch MossBatch, missing Texts) MossResident slow
 	tokenizing = Tokenizing(batch)
 	ids = batch.Tokenize(tokenizing.tokenizers.First, missing)
+	encoderPath = batch.options.files.Encoder
+	if encoderPath is not Error
+		batch.options.files.Room(File(encoderPath).Length)
 	encoding = tokenizing.Encoding(batch, ids)
 	encoded = batch.Encode(encoding.encoders.First, ids, missing)
 	isFull = prompts.Length + missing.Length > MostPrompts
@@ -65,11 +68,15 @@ Encoding(batch MossBatch, ids List(Numbers)) MossResident slow
 	staying = isKept then ", it stays loaded for the next runs" else ""
 	logger.Log("Text encoder loaded in " + (Process.Elapsed - before).Round(1) + " s" + staying)
 	MossResident(value, encoders = List(Qwen3) + encoder)
+IsSampling(batch MossBatch) Boolean slow
+	MossResident.IsSampling(MossBatch.Sample) is false
+	options = batch.options
+	options.files.Checkpoint + "|" + options.Loras is model and mosses.Length is 1
 Sampling(batch MossBatch) MossResident slow
 	options = batch.options
 	loras = options.Loras
 	key = options.files.Checkpoint + "|" + loras
-	if key is model and mosses.Length is 1
+	if IsSampling(batch)
 		logger.Log("Using the loaded Moss " + options.files.Checkpoint)
 		return value
 	before = Process.Elapsed

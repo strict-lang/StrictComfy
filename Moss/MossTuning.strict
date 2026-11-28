@@ -14,20 +14,25 @@ Deltas List(MossLora) native
 	MossTuning(Fours.rows, "").Deltas.Length is 0
 	Floats.Deltas.Length is 0
 	Tensors.RelativeError(Output, Reference) < 0.1
-	if loras is "" or rows.Entry("o.weight_scale") is "" or rows.Entry("o.comfy_quant") is not ""
+	if loras is "" or rows.Entry("o.weight_scale") is "" or rows.Entry("o.weight").IndexOf("\"dtype\":\"I4\"") < 0
 		return List(MossLora)
 	qkv = Stack("q.").Placed(0).Stacked(Stack("k.").Placed(1)).Stacked(Stack("v.").Placed(2))
 	(qkv, Stack("o."), Stack("ffn_up_gate."), Stack("ffn_down."))
 Stack(name Text) MossLora slow
 	Fours.Stack("q.").rank is 8
 	LoraFiles(loras).Stack(rows.prefix.Replace(ComfyPrefix, "") + name)
-Merge(name Text, deltas List(MossLora)) List(Numbers) slow
+Start(name Text, deltas List(MossLora)) List(Numbers) slow
+	Fours.Start("o", Fours.Deltas).Length is 0
+	deltas.Length is 0 then MossAhead(loras).Start(rows, name) else List(Numbers)
+Merge(name Text, deltas List(MossLora), prepared = List(Numbers)) List(Numbers) slow
 	Fours.Merge("o", Fours.Deltas) is MossTuning(Fours.rows, "").Merge("o", List(MossLora))
-	LoraFiles(deltas.Length is 0 then loras else "").Merge(rows, name, rows.prefix.Replace(ComfyPrefix, ""))
+	MossAhead(deltas.Length is 0 then loras else "").Prepare(rows, name, rows.prefix.Replace(ComfyPrefix, ""), prepared)
 Qkv(deltas List(MossLora)) List(Numbers) slow
 	MossBlock.Tiny.attention.Length is 768
 	MossTuning(Floats.rows, "").Qkv(List(MossLora)) is MossBlock.Tiny.attention
 	Fused.Qkv(List(MossLora)) is MossBlock.Tiny.attention
 	if rows.Entry("qkv.weight") is not ""
 		return Merge("qkv", deltas)
-	Merge("q", deltas) + Merge("k", deltas) + Merge("v", deltas)
+	k = (Start("k", deltas), Merge("q", deltas))
+	v = (Start("v", deltas), Merge("k", deltas, k(0)))
+	k(1) + v(1) + Merge("v", deltas, v(0))
