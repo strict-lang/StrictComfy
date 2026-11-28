@@ -63,6 +63,7 @@ Videos(plan H3Plan, conditions List(Safetensors)) None slow
 	batch.Prefetch((options.files.Decoder, options.files.Sound), "the VAEs")
 	batch.RunSampling(h3, refiner, plan, conditions, latents, true)
 	options.files.Freed
+	GpuMemory.Evict
 	Decode(latents, plan.images)
 LoraPaths Texts slow
 	Loraed.LoraPaths is ("tinymodels/tinylora.safetensors", "tinymodels/tinyqkvlora.safetensors")

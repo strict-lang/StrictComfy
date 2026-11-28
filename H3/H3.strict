@@ -4,6 +4,9 @@ has curve Numbers
 has inverse Numbers
 has blocks List(H3Block)
 has final H3Final
+has blockCount = 0
+has sourcePath = ""
+has tuning = ""
 constant Tiny = H3.Loaded("tinymodels/tinyh3.safetensors")
 constant Model = Safetensors("tinymodels/tinyh3.safetensors", 32, "reference.")
 constant Prompt = Model.Values("token_refiner")
@@ -23,14 +26,20 @@ Loaded(path Text, loras = "") H3 native
 	patches = LoraFiles(loras).Dense(model, "video_patch_proj")
 	heard = LoraFiles(loras).Optional(model, "audio_patch_proj")
 	table = model.Values("adaln_t_table")
-	loaded = Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
-	H3(patches, heard, table, model.Values("rope.inv_freq"), loaded, H3Final.Loaded(model, loras))
+	count = FindNamed(TensorFile.Header(model.path), model.prefix + "blocks.").Length
+	loaded = count > 2 and GpuMemory.HostAvailable < 48000000000 then List(H3Block) else Blocks(model, "blocks.", loras, loras is "" then "Loading H3" else "Loading H3 and applying LoRAs")
+	H3(patches, heard, table, model.Values("rope.inv_freq"), loaded, H3Final.Loaded(model, loras), count, model.path, loras)
+Count Number
+	Tiny.Count is 2
+	blockCount > 0 then blockCount else blocks.Length
 Blocks(model Safetensors, prefix Text, loras Text, label = "") List(H3Block) slow
 	Tiny.Blocks(Safetensors("tinymodels/tinyh3.safetensors"), "blocks.", "").Length is 2
 	count = FindNamed(TensorFile.Header(model.path), model.prefix + prefix).Length
 	completion = Completion(label, count, Process.Elapsed)
 	for count
 		block = H3Block.Loaded(model, prefix + index + ".", loras)
+		if index % 10 is 9
+			GpuMemory.Trim
 		completion.Report(index + 1)
 		block
 FindNamed(header Text, prefix Text) Texts slow
@@ -76,7 +85,7 @@ Leading(layout H3Layout) Number slow
 Route(routing Number, block Number) Number slow
 	Tiny.Route(1, 0) is 0.7
 	H3(Tiny, blocks = Tiny.blocks + Tiny.blocks + Tiny.blocks + Tiny.blocks).Route(1, 7) is 0.455
-	routing * (block < blocks.Length * H3Format.DoubledBlocks then H3Format.EarlyRouting else H3Format.LateRouting)
+	routing * (block < Count * H3Format.DoubledBlocks then H3Format.EarlyRouting else H3Format.LateRouting)
 Rotation(layout H3Layout) Numbers slow
 	Turned(0) is 1
 	Rope.Video.Table(layout.Positions, inverse, 1)
@@ -90,7 +99,8 @@ Run(hidden Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3L
 	mutable state = hidden
 	for last - first
 		at = first + index
-		state = blocks(at).Output(state, curves, starts, rotation, Route(layout.routing, at), Leading(layout))
+		block = at < blocks.Length then blocks(at) else H3Block.Loaded(Safetensors(sourcePath, 32), "blocks." + at + ".", tuning)
+		state = block.Output(state, curves, starts, rotation, Route(layout.routing, at), Leading(layout))
 	state
 Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layout, conditions Numbers, rotation Numbers) Numbers slow
 	Forward(100).IsNearlyEqual(-2.90625, 0.05)
@@ -99,4 +109,4 @@ Output(latent Numbers, sound Numbers, sigma Number, text Numbers, layout H3Layou
 	Keyed(818).IsNearlyEqual(0.808594, 0.02)
 	curves = Curves(layout.Times(sigma))
 	hidden = Hidden(latent, sound, text, layout, conditions)
-	final.Output(Run(hidden, curves, layout.Rows(sigma), rotation, layout, 0, blocks.Length), curves, layout, sigma)
+	final.Output(Run(hidden, curves, layout.Rows(sigma), rotation, layout, 0, Count), curves, layout, sigma)

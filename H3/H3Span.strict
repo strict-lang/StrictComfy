@@ -17,7 +17,7 @@ Evaluated(h3 H3, latent Numbers, sound Numbers, sigma Number, text Numbers, layo
 	before = h3.Run(h3.Hidden(latent, sound, text, layout, conditions), curves, starts, rotation, layout, 0, first)
 	skipping = allowed and residual.Length > 0 and skipped is false
 	middle = Middle(h3, before, curves, starts, rotation, layout, skipping)
-	after = h3.Run(middle, curves, starts, rotation, layout, last, h3.blocks.Length)
+	after = h3.Run(middle, curves, starts, rotation, layout, last, h3.Count)
 	finished = h3.final.Output(after, curves, layout, sigma)
 	H3Span(value, residual = Keep(skipping, middle, before), skipped = skipping, output = finished)
 Middle(h3 H3, before Numbers, curves Numbers, starts Numbers, rotation Numbers, layout H3Layout, skipping Boolean) Numbers slow
